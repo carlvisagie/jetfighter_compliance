@@ -1,0 +1,13 @@
+{
+  "project_id": "P-CP-DEMO-1758315060322-20250919T205108Z",
+  "order_id": "CP-DEMO-1758315060322",
+  "customer": {
+    "email": "you@keepyourcontracts.com",
+    "name": "Carl"
+  },
+  "skus": [
+    "CMMC-L1"
+  ],
+  "created_at": "20250919T205108Z",
+  "status": "initiated"
+}

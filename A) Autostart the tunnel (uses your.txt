@@ -1,0 +1,179 @@
+A) Autostart the tunnel (uses your portable binary + current config)
+
+Paste in Admin PowerShell from your project root (E:\JetFighter_Compliance or C:\JetFighter_Compliance).
+
+# === Cloudflared autostart (portable path) ===
+$ErrorActionPreference='Stop'; Set-StrictMode -Version Latest
+
+# Paths (edit the drive if you’re on C:)
+$Root     = 'E:\JetFighter_Compliance'
+$CfExe    = Join-Path $Root 'bin\cloudflared.exe'
+$CfgPath  = Join-Path $env:USERPROFILE '.cloudflared\config-jetfighter.yml'
+$TaskName = 'JetFighter_Tunnel_Autostart'
+
+if (!(Test-Path $CfExe)) { throw "cloudflared.exe not found at $CfExe. (Run the portable download block again.)" }
+if (!(Test-Path $CfgPath)) { throw "Config not found: $CfgPath. (Run the tunnel setup block again.)" }
+
+# Runner script
+$RunPath = Join-Path $Root 'run_tunnel.ps1'
+@"
+`$ErrorActionPreference='Stop'; Set-StrictMode -Version Latest
+Start-Process -WindowStyle Minimized -FilePath '$CfExe' -ArgumentList @('tunnel','--config',"`"$CfgPath`"",'run','jetfighter-compliance')
+"@ | Out-File -FilePath $RunPath -Encoding utf8 -Force
+
+# Scheduled task (logon)
+$action    = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$RunPath`""
+$trigger   = New-ScheduledTaskTrigger -AtLogOn
+$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
+try   { Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Force | Out-Null }
+catch { Set-ScheduledTask       -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal | Out-Null }
+
+Write-Host "✅ Autostart registered. It will start at next logon."
+Write-Host "▶ Run now manually (optional):"
+Write-Host "  powershell -ExecutionPolicy Bypass -File `"$RunPath`""
+
+
+Disable later (if ever):
+
+Unregister-ScheduledTask -TaskName JetFighter_Tunnel_Autostart -Confirm:$false
+
+B) Operator guide (simple & practical)
+Your daily 1-minute flow (Control Panel → /ui/control.html)
+
+Health (top card) → should be OK.
+
+Public Host Status (new badge) → enter your hostname once → online (green) means tunnel OK.
+
+Status Board → click the latest project → check off steps done.
+
+Event Helper (or Scan & Log on phone) → log a new action (RECEIVE/SHIP/INSPECT/etc.).
+
+Export Binder when you hit a milestone (ZIP also saved under data\projects\<id>\exports\).
+
+Run Nightly Export now / Run Weekly Digest now if you want results immediately.
+
+What each page/button is for
+
+Status Board: see steps per project + RAG color
+
+Green = nothing required open
+
+Amber = required open but on time
+
+Red = at least one overdue (or a step blocked by evidence rules)
+
+Event Helper: quick form to record a Chain-of-Custody event (writes to ledger).
+
+Scan & Log: mobile camera (QR/barcode) → auto-fill; iPhone fallback added (jsQR).
+
+Webhook Verifier: sends an authenticated Shopify Order Paid test to any URL you paste (great for tunnel tests).
+
+Export Evidence Binder: one-click ZIP + manifest.json + Merkle root (tamper-evident).
+
+Public Host Status: pings https://<your-host>/healthz → shows online/offline.
+
+Evidence rules (so you know why a step won’t complete)
+
+scope_locked → requires communications/intake.json.
+
+evidence_binder_ready → requires evidence/binder_*.zip|pdf or at least 3 files under evidence/.
+
+handover_signed → requires handover*.pdf|png|jpg or sign*.pdf.
+If the UI returns 409, read the message; add the artifact and retry.
+
+External costs & vendors (so there are no surprises)
+
+Intake checkboxes flag external requirements (C3PAO, GS1, e-sign, labs, pen test, etc.).
+
+Status Board shows External Costs badge with rough € range and Vendor Suggestions.
+
+RFQs (when you must buy external help)
+
+Launch RFQ → vendors submit via /ui/vendor_quote.html?token=....
+
+Auto-award if ≥2 bids and within budget (scoring favors price, then SLA, then accreditation).
+
+You can force award with the Run Now buttons or /api/rfq/auto_award.
+
+C) “Something’s not right”—quick checks & fixes
+
+Symptom → Check → Fix
+
+Control Panel won’t load locally
+
+Check the server window shows: Uvicorn running on http://127.0.0.1:8080
+
+Start it:
+
+E:\JetFighter_Compliance\.venv\Scripts\python.exe -m uvicorn server:app --host 127.0.0.1 --port 8080 --reload
+
+
+Public URL is offline
+
+Control Panel Public Host Status badge is red, or browser shows Cloudflare 1033.
+
+Fix: start the tunnel:
+
+powershell -ExecutionPolicy Bypass -File "E:\JetFighter_Compliance\run_tunnel.ps1"
+
+
+If still down: open C:\Users\<You>\.cloudflared\config-jetfighter.yml and verify:
+
+tunnel: matches your credentials JSON filename without .json.
+
+credentials-file: path exists. Re-run the portable setup block if needed.
+
+Emails not sending (intake/welcome/digest)
+
+We default SMTP off in tests. Turn on by setting in .env:
+
+SMTP_ENABLED=true
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=you@keepyourcontracts.com
+SMTP_PASS=<app_password>
+
+
+Restart Uvicorn and use the Run Weekly Digest now button to test.
+
+Step won’t mark as done
+
+The API returns 409 with the reason (see “Evidence rules” above). Add the expected file, then retry.
+
+RFQ doesn’t auto-award
+
+Need ≥2 bids and a bid ≤ budget. Adjust budget_eur or submit another bid; hit Run Nightly Export now/Run Weekly Digest now if you want to see actions immediately.
+
+Ledger integrity suspicion
+
+data\ledger\ledger.log is append-only. If you ever suspect tamper, export a binder and verify file hashes in manifest.json.
+
+RUN/USE
+
+Autostart: run the block in section A once.
+
+Start day: double-click open_control_panel.ps1 (or run the one-liner you already saved) → work from the Control Panel only.
+
+Use Event Helper/Scan to capture work; Export Binder at milestones; glance at Public Host Status.
+
+If anything red appears, use the quick checks above.
+
+TEST/VALIDATE
+
+After autostart block, Task Scheduler shows JetFighter_Tunnel_Autostart (Ready).
+
+Sign-out/sign-in → Public Host Status switches to online within a few seconds.
+
+Status Board changes to green when required steps are complete and no overdue items remain.
+
+Run Nightly Export now produces a fresh ZIP in data\projects\<id>\exports\.
+
+NEXT
+
+When you’re ready, we can add two ultra-simple upgrades:
+
+Local (offline) jsQR copy in /ui/js/jsqr.min.js so phone scanning works even without internet.
+
+One-click “PO PDF on RFQ award” that drops a signed PO into evidence/ and (optionally) emails the winner.
+
+If you want either, just say “offline scanner” or “PO PDF on award.”

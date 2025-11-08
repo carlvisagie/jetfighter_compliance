@@ -1,0 +1,13 @@
+{
+  "project_id": "P-T1-20250918T172718Z",
+  "order_id": "T1",
+  "customer": {
+    "email": "demo@example.com",
+    "name": "Demo"
+  },
+  "skus": [
+    "DPP-ESPR"
+  ],
+  "created_at": "20250918T172718Z",
+  "status": "initiated"
+}

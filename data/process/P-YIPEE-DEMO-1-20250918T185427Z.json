@@ -1,0 +1,83 @@
+{
+  "workflow": {
+    "project_id": "P-YIPEE-DEMO-1-20250918T185427Z",
+    "skus": [
+      "CMMC-L2",
+      "DPP-ESPR"
+    ],
+    "created_utc": "2025-09-18T18:54:27Z",
+    "phase": "INTAKE"
+  },
+  "steps": [
+    {
+      "id": "order_ack",
+      "title": "Order acknowledged",
+      "required": true,
+      "status": "done",
+      "opened_on": "ORDER",
+      "created_utc": "2025-09-18T18:54:27Z",
+      "done_utc": "2025-09-18T18:56:08Z",
+      "due_utc": ""
+    },
+    {
+      "id": "intake_received",
+      "title": "Client intake form received",
+      "required": true,
+      "status": "done",
+      "opened_on": "ORDER",
+      "created_utc": "2025-09-18T18:54:27Z",
+      "done_utc": "2025-09-18T18:56:14Z",
+      "due_utc": ""
+    },
+    {
+      "id": "scope_locked",
+      "title": "Scope locked with client",
+      "required": true,
+      "status": "done",
+      "opened_on": "INTAKE",
+      "created_utc": "2025-09-18T18:54:27Z",
+      "done_utc": "2025-09-18T18:56:19Z",
+      "due_utc": "2025-09-20T18:54:27Z"
+    },
+    {
+      "id": "cmmc_gap",
+      "title": "CMMC gap assessment complete",
+      "required": true,
+      "status": "done",
+      "opened_on": "PENDING",
+      "created_utc": "2025-09-18T18:54:27Z",
+      "done_utc": "2025-09-18T18:56:21Z",
+      "due_utc": ""
+    },
+    {
+      "id": "evidence_binder_ready",
+      "title": "Evidence binder ready",
+      "required": true,
+      "status": "done",
+      "opened_on": "PENDING",
+      "created_utc": "2025-09-18T18:54:27Z",
+      "done_utc": "2025-09-18T18:56:23Z",
+      "due_utc": ""
+    },
+    {
+      "id": "handover_signed",
+      "title": "Handover signed",
+      "required": true,
+      "status": "done",
+      "opened_on": "PENDING",
+      "created_utc": "2025-09-18T18:54:27Z",
+      "done_utc": "2025-09-18T18:56:24Z",
+      "due_utc": ""
+    },
+    {
+      "id": "dpp_model",
+      "title": "DPP data model built",
+      "required": true,
+      "status": "done",
+      "opened_on": "PENDING",
+      "created_utc": "2025-09-18T18:54:27Z",
+      "done_utc": "2025-09-18T18:56:26Z",
+      "due_utc": ""
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "project_id": "P-YIPEE-DEMO-1-20250918T185427Z",
+  "order_id": "YIPEE-DEMO-1",
+  "customer": {
+    "email": "you@keepyourcontracts.com",
+    "name": "Carl"
+  },
+  "skus": [
+    "CMMC-L2",
+    "DPP-ESPR"
+  ],
+  "created_at": "20250918T185427Z",
+  "status": "initiated"
+}

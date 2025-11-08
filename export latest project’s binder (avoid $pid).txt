@@ -1,0 +1,3 @@
+$projId = Get-ChildItem .\data\projects -Directory | Sort-Object LastWriteTime -Desc | Select-Object -First 1 -ExpandProperty Name
+if (-not $projId) { throw "No projects yet. Use the Control Panel -> Create Demo Project first." }
+Start-Process "http://127.0.0.1:8080/api/project/$projId/export"

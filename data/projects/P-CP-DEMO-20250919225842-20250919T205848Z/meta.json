@@ -1,0 +1,14 @@
+{
+  "project_id": "P-CP-DEMO-20250919225842-20250919T205848Z",
+  "order_id": "CP-DEMO-20250919225842",
+  "customer": {
+    "email": "you@keepyourcontracts.com",
+    "name": "Carl"
+  },
+  "skus": [
+    "CMMC-L1",
+    "DPP-ESPR"
+  ],
+  "created_at": "20250919T205848Z",
+  "status": "initiated"
+}

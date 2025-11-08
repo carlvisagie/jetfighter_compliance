@@ -1,0 +1,6 @@
+﻿tunnel: kyc-tunnel
+credentials-file: E:\JetFighter_Compliance\.cloudflared\kyc-tunnel.json
+ingress:
+  - hostname: compliance.keepyourcontracts.com
+    service: http://127.0.0.1:8000
+  - service: http_status:404

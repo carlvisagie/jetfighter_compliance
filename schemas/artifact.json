@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Artifact Registration",
+  "type": "object",
+  "required": ["artifact_id","path","sha256","media_type","created_utc","owner"],
+  "properties": {
+    "artifact_id": { "type": "string", "minLength": 1 },
+    "project_id": { "type": "string" },
+    "path": { "type": "string", "minLength": 1 },
+    "sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+    "media_type": { "type": "string", "minLength": 1 },
+    "created_utc": { "type": "string", "format": "date-time" },
+    "owner": { "type": "string", "minLength": 1 },
+    "related_event": { "type": "string" },
+    "notes": { "type": "string" }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Chain-of-Custody Event",
+  "type": "object",
+  "required": ["event_id","event_type","when_utc","who","what","where","prev_hash","hash"],
+  "properties": {
+    "event_id": { "type": "string", "minLength": 1 },
+    "event_type": {
+      "type": "string",
+      "enum": ["COMMISSION","PACK","SHIP","RECEIVE","STORE","PICK","TRANSFORM","INSPECT","DISPOSE","EXCEPTION","CORRECT","ATTEST"]
+    },
+    "why": { "type": "string" },
+    "when_utc": { "type": "string", "format": "date-time" },
+    "who": {
+      "type": "object",
+      "required": ["name","role","email"],
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "email": { "type": "string", "format": "email" }
+      },
+      "additionalProperties": false
+    },
+    "where": {
+      "type": "object",
+      "properties": {
+        "address": { "type": "string" },
+        "geo": { "type": "string", "pattern": "^-?\\d+(\\.\\d+)?,\\s*-?\\d+(\\.\\d+)?$" }
+      },
+      "additionalProperties": false
+    },
+    "what": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id","qty"],
+        "properties": {
+          "id": { "type": "string" },
+          "qty": { "type": "number", "minimum": 0 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "how": { "type": "string" },
+    "evidence": { "type": "array", "items": { "type": "string" } },
+    "prev_hash": { "type": "string", "minLength": 1 },
+    "hash": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}

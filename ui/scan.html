@@ -1,0 +1,140 @@
+﻿<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>KeepYourContracts.com  Compliance Control Panel</title>
+  <style>
+    body{font-family:system-ui,Arial;margin:12px;max-width:780px}
+    .row{display:flex;gap:8px} .row>div{flex:1}
+    video{width:100%;border-radius:8px;background:#000}
+    label{display:block;margin:.4rem 0}
+    button{padding:.6rem .9rem;border-radius:8px}
+    small{color:#666}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef}
+  </style>
+</head>
+<body>
+<div id='kyc-topnav' style='background:#0a84ff;color:#fff;padding:10px;margin:10px;border-radius:10px;'><span style='font-weight:700;'>KeepYourContracts</span><span style='float:right;'><a href='/ui/shop.html' style='color:#fff;margin-right:14px;'>Shop</a><a href='/ui/inquiry.html' style='color:#fff;'>Contact</a></span></div>
+<div id='kyc-topnav' style='background:#0a84ff;color:#fff;padding:10px;margin:10px;border-radius:10px;'><span style='font-weight:700;'>KeepYourContracts</span><span style='float:right;'><a href='/ui/shop.html' style='color:#fff;margin-right:14px;'>Shop</a><a href='/ui/inquiry.html' style='color:#fff;'>Contact</a></span></div>
+  <h2>KeepYourContracts.com  Compliance Control Panel</h2>
+  <p><small>Tip: Add this page to your phone home screen for one-tap logging.</small></p>
+
+  <div id="support" class="pill">Detecting camera</div>
+  <video id="cam" playsinline muted></video>
+  <p id="scanValue"><b>Last code:</b> <span id="code"></span></p>
+
+  <form id="f">
+    <div class="row">
+      <div>
+        <label>Project
+          <select name="project_id" id="project_id" required></select>
+        </label>
+      </div>
+      <div>
+        <label>Event Type
+          <select name="event_type" id="event_type">
+            <option>RECEIVE</option>
+            <option>SHIP</option>
+            <option>INSPECT</option>
+            <option>ATTEST</option>
+            <option>EXCEPTION</option>
+            <option>CORRECT</option>
+            <option>COMMISSION</option>
+            <option>PACK</option>
+            <option>TRANSFORM</option>
+            <option>DISPOSE</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="row">
+      <div><label>Quantity <input type="number" min="0" step="1" name="qty" id="qty" value="1"></label></div>
+      <div><label>Address/Location <input type="text" name="address" id="address" placeholder="Dock 3, Warehouse A"></label></div>
+    </div>
+
+    <label>Why / Notes
+      <textarea name="why" id="why" rows="3" placeholder="Short note"></textarea>
+    </label>
+
+    <div class="row">
+      <button type="button" id="useCode">Use scanned code as note</button>
+      <button type="button" id="geo">Use my location</button>
+      <button type="submit" id="submit">Submit Event</button>
+    </div>
+    <div id="msg"></div>
+  </form>
+
+  <script>
+  const $ = s => document.querySelector(s);
+  const msg = (t, ok=true) => { $('#msg').textContent = t; $('#msg').style.color = ok ? '#0a0' : '#a00'; };
+
+  async function loadProjects(){
+    try {
+      const r = await fetch('/api/projects'); const j = await r.json();
+      const sel = $('#project_id'); sel.innerHTML = (j.projects||[]).map(p=>`<option value="${p}">${p}</option>`).join('');
+    } catch(e){ msg('Could not load projects', false); }
+  }
+
+  // Camera / Barcode
+  let detector, stream, scanning = false, lastCode = '';
+  async function startScan(){
+    const sup = ('BarcodeDetector' in window);
+    $('#support').textContent = sup ? 'Camera scan ready' : 'Scanner unavailable (fallback to manual)';
+    if (!sup) return;
+    try {
+      detector = new BarcodeDetector({formats: ['qr_code','code_128','code_39','ean_13','ean_8']});
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }});
+      const video = $('#cam'); video.srcObject = stream; await video.play(); scanning = true;
+      requestAnimationFrame(tick);
+    } catch(e) { $('#support').textContent = 'Camera permission denied'; }
+  }
+  async function tick(){
+    if(!scanning) return;
+    const video = $('#cam');
+    try {
+      const codes = await detector.detect(video);
+      if(codes && codes.length){
+        lastCode = codes[0].rawValue || codes[0].rawValue;
+        $('#code').textContent = lastCode;
+      }
+    } catch(e) {}
+    requestAnimationFrame(tick);
+  }
+
+  // Helpers
+  $('#useCode').addEventListener('click', ()=>{
+    const w = $('#why'); w.value = (w.value ? (w.value + ' | ') : '') + (lastCode||'NO-CODE');
+    msg('Added scanned code to notes.');
+  });
+
+  $('#geo').addEventListener('click', ()=>{
+    if(!('geolocation' in navigator)) return msg('Geolocation unavailable', false);
+    navigator.geolocation.getCurrentPosition(
+      pos => { $('#address').value = (pos.coords.latitude.toFixed(5)+','+pos.coords.longitude.toFixed(5)); msg('Location added.'); },
+      err => msg('Location blocked or failed', false),
+      { enableHighAccuracy:true, timeout:8000, maximumAge:0 }
+    );
+  });
+
+  // Submit to existing /api/coc/event/form
+  $('#f').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const fd = new FormData($('#f'));
+    try{
+      const r = await fetch('/api/coc/event/form',{method:'POST', body:fd});
+      const j = await r.json();
+      if(j.ok){ msg('Event saved.'); $('#why').value=''; $('#qty').value=1; }
+      else { msg('Error: '+(j.detail||j.error||r.status), false); }
+    }catch(err){ msg('Network error', false); }
+  });
+
+  loadProjects().then(startScan);
+  </script>
+</body>
+</html>
+
+
+
+

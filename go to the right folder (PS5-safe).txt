@@ -1,0 +1,4 @@
+$Root = 'E:\JetFighter_Compliance'
+if (-not (Test-Path $Root)) { $Root = 'C:\JetFighter_Compliance' }
+if (-not (Test-Path $Root)) { throw "Project root not found on E: or C:" }
+Set-Location $Root

@@ -1,0 +1,17 @@
+﻿[
+  {"category":"cmmc_l2_c3pao","name":"Cyber-AB Marketplace (official)","type":"directory","url":"https://cyberab.org/Catalog","notes":"Find authorized C3PAOs & assessors"},
+  {"category":"cmmc_l2_c3pao","name":"Cyber-AB Assessing & Certification overview","type":"info","url":"https://cyberab.org/CMMC-Ecosystem/Ecosystem-Roles/Assessing-and-Certification","notes":"Rules & roles"},
+  {"category":"gs1","name":"GS1 Germany  Pricing","type":"official","url":"https://www.gs1-germany.de/en/prices/","notes":"SmartStarter/GS1 Complete fees"},
+  {"category":"gs1","name":"GS1 Service Platform (Link)","type":"official","url":"https://www.gs1-germany.de/fileadmin/gs1/agb/GS1_Germany_description-of-services_gs1-service-platform.pdf","notes":"GS1 Link platform details"},
+  {"category":"gs1","name":"GS1 in Europe Member Orgs","type":"directory","url":"https://gs1.eu/gs1-in-europe-member-organisations/","notes":"Pick the right GS1 MO"},
+  {"category":"qes","name":"EU Trusted List Browser (eIDAS)","type":"official","url":"https://eidas.ec.europa.eu/efda/tl-browser/","notes":"Qualified trust service providers (QES/QTSA)"},
+  {"category":"esign","name":"DocuSign  EU TSP acceptance","type":"doc","url":"https://support.docusign.com/s/document-item?_LANG=ptbr&bundleId=xww1594245808169&language=en_US&topicId=iek1617724891136.html","notes":"Accepts EU TSP certs"},
+  {"category":"pentest","name":"CREST Accredited Members","type":"directory","url":"https://www.crest-approved.org/members/","notes":"Filter by region/service"},
+  {"category":"lab_ce","name":"TÜV Rheinland  EMC/CE/Radio","type":"lab","url":"https://www.tuv.com/usa/en/electromagnetic-compatibility-%28emc%29.html","notes":"Global labs; CE/EMC"},
+  {"category":"pci","name":"PCI SSC  Approved Scanning Vendors (ASV)","type":"directory","url":"https://www.pcisecuritystandards.org/assessors_and_solutions/approved_scanning_vendors/","notes":"Official ASV list"},
+  {"category":"soc2","name":"AICPA  SOC suite (find CPA firms)","type":"official","url":"https://www.aicpa-cima.com/resources/landing/system-and-organization-controls-soc-suite-of-services","notes":"SOC resources"},
+  {"category":"soc2","name":"AICPA  Peer Review public file search","type":"directory","url":"https://peerreview.aicpa.org/public_file_search.html","notes":"Check CPA firm peer review"},
+  {"category":"iso27001","name":"DAkkS  Accredited bodies search","type":"official","url":"https://www.dakks.de/en/accredited-bodies-search.html","notes":"Verify 27001 CB accreditation"},
+  {"category":"translation","name":"BDÜ  Translator/Interpreter search","type":"directory","url":"https://bdue.de/suche-uebersetzer-dolmetscher","notes":"Find certified translators (DE)"},
+  {"category":"translation","name":"Justiz sworn translator database","type":"official","url":"https://www.justiz-dolmetscher.de/","notes":"Court-sworn translators (DE)"}
+]

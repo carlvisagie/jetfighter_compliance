@@ -1,0 +1,2 @@
+powershell -ExecutionPolicy Bypass -File "E:\JetFighter_Compliance\open_control_panel.ps1"
+# (If on C:, change the drive letter)

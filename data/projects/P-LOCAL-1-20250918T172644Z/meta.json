@@ -1,0 +1,14 @@
+{
+  "project_id": "P-LOCAL-1-20250918T172644Z",
+  "order_id": "LOCAL-1",
+  "customer": {
+    "email": "you@example.com",
+    "name": "Carl Visagie"
+  },
+  "skus": [
+    "CMMC-L2",
+    "DPP-ESPR"
+  ],
+  "created_at": "20250918T172644Z",
+  "status": "initiated"
+}

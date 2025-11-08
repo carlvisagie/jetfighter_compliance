@@ -1,0 +1,89 @@
+﻿<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>KeepYourContracts.com  Compliance Control Panel</title>
+<style>
+body{font-family:system-ui,Arial;margin:20px;max-width:900px}
+label{display:block;margin:.4rem 0}.row{display:flex;gap:10px}.row>div{flex:1}
+table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:6px}tr:hover{background:#f8f8f8}
+button{padding:.4rem .7rem}
+</style>
+</head>
+<body>
+<div id='kyc-topnav' style='background:#0a84ff;color:#fff;padding:10px;margin:10px;border-radius:10px;'><span style='font-weight:700;'>KeepYourContracts</span><span style='float:right;'><a href='/ui/shop.html' style='color:#fff;margin-right:14px;'>Shop</a><a href='/ui/inquiry.html' style='color:#fff;'>Contact</a></span></div>
+<div id='kyc-topnav' style='background:#0a84ff;color:#fff;padding:10px;margin:10px;border-radius:10px;'><span style='font-weight:700;'>KeepYourContracts</span><span style='float:right;'><a href='/ui/shop.html' style='color:#fff;margin-right:14px;'>Shop</a><a href='/ui/inquiry.html' style='color:#fff;'>Contact</a></span></div>
+<h2>KeepYourContracts.com  Compliance Control Panel</h2>
+<form id="f">
+  <div class="row">
+    <div>
+      <label>Project
+        <select name="project_id" id="project_id" required></select>
+      </label>
+    </div>
+    <div>
+      <label>Event Type
+        <select name="event_type" id="event_type">
+          <option>ATTEST</option>
+          <option>COMMISSION</option>
+          <option>PACK</option>
+          <option>SHIP</option>
+          <option>RECEIVE</option>
+          <option>INSPECT</option>
+          <option>TRANSFORM</option>
+          <option>EXCEPTION</option>
+          <option>CORRECT</option>
+          <option>DISPOSE</option>
+        </select>
+      </label>
+    </div>
+  </div>
+  <div class="row">
+    <div><label>Quantity <input type="number" name="qty" value="1" min="0" step="1" required></label></div>
+    <div><label>Address/Location <input type="text" name="address" placeholder="Warehouse A, Stuttgart"></label></div>
+  </div>
+  <label>Why / Notes
+    <textarea name="why" rows="3" placeholder="Short note..."></textarea>
+  </label>
+  <button type="submit">Submit Event</button>
+  <span id="msg"></span>
+</form>
+
+<hr/>
+<h3>Recent Events</h3>
+<button id="refresh">Refresh</button>
+<table id="tbl"><thead><tr><th>Time (UTC)</th><th>Project</th><th>Type</th><th>Why</th><th>Qty</th><th>Where</th></tr></thead><tbody></tbody></table>
+
+<script>
+async function api(u,opts){ const r=await fetch(u,opts||{}); return r.json() }
+async function loadProjects(){
+  const r = await api('/api/projects');
+  const sel = document.getElementById('project_id');
+  sel.innerHTML = (r.projects||[]).map(p=>`<option value="${p}">${p}</option>`).join('');
+}
+async function submitForm(e){
+  e.preventDefault();
+  const fd = new FormData(document.getElementById('f'));
+  const res = await fetch('/api/coc/event/form',{method:'POST', body:fd});
+  const j = await res.json();
+  document.getElementById('msg').textContent = j.ok ? 'Saved.' : ('Error: '+(j.detail||j.error||res.status));
+  if(j.ok) loadRecent();
+}
+async function loadRecent(){
+  const pid = document.getElementById('project_id').value;
+  const r = await api('/api/events/recent?project_id='+encodeURIComponent(pid));
+  const tb = document.querySelector('#tbl tbody'); tb.innerHTML='';
+  (r.events||[]).forEach(ev=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${ev.when_utc||''}</td><td>${ev.project_id||''}</td><td>${ev.event_type||''}</td><td>${ev.why||''}</td><td>${(ev.what&&ev.what[0]&&ev.what[0].qty)||''}</td><td>${(ev.where&&ev.where.address)||''}</td>`;
+    tb.appendChild(tr);
+  });
+}
+document.getElementById('f').addEventListener('submit', submitForm);
+document.getElementById('refresh').addEventListener('click', loadRecent);
+loadProjects().then(loadRecent);
+</script>
+</body>
+</html>
+
+
+
+
