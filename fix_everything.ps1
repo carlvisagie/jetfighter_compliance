@@ -13,7 +13,7 @@ if (Test-Path (Join-Path $Root 'requirements.txt')) { & $Py -m pip install -r (J
 Start-Process -WindowStyle Minimized -FilePath $Py -ArgumentList @('-m','uvicorn','server:app','--host','127.0.0.1','--port','8080','--reload')
 Start-Sleep -Seconds 2
 if ( (Test-Path $Cf) -and (Test-Path $Cfg) ) {
-  Start-Process -WindowStyle Minimized -FilePath $Cf -ArgumentList @('tunnel','--config',""C:\Users\Carl\.cloudflared\config-jetfighter.yml"",'run','jetfighter-compliance')
+  Start-Process -WindowStyle Minimized -FilePath $Cf -ArgumentList @('tunnel','--config',""E:\JetFighter_Compliance\.cloudflared\config-jetfighter.yml"",'run','jetfighter-compliance')
 }
 Start-Process 'http://127.0.0.1:8080/ui/control.html'
 Write-Host "Fix complete  server, tunnel, and Control Panel opened."

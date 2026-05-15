@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+.pytest_cache/
+*.sqlite3
+*.log
+data/
+.cloudflared/
+config_auth.json
+bin/cloudflared.exe

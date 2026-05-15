@@ -1,27 +1,38 @@
-﻿$ErrorActionPreference='Stop'; Set-StrictMode -Version Latest
-$Root = 'E:\JetFighter_Compliance'
-if (-not (Test-Path $Root)) { throw "Project root missing: $Root" }
-Set-Location $Root
-$Py  = Join-Path $Root '.venv\Scripts\python.exe'
-$Cf  = Join-Path $Root 'bin\cloudflared.exe'
-$Cfg = Join-Path $env:USERPROFILE '.cloudflared\config-jetfighter.yml'
+﻿$ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
 
-# Kill strays
-Get-Process | Where-Object { $\_.Name -match 'python|uvicorn|cloudflared' } | Stop-Process -Force -ErrorAction SilentlyContinue
+Write-Host "`n=== JetFighter Compliance Full Launch ===`n"
 
-# venv + deps
-if (-not (Test-Path $Py)) { python -m venv (Join-Path $Root '.venv') }
-& $Py -m pip install --upgrade pip | Out-Null
-if (Test-Path (Join-Path $Root 'requirements.txt')) { & $Py -m pip install -r (Join-Path $Root 'requirements.txt') | Out-Null }
+# --- Stop old processes ---
+Get-Process cloudflared -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Get-Process uvicorn -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 
-# server
-Start-Process -WindowStyle Minimized -FilePath $Py -ArgumentList @('-m','uvicorn','server:app','--host','127.0.0.1','--port','8080','--reload')
-Start-Sleep -Seconds 2
+Start-Sleep -Seconds 1
 
-# tunnel (guarded)
-if ( (Test-Path $Cf) -and (Test-Path $Cfg) ) {
-  Start-Process -WindowStyle Minimized -FilePath $Cf -ArgumentList @('tunnel','--config',""C:\Users\Carl\.cloudflared\config-jetfighter.yml"",'run','jetfighter-compliance')
-}
+# --- Start FastAPI Backend ---
+Write-Host "Starting FastAPI backend..." -ForegroundColor Cyan
+Start-Process -WindowStyle Minimized `
+    -WorkingDirectory "E:\JetFighter_Compliance" `
+    -FilePath "E:\JetFighter_Compliance\.venv\Scripts\python.exe" `
+    -ArgumentList "-m","uvicorn","server:app","--host","127.0.0.1","--port","8000"
 
-# panel
-Start-Process 'http://127.0.0.1:8080/ui/control.html'
+Start-Sleep -Seconds 3
+
+# --- Start Cloudflare Tunnel ---
+Write-Host "Starting Cloudflare Tunnel (kyc-prod)..." -ForegroundColor Green
+Start-Process -WindowStyle Minimized `
+    -FilePath "E:\JetFighter_Compliance\bin\cloudflared.exe" `
+    -ArgumentList @(
+        "tunnel",
+        "--config","E:\JetFighter_Compliance\.cloudflared\config-jetfighter.yml",
+        "run","kyc-prod"
+    )
+
+Start-Sleep -Seconds 3
+
+# --- Open JetFighter Dashboard ---
+Write-Host "Opening Control Dashboard..."
+Start-Process "http://127.0.0.1:8000/ui/control.html"
+
+Write-Host "`nAll systems online. JetFighter is fully operational.`n"

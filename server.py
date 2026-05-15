@@ -1,7 +1,12 @@
-﻿import logging, json
+﻿
+import logging, json
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional
+try:
+    from fastapi import FastAPI
+except Exception as e:
+    print("FASTAPI import failed:", e)
 
 from fastapi import FastAPI, Request, HTTPException, Form, UploadFile, File, Body
 from fastapi.responses import HTMLResponse, FileResponse
@@ -26,7 +31,10 @@ app = FastAPI(title="KeepYourContracts.com  Compliance Control Panel", version="
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+    allow_origins=["*"],  # TODO: Restrict to specific domains in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
 )
 app.mount("/ui", StaticFiles(directory=str(ROOT / "ui"), html=True), name="ui")
 
@@ -36,11 +44,8 @@ def safe_load_json(path):
         with open(path, 'r', encoding='utf-8-sig') as f:
             return json.load(f)
     except Exception as e:
-        logging.warning(f"[CONFIG FAIL] {e}")
-        return {
-            "admin_password": "change-me",
-            "tunnel_id": "unknown"
-        }
+        logging.error(f"[CONFIG FAIL] {e} - Configuration file is required for production!")
+        raise RuntimeError("Configuration file 'config_auth.json' is missing or invalid. Cannot start application.")
 
 cfg = safe_load_json("config_auth.json")
 # === PATCH INSERT END ===
@@ -66,8 +71,8 @@ def kickoff(order_id: str, email: str, name: str, skus: list):
     try:
         init_workflow(meta["project_id"], skus)
         set_phase(meta["project_id"], "INTAKE")
-    except Exception:
-        pass
+    except Exception as e:
+        logging.error(f"Failed to initialize workflow for project {meta['project_id']}: {e}")
 
     token = make_intake_token(meta["project_id"], email)
     intake_url = f"{SETTINGS.public_base_url}/ui/intake?token={token}"
@@ -79,7 +84,7 @@ def kickoff(order_id: str, email: str, name: str, skus: list):
     try:
         send_email(email, "Welcome  Your Compliance Project", html)
     except Exception as e:
-        logging.info("Email skipped or failed (non-fatal): %s", e)
+        logging.warning(f"Email failed to send to {email}: {e}")
 
     record_event({
         "event_id": f"EVT-{meta['project_id']}-ORDER",
@@ -109,7 +114,7 @@ async def shopify_orders_paid(request: Request):
     try:
         enqueue("post_payment", {"order_id": order_id, "email": email, "name": name, "skus": skus})
     except Exception as e:
-        logging.info("Queue enqueue failed (non-fatal): %s", e)
+        logging.warning(f"Queue enqueue failed for order {order_id}: {e}")
     return res
 
 @app.post("/events/payment/test")
@@ -119,7 +124,7 @@ async def events_payment_test(evt: dict):
     try:
         enqueue("post_payment", {"order_id": order_id, "email": email, "name": name, "skus": skus})
     except Exception as e:
-        logging.info("Queue enqueue failed (non-fatal): %s", e)
+        logging.warning(f"Queue enqueue failed for order {order_id}: {e}")
     return res
 
 # ---------- Intake ----------
@@ -189,11 +194,12 @@ async def intake_submit(
         cl_path = pdir / "checklist.json"
         cl = json.loads(cl_path.read_text())
         for t in cl:
-            if t["title"].lower().startswith("client intake form"):
+            # Use ID if available, fallback to title matching
+            if t.get("id") == "intake_form" or t.get("title", "").lower().startswith("client intake form"):
                 t["status"] = "done"
         cl_path.write_text(json.dumps(cl, indent=2))
-    except Exception:
-        pass
+    except Exception as e:
+        logging.warning(f"Failed to update checklist for project {project_id}: {e}")
 
     return {"ok": True, "project_id": project_id}
 
@@ -382,3 +388,59 @@ def events_recent(project_id: Optional[str] = None, limit: int = 20):
                 continue
     return {"ok": True, "events": list(reversed(out))}
 
+# ---------- Ping Host + Test Webhook ----------
+from fastapi import Query
+import httpx
+
+@app.get("/api/ping-host.json")
+def ping_host(host: str = Query(...)):
+    try:
+        url = f"https://{host}/healthz"
+        r = httpx.get(url, timeout=3)
+        if r.status_code == 200 and r.json().get("ok") == True:
+            return {"host": host, "status": "reachable"}
+        return {"host": host, "status": "unreachable"}
+    except Exception:
+        return {"host": host, "status": "error"}
+
+# ✅ Clean test route for sending test webhooks and email
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
+
+test_router = APIRouter()
+
+@test_router.post("/api/test-webhook")
+async def test_webhook(request: Request):
+    try:
+        data = await request.json()
+        print("✅ Webhook Received:", data)
+
+        subject = f"✅ TEST Order: {data.get('id', 'N/A')}"
+        items = data.get("line_items", [])
+        if not isinstance(items, list):
+            print("⚠️ line_items is not a list:", items)
+            items = []
+
+        body = f"Email: {data.get('email', 'none')}\nLine Items:\n"
+        for item in items:
+            body += f"  – {item.get('title', 'N/A')} (SKU: {item.get('sku', 'N/A')})\n"
+
+        from services.emails import send_email
+        send_email(to_email=data.get("email", "fallback@example.com"), subject=subject, html_body=body)
+
+        return JSONResponse(content={"received": True, "data": data})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+app.include_router(test_router)
+       
+# ---------- START UVICORN SERVER ----------
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        app,
+        host="127.0.0.1",
+        port=8080
+    )

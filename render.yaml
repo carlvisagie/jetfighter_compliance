@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: kyc-backend
+    env: docker
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /healthz
+
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: STRIPE_SECRET
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: SHOPIFY_SECRET
+        sync: false
+      - key: DATABASE_URL
+        sync: false
