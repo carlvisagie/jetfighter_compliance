@@ -47,7 +47,7 @@ def safe_load_json(path):
         logging.error(f"[CONFIG FAIL] {e} - Configuration file is required for production!")
         raise RuntimeError("Configuration file 'config_auth.json' is missing or invalid. Cannot start application.")
 
-cfg = safe_load_json("config_auth.json")
+cfg = {}
 # === PATCH INSERT END ===
 
 
