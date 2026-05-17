@@ -25,9 +25,12 @@ from services.process import compute_status, mark_done, init_workflow, set_phase
 from services.engine import enqueue, start_worker
 from services.external import compute_external_costs
 from services.validator import REGISTRY
+from drafts.telemetry_fastapi_endpoint import router as telemetry_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 app = FastAPI(title="KeepYourContracts.com  Compliance Control Panel", version="1.0.0")
+
+app.include_router(telemetry_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -434,7 +437,6 @@ async def test_webhook(request: Request):
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-app.include_router(test_router)
        
 # ---------- START UVICORN SERVER ----------
 if __name__ == "__main__":
@@ -444,3 +446,5 @@ if __name__ == "__main__":
         host="127.0.0.1",
         port=8080
     )
+
+
