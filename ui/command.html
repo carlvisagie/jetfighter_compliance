@@ -556,7 +556,7 @@
 
         // /status
         try {
-            const res = await fetch('/status', {cache: 'no-store'});
+            const res = await fetch('/healthz', {cache: 'no-store'});
             if (res.ok) {
                 hostOk = true;
                 document.getElementById('metric-host').textContent = 'OK';
@@ -582,7 +582,7 @@
 
         // /events/recent (just for approximate count)
         try {
-            const res = await fetch('/events/recent', {cache: 'no-store'});
+            const res = await fetch('/api/events/recent', {cache: 'no-store'});
             if (res.ok) {
                 const data = await res.json();
                 if (Array.isArray(data)) {
@@ -615,7 +615,7 @@
         pill.textContent = 'Loadingâ€¦';
 
         try {
-            const res = await fetch('/events/recent', {cache: 'no-store'});
+            const res = await fetch('/api/events/recent', {cache: 'no-store'});
             if (!res.ok) {
                 body.innerHTML = '<div class="list-empty">Failed to load /events/recent (HTTP ' +
                     res.status + ').</div>';
@@ -678,4 +678,6 @@
 </script>
 </body>
 </html>
+
+
 
