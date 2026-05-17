@@ -41,6 +41,12 @@ app.add_middleware(
 )
 app.mount("/ui", StaticFiles(directory=str(ROOT / "ui"), html=True), name="ui")
 
+from fastapi.responses import FileResponse
+
+@app.get("/upload")
+def upload_page():
+    return FileResponse(ROOT / "ui" / "upload.html")
+
 # === PATCH INSERT START ===
 def safe_load_json(path):
     try:
@@ -446,5 +452,6 @@ if __name__ == "__main__":
         host="127.0.0.1",
         port=8080
     )
+
 
 
