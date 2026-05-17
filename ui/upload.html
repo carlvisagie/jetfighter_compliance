@@ -3,135 +3,60 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Upload Compliance Documents</title>
-
+<title>Upload Your Documents</title>
 <style>
-body{
-    background:#061326;
-    color:#ffffff;
-    font-family:Arial,Helvetica,sans-serif;
-    margin:0;
-    padding:40px;
-}
-
-.container{
-    max-width:900px;
-    margin:auto;
-}
-
-h1{
-    font-size:56px;
-    margin-bottom:10px;
-}
-
-.sub{
-    color:#9fb3c8;
-    font-size:22px;
-    line-height:1.6;
-    margin-bottom:40px;
-}
-
-.card{
-    background:#0d1d33;
-    border:1px solid #1f3553;
-    border-radius:18px;
-    padding:30px;
-}
-
-label{
-    display:block;
-    margin-top:20px;
-    margin-bottom:10px;
-    font-size:18px;
-}
-
-input, textarea{
-    width:100%;
-    background:#08111f;
-    border:1px solid #29476d;
-    border-radius:10px;
-    color:white;
-    padding:16px;
-    font-size:16px;
-}
-
-textarea{
-    min-height:160px;
-    resize:vertical;
-}
-
-.upload{
-    border:2px dashed #3b82f6;
-    padding:40px;
-    border-radius:16px;
-    text-align:center;
-    margin-top:20px;
-}
-
-button{
-    margin-top:30px;
-    background:#2563eb;
-    border:none;
-    color:white;
-    padding:18px 30px;
-    font-size:18px;
-    border-radius:12px;
-    cursor:pointer;
-    font-weight:bold;
-}
-
-button:hover{
-    background:#3b82f6;
-}
-
-.note{
-    margin-top:25px;
-    color:#8ea3ba;
-    line-height:1.7;
-}
+body{margin:0;background:#071326;color:#fff;font-family:Arial,Helvetica,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:80px 24px}
+h1{font-size:54px;line-height:1.05;margin:0 0 22px;font-weight:900}
+p{font-size:21px;line-height:1.55;color:#b7d3ff;margin:0 0 18px}
+.card{background:#10233d;border:1px solid #274465;border-radius:22px;padding:32px;margin-top:34px}
+label{display:block;font-weight:800;margin:20px 0 8px}
+input,textarea{width:100%;box-sizing:border-box;background:#07111f;color:#fff;border:1px solid #315173;border-radius:12px;padding:16px;font-size:16px}
+textarea{min-height:120px}
+.uploadBox{border:2px dashed #2c8cff;border-radius:18px;padding:34px;text-align:center;margin-top:28px}
+.uploadBox h2{margin:0 0 12px;font-size:28px}
+.qr{margin-top:28px;text-align:center;background:#07111f;border:1px solid #274465;border-radius:18px;padding:28px}
+.qr img{width:260px;max-width:100%;background:#fff;padding:14px;border-radius:16px}
+button{margin-top:28px;background:#2c8cff;color:#fff;border:0;border-radius:14px;padding:18px 28px;font-size:18px;font-weight:900;cursor:pointer}
+.small{font-size:15px;color:#88a8cf;margin-top:18px}
 </style>
 </head>
-
 <body>
+<div class="wrap">
+<h1>Upload Your Documentation Exactly As It Is</h1>
 
-<div class="container">
+<p>Most companies start with scattered files, emails, screenshots, spreadsheets, policies, scans, photos, and vendor paperwork.</p>
 
-<h1>Get Clarity On Your Compliance Situation</h1>
-
-<div class="sub">
-Upload your existing compliance paperwork, spreadsheets, policies,
-SSPs, audit findings, vendor documents, or readiness notes.
-
-We help identify:
-missing evidence, readiness gaps, audit risks,
-documentation weaknesses, and next priority actions.
-</div>
+<p><strong style="color:white;">Upload whatever you already have. We will take it from here.</strong></p>
 
 <div class="card">
+<form id="uploadForm" enctype="multipart/form-data">
 
 <label>Email Address</label>
-<input type="email" placeholder="you@company.com">
+<input type="email" name="email" placeholder="you@company.com">
 
-<label>What are you struggling with?</label>
-<textarea placeholder="Describe your current compliance problems, audit concerns, contract requirements, or documentation issues..."></textarea>
+<label>Notes (Optional)</label>
+<textarea name="notes" placeholder="Optional: add anything useful, or leave this blank and upload your documents."></textarea>
 
-<div class="upload">
-<h2>Upload Compliance Documents</h2>
-<p>Drag files here or click below</p>
-
-<input type="file" multiple>
+<div class="uploadBox">
+<h2>Upload Your Documents</h2>
+<p>Choose files from your computer, or use the QR code below to continue on mobile.</p>
+<input type="file" name="files" multiple>
 </div>
 
-<button>Submit Compliance Intake</button>
-
-<div class="note">
-Your documents are used strictly for compliance readiness review and intake analysis.
+<div class="qr">
+<h2>Continue On Mobile</h2>
+<p>Scan this QR code to upload photos, scans, screenshots, and supporting documents from your phone.</p>
+<img src="/ui/assets/qr/kyc_upload_qr.png" alt="Upload QR Code">
 </div>
 
-</div>
+<button type="submit">Upload My Documents</button>
 
-</div>
+<p class="small">Your documents stay private. Upload what you have, and we will help organize the rest.</p>
 
+</form>
+</div>
+</div>
 </body>
 </html>
 

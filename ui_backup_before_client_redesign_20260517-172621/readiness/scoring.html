@@ -1,0 +1,150 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Scoring Logic</title>
+<meta charset="utf-8" />
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 20px; /* large text for readability */
+        line-height: 1.8;
+        padding: 25px;
+        max-width: 1200px;
+        margin: auto;
+        background: #fafafa;
+    }
+    h1, h2, h3 {
+        margin-top: 40px;
+        margin-bottom: 15px;
+        font-weight: bold;
+    }
+    h1 { font-size: 34px; }
+    h2 { font-size: 28px; }
+    h3 { font-size: 24px; }
+    .codebox {
+        background: #ffffff;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        white-space: pre-wrap;
+    }
+    a.back-button {
+        font-size: 18px;
+        display: inline-block;
+        margin-bottom: 20px;
+        text-decoration: none;
+        color: #0056b3;
+    }
+</style>
+</head>
+<body>
+
+<a href="../control.html" class="back-button">← Back to Dashboard</a>
+
+<h1>CMMC Level 1 Readiness – Scoring Logic</h1>
+
+<div class="codebox">
+
+<b>OVERVIEW</b>
+
+This scoring model converts intake answers into a clean 0–100 readiness score.
+
+It is intentionally simple and consistent, so you can:
+• calculate manually  
+• have the backend calculate automatically  
+• insert the score directly into the Readiness Report  
+
+
+-------------------------------------------------------------
+
+<b>SCORING VALUES PER CONTROL</b>
+
+YES        = 3 points  
+PARTIAL    = 1 point  
+NO         = 0 points  
+UNKNOWN    = 0 points  
+
+-------------------------------------------------------------
+
+<b>12 KEY CONTROLS (CMMC Level 1 relevant)</b>
+
+<b>Access & Accounts</b>
+1. Unique user accounts  
+2. Joiner/mover/leaver process exists  
+3. MFA enabled on email  
+4. MFA enabled for remote access  
+
+<b>Devices & Updates</b>
+5. System patching regularly applied  
+6. Antivirus / EDR installed on all endpoints  
+
+<b>Backups</b>
+7. Backups running  
+8. Backup restore tested  
+
+<b>Policies & Documentation</b>
+9. Written policies exist  
+10. Staff acknowledge policies  
+
+<b>Training</b>
+11. Security awareness training performed  
+
+<b>Vendor Oversight</b>
+12. Vendor list / vendor risk process exists  
+
+-------------------------------------------------------------
+
+<b>MAXIMUM POINTS:</b>  
+12 controls × 3 points = <b>36 total points</b>
+
+
+<b>READINESS SCORE FORMULA</b>
+
+score = ( total_points / 36 ) × 100  
+round to nearest whole number  
+
+-------------------------------------------------------------
+
+<b>COLOR INTERPRETATION</b>
+
+<b>GREEN — 80 to 100</b>  
+Mostly aligned with Level 1 expectations. Minor cleanup may be required.
+
+<b>YELLOW — 50 to 79</b>  
+Partially aligned, but significant gaps exist. Would not pass a validation effort.
+
+<b>RED — 0 to 49</b>  
+Material gaps. Not aligned with CMMC Level 1. Structured remediation required.
+
+-------------------------------------------------------------
+
+<b>OPTIONAL ADVANCED WEIGHTING</b>
+(Use only if you want more realistic scoring in backend automation)
+
+Critical items may be weighted higher:
+
+• MFA on email: ×1.5  
+• Patching: ×1.25  
+• Backups: ×1.25  
+• Policies: ×1.25  
+
+Final formula becomes:
+
+weighted_score = (weighted_points / max_weighted_points) × 100  
+
+-------------------------------------------------------------
+
+<b>EXAMPLE:</b>
+
+Company earns 24 points:
+
+24 / 36 = 0.666  
+0.666 × 100 = 66  
+
+<b>Final Score: 66 (YELLOW)</b>
+
+</div>
+
+</body>
+</html>

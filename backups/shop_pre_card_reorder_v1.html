@@ -209,27 +209,27 @@ font-size:42px;
 <div>
 
 <div class="badge">
-Mission-Critical Compliance Automation
+Expert-Guided GovCon Compliance
 </div>
 
 <h1>
-Compliance That Helps You Win Contracts.
+Pass Your Audit. Keep Your Contracts.
 </h1>
 
 <p>
-KeepYourContracts.com helps organizations rapidly organize evidence, readiness documentation, chain-of-custody records, vendor workflows, and audit preparation without drowning in paperwork.
+We help defense contractors organize compliance evidence, identify readiness gaps, and prepare for CMMC and audit requirements with structured expert guidance — without drowning your team in paperwork.
 </p>
 
 <div class="cta-row">
 
 <a class="btn btn-primary"
 href="/ui/inquiry.html">
-Book Readiness Call
+Schedule Diagnostic Review
 </a>
 
 <a class="btn btn-secondary"
 href="/ui/control.html">
-View Compliance Engine
+See How We Work
 </a>
 
 </div>
@@ -240,22 +240,22 @@ View Compliance Engine
 
 <div class="metric">
 <strong>24/7</strong>
-AI-Assisted Compliance Operations
+Expert-Guided Compliance Support
 </div>
 
 <div class="metric">
 <strong>Fast</strong>
-Evidence + Documentation Generation
+Structured Evidence Organization
 </div>
 
 <div class="metric">
 <strong>Enterprise</strong>
-Audit-Ready Structure & Tracking
+Audit Readiness & Compliance Guidance
 </div>
 
 <div class="metric">
 <strong>Scalable</strong>
-Designed For Continuous Improvement
+Built Around Real Compliance Workflows
 </div>
 
 </div>
@@ -359,35 +359,35 @@ Launch Pilot
 <section class="section">
 
 <h2 class="section-title">
-What Makes This Different
+What Clients Actually Need
 </h2>
 
 <div class="grid">
 
 <div class="card">
 <h3>
-Operational Intelligence
+Stop Drowning In Compliance Paperwork
 </h3>
 <p>
-The platform is being built to continuously improve from real-world workflows, operational outcomes, and customer interaction patterns.
+We help organize scattered evidence, documents, spreadsheets, emails, and requirements into a clear actionable system.
 </p>
 </div>
 
 <div class="card">
 <h3>
-Automation First
+Know What Is Missing Before The Audit
 </h3>
 <p>
-Reduce repetitive administrative burden through guided workflows, evidence management, validation, and centralized tracking.
+Most teams do not know what gaps exist until it is too late. We help identify missing evidence and readiness issues early.
 </p>
 </div>
 
 <div class="card">
 <h3>
-Built For Real Operations
+Get Expert Guidance Without Hiring A Full Team
 </h3>
 <p>
-Designed around real compliance friction, audit preparation, logistics coordination, vendor management, and documentation realities.
+You do not need a massive compliance department to begin improving your audit readiness and contract position.
 </p>
 </div>
 
@@ -401,82 +401,7 @@ KeepYourContracts.com • Compliance Automation Infrastructure
 
 </div>
 
-
-<script>
-
-async function sendTelemetry(eventType, metadata={}) {
-
-    try {
-
-        await fetch("/api/telemetry/event", {
-
-            method: "POST",
-
-            headers: {
-                "Content-Type": "application/json"
-            },
-
-            body: JSON.stringify({
-
-                event_type: eventType,
-
-                visitor_id: localStorage.visitor_id || crypto.randomUUID(),
-
-                session_id: sessionStorage.session_id || crypto.randomUUID(),
-
-                page_url: window.location.pathname,
-
-                referrer: document.referrer,
-
-                user_agent: navigator.userAgent,
-
-                language: navigator.language,
-
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-
-                screen_width: window.innerWidth,
-
-                screen_height: window.innerHeight,
-
-                metadata: metadata
-
-            })
-
-        });
-
-    } catch(err) {
-
-        console.error("Telemetry failed", err);
-
-    }
-
-}
-
-if(!localStorage.visitor_id){
-    localStorage.visitor_id = crypto.randomUUID();
-}
-
-if(!sessionStorage.session_id){
-    sessionStorage.session_id = crypto.randomUUID();
-}
-
-sendTelemetry("page_view");
-
-document.addEventListener("click", function(e){
-
-    const target = e.target.closest("a,button");
-
-    if(!target) return;
-
-    sendTelemetry("cta_click", {
-        text: target.innerText,
-        href: target.href || null
-    });
-
-});
-
-</script>
-
 </body>
 </html>
+
 
