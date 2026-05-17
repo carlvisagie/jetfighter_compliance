@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -351,7 +351,7 @@
         <div class="title-block">
             <h1>JetFighter Compliance Command Center</h1>
             <div class="subtitle" id="header-subtitle">
-                Consolidated health, events, and system status · Live
+                Consolidated health, events, and system status Â· Live
             </div>
         </div>
         <div class="badges">
@@ -361,10 +361,10 @@
             </div>
             <div class="badge">
                 <span class="dot muted"></span>
-                <span id="badge-refresh-label">Last refresh: —</span>
+                <span id="badge-refresh-label">Last refresh: â€”</span>
             </div>
             <button class="btn" onclick="window.location.href='/ui/control.html'">
-                ← Back to Control Panel
+                â† Back to Control Panel
             </button>
         </div>
     </header>
@@ -376,7 +376,7 @@
                 <div class="panel-header">
                     <div>
                         <div class="panel-title">System Health</div>
-                        <div class="panel-subtitle">Backend · Tunnel · Public Host</div>
+                        <div class="panel-subtitle">Backend Â· Tunnel Â· Public Host</div>
                     </div>
                     <span class="pill" id="pill-health">Status: Unknown</span>
                 </div>
@@ -384,17 +384,17 @@
                 <div class="metrics-row">
                     <div class="metric-card">
                         <div class="metric-label">Core Backend</div>
-                        <div class="metric-value" id="metric-backend">—</div>
+                        <div class="metric-value" id="metric-backend">â€”</div>
                         <div class="metric-foot" id="metric-backend-foot">/healthz</div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-label">Public Host</div>
-                        <div class="metric-value" id="metric-host">—</div>
+                        <div class="metric-value" id="metric-host">â€”</div>
                         <div class="metric-foot" id="metric-host-foot">/status</div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-label">Recent Events</div>
-                        <div class="metric-value" id="metric-events">—</div>
+                        <div class="metric-value" id="metric-events">â€”</div>
                         <div class="metric-foot" id="metric-events-foot">Last 24h (approx.)</div>
                     </div>
                 </div>
@@ -403,13 +403,13 @@
                     <div class="status-tile status-info" id="tile-backend">
                         <h4>Backend</h4>
                         <div class="small" id="tile-backend-text">
-                            Waiting for first health check…
+                            Waiting for first health checkâ€¦
                         </div>
                     </div>
                     <div class="status-tile status-info" id="tile-host">
                         <h4>Tunnel / Host</h4>
                         <div class="small" id="tile-host-text">
-                            Waiting for /status response…
+                            Waiting for /status responseâ€¦
                         </div>
                     </div>
                     <div class="status-tile status-info" id="tile-webhook">
@@ -465,18 +465,18 @@
                         <div class="panel-title">Events & Activity</div>
                         <div class="panel-subtitle">Most recent system events</div>
                     </div>
-                    <span class="pill" id="pill-events">Loading…</span>
+                    <span class="pill" id="pill-events">Loadingâ€¦</span>
                 </div>
 
                 <div class="list">
                     <div class="list-header">
-                        <span>Type · What</span>
+                        <span>Type Â· What</span>
                         <span>When</span>
                         <span>Status</span>
                     </div>
                     <div class="list-body" id="events-body">
                         <div class="list-empty">
-                            Loading recent events…
+                            Loading recent eventsâ€¦
                         </div>
                     </div>
                 </div>
@@ -593,7 +593,7 @@
                 }
             }
         } catch (e) {
-            document.getElementById('metric-events').textContent = '—';
+            document.getElementById('metric-events').textContent = 'â€”';
         }
 
         // Overall badge
@@ -611,8 +611,8 @@
     async function refreshEvents() {
         const body = document.getElementById('events-body');
         const pill = document.getElementById('pill-events');
-        body.innerHTML = '<div class="list-empty">Loading recent events…</div>';
-        pill.textContent = 'Loading…';
+        body.innerHTML = '<div class="list-empty">Loading recent eventsâ€¦</div>';
+        pill.textContent = 'Loadingâ€¦';
 
         try {
             const res = await fetch('/events/recent', {cache: 'no-store'});
@@ -678,3 +678,4 @@
 </script>
 </body>
 </html>
+
