@@ -536,7 +536,7 @@
         try {
             const res = await fetch('/healthz', {cache: 'no-store'});
             const data = await res.json();
-            backendOk = data && data.status === 'ok';
+            backendOk = res.ok && data && data.ok === true;
 
             document.getElementById('metric-backend').textContent = backendOk ? 'OK' : 'Error';
             document.getElementById('metric-backend-foot').textContent = '/healthz';
@@ -678,6 +678,7 @@
 </script>
 </body>
 </html>
+
 
 
 
