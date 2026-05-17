@@ -455,3 +455,10 @@ if __name__ == "__main__":
 
 
 
+
+from fastapi.responses import FileResponse
+
+@app.get("/upload")
+def upload_page():
+    return FileResponse(ROOT / "ui" / "upload.html")
+
