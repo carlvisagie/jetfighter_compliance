@@ -1,58 +1,55 @@
-﻿<!doctype html>
-<html>
-<head><meta charset="utf-8"><title>KeepYourContracts.com  Compliance Control Panel</title>
-<style>
-body{font-family:system-ui,Arial;margin:20px;max-width:900px}
-label{display:block;margin:.4rem 0}.row{display:flex;gap:10px}.row>div{flex:1}
-table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:6px}tr:hover{background:#f8f8f8}
-button{padding:.4rem .7rem}
-</style>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KeepYourContracts | Chain of Custody Event</title>
+  <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
+  <link rel="stylesheet" href="/ui/assets/styles/layout.css">
+  <link rel="stylesheet" href="/ui/assets/styles/components.css">
+  <link rel="stylesheet" href="/ui/assets/styles/ops-dashboard.css">
 </head>
-<body>
-<div id='kyc-topnav' style='background:#0a84ff;color:#fff;padding:10px;margin:10px;border-radius:10px;'><span style='font-weight:700;'>KeepYourContracts</span><span style='float:right;'><a href='/ui/shop.html' style='color:#fff;margin-right:14px;'>Shop</a><a href='/ui/inquiry.html' style='color:#fff;'>Contact</a></span></div>
-<div id='kyc-topnav' style='background:#0a84ff;color:#fff;padding:10px;margin:10px;border-radius:10px;'><span style='font-weight:700;'>KeepYourContracts</span><span style='float:right;'><a href='/ui/shop.html' style='color:#fff;margin-right:14px;'>Shop</a><a href='/ui/inquiry.html' style='color:#fff;'>Contact</a></span></div>
-<h2>KeepYourContracts.com  Compliance Control Panel</h2>
-<form id="f">
-  <div class="row">
-    <div>
-      <label>Project
-        <select name="project_id" id="project_id" required></select>
-      </label>
-    </div>
-    <div>
-      <label>Event Type
-        <select name="event_type" id="event_type">
-          <option>ATTEST</option>
-          <option>COMMISSION</option>
-          <option>PACK</option>
-          <option>SHIP</option>
-          <option>RECEIVE</option>
-          <option>INSPECT</option>
-          <option>TRANSFORM</option>
-          <option>EXCEPTION</option>
-          <option>CORRECT</option>
-          <option>DISPOSE</option>
-        </select>
-      </label>
-    </div>
-  </div>
-  <div class="row">
-    <div><label>Quantity <input type="number" name="qty" value="1" min="0" step="1" required></label></div>
-    <div><label>Address/Location <input type="text" name="address" placeholder="Warehouse A, Stuttgart"></label></div>
-  </div>
-  <label>Why / Notes
-    <textarea name="why" rows="3" placeholder="Short note..."></textarea>
-  </label>
-  <button type="submit">Submit Event</button>
-  <span id="msg"></span>
-</form>
+<body class="kyc-page kyc-surface-ops">
+  <header class="kyc-topbar">
+    <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
+    <nav class="kyc-nav kyc-nav--ops" aria-label="Operations">
+      <a href="/ui/control.html">Control</a>
+      <a href="/ui/command.html">Command</a>
+      <a href="/ui/status.html">Status</a>
+      <a href="/ui/inbox.html">Inbox</a>
+    </nav>
+  </header>
 
-<hr/>
-<h3>Recent Events</h3>
-<button id="refresh">Refresh</button>
-<table id="tbl"><thead><tr><th>Time (UTC)</th><th>Project</th><th>Type</th><th>Why</th><th>Qty</th><th>Where</th></tr></thead><tbody></tbody></table>
-
-<script>
+  <div class="kyc-ops-header"><div><h1>Chain-of-custody event</h1></div></div>
+  <main class="kyc-main kyc-main--ops">
+    <div class="card">
+      <span class="kyc-label-overline">Event entry</span>
+      <form id="f" class="kyc-form">
+        <div class="row">
+          <div class="kyc-field"><label>Project<select name="project_id" id="project_id" required></select></label></div>
+          <div class="kyc-field"><label>Event Type<select name="event_type" id="event_type">
+            <option>ATTEST</option><option>COMMISSION</option><option>PACK</option><option>SHIP</option>
+            <option>RECEIVE</option><option>INSPECT</option><option>TRANSFORM</option><option>EXCEPTION</option>
+            <option>CORRECT</option><option>DISPOSE</option>
+          </select></label></div>
+        </div>
+        <div class="row">
+          <div class="kyc-field"><label>Quantity<input type="number" name="qty" value="1" min="0" step="1" required></label></div>
+          <div class="kyc-field"><label>Address/Location<input type="text" name="address" placeholder="Warehouse A"></label></div>
+        </div>
+        <div class="kyc-field"><label>Why / Notes<textarea name="why" rows="3" placeholder="Short note..."></textarea></label></div>
+        <button type="submit" class="btn">Submit Event</button>
+        <span id="msg" class="kyc-status"></span>
+      </form>
+    </div>
+    <h2>Recent events</h2>
+    <button type="button" class="btn secondary" id="refresh">Refresh</button>
+    <div class="card kyc-table-wrap" style="margin-top:1rem;">
+      <table id="tbl"><thead><tr><th>Time (UTC)</th><th>Project</th><th>Type</th><th>Why</th><th>Qty</th><th>Where</th></tr></thead><tbody></tbody></table>
+    </div>
+  </main>
+  <footer class="kyc-footer">KeepYourContracts.com · Operations</footer>
+  <script>
 async function api(u,opts){ const r=await fetch(u,opts||{}); return r.json() }
 async function loadProjects(){
   const r = await api('/api/projects');
@@ -80,10 +77,6 @@ async function loadRecent(){
 document.getElementById('f').addEventListener('submit', submitForm);
 document.getElementById('refresh').addEventListener('click', loadRecent);
 loadProjects().then(loadRecent);
-</script>
+  </script>
 </body>
 </html>
-
-
-
-

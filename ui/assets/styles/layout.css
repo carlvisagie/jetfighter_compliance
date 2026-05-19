@@ -1,0 +1,250 @@
+/**
+ * KeepYourContracts — Layout shell (nav, page regions, grids)
+ */
+
+.kyc-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* —— Top navigation —— */
+.kyc-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--kyc-space-6);
+  flex-wrap: wrap;
+  padding: var(--kyc-space-4) var(--kyc-space-8);
+  border-bottom: 1px solid var(--kyc-line-soft);
+  background: rgba(6, 13, 24, 0.92);
+  backdrop-filter: blur(10px);
+}
+
+.kyc-brand {
+  font-size: var(--kyc-text-xl);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--kyc-text);
+  text-decoration: none;
+}
+
+.kyc-brand span {
+  color: var(--kyc-accent-hover);
+}
+
+.kyc-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--kyc-space-6);
+  flex-wrap: wrap;
+}
+
+.kyc-nav a {
+  color: var(--kyc-text-muted);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: var(--kyc-text-sm);
+  transition: color var(--kyc-ease);
+}
+
+.kyc-nav a:hover,
+.kyc-nav a[aria-current="page"] {
+  color: var(--kyc-text);
+}
+
+.kyc-nav--ops {
+  padding-left: var(--kyc-space-6);
+  border-left: 1px solid var(--kyc-line);
+}
+
+.kyc-nav--ops a {
+  font-size: var(--kyc-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--kyc-tracking-label);
+}
+
+/* —— Ops command header (control / command) —— */
+.kyc-ops-header {
+  background: var(--kyc-surface);
+  border-bottom: 1px solid var(--kyc-line);
+  padding: var(--kyc-space-5) var(--kyc-space-8);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--kyc-space-6);
+  flex-wrap: wrap;
+}
+
+.kyc-ops-header h1 {
+  margin: 0;
+  font-size: var(--kyc-text-lg);
+  text-transform: uppercase;
+  letter-spacing: var(--kyc-tracking-label);
+}
+
+.kyc-ops-header .kyc-ops-subtitle {
+  margin: var(--kyc-space-2) 0 0;
+  font-size: var(--kyc-text-sm);
+  color: var(--kyc-text-dim);
+}
+
+.kyc-ops-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kyc-space-2);
+  align-items: center;
+}
+
+/* —— Main content regions —— */
+.kyc-main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--kyc-container-wide);
+  margin: 0 auto;
+  padding: var(--kyc-space-8) var(--kyc-space-6);
+}
+
+.kyc-main--narrow {
+  max-width: var(--kyc-container-narrow);
+}
+
+.kyc-main--ops {
+  max-width: none;
+  padding: var(--kyc-space-6) var(--kyc-space-8);
+}
+
+/* —— Hero (public entry pages) —— */
+.kyc-hero {
+  padding: var(--kyc-space-12) 0 var(--kyc-space-8);
+}
+
+.kyc-hero--split {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: var(--kyc-space-10);
+  align-items: center;
+}
+
+.kyc-hero p {
+  font-size: var(--kyc-text-lg);
+  max-width: 44rem;
+}
+
+/* —— Section blocks —— */
+.kyc-section {
+  padding: var(--kyc-space-12) 0;
+}
+
+.kyc-section-head {
+  margin-bottom: var(--kyc-space-8);
+}
+
+.kyc-section-head h2 {
+  margin-bottom: var(--kyc-space-3);
+}
+
+.kyc-section-head p {
+  max-width: 48rem;
+  margin: 0;
+}
+
+/* —— Grids —— */
+.kyc-grid {
+  display: grid;
+  gap: var(--kyc-space-6);
+}
+
+.kyc-grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.kyc-grid--3 {
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+.kyc-grid--intake {
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: var(--kyc-space-8);
+  align-items: start;
+}
+
+.kyc-grid--ops {
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+.kyc-grid--command {
+  grid-template-columns: 1.2fr 1.1fr 1.4fr;
+  gap: var(--kyc-space-5);
+}
+
+/* —— Footer —— */
+.kyc-footer {
+  margin-top: auto;
+  padding: var(--kyc-space-8) var(--kyc-space-6);
+  border-top: 1px solid var(--kyc-line-soft);
+  text-align: center;
+  font-size: var(--kyc-text-sm);
+  color: var(--kyc-text-dim);
+}
+
+.kyc-footer a {
+  color: var(--kyc-text-muted);
+  text-decoration: none;
+  margin: 0 var(--kyc-space-3);
+}
+
+/* —— Flow steps (onboarding) —— */
+.kyc-flow-steps {
+  display: flex;
+  gap: var(--kyc-space-4);
+  margin: var(--kyc-space-6) 0;
+  flex-wrap: wrap;
+}
+
+.kyc-flow-step {
+  flex: 1;
+  min-width: 8rem;
+  padding: var(--kyc-space-4);
+  border: 1px solid var(--kyc-line);
+  border-radius: var(--kyc-radius);
+  background: var(--kyc-surface-inset);
+  font-size: var(--kyc-text-sm);
+  color: var(--kyc-text-dim);
+}
+
+.kyc-flow-step strong {
+  display: block;
+  color: var(--kyc-accent-hover);
+  font-size: var(--kyc-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--kyc-tracking-label);
+  margin-bottom: var(--kyc-space-2);
+}
+
+.kyc-flow-step--active {
+  border-color: var(--kyc-accent-border);
+  background: var(--kyc-accent-soft);
+}
+
+@media (max-width: 900px) {
+  .kyc-hero--split,
+  .kyc-grid--intake,
+  .kyc-grid--2,
+  .kyc-grid--command {
+    grid-template-columns: 1fr;
+  }
+
+  .kyc-topbar {
+    padding: var(--kyc-space-4);
+  }
+
+  .kyc-nav--ops {
+    border-left: none;
+    padding-left: 0;
+    width: 100%;
+  }
+}

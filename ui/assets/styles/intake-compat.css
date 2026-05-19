@@ -1,0 +1,224 @@
+/**
+ * Maps legacy intake.html class names to unified design system.
+ * Allows intake form markup to stay stable while sharing tokens.
+ */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--kyc-space-4) var(--kyc-space-8);
+  border-bottom: 1px solid var(--kyc-line-soft);
+  background: rgba(6, 13, 24, 0.92);
+  backdrop-filter: blur(10px);
+}
+
+.logo {
+  font-size: var(--kyc-text-xl);
+  font-weight: 800;
+  color: var(--kyc-text);
+}
+
+.logo span {
+  color: var(--kyc-accent-hover);
+}
+
+.nav {
+  display: flex;
+  gap: var(--kyc-space-6);
+}
+
+.nav a {
+  color: var(--kyc-text-muted);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.nav a:hover {
+  color: var(--kyc-text);
+}
+
+.hero {
+  max-width: var(--kyc-container);
+  margin: 0 auto;
+  padding: var(--kyc-space-12) var(--kyc-space-6) var(--kyc-space-8);
+}
+
+.hero h1 {
+  font-size: var(--kyc-text-hero);
+  max-width: 56rem;
+}
+
+.hero p {
+  font-size: var(--kyc-text-lg);
+  color: var(--kyc-text-muted);
+}
+
+.grid {
+  max-width: var(--kyc-container);
+  margin: 0 auto;
+  padding: 0 var(--kyc-space-6) var(--kyc-space-16);
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: var(--kyc-space-8);
+}
+
+.card {
+  background: linear-gradient(180deg, var(--kyc-surface) 0%, var(--kyc-surface-2) 100%);
+  border: 1px solid var(--kyc-line);
+  border-radius: var(--kyc-radius-xl);
+  padding: var(--kyc-space-8);
+  box-shadow: var(--kyc-shadow);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--kyc-space-5);
+  margin-top: var(--kyc-space-6);
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+.form-grid label {
+  display: block;
+  margin-bottom: var(--kyc-space-2);
+  font-size: var(--kyc-text-sm);
+  font-weight: 700;
+  color: #d7e3f5;
+}
+
+.form-grid input,
+.form-grid textarea {
+  width: 100%;
+  background: var(--kyc-surface-inset);
+  border: 1px solid var(--kyc-line-strong);
+  border-radius: var(--kyc-radius);
+  color: var(--kyc-text);
+  padding: var(--kyc-space-4);
+  font-size: var(--kyc-text-base);
+  font-family: inherit;
+}
+
+.section-title {
+  margin-top: var(--kyc-space-8);
+  margin-bottom: var(--kyc-space-4);
+  font-size: var(--kyc-text-lg);
+  font-weight: 800;
+  color: var(--kyc-text);
+}
+
+.checks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--kyc-space-3);
+}
+
+.check {
+  background: var(--kyc-surface-inset);
+  border: 1px solid var(--kyc-line);
+  border-radius: var(--kyc-radius);
+  padding: var(--kyc-space-4);
+}
+
+.check label {
+  display: flex;
+  gap: var(--kyc-space-3);
+  font-weight: 600;
+  font-size: var(--kyc-text-sm);
+  color: var(--kyc-text-muted);
+}
+
+.check input {
+  width: auto;
+  accent-color: var(--kyc-accent);
+}
+
+.submit {
+  margin-top: var(--kyc-space-8);
+  width: 100%;
+  border: none;
+  background: var(--kyc-accent);
+  color: #fff;
+  padding: var(--kyc-space-5);
+  border-radius: var(--kyc-radius);
+  font-size: var(--kyc-text-lg);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.submit:hover {
+  filter: brightness(1.05);
+}
+
+.qr-box {
+  text-align: center;
+  background: var(--kyc-surface-inset);
+  border: 1px solid var(--kyc-line);
+  border-radius: var(--kyc-radius-lg);
+  padding: var(--kyc-space-6);
+}
+
+.qr-box img {
+  max-width: 16rem;
+  background: #fff;
+  padding: var(--kyc-space-4);
+  border-radius: var(--kyc-radius);
+}
+
+.step {
+  display: flex;
+  gap: var(--kyc-space-4);
+  margin-top: var(--kyc-space-4);
+}
+
+.step-number {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--kyc-accent-soft);
+  color: var(--kyc-accent-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.step-text {
+  color: var(--kyc-text-muted);
+  font-size: var(--kyc-text-sm);
+}
+
+.trust {
+  display: grid;
+  gap: var(--kyc-space-4);
+}
+
+.trust-item {
+  border: 1px solid var(--kyc-line);
+  background: var(--kyc-surface-inset);
+  border-radius: var(--kyc-radius);
+  padding: var(--kyc-space-4);
+}
+
+.footer {
+  border-top: 1px solid var(--kyc-line-soft);
+  text-align: center;
+  padding: var(--kyc-space-8);
+  color: var(--kyc-text-dim);
+  font-size: var(--kyc-text-sm);
+}
+
+@media (max-width: 980px) {
+  .grid,
+  .checks,
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}

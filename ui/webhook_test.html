@@ -1,32 +1,46 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Webhook Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KeepYourContracts | Webhook Test</title>
+  <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
+  <link rel="stylesheet" href="/ui/assets/styles/layout.css">
+  <link rel="stylesheet" href="/ui/assets/styles/components.css">
+  <link rel="stylesheet" href="/ui/assets/styles/ops-dashboard.css">
 </head>
-<body>
-  <h2>Test kickoff() (direct onboarding)</h2>
-  <button onclick="send()">Send</button>
-  <pre id="out"></pre>
+<body class="kyc-page kyc-surface-ops">
+  <header class="kyc-topbar">
+    <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
+    <nav class="kyc-nav kyc-nav--ops" aria-label="Operations">
+      <a href="/ui/control.html">Control</a>
+      <a href="/ui/command.html">Command</a>
+      <a href="/ui/status.html">Status</a>
+      <a href="/ui/inbox.html">Inbox</a>
+    </nav>
+  </header>
 
+  <div class="kyc-ops-header"><div><h1>Webhook test</h1></div></div>
+  <main class="kyc-main kyc-main--ops">
+    <div class="card">
+      <span class="kyc-label-overline">Ops only</span>
+      <h2>Test kickoff()</h2>
+      <button type="button" class="btn" onclick="send()">Send</button>
+      <pre id="out" class="codebox" style="margin-top:1rem;white-space:pre-wrap;"></pre>
+    </div>
+  </main>
+  <footer class="kyc-footer">KeepYourContracts.com · Operations</footer>
   <script>
-    async function send() {
-      const payload = {
-        id: "test_order_" + Math.random().toString(36).slice(2),
-        email: "admin@keepyourcontracts.com",
-        name: "Test User",
-        line_items: [
-          { title: "CMMC Level 1 Fast-Track Assessment", sku: "CMMC-L1-FAST" }
-        ]
-      };
-      const res = await fetch("/api/test-webhook", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const text = await res.text();
-      document.getElementById("out").textContent = text;
-    }
+async function send() {
+  const payload = {
+    id: "test_order_" + Math.random().toString(36).slice(2),
+    email: "admin@keepyourcontracts.com",
+    name: "Test User",
+    line_items: [{ title: "CMMC Level 1 Fast-Track Assessment", sku: "CMMC-L1-FAST" }]
+  };
+  const res = await fetch("/api/test-webhook", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  document.getElementById("out").textContent = await res.text();
+}
   </script>
 </body>
 </html>

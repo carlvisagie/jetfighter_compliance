@@ -1,43 +1,51 @@
-﻿<!doctype html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>KeepYourContracts.com  New Client</title>
-  <style>
-    body{font-family:system-ui,Arial;margin:18px;max-width:900px}
-    .row{display:flex;gap:10px}.row>div{flex:1}
-    .btn{padding:10px 14px;border-radius:10px;border:1px solid #0a84ff;background:#0a84ff;color:#fff}
-    label{display:block;margin:.4rem 0}
-    .msg{margin-top:.6rem}
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KeepYourContracts | New Client</title>
+  <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
+  <link rel="stylesheet" href="/ui/assets/styles/layout.css">
+  <link rel="stylesheet" href="/ui/assets/styles/components.css">
+  <link rel="stylesheet" href="/ui/assets/styles/ops-dashboard.css">
 </head>
-<body>
-<div id='kyc-topnav' style='background:#0a84ff;color:#fff;padding:10px;margin:10px;border-radius:10px;'><span style='font-weight:700;'>KeepYourContracts</span><span style='float:right;'><a href='/ui/shop.html' style='color:#fff;margin-right:14px;'>Shop</a><a href='/ui/inquiry.html' style='color:#fff;'>Contact</a></span></div>
-<div id='kyc-topnav' style='background:#0a84ff;color:#fff;padding:10px;margin:10px;border-radius:10px;'><span style='font-weight:700;'>KeepYourContracts</span><span style='float:right;'><a href='/ui/shop.html' style='color:#fff;margin-right:14px;'>Shop</a><a href='/ui/inquiry.html' style='color:#fff;'>Contact</a></span></div>
-  <h2>KeepYourContracts.com  New Client</h2>
-  <p>Fill three fields, choose SKU(s), click <b>Create Project</b>. The intake link opens automatically.</p>
-  <form id="f">
-    <div class="row">
-      <div><label>Order/Ref ID <input id="ref" required placeholder="e.g., ORD-1001"></label></div>
-      <div><label>Client Email <input id="email" type="email" required></label></div>
-    </div>
-    <div class="row">
-      <div><label>Client Name <input id="name" required placeholder="Full name"></label></div>
-      <div>
-        <label>SKU(s)</label>
-        <div><label><input type="checkbox" id="sku_l1"> CMMC-L1</label></div>
-        <div><label><input type="checkbox" id="sku_l2"> CMMC-L2</label></div>
-        <div><label><input type="checkbox" id="sku_dpp"> DPP-ESPR</label></div>
-      </div>
-    </div>
-    <button type="submit" class="btn">Create Project</button>
-    <div id="msg" class="msg"></div>
-  </form>
+<body class="kyc-page kyc-surface-ops">
+  <header class="kyc-topbar">
+    <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
+    <nav class="kyc-nav kyc-nav--ops" aria-label="Operations">
+      <a href="/ui/control.html">Control</a>
+      <a href="/ui/command.html">Command</a>
+      <a href="/ui/status.html">Status</a>
+      <a href="/ui/inbox.html">Inbox</a>
+    </nav>
+  </header>
 
-<script>
+  <div class="kyc-ops-header"><div><h1>New client</h1></div></div>
+  <main class="kyc-main kyc-main--ops">
+    <div class="card">
+      <p>Fill fields, choose SKU(s), click <b>Create Project</b>. Intake opens automatically.</p>
+      <form id="f" class="kyc-form">
+        <div class="row">
+          <div class="kyc-field"><label>Order/Ref ID<input id="ref" required placeholder="ORD-1001"></label></div>
+          <div class="kyc-field"><label>Client Email<input id="email" type="email" required></label></div>
+        </div>
+        <div class="row">
+          <div class="kyc-field"><label>Client Name<input id="name" required></label></div>
+          <div class="kyc-field"><label>SKU(s)
+            <label><input type="checkbox" id="sku_l1"> CMMC-L1</label>
+            <label><input type="checkbox" id="sku_l2"> CMMC-L2</label>
+            <label><input type="checkbox" id="sku_dpp"> DPP-ESPR</label>
+          </label></div>
+        </div>
+        <button type="submit" class="btn">Create Project</button>
+        <div id="msg" class="kyc-status"></div>
+      </form>
+    </div>
+  </main>
+  <footer class="kyc-footer">KeepYourContracts.com · Operations</footer>
+  <script>
 const f = document.getElementById('f'); const M = document.getElementById('msg');
-const ok=(t)=>{M.textContent=t;M.style.color='#0a0'}; const bad=(t)=>{M.textContent=t;M.style.color='#a00'};
-
+const ok=(t)=>{M.textContent=t;M.className='kyc-status kyc-status--ok'}; const bad=(t)=>{M.textContent=t;M.className='kyc-status kyc-status--error'};
 f.addEventListener('submit', async (e)=>{
   e.preventDefault();
   const ref = document.getElementById('ref').value.trim();
@@ -47,26 +55,17 @@ f.addEventListener('submit', async (e)=>{
   if (document.getElementById('sku_l1').checked) skus.push('CMMC-L1');
   if (document.getElementById('sku_l2').checked) skus.push('CMMC-L2');
   if (document.getElementById('sku_dpp').checked) skus.push('DPP-ESPR');
-
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return bad('Invalid email.');
   if (!ref || !name || skus.length===0) return bad('Fill all fields and choose at least one SKU.');
-
   try{
-    // duplicate guard
     const L = await fetch('/api/projects').then(r=>r.json()).catch(()=>({projects:[]}));
-    if ((L.projects||[]).some(p=>p.includes(ref))) return bad('Ref ID already used. Pick a new one.');
-
-    const res = await fetch('/events/payment/test',{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ order_id: ref, email, name, skus })
-    });
+    if ((L.projects||[]).some(p=>p.includes(ref))) return bad('Ref ID already used.');
+    const res = await fetch('/events/payment/test',{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ order_id: ref, email, name, skus })});
     const j = await res.json();
     if (j.ok){ ok('Project created. Opening intake'); if (j.intake_url) window.open(j.intake_url,'_blank'); }
     else bad('Error: '+(j.detail||j.error||res.status));
   }catch(_){ bad('Network error'); }
 });
-</script>
+  </script>
 </body>
 </html>
-
-

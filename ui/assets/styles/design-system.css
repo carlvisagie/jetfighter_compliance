@@ -1,0 +1,162 @@
+/**
+ * KeepYourContracts — Canonical Design System (tokens + base)
+ * Enterprise compliance operations · dark operational surface
+ */
+
+:root {
+  /* Surfaces */
+  --kyc-bg: #060d18;
+  --kyc-bg-gradient: linear-gradient(180deg, #060d18 0%, #0b1526 100%);
+  --kyc-surface: #0f1c2e;
+  --kyc-surface-2: #13243b;
+  --kyc-surface-inset: #09111d;
+  --kyc-line: #1f3250;
+  --kyc-line-strong: #274465;
+  --kyc-line-soft: rgba(255, 255, 255, 0.06);
+
+  /* Text */
+  --kyc-text: #f4f7fb;
+  --kyc-text-muted: #9eb4d1;
+  --kyc-text-dim: #7f93b0;
+  --kyc-text-inverse: #060d18;
+
+  /* Accent & status */
+  --kyc-accent: #1f7cff;
+  --kyc-accent-hover: #4d9bff;
+  --kyc-accent-soft: rgba(31, 124, 255, 0.12);
+  --kyc-accent-border: rgba(31, 124, 255, 0.35);
+  --kyc-success: #14c784;
+  --kyc-success-soft: rgba(20, 199, 132, 0.15);
+  --kyc-warning: #ffb020;
+  --kyc-warning-soft: rgba(255, 176, 32, 0.12);
+  --kyc-danger: #ef4444;
+  --kyc-danger-soft: rgba(239, 68, 68, 0.12);
+
+  /* Typography */
+  --kyc-font: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Inter, Arial, sans-serif;
+  --kyc-mono: ui-monospace, "Cascadia Code", "Consolas", monospace;
+  --kyc-text-xs: 0.75rem;
+  --kyc-text-sm: 0.875rem;
+  --kyc-text-base: 1rem;
+  --kyc-text-lg: 1.125rem;
+  --kyc-text-xl: 1.25rem;
+  --kyc-text-2xl: 1.5rem;
+  --kyc-text-3xl: 1.875rem;
+  --kyc-text-4xl: 2.25rem;
+  --kyc-text-hero: clamp(2rem, 4vw, 3.25rem);
+  --kyc-leading: 1.5;
+  --kyc-leading-tight: 1.15;
+  --kyc-tracking-label: 0.06em;
+
+  /* Spacing scale (4px base) */
+  --kyc-space-1: 0.25rem;
+  --kyc-space-2: 0.5rem;
+  --kyc-space-3: 0.75rem;
+  --kyc-space-4: 1rem;
+  --kyc-space-5: 1.25rem;
+  --kyc-space-6: 1.5rem;
+  --kyc-space-8: 2rem;
+  --kyc-space-10: 2.5rem;
+  --kyc-space-12: 3rem;
+  --kyc-space-16: 4rem;
+
+  /* Layout */
+  --kyc-container: 72rem;
+  --kyc-container-narrow: 40rem;
+  --kyc-container-wide: 80rem;
+
+  /* Radii & elevation */
+  --kyc-radius-sm: 8px;
+  --kyc-radius: 12px;
+  --kyc-radius-lg: 18px;
+  --kyc-radius-xl: 24px;
+  --kyc-radius-pill: 999px;
+  --kyc-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  --kyc-shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.25);
+
+  /* Motion */
+  --kyc-ease: 0.2s ease;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--kyc-font);
+  font-size: var(--kyc-text-base);
+  line-height: var(--kyc-leading);
+  color: var(--kyc-text);
+  background: var(--kyc-bg);
+  background-image: var(--kyc-bg-gradient);
+  min-height: 100vh;
+}
+
+body.kyc-surface-ops {
+  background: var(--kyc-bg);
+  background-image: none;
+}
+
+h1, h2, h3, h4 {
+  margin: 0 0 var(--kyc-space-4);
+  line-height: var(--kyc-leading-tight);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+h1 { font-size: var(--kyc-text-hero); }
+h2 { font-size: var(--kyc-text-3xl); }
+h3 { font-size: var(--kyc-text-2xl); }
+h4 { font-size: var(--kyc-text-xl); }
+
+p {
+  margin: 0 0 var(--kyc-space-4);
+  color: var(--kyc-text-muted);
+}
+
+a {
+  color: var(--kyc-accent-hover);
+}
+
+a:hover {
+  color: var(--kyc-text);
+}
+
+code {
+  font-family: var(--kyc-mono);
+  font-size: 0.9em;
+  padding: 0.1em 0.35em;
+  border-radius: var(--kyc-radius-sm);
+  background: var(--kyc-surface-inset);
+  border: 1px solid var(--kyc-line);
+  color: var(--kyc-text-muted);
+}
+
+.kyc-label-overline {
+  display: block;
+  font-size: var(--kyc-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--kyc-tracking-label);
+  color: var(--kyc-text-dim);
+  margin-bottom: var(--kyc-space-2);
+}
+
+.kyc-loading {
+  color: var(--kyc-text-dim);
+  font-style: italic;
+}
+
+.kyc-empty {
+  padding: var(--kyc-space-6);
+  text-align: center;
+  color: var(--kyc-text-dim);
+  font-size: var(--kyc-text-sm);
+}

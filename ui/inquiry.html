@@ -1,35 +1,86 @@
 ﻿<!doctype html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>KeepYourContracts  Contact</title>
-<style>body{font-family:system-ui,Arial;margin:16px;max-width:800px} label{display:block;margin:.4rem 0} .btn{padding:.6rem .9rem;border-radius:10px;border:1px solid #0a84ff;background:#0a84ff;color:#fff}</style>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KeepYourContracts | Contact &amp; Qualification</title>
+  <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
+  <link rel="stylesheet" href="/ui/assets/styles/layout.css">
+  <link rel="stylesheet" href="/ui/assets/styles/components.css">
 </head>
-<body>
-<div id='kyc-topnav' style='background:#0a84ff;color:#fff;padding:10px;margin:10px;border-radius:10px;'><span style='font-weight:700;'>KeepYourContracts</span><span style='float:right;'><a href='/ui/shop.html' style='color:#fff;margin-right:14px;'>Shop</a><a href='/ui/inquiry.html' style='color:#fff;'>Contact</a></span></div>
-<div id='kyc-topnav' style='background:#0a84ff;color:#fff;padding:10px;margin:10px;border-radius:10px;'><span style='font-weight:700;'>KeepYourContracts</span><span style='float:right;'><a href='/ui/shop.html' style='color:#fff;margin-right:14px;'>Shop</a><a href='/ui/inquiry.html' style='color:#fff;'>Contact</a></span></div>
-<h2>Contact KeepYourContracts</h2>
-<form id="f">
-  <label>Your name <input name="name" required></label>
-  <label>Your email <input name="email" type="email" required></label>
-  <label>Subject <input name="subject" required></label>
-  <label>Message <textarea name="message" rows="5" required></textarea></label>
-  <button class="btn" type="submit">Send</button>
-  <div id="msg"></div>
-</form>
-<script>
-const f=document.getElementById('f'), m=document.getElementById('msg');
-f.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const fd=new FormData(f);
-  const r=await fetch('/api/inquiry/submit',{method:'POST',body:fd});
-  const j=await r.json();
-  m.textContent = j.ok
-    ? (j.intake_url ? 'Thanks — check your email for intake, or open: ' + j.intake_url : 'Thanks — message received.')
-    : ('Error: '+(j.detail||r.status));
-  if(j.ok) f.reset();
-});
-</script>
+<body class="kyc-page">
+  <header class="kyc-topbar">
+    <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
+    <nav class="kyc-nav" aria-label="Primary">
+      <a href="/ui/shop.html">Services</a>
+      <a href="/ui/inquiry.html" aria-current="page">Contact</a>
+    </nav>
+  </header>
+
+  <main class="kyc-main kyc-main--narrow">
+    <section class="kyc-hero">
+      <span class="kyc-badge">Guided onboarding</span>
+      <h1>Contact &amp; qualification</h1>
+      <p>Submit your inquiry to begin structured compliance intake. You will receive a secure intake link by email when applicable.</p>
+    </section>
+
+    <div class="kyc-flow-steps" aria-label="Onboarding flow">
+      <div class="kyc-flow-step kyc-flow-step--active"><strong>Step 1</strong> Inquiry</div>
+      <div class="kyc-flow-step"><strong>Step 2</strong> Intake</div>
+      <div class="kyc-flow-step"><strong>Step 3</strong> Evidence upload</div>
+    </div>
+
+    <article class="kyc-card kyc-card--flat">
+      <span class="kyc-label-overline">Secure submission</span>
+      <h2>Send message</h2>
+      <form id="f" class="kyc-form">
+        <div class="kyc-field">
+          <label for="name">Your name</label>
+          <input id="name" name="name" required autocomplete="name">
+        </div>
+        <div class="kyc-field">
+          <label for="email">Your email</label>
+          <input id="email" name="email" type="email" required autocomplete="email">
+        </div>
+        <div class="kyc-field">
+          <label for="subject">Subject</label>
+          <input id="subject" name="subject" required>
+        </div>
+        <div class="kyc-field">
+          <label for="message">Message</label>
+          <textarea id="message" name="message" rows="5" required></textarea>
+        </div>
+        <button class="kyc-btn kyc-btn--primary kyc-btn--block" type="submit">Submit inquiry</button>
+        <div id="msg" class="kyc-status" role="status" aria-live="polite"></div>
+      </form>
+    </article>
+  </main>
+
+  <footer class="kyc-footer">
+    <a href="/ui/shop.html">Services</a>
+    <a href="/ui/control.html">Operations</a>
+  </footer>
+
+  <script>
+  const f = document.getElementById('f'), m = document.getElementById('msg');
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    m.className = 'kyc-status';
+    m.textContent = 'Submitting…';
+    const fd = new FormData(f);
+    const r = await fetch('/api/inquiry/submit', { method: 'POST', body: fd });
+    const j = await r.json();
+    if (j.ok) {
+      m.className = 'kyc-status kyc-status--ok';
+      m.textContent = j.intake_url
+        ? 'Thanks — check your email for intake, or open: ' + j.intake_url
+        : 'Thanks — message received.';
+      f.reset();
+    } else {
+      m.className = 'kyc-status kyc-status--error';
+      m.textContent = 'Error: ' + (j.detail || r.status);
+    }
+  });
+  </script>
 </body>
 </html>
-
-

@@ -1,16 +1,22 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>KeepYourContracts - UI Test</title>
-    <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 2em; text-align: center; }
-        h1 { color: #333; }
-        p { font-size: 1.2em; color: #666; }
-    </style>
+  <meta charset="utf-8">
+  <title>KeepYourContracts UI</title>
+  <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
+  <link rel="stylesheet" href="/ui/assets/styles/layout.css">
+  <link rel="stylesheet" href="/ui/assets/styles/components.css">
 </head>
-<body>
-    <h1>✅ KeepYourContracts UI is Live</h1>
-    <p>If you're seeing this page, the <code>/ui</code> route is properly mounted and serving files from <code>E:\JetFighter_Compliance\ui</code>.</p>
+<body class="kyc-page">
+  <header class="kyc-topbar">
+    <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
+  </header>
+  <main class="kyc-main kyc-main--narrow">
+    <div class="kyc-card kyc-card--flat" style="text-align:center;">
+      <h1>UI route active</h1>
+      <p>The <code>/ui</code> static mount is serving files correctly.</p>
+      <a class="kyc-btn kyc-btn--primary" href="/ui/shop.html">Open services</a>
+    </div>
+  </main>
 </body>
 </html>

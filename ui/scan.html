@@ -1,72 +1,57 @@
-﻿<!doctype html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>KeepYourContracts.com  Compliance Control Panel</title>
-  <style>
-    body{font-family:system-ui,Arial;margin:12px;max-width:780px}
-    .row{display:flex;gap:8px} .row>div{flex:1}
-    video{width:100%;border-radius:8px;background:#000}
-    label{display:block;margin:.4rem 0}
-    button{padding:.6rem .9rem;border-radius:8px}
-    small{color:#666}
-    .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef}
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KeepYourContracts | Scan & Log</title>
+  <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
+  <link rel="stylesheet" href="/ui/assets/styles/layout.css">
+  <link rel="stylesheet" href="/ui/assets/styles/components.css">
+  <link rel="stylesheet" href="/ui/assets/styles/ops-dashboard.css">
 </head>
-<body>
-<div id='kyc-topnav' style='background:#0a84ff;color:#fff;padding:10px;margin:10px;border-radius:10px;'><span style='font-weight:700;'>KeepYourContracts</span><span style='float:right;'><a href='/ui/shop.html' style='color:#fff;margin-right:14px;'>Shop</a><a href='/ui/inquiry.html' style='color:#fff;'>Contact</a></span></div>
-<div id='kyc-topnav' style='background:#0a84ff;color:#fff;padding:10px;margin:10px;border-radius:10px;'><span style='font-weight:700;'>KeepYourContracts</span><span style='float:right;'><a href='/ui/shop.html' style='color:#fff;margin-right:14px;'>Shop</a><a href='/ui/inquiry.html' style='color:#fff;'>Contact</a></span></div>
-  <h2>KeepYourContracts.com  Compliance Control Panel</h2>
-  <p><small>Tip: Add this page to your phone home screen for one-tap logging.</small></p>
+<body class="kyc-page kyc-surface-ops">
+  <header class="kyc-topbar">
+    <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
+    <nav class="kyc-nav kyc-nav--ops" aria-label="Operations">
+      <a href="/ui/control.html">Control</a>
+      <a href="/ui/command.html">Command</a>
+      <a href="/ui/status.html">Status</a>
+      <a href="/ui/inbox.html">Inbox</a>
+    </nav>
+  </header>
 
-  <div id="support" class="pill">Detecting camera</div>
-  <video id="cam" playsinline muted></video>
-  <p id="scanValue"><b>Last code:</b> <span id="code"></span></p>
-
-  <form id="f">
-    <div class="row">
-      <div>
-        <label>Project
-          <select name="project_id" id="project_id" required></select>
-        </label>
-      </div>
-      <div>
-        <label>Event Type
-          <select name="event_type" id="event_type">
-            <option>RECEIVE</option>
-            <option>SHIP</option>
-            <option>INSPECT</option>
-            <option>ATTEST</option>
-            <option>EXCEPTION</option>
-            <option>CORRECT</option>
-            <option>COMMISSION</option>
-            <option>PACK</option>
-            <option>TRANSFORM</option>
-            <option>DISPOSE</option>
-          </select>
-        </label>
-      </div>
+  <div class="kyc-ops-header"><div><h1>Evidence scan & log</h1></div></div>
+  <main class="kyc-main kyc-main--ops">
+    <div class="card">
+      <p class="kyc-status">Tip: Add this page to your phone home screen for one-tap logging.</p>
+      <div id="support" class="pill">Detecting camera</div>
+      <video id="cam" playsinline muted></video>
+      <p id="scanValue"><b>Last code:</b> <span id="code"></span></p>
+      <form id="f" class="kyc-form">
+        <div class="row">
+          <div class="kyc-field"><label>Project<select name="project_id" id="project_id" required></select></label></div>
+          <div class="kyc-field"><label>Event Type<select name="event_type" id="event_type">
+            <option>RECEIVE</option><option>SHIP</option><option>INSPECT</option><option>ATTEST</option>
+            <option>EXCEPTION</option><option>CORRECT</option><option>COMMISSION</option><option>PACK</option>
+            <option>TRANSFORM</option><option>DISPOSE</option>
+          </select></label></div>
+        </div>
+        <div class="row">
+          <div class="kyc-field"><label>Quantity<input type="number" min="0" step="1" name="qty" id="qty" value="1"></label></div>
+          <div class="kyc-field"><label>Address/Location<input type="text" name="address" id="address" placeholder="Dock 3"></label></div>
+        </div>
+        <div class="kyc-field"><label>Why / Notes<textarea name="why" id="why" rows="3"></textarea></label></div>
+        <div class="kyc-btn-row">
+          <button type="button" class="btn secondary" id="useCode">Use scanned code as note</button>
+          <button type="button" class="btn secondary" id="geo">Use my location</button>
+          <button type="submit" class="btn" id="submit">Submit Event</button>
+        </div>
+        <div id="msg"></div>
+      </form>
     </div>
-
-    <div class="row">
-      <div><label>Quantity <input type="number" min="0" step="1" name="qty" id="qty" value="1"></label></div>
-      <div><label>Address/Location <input type="text" name="address" id="address" placeholder="Dock 3, Warehouse A"></label></div>
-    </div>
-
-    <label>Why / Notes
-      <textarea name="why" id="why" rows="3" placeholder="Short note"></textarea>
-    </label>
-
-    <div class="row">
-      <button type="button" id="useCode">Use scanned code as note</button>
-      <button type="button" id="geo">Use my location</button>
-      <button type="submit" id="submit">Submit Event</button>
-    </div>
-    <div id="msg"></div>
-  </form>
-
-  <script>
+  </main>
+  <footer class="kyc-footer">KeepYourContracts.com · Operations</footer>
+<script>
   const $ = s => document.querySelector(s);
   const msg = (t, ok=true) => { $('#msg').textContent = t; $('#msg').style.color = ok ? '#0a0' : '#a00'; };
 
@@ -138,3 +123,6 @@
 
 
 
+
+</body>
+</html>

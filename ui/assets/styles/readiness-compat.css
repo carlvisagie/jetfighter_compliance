@@ -1,0 +1,77 @@
+/**
+ * Readiness consultant scroll pages — dark ops theme, large readable text
+ */
+
+body.kyc-readiness {
+  font-size: 1.2rem;
+  line-height: 1.75;
+}
+
+body.kyc-readiness h1 {
+  font-size: 2rem;
+}
+
+body.kyc-readiness h2 {
+  font-size: 1.6rem;
+  margin-top: var(--kyc-space-10);
+}
+
+body.kyc-readiness h3 {
+  font-size: 1.35rem;
+}
+
+body.kyc-readiness .section {
+  margin-bottom: var(--kyc-space-12);
+}
+
+body.kyc-readiness .codebox {
+  background: var(--kyc-surface-inset);
+  border: 1px solid var(--kyc-line);
+  border-radius: var(--kyc-radius-lg);
+  padding: var(--kyc-space-6);
+  white-space: pre-wrap;
+  color: var(--kyc-text-muted);
+  font-size: 1.05rem;
+}
+
+body.kyc-readiness a.back-button,
+body.kyc-readiness .kyc-back {
+  font-size: var(--kyc-text-sm);
+  display: inline-block;
+  margin-bottom: var(--kyc-space-6);
+  text-decoration: none;
+  color: var(--kyc-accent-hover);
+  font-weight: 600;
+}
+
+body.kyc-readiness hr {
+  margin: var(--kyc-space-10) 0;
+  border: none;
+  height: 1px;
+  background: var(--kyc-line);
+}
+
+body.kyc-readiness ul {
+  color: var(--kyc-text-muted);
+}
+
+body.kyc-readiness .kyc-readiness-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kyc-space-3);
+  margin-bottom: var(--kyc-space-8);
+}
+
+body.kyc-readiness .kyc-readiness-nav a {
+  font-size: var(--kyc-text-sm);
+  padding: var(--kyc-space-2) var(--kyc-space-4);
+  border: 1px solid var(--kyc-line);
+  border-radius: var(--kyc-radius-pill);
+  text-decoration: none;
+  color: var(--kyc-text-muted);
+}
+
+body.kyc-readiness .kyc-readiness-nav a:hover {
+  border-color: var(--kyc-accent-border);
+  color: var(--kyc-text);
+}

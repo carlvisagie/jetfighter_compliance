@@ -1,116 +1,133 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Upload Your Documents</title>
-<style>
-body{margin:0;background:#071326;color:#fff;font-family:Arial,Helvetica,sans-serif}
-.wrap{max-width:900px;margin:0 auto;padding:80px 24px}
-h1{font-size:54px;line-height:1.05;margin:0 0 22px;font-weight:900}
-p{font-size:21px;line-height:1.55;color:#b7d3ff;margin:0 0 18px}
-.card{background:#10233d;border:1px solid #274465;border-radius:22px;padding:32px;margin-top:34px}
-label{display:block;font-weight:800;margin:20px 0 8px}
-input,textarea{width:100%;box-sizing:border-box;background:#07111f;color:#fff;border:1px solid #315173;border-radius:12px;padding:16px;font-size:16px}
-textarea{min-height:120px}
-.uploadBox{border:2px dashed #2c8cff;border-radius:18px;padding:34px;text-align:center;margin-top:28px}
-.uploadBox h2{margin:0 0 12px;font-size:28px}
-.qr{margin-top:28px;text-align:center;background:#07111f;border:1px solid #274465;border-radius:18px;padding:28px}
-.qr img{width:260px;max-width:100%;background:#fff;padding:14px;border-radius:16px}
-button{margin-top:28px;background:#2c8cff;color:#fff;border:0;border-radius:14px;padding:18px 28px;font-size:18px;font-weight:900;cursor:pointer}
-.small{font-size:15px;color:#88a8cf;margin-top:18px}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KeepYourContracts | Evidence Upload</title>
+  <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
+  <link rel="stylesheet" href="/ui/assets/styles/layout.css">
+  <link rel="stylesheet" href="/ui/assets/styles/components.css">
 </head>
-<body>
-<div class="wrap">
-<h1>Upload Your Documentation Exactly As It Is</h1>
+<body class="kyc-page">
+  <header class="kyc-topbar">
+    <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
+    <nav class="kyc-nav" aria-label="Primary">
+      <a href="/ui/shop.html">Services</a>
+      <a href="/ui/inquiry.html">Contact</a>
+    </nav>
+  </header>
 
-<p>Most companies start with scattered files, emails, screenshots, spreadsheets, policies, scans, photos, and vendor paperwork.</p>
+  <main class="kyc-main kyc-main--narrow">
+    <section class="kyc-hero">
+      <span class="kyc-badge kyc-badge--success">Evidence collection</span>
+      <h1>Upload documentation exactly as it is</h1>
+      <p>Policies, contracts, spreadsheets, scans, and vendor paperwork  upload what you have. We structure the rest.</p>
+    </section>
 
-<p><strong style="color:white;">Upload whatever you already have. We will take it from here.</strong></p>
+    <div class="kyc-flow-steps" aria-label="Onboarding flow">
+      <div class="kyc-flow-step"><strong>Step 1</strong> Inquiry</div>
+      <div class="kyc-flow-step"><strong>Step 2</strong> Intake</div>
+      <div class="kyc-flow-step kyc-flow-step--active"><strong>Step 3</strong> Evidence upload</div>
+    </div>
 
-<div class="card">
-<form id="uploadForm" enctype="multipart/form-data">
+    <article class="kyc-card kyc-card--flat">
+      <span class="kyc-label-overline">Secure evidence register</span>
+      <h2>Submit files</h2>
+      <form id="uploadForm" class="kyc-form" enctype="multipart/form-data">
+        <div class="kyc-field">
+          <label for="project_id">Project ID</label>
+          <input type="text" id="project_id" name="project_id" placeholder="From intake link (P-)" required>
+        </div>
+        <div class="kyc-field">
+          <label for="email">Email address</label>
+          <input type="email" id="email" name="email" placeholder="you@company.com" required autocomplete="email">
+        </div>
+        <div class="kyc-field">
+          <label for="notes">Notes (optional)</label>
+          <textarea id="notes" name="notes" placeholder="Optional context for this upload batch."></textarea>
+        </div>
+        <div class="kyc-upload-zone">
+          <h3>Upload documents</h3>
+          <p>Choose files from your computer, or use the QR code for mobile capture.</p>
+          <input type="file" name="files" multiple>
+        </div>
+        <div class="kyc-qr-block">
+          <h3>Continue on mobile</h3>
+          <p>Scan to upload photos, scans, and supporting documents from your phone.</p>
+          <img src="/ui/assets/qr/kyc_upload_qr.png" alt="Upload QR Code">
+        </div>
+        <button class="kyc-btn kyc-btn--primary kyc-btn--block" type="submit">Upload documents</button>
+        <p class="kyc-status">Your documents stay private. Upload what you have; we help organize the rest.</p>
+      </form>
+    </article>
+    <p id="status" class="kyc-status" role="status" aria-live="polite"></p>
+  </main>
 
-<label>Project ID</label>
-<input type="text" id="project_id" name="project_id" placeholder="From intake link (P-…)" required>
+  <footer class="kyc-footer">KeepYourContracts.com · Evidence workflow</footer>
 
-<label>Email Address</label>
-<input type="email" id="email" name="email" placeholder="you@company.com" required>
-
-<label>Notes (Optional)</label>
-<textarea name="notes" placeholder="Optional: add anything useful, or leave this blank and upload your documents."></textarea>
-
-<div class="uploadBox">
-<h2>Upload Your Documents</h2>
-<p>Choose files from your computer, or use the QR code below to continue on mobile.</p>
-<input type="file" name="files" multiple>
-</div>
-
-<div class="qr">
-<h2>Continue On Mobile</h2>
-<p>Scan this QR code to upload photos, scans, screenshots, and supporting documents from your phone.</p>
-<img src="/ui/assets/qr/kyc_upload_qr.png" alt="Upload QR Code">
-</div>
-
-<button type="submit">Upload My Documents</button>
-
-<p class="small">Your documents stay private. Upload what you have, and we will help organize the rest.</p>
-
-</form>
-</div>
-<p id="status" class="small"></p>
-</div>
-<script>
-(async function () {
-  const params = new URLSearchParams(location.search);
-  const pidInput = document.getElementById("project_id");
-  const emailInput = document.getElementById("email");
-  const status = document.getElementById("status");
-  let projectId = params.get("project_id") || "";
-  const token = params.get("token") || "";
-  if (!projectId && token) {
-    try {
-      const r = await fetch("/api/intake/resolve?token=" + encodeURIComponent(token));
-      const j = await r.json();
-      if (j.ok) {
-        projectId = j.project_id;
-        if (j.email) emailInput.value = j.email;
-      }
-    } catch (_) {}
-  }
-  if (projectId) pidInput.value = projectId;
-  if (!projectId) status.textContent = "Complete intake first, or open the upload link from your welcome email.";
-
-  document.getElementById("uploadForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const pid = pidInput.value.trim();
-    const email = emailInput.value.trim();
-    const files = document.querySelector('input[type="file"]').files;
-    if (!pid) return (status.textContent = "Project ID is required.");
-    if (!files.length) return (status.textContent = "Choose at least one file.");
-    status.textContent = "Uploading…";
-    let ok = 0;
-    for (const file of files) {
-      const fd = new FormData();
-      fd.append("file", file);
-      const q = new URLSearchParams({
-        project_id: pid,
-        media_type: "document",
-        owner: email || "client",
-      });
+  <script>
+  (async function () {
+    const params = new URLSearchParams(location.search);
+    const pidInput = document.getElementById("project_id");
+    const emailInput = document.getElementById("email");
+    const status = document.getElementById("status");
+    let projectId = params.get("project_id") || "";
+    const token = params.get("token") || "";
+    if (!projectId && token) {
       try {
-        const res = await fetch("/api/evidence/register?" + q.toString(), { method: "POST", body: fd });
-        const j = await res.json();
-        if (res.ok && j.ok) ok++;
+        const r = await fetch("/api/intake/resolve?token=" + encodeURIComponent(token));
+        const j = await r.json();
+        if (j.ok) {
+          projectId = j.project_id;
+          if (j.email) emailInput.value = j.email;
+        }
       } catch (_) {}
     }
-    status.textContent = ok
-      ? "Uploaded " + ok + " file(s). Thank you."
-      : "Upload failed — check project ID and try again.";
-  });
-})();
-</script>
+    if (projectId) pidInput.value = projectId;
+    if (!projectId) {
+      status.className = "kyc-status kyc-status--error";
+      status.textContent = "Complete intake first, or open the upload link from your welcome email.";
+    }
+
+    document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const pid = pidInput.value.trim();
+      const email = emailInput.value.trim();
+      const files = document.querySelector('input[type="file"]').files;
+      if (!pid) {
+        status.className = "kyc-status kyc-status--error";
+        return (status.textContent = "Project ID is required.");
+      }
+      if (!files.length) {
+        status.className = "kyc-status kyc-status--error";
+        return (status.textContent = "Choose at least one file.");
+      }
+      status.className = "kyc-status";
+      status.textContent = "Uploading";
+      let ok = 0;
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const q = new URLSearchParams({
+          project_id: pid,
+          media_type: "document",
+          owner: email || "client",
+        });
+        try {
+          const res = await fetch("/api/evidence/register?" + q.toString(), { method: "POST", body: fd });
+          const j = await res.json();
+          if (res.ok && j.ok) ok++;
+        } catch (_) {}
+      }
+      if (ok) {
+        status.className = "kyc-status kyc-status--ok";
+        status.textContent = "Uploaded " + ok + " file(s). Thank you.";
+      } else {
+        status.className = "kyc-status kyc-status--error";
+        status.textContent = "Upload failed  check project ID and try again.";
+      }
+    });
+  })();
+  </script>
 </body>
 </html>
-
