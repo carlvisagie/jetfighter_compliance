@@ -81,7 +81,18 @@ docs/UNTRACKED_ARTIFACT_REVIEW_RESULT.md
 
 ## Final git status
 
-Recorded at commit time in section below after push.
+```text
+On branch main
+Your branch is up to date with 'origin/main'.
+
+nothing to commit, working tree clean
+```
+
+| Item | Value |
+|------|--------|
+| Latest commit | `943db24` — Task 16 commit operational docs and verifier artifacts |
+| `origin/main` | `943db2497475fa23d7d75ce5ae3f18d59e55a153` |
+| HEAD equals remote | **Yes** |
 
 ---
 
@@ -92,5 +103,5 @@ Recorded at commit time in section below after push.
 | Valuable docs/scripts committed | **Done** |
 | Secrets not committed | **Done** |
 | Temp junk removed | **Done** |
-| Git status clean | **Pending commit** |
-| origin/main in sync | **Pending push** |
+| Git status clean | **Done** |
+| origin/main in sync | **Done** |
