@@ -23,7 +23,9 @@ f.addEventListener('submit', async (e)=>{
   const fd=new FormData(f);
   const r=await fetch('/api/inquiry/submit',{method:'POST',body:fd});
   const j=await r.json();
-  m.textContent = j.ok ? 'Thanksmessage received.' : ('Error: '+(j.detail||r.status));
+  m.textContent = j.ok
+    ? (j.intake_url ? 'Thanks — check your email for intake, or open: ' + j.intake_url : 'Thanks — message received.')
+    : ('Error: '+(j.detail||r.status));
   if(j.ok) f.reset();
 });
 </script>

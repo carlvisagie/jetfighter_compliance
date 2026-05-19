@@ -9,8 +9,9 @@
 ## Agents — start here
 
 1. **[`AGENTS.md`](./AGENTS.md)** — rules, paths, deploy, do-not-confuse-with-Sage  
-2. **SAGE coaching docs** (if you crossed into wrong repo):  
-   https://github.com/carlvisagie/purposeful-platform/tree/main/docs  
+2. **Ecosystem stabilization (SAGE repo):**  
+   https://github.com/carlvisagie/purposeful-platform/blob/main/docs/STABILIZATION_STATUS_MASTER.md  
+3. **KYC live verification:** [`KYC_PRODUCTION_VERIFICATION.md`](./KYC_PRODUCTION_VERIFICATION.md)  
 
 ---
 
@@ -18,7 +19,7 @@
 
 | Path | Role |
 |------|------|
-| `server.py` | FastAPI app, webhooks, API, static `/ui` mount |
+| `server.py` | FastAPI app, direct onboarding API, static `/ui` mount |
 | `ui/shop.html` | **Landing / offers** (Stripe Payment Links) |
 | `ui/inquiry.html` | Contact form |
 | `ui/intake.html` | Post-sale client intake |

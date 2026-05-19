@@ -19,7 +19,5 @@ services:
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
-      - key: SHOPIFY_SECRET
-        sync: false
       - key: DATABASE_URL
         sync: false

@@ -9,15 +9,24 @@ except Exception as e:
     print("FASTAPI import failed:", e)
 
 from fastapi import FastAPI, Request, HTTPException, Form, UploadFile, File, Body
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 # --- Services & config ---
-from services.config import ROOT, DATA, LOGS, SETTINGS
-from services.security import verify_shopify_hmac, make_intake_token, parse_intake_token
-from services.adapters.shopify import extract_paid_order
+from services.config import ROOT, DATA, LOGS, SETTINGS, PROJECTS
+from services.security import make_intake_token, parse_intake_token
 from services.adapters.generic import extract_generic
+from services.public_url import get_public_base_url
+from services.stripe_hook import verify_stripe_signature, parse_checkout_completed
+from services.production import (
+    startup_warnings,
+    readiness_checks,
+    require_ops_access,
+    safe_upload_filename,
+    validate_project_id,
+    is_production,
+)
 from services.projects import new_project
 from services.emails import send_email
 from services.ledger import register_artifact, record_event
@@ -41,10 +50,29 @@ app.add_middleware(
 )
 app.mount("/ui", StaticFiles(directory=str(ROOT / "ui"), html=True), name="ui")
 
-from fastapi.responses import FileResponse
+
+@app.get("/")
+def root_redirect():
+    return RedirectResponse(url="/ui/shop.html", status_code=302)
+
+
+@app.get("/shop.html")
+def shop_alias_redirect():
+    return RedirectResponse(url="/ui/shop.html", status_code=302)
+
+
+@app.get("/inquiry.html")
+def inquiry_alias_redirect():
+    return RedirectResponse(url="/ui/inquiry.html", status_code=302)
+
 
 @app.get("/upload")
 def upload_page():
+    return FileResponse(ROOT / "ui" / "upload.html")
+
+
+@app.get("/ui/upload.html")
+def upload_ui_alias():
     return FileResponse(ROOT / "ui" / "upload.html")
 
 # === PATCH INSERT START ===
@@ -63,19 +91,51 @@ cfg = {}
 # ---------- Startup ----------
 @app.on_event("startup")
 def _boot_worker():
+    for w in startup_warnings():
+        logging.warning("[startup] %s", w)
     try:
         start_worker()
         logging.info("Worker started")
     except Exception as e:
         logging.exception("Worker failed to start: %s", e)
+    checks = readiness_checks()
+    logging.info("[startup] readiness=%s public_base=%s", checks.get("data_writable"), checks.get("public_base_url"))
 
 # ---------- Health ----------
 @app.get("/healthz")
 def health():
-    return {"ok": True}
+    """Liveness — always ok if process is up (Render healthCheckPath)."""
+    return {"ok": True, "service": "kyc-backend"}
+
+
+@app.get("/health/ready")
+def health_ready():
+    """Readiness — data dirs + config flags (monitoring; not used by Render default)."""
+    checks = readiness_checks()
+    core_ok = checks["data_writable"] and checks["projects_dir"]
+    status = "ready" if core_ok else "degraded"
+    return {"ok": core_ok, "status": status, "checks": checks}
 
 # ---------- Internal helper ----------
+def _find_project_by_order(order_id: str) -> Optional[str]:
+    prefix = f"P-{order_id}-"
+    matches = sorted(PROJECTS.glob(f"{prefix}*"), reverse=True)
+    return matches[0].name if matches else None
+
+
 def kickoff(order_id: str, email: str, name: str, skus: list):
+    existing = _find_project_by_order(order_id)
+    if existing:
+        token = make_intake_token(existing, email)
+        intake_url = f"{get_public_base_url()}/ui/intake?token={token}"
+        upload_url = f"{get_public_base_url()}/upload?project_id={existing}"
+        return {
+            "ok": True,
+            "project_id": existing,
+            "intake_url": intake_url,
+            "upload_url": upload_url,
+            "existing": True,
+        }
     meta = new_project(order_id, email, name, skus)
     try:
         init_workflow(meta["project_id"], skus)
@@ -84,11 +144,14 @@ def kickoff(order_id: str, email: str, name: str, skus: list):
         logging.error(f"Failed to initialize workflow for project {meta['project_id']}: {e}")
 
     token = make_intake_token(meta["project_id"], email)
-    intake_url = f"{SETTINGS.public_base_url}/ui/intake?token={token}"
+    base = get_public_base_url()
+    intake_url = f"{base}/ui/intake?token={token}"
+    upload_url = f"{base}/upload?project_id={meta['project_id']}"
     html = f"""
     <h2>Welcome to KeepYourContracts</h2>
     <p>Your compliance project <b>{meta['project_id']}</b> is created.</p>
     <p>Please complete intake here: <a href="{intake_url}">{intake_url}</a></p>
+    <p>After intake, upload documents here: <a href="{upload_url}">{upload_url}</a></p>
     """
     try:
         send_email(email, "Welcome  Your Compliance Project", html)
@@ -98,7 +161,7 @@ def kickoff(order_id: str, email: str, name: str, skus: list):
     record_event({
         "event_id": f"EVT-{meta['project_id']}-ORDER",
         "event_type": "ATTEST",
-        "why": "Order paid; project created",
+        "why": "Onboarding started; project created",
         "when_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "who": {"name":"System","role":"Automation","email":"noreply@keepyourcontracts.com"},
         "where": {"address":"System"},
@@ -106,19 +169,50 @@ def kickoff(order_id: str, email: str, name: str, skus: list):
         "prev_hash": "GENESIS",
         "hash": "temp"
     })
-    return {"ok": True, "project_id": meta["project_id"], "intake_url": intake_url}
+    return {
+        "ok": True,
+        "project_id": meta["project_id"],
+        "intake_url": intake_url,
+        "upload_url": upload_url,
+    }
 
-# ---------- Webhooks / Payment ----------
-@app.post("/webhooks/shopify/orders-paid")
-async def shopify_orders_paid(request: Request):
+# ---------- Stripe (Payment Links → kickoff) ----------
+@app.post("/webhooks/stripe")
+async def stripe_webhook(request: Request):
     raw = await request.body()
-    hmac_header = request.headers.get("X-Shopify-Hmac-Sha256","")
-    if not verify_shopify_hmac(raw, hmac_header):
-        raise HTTPException(status_code=401, detail="Invalid HMAC")
-    payload = json.loads(raw.decode("utf-8"))
-    order_id, email, name, skus = extract_paid_order(payload)
-    if not order_id or not email:
-        raise HTTPException(400, "Missing order id or email")
+    sig = request.headers.get("Stripe-Signature", "")
+    secret = SETTINGS.stripe_webhook_secret
+    if not secret:
+        raise HTTPException(status_code=503, detail="STRIPE_WEBHOOK_SECRET not configured")
+    if not verify_stripe_signature(raw, sig, secret):
+        raise HTTPException(status_code=401, detail="Invalid Stripe signature")
+    try:
+        event = json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+    event_type = event.get("type", "")
+    if event_type != "checkout.session.completed":
+        return {"ok": True, "ignored": event_type}
+    order_id, email, name, skus = parse_checkout_completed(event)
+    if not email:
+        raise HTTPException(status_code=400, detail="Missing customer email on checkout session")
+    res = kickoff(order_id, email, name or email, skus)
+    try:
+        enqueue("post_payment", {"order_id": order_id, "email": email, "name": name, "skus": skus, "source": "stripe"})
+    except Exception as e:
+        logging.warning("Stripe kickoff enqueue failed for %s: %s", order_id, e)
+    return res
+
+# ---------- Onboarding kickoff (direct; no Shopify) ----------
+@app.post("/events/payment/test")
+async def events_payment_test(request: Request, evt: dict):
+    require_ops_access(request)
+    try:
+        order_id, email, name, skus = extract_generic(evt)
+    except (KeyError, TypeError) as e:
+        raise HTTPException(status_code=400, detail=f"Invalid payload: {e}")
+    if not email:
+        raise HTTPException(status_code=400, detail="email required")
     res = kickoff(order_id, email, name, skus)
     try:
         enqueue("post_payment", {"order_id": order_id, "email": email, "name": name, "skus": skus})
@@ -126,17 +220,62 @@ async def shopify_orders_paid(request: Request):
         logging.warning(f"Queue enqueue failed for order {order_id}: {e}")
     return res
 
-@app.post("/events/payment/test")
-async def events_payment_test(evt: dict):
-    order_id, email, name, skus = extract_generic(evt)
-    res = kickoff(order_id, email, name, skus)
+# ---------- Inquiry (contact form) ----------
+@app.post("/api/inquiry/submit")
+async def inquiry_submit(
+    name: str = Form(...),
+    email: str = Form(...),
+    subject: str = Form(...),
+    message: str = Form(...),
+):
+    payload = {
+        "name": name,
+        "email": email,
+        "subject": subject,
+        "message": message,
+        "received_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    inquiries_dir = DATA / "inquiries"
+    inquiries_dir.mkdir(parents=True, exist_ok=True)
+    safe_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    (inquiries_dir / f"inquiry-{safe_id}.json").write_text(json.dumps(payload, indent=2))
+    html = (
+        f"<h3>Inquiry from {name}</h3>"
+        f"<p><b>Email:</b> {email}<br><b>Subject:</b> {subject}</p>"
+        f"<pre>{message}</pre>"
+    )
+    notify_to = SETTINGS.digest_email_to or SETTINGS.smtp_from_email
+    if notify_to:
+        try:
+            send_email(notify_to, f"Inquiry: {subject}", html)
+        except Exception as e:
+            logging.warning("Inquiry notify email failed: %s", e)
+    logging.info("Inquiry received from %s <%s>: %s", name, email, subject)
+    order_id = f"INQ-{safe_id}"
+    skus = [subject.strip()[:80] or "GENERAL-INQUIRY"]
     try:
-        enqueue("post_payment", {"order_id": order_id, "email": email, "name": name, "skus": skus})
+        res = kickoff(order_id, email, name or email, skus)
+        return {
+            "ok": True,
+            "project_id": res["project_id"],
+            "intake_url": res["intake_url"],
+            "upload_url": res.get("upload_url"),
+        }
     except Exception as e:
-        logging.warning(f"Queue enqueue failed for order {order_id}: {e}")
-    return res
+        logging.exception("Inquiry kickoff failed for %s: %s", email, e)
+        return {"ok": True, "kickoff": False, "detail": "Inquiry saved; project creation failed"}
+
 
 # ---------- Intake ----------
+@app.get("/api/intake/resolve")
+def intake_resolve(token: str):
+    try:
+        info = parse_intake_token(token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    return {"ok": True, "project_id": info["p"], "email": info.get("e", "")}
+
+
 @app.get("/ui/intake", response_class=HTMLResponse)
 def intake_page():
     return FileResponse(str(ROOT / "ui" / "intake.html"))
@@ -210,7 +349,11 @@ async def intake_submit(
     except Exception as e:
         logging.warning(f"Failed to update checklist for project {project_id}: {e}")
 
-    return {"ok": True, "project_id": project_id}
+    return {
+        "ok": True,
+        "project_id": project_id,
+        "upload_url": f"{get_public_base_url()}/upload?project_id={project_id}",
+    }
 
 # ---------- Chain of Custody / Evidence (with schema validation) ----------
 @app.post("/api/coc/event")
@@ -228,9 +371,13 @@ async def coc_event(event: dict):
     return {"ok": True, "event": rec}
 @app.post("/api/evidence/register")
 async def evidence_register(project_id: str, media_type: str, owner: str, file: UploadFile = File(...)):
+    validate_project_id(project_id)
+    safe_name = safe_upload_filename(file.filename or "upload.bin")
+    if file.size and file.size > 52_428_800:
+        raise HTTPException(status_code=413, detail="File too large (max 50MB)")
     pdir = DATA / "projects" / project_id / "evidence"
     pdir.mkdir(parents=True, exist_ok=True)
-    dest = pdir / file.filename
+    dest = pdir / safe_name
     dest.write_bytes(await file.read())
     # quick preview validation (full hash computed inside register_artifact)
     from datetime import datetime as _dt
@@ -420,28 +567,31 @@ test_router = APIRouter()
 
 @test_router.post("/api/test-webhook")
 async def test_webhook(request: Request):
+    """Ops-only: exercise kickoff() with a JSON body (same shape as /events/payment/test)."""
+    require_ops_access(request)
     try:
         data = await request.json()
-        print("✅ Webhook Received:", data)
-
-        subject = f"✅ TEST Order: {data.get('id', 'N/A')}"
-        items = data.get("line_items", [])
-        if not isinstance(items, list):
-            print("⚠️ line_items is not a list:", items)
-            items = []
-
-        body = f"Email: {data.get('email', 'none')}\nLine Items:\n"
-        for item in items:
-            body += f"  – {item.get('title', 'N/A')} (SKU: {item.get('sku', 'N/A')})\n"
-
-        from services.emails import send_email
-        send_email(to_email=data.get("email", "fallback@example.com"), subject=subject, html_body=body)
-
-        return JSONResponse(content={"received": True, "data": data})
+        order_id = str(data.get("order_id") or data.get("id") or f"TEST-{int(datetime.now(timezone.utc).timestamp())}")
+        email = data.get("email") or ""
+        name = data.get("name") or email
+        skus = list(data.get("skus") or [])
+        if not skus:
+            for item in data.get("line_items") or []:
+                if isinstance(item, dict):
+                    skus.append((item.get("sku") or item.get("title") or "ITEM").strip())
+        if not email:
+            raise HTTPException(status_code=400, detail="email required")
+        if not skus:
+            skus = ["TEST-SKU"]
+        res = kickoff(order_id, email, name, skus)
+        return JSONResponse(content={"received": True, **res})
+    except HTTPException:
+        raise
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logging.exception("test-webhook kickoff failed: %s", e)
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+app.include_router(test_router)
 
        
 # ---------- START UVICORN SERVER ----------
@@ -453,12 +603,4 @@ if __name__ == "__main__":
         port=8080
     )
 
-
-
-
-from fastapi.responses import FileResponse
-
-@app.get("/upload")
-def upload_page():
-    return FileResponse(ROOT / "ui" / "upload.html")
 

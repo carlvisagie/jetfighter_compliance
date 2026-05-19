@@ -18,7 +18,6 @@ class Settings(BaseModel):
     digest_email_to: str = os.getenv('DIGEST_EMAIL_TO','')
     export_keep_latest: int = int(os.getenv('EXPORT_KEEP_LATEST','5'))
     smtp_enabled: bool = os.getenv('SMTP_ENABLED','false').lower()=='true'
-    shopify_webhook_secret: str = Field(default=os.getenv("SHOPIFY_WEBHOOK_SECRET",""))
     smtp_host: str = os.getenv("SMTP_HOST","")
     smtp_port: int = int(os.getenv("SMTP_PORT","587"))
     smtp_user: str = os.getenv("SMTP_USER","")
@@ -27,6 +26,8 @@ class Settings(BaseModel):
     smtp_from_email: str = os.getenv("SMTP_FROM_EMAIL","")
     public_base_url: str = os.getenv("PUBLIC_BASE_URL","http://127.0.0.1:8080")
     intake_token_secret: str = os.getenv("INTAKE_TOKEN_SECRET","dev-dev-dev-dev-dev")
+    stripe_webhook_secret: str = Field(default=os.getenv("STRIPE_WEBHOOK_SECRET", ""))
+    environment: str = os.getenv("ENVIRONMENT", "development")
 
 SETTINGS = Settings()
 

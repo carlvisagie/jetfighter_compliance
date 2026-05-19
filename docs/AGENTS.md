@@ -31,21 +31,23 @@ You should be in **`jetfighter_compliance`**, not `purposeful-platform`.
 
 ---
 
-## Payment → fulfillment
+## Onboarding → fulfillment (direct; no Shopify)
 
 | Path | Handler |
 |------|---------|
-| Shopify paid | `POST /webhooks/shopify/orders-paid` |
-| Test / generic | `POST /events/payment/test` |
-| Stripe Payment Links | Money collects in Stripe — **webhook to `kickoff()` must be verified** for auto-intake email |
+| Contact inquiry | `POST /api/inquiry/submit` → `kickoff()` |
+| Ops / manual project | `POST /events/payment/test` → `kickoff()` |
+| Ops kickoff test UI | `POST /api/test-webhook` → `kickoff()` |
+| Stripe Payment Links | `POST /webhooks/stripe` on `checkout.session.completed` → `kickoff()` |
 
 ---
 
 ## Deploy
 
 - **Render service:** `kyc-backend` (Docker)  
-- **Health:** `GET /healthz`  
-- **Env:** `PUBLIC_BASE_URL`, `STRIPE_*`, `SHOPIFY_*`, `DATABASE_URL`, SMTP  
+- **Health:** `GET /healthz` (liveness), `GET /health/ready` (readiness)  
+- **Env:** `ENVIRONMENT=production`, `INTAKE_TOKEN_SECRET`, `STRIPE_WEBHOOK_SECRET`, `PUBLIC_BASE_URL` or `RENDER_EXTERNAL_URL`, `OPS_API_KEY` (test routes), SMTP optional  
+- **Remove:** `SHOPIFY_*`, unused `STRIPE_SECRET` unless wired later  
 
 Dockerfile uses port `10000`; confirm Render `PORT` binding matches.
 
