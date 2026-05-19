@@ -230,6 +230,43 @@
   background: var(--kyc-accent-soft);
 }
 
+/* Task 14: ops page section rhythm (shop parity) */
+.kyc-main--ops .kyc-section {
+  padding: var(--kyc-space-8) 0;
+}
+
+.kyc-main--ops > h2 {
+  font-size: var(--kyc-text-xl);
+  margin: var(--kyc-space-10) 0 var(--kyc-space-4);
+}
+
+.kyc-hero--compact {
+  padding: var(--kyc-space-8) 0 var(--kyc-space-4);
+}
+
+.kyc-hero--compact h1 {
+  margin: var(--kyc-space-3) 0;
+}
+
+.kyc-hero--compact p {
+  margin: 0;
+  max-width: 40rem;
+  color: var(--kyc-text-muted);
+}
+
+.kyc-hero--readiness,
+.kyc-hero-readiness {
+  padding: var(--kyc-space-8) 0 var(--kyc-space-6);
+  border-bottom: 1px solid var(--kyc-line-soft);
+  margin-bottom: var(--kyc-space-6);
+}
+
+.kyc-hero-lead {
+  margin: var(--kyc-space-3) 0 0;
+  color: var(--kyc-text-muted);
+  max-width: 44rem;
+}
+
 @media (max-width: 900px) {
   .kyc-hero--split,
   .kyc-grid--intake,

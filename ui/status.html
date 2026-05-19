@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/ui/assets/styles/layout.css">
   <link rel="stylesheet" href="/ui/assets/styles/components.css">
   <link rel="stylesheet" href="/ui/assets/styles/ops-dashboard.css">
+
 </head>
 <body class="kyc-page kyc-surface-ops">
   <header class="kyc-topbar">
@@ -15,30 +16,35 @@
     <nav class="kyc-nav kyc-nav--ops" aria-label="Operations">
       <a href="/ui/control.html">Control</a>
       <a href="/ui/command.html">Command</a>
-      <a href="/ui/status.html" aria-current="page">Status</a>
+      <a href="/ui/status.html">Status</a>
       <a href="/ui/inbox.html">Inbox</a>
+      <a href="/ui/shop.html">Public site</a>
     </nav>
   </header>
 
   <div class="kyc-ops-header">
     <div>
       <h1>Project status</h1>
-      <p class="kyc-ops-subtitle">Client workflow steps · external costs · RFQ</p>
+      <p class="kyc-ops-subtitle">Workflow steps · external costs · vendor RFQ</p>
     </div>
   </div>
-
   <main class="kyc-main kyc-main--ops">
-    <div class="card">
-      <span class="kyc-label-overline">Projects</span>
-      <div id="list" class="kyc-loading">Loading…</div>
-    </div>
-
-    <h2>Project detail</h2>
-    <div id="detail" class="card kyc-table-wrap"></div>
+    <section class="kyc-section" style="padding-top:0;">
+      <article class="card kyc-project-list">
+        <span class="kyc-label-overline">Active projects</span>
+        <h2>Select a project</h2>
+        <div id="list" class="kyc-loading">Loading…</div>
+      </article>
+    </section>
+    <section class="kyc-section">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">Detail</span>
+        <h2>Project detail</h2>
+      </header>
+      <article id="detail" class="card kyc-table-wrap"></article>
+    </section>
   </main>
-
-  <footer class="kyc-footer">KeepYourContracts.com · Status</footer>
-
+  <footer class="kyc-footer">KeepYourContracts.com · Project status</footer>
   <script>
   async function api(p, opts) { const r = await fetch(p, opts || {}); return r.json(); }
   function badge(c) { return '<span class="badge ' + c + '">' + c + '</span>'; }
@@ -52,45 +58,44 @@
     const d = await api('/api/project/' + pid + '/status');
     const s = d.status;
     const det = document.getElementById('detail');
-    det.innerHTML = '<p><b>' + pid + '</b> Phase: ' + s.phase + ' RAG: ' + badge(s.rag) + ' <span id="ecost" class="badge amber">External Costs: checking...</span></p>' +
+    det.innerHTML = '<p><b>' + pid + '</b> · Phase: ' + s.phase + ' · RAG: ' + badge(s.rag) + ' <span id="ecost" class="badge amber">External costs: checking…</span></p>' +
       '<table><tr><th>Step</th><th>Required</th><th>Status</th><th>Due</th><th>Action</th></tr>' +
       s.steps.map(x => '<tr><td>' + x.title + '</td><td>' + (x.required ? 'Yes' : 'No') + '</td><td>' + x.status + '</td><td>' + (x.due_utc || '') + '</td>' +
-        '<td>' + (x.status === 'todo' ? '<button class="btn" type="button" onclick="advance(\'' + pid + '\',\'' + x.id + '\')">Mark Done</button>' : '') + '</td></tr>').join('') +
+        '<td>' + (x.status === 'todo' ? '<button class="btn" type="button" onclick="advance(\'' + pid + '\',\'' + x.id + '\')">Mark done</button>' : '') + '</td></tr>').join('') +
       '</table><div id="vendors"></div><div id="rfq"></div>';
     const c = await api('/api/project/' + pid + '/costs');
     const tag = document.getElementById('ecost');
     if (c.costs && c.costs.requires_external) {
       tag.className = 'badge red';
-      const list = c.costs.items.map(i => i.title).join(', ');
-      tag.textContent = 'External Costs: ' + list + ' (' + Math.round(c.costs.sum_min_eur) + Math.round(c.costs.sum_max_eur) + ')';
+      tag.textContent = 'External costs: ' + c.costs.items.map(i => i.title).join(', ');
       const blocks = await Promise.all(c.costs.items.map(async it => {
         const v = await api('/api/vendors?category=' + it.code);
         if (!v.vendors || !v.vendors.length) return '';
-        return '<h4>Vendor Suggestions — ' + it.title + '</h4><ul>' + v.vendors.map(x => '<li><a target="_blank" rel="noopener" href="' + x.url + '">' + x.name + '</a> <em>(' + x.type + ')</em> ' + (x.notes || '') + '</li>').join('') + '</ul>';
+        return '<h4>Vendor suggestions — ' + it.title + '</h4><ul>' + v.vendors.map(x => '<li><a target="_blank" rel="noopener" href="' + x.url + '">' + x.name + '</a></li>').join('') + '</ul>';
       }));
       document.getElementById('vendors').innerHTML = blocks.join('');
     } else {
       tag.className = 'badge green';
-      tag.textContent = 'External Costs: 0';
+      tag.textContent = 'External costs: none';
       document.getElementById('vendors').innerHTML = '';
     }
-    document.getElementById('rfq').innerHTML = '<p><button class="btn" type="button" onclick="launchRFQ(\'' + pid + '\')">Launch RFQ for this need</button></p>';
+    document.getElementById('rfq').innerHTML = '<p><button class="btn" type="button" onclick="launchRFQ(\'' + pid + '\')">Launch RFQ</button></p>';
   }
   async function advance(pid, sid) {
     await api('/api/project/' + pid + '/advance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ step_id: sid }) });
     show(pid);
   }
   async function launchRFQ(pid) {
-    const cat = prompt('Category code (e.g., gs1, cmmc_l2_c3pao, pentest, lab_ce):', 'gs1');
+    const cat = prompt('Category code (e.g., gs1, pentest):', 'gs1');
     if (!cat) return;
     const v = await api('/api/vendors?category=' + encodeURIComponent(cat));
     const invitees = (v.vendors || []).filter(x => x.url).slice(0, 5).map(x => ({ name: x.name, email: '', url: x.url }));
-    const body = { project_id: pid, category: cat, title: 'RFQ for ' + cat.toUpperCase(), spec: {}, invitees: invitees };
-    const r = await fetch('/api/rfq/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const r = await fetch('/api/rfq/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project_id: pid, category: cat, title: 'RFQ for ' + cat.toUpperCase(), spec: {}, invitees }) });
     const j = await r.json();
     alert(j.ok ? 'RFQ created: ' + j.rfq_id : 'Error: ' + j.error);
   }
   load();
   </script>
+  <footer class="kyc-footer">KeepYourContracts.com · Enterprise Compliance Workflow Platform</footer>
 </body>
 </html>

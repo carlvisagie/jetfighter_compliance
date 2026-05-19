@@ -1,14 +1,13 @@
-﻿ï»¿<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Compliance Command Center</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
-    <link rel="stylesheet" href="/ui/assets/styles/layout.css">
-    <link rel="stylesheet" href="/ui/assets/styles/components.css">
-    <link rel="stylesheet" href="/ui/assets/styles/ops-dashboard.css">
-
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KeepYourContracts | Command Center</title>
+  <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
+  <link rel="stylesheet" href="/ui/assets/styles/layout.css">
+  <link rel="stylesheet" href="/ui/assets/styles/components.css">
+  <link rel="stylesheet" href="/ui/assets/styles/ops-dashboard.css">
 </head>
 <body class="kyc-page kyc-surface-ops">
   <header class="kyc-topbar">
@@ -16,15 +15,30 @@
     <nav class="kyc-nav kyc-nav--ops" aria-label="Operations">
       <a href="/ui/control.html">Control</a>
       <a href="/ui/command.html" aria-current="page">Command</a>
+      <a href="/ui/status.html">Status</a>
+      <a href="/ui/inbox.html">Inbox</a>
+      <a href="/ui/shop.html">Public site</a>
     </nav>
   </header>
 
-<div class="page">
+  <div class="kyc-ops-header">
+    <div>
+      <h1>Command center</h1>
+      <p class="kyc-ops-subtitle">Consolidated health, events, and system status · Live refresh</p>
+    </div>
+    <div class="kyc-ops-badges">
+      <span class="kyc-pill" id="badge-health"><span class="kyc-badge-dot" id="badge-health-dot"></span> <span id="badge-health-label">Core: Unknown</span></span>
+      <span class="kyc-pill" id="badge-refresh-label">Last refresh: —</span>
+      <a class="kyc-btn kyc-btn--secondary" href="/ui/control.html">Control panel</a>
+    </div>
+  </div>
+  <main class="kyc-main kyc-main--ops">
+<div class="page kyc-command-shell">
     <header>
         <div class="title-block">
             <h1>Compliance Command Center</h1>
             <div class="subtitle" id="header-subtitle">
-                Consolidated health, events, and system status ÃÂ· Live
+                Consolidated health, events, and system status · Live
             </div>
         </div>
         <div class="badges">
@@ -34,10 +48,10 @@
             </div>
             <div class="badge">
                 <span class="dot muted"></span>
-                <span id="badge-refresh-label">Last refresh: Ã¢â¬â</span>
+                <span id="badge-refresh-label">Last refresh: —</span>
             </div>
             <button class="btn" onclick="window.location.href='/ui/control.html'">
-                Ã¢â Â Back to Control Panel
+                ← Back to Control Panel
             </button>
         </div>
     </header>
@@ -49,7 +63,7 @@
                 <div class="panel-header">
                     <div>
                         <div class="panel-title">System Health</div>
-                        <div class="panel-subtitle">Backend ÃÂ· Tunnel ÃÂ· Public Host</div>
+                        <div class="panel-subtitle">Backend · Tunnel · Public Host</div>
                     </div>
                     <span class="pill" id="pill-health">Status: Unknown</span>
                 </div>
@@ -57,17 +71,17 @@
                 <div class="metrics-row">
                     <div class="metric-card">
                         <div class="metric-label">Core Backend</div>
-                        <div class="metric-value" id="metric-backend">Ã¢â¬â</div>
+                        <div class="metric-value" id="metric-backend">—</div>
                         <div class="metric-foot" id="metric-backend-foot">/healthz</div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-label">Public Host</div>
-                        <div class="metric-value" id="metric-host">Ã¢â¬â</div>
+                        <div class="metric-value" id="metric-host">—</div>
                         <div class="metric-foot" id="metric-host-foot">/status</div>
                     </div>
                     <div class="metric-card">
                         <div class="metric-label">Recent Events</div>
-                        <div class="metric-value" id="metric-events">Ã¢â¬â</div>
+                        <div class="metric-value" id="metric-events">—</div>
                         <div class="metric-foot" id="metric-events-foot">Last 24h (approx.)</div>
                     </div>
                 </div>
@@ -143,7 +157,7 @@
 
                 <div class="list">
                     <div class="list-header">
-                        <span>Type ÃÂ· What</span>
+                        <span>Type · What</span>
                         <span>When</span>
                         <span>Status</span>
                     </div>
@@ -162,6 +176,10 @@
         </div>
     </main>
 </div>
+
+
+  </main>
+  <footer class="kyc-footer">KeepYourContracts.com · Enterprise Compliance Workflow Platform</footer>
 
 <script>
     const REFRESH_INTERVAL_MS = 15000;
@@ -266,7 +284,7 @@
                 }
             }
         } catch (e) {
-            document.getElementById('metric-events').textContent = 'Ã¢â¬â';
+            document.getElementById('metric-events').textContent = '—';
         }
 
         // Overall badge
@@ -355,3 +373,6 @@
 
 
 
+
+</body>
+</html>

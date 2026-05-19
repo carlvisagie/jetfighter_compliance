@@ -1,197 +1,88 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>KeepYourContracts.com | Compliance Intake</title>
-
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KeepYourContracts | Compliance Intake</title>
   <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
   <link rel="stylesheet" href="/ui/assets/styles/layout.css">
   <link rel="stylesheet" href="/ui/assets/styles/components.css">
-  <link rel="stylesheet" href="/ui/assets/styles/intake-compat.css">
 
 </head>
-
 <body class="kyc-page">
+  <header class="kyc-topbar">
+    <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
+    <nav class="kyc-nav" aria-label="Primary">
+      <a href="/ui/shop.html">Services</a>
+      <a href="/ui/inquiry.html">Contact</a>
+    </nav>
+  </header>
 
-<div class="topbar">
-    <div class="logo">
-        Keep<span>YourContracts</span>
+  <main class="kyc-main">
+    <section class="kyc-hero">
+      <span class="kyc-badge">Client intake</span>
+      <h1>Structured compliance intake</h1>
+      <p>Complete the form below so our workflow engine can prepare your onboarding path, requirements map, and evidence collection structure.</p>
+    </section>
+    <div class="kyc-flow-steps" aria-label="Onboarding flow">
+      <div class="kyc-flow-step"><strong>Step 1</strong> Inquiry</div>
+      <div class="kyc-flow-step kyc-flow-step--active"><strong>Step 2</strong> Intake</div>
+      <div class="kyc-flow-step"><strong>Step 3</strong> Evidence upload</div>
     </div>
-
-    <div class="nav">
-        <a href="/ui/shop.html">Services</a>
-        <a href="/ui/inquiry.html">Contact</a>
-    </div>
-</div>
-
-<section class="hero">
-
-    <h1>
-        Upload your documentation exactly as it is.
-    </h1>
-
-    <p>
-        Policies, contracts, spreadsheets, screenshots, exports, scans, photos, vendor documentation, and supporting files — use whatever upload method is easiest for your organization.
-    </p>
-
-    <p style="margin-top:18px;font-size:24px;color:white;font-weight:800;">
-        We’ll guide the process from there.
-    </p>
-
-</section>
-
-<section class="grid">
-
-    <div class="card">
-
-        <h2>Client Intake</h2>
-
-        <p>
-            Complete the intake below so our compliance workflow engine can prepare your onboarding path, requirements map, and evidence collection structure.
-        </p>
-
-        <form id="f">
-
-            <input type="hidden" id="token" name="token" />
-
-            <div class="form-grid">
-
-                <div>
-                    <label>Company Name</label>
-                    <input name="company" required>
-                </div>
-
-                <div>
-                    <label>Primary Contact</label>
-                    <input name="contact" required>
-                </div>
-
-                <div>
-                    <label>Phone</label>
-                    <input name="phone">
-                </div>
-
-                <div>
-                    <label>Email</label>
-                    <input name="email">
-                </div>
-
-                <div class="full">
-                    <label>Notes</label>
-                    <textarea name="notes"></textarea>
-                </div>
-
-            </div>
-
-            <div class="section-title">
-                External Requirements
-            </div>
-
-            <div class="checks">
-
-                <div class="check"><label><input type="checkbox" name="ext_cmmc_l2_c3pao"> CMMC L2 (C3PAO) required</label></div>
-                <div class="check"><label><input type="checkbox" name="ext_gs1"> GS1 GTIN/GLN needed</label></div>
-                <div class="check"><label><input type="checkbox" name="ext_docusign"> DocuSign/Adobe envelopes required</label></div>
-                <div class="check"><label><input type="checkbox" name="ext_eidas"> Qualified eSignature (eIDAS)</label></div>
-                <div class="check"><label><input type="checkbox" name="ext_lab_tests"> Lab tests (CE/EMC/Radio)</label></div>
-                <div class="check"><label><input type="checkbox" name="ext_pentest"> External penetration test</label></div>
-                <div class="check"><label><input type="checkbox" name="ext_vuln_scans"> External vulnerability scans</label></div>
-                <div class="check"><label><input type="checkbox" name="ext_iso27001"> ISO 27001 certificate</label></div>
-                <div class="check"><label><input type="checkbox" name="ext_soc2"> SOC 2 report</label></div>
-                <div class="check"><label><input type="checkbox" name="ext_pci"> PCI DSS (ASV/ROC)</label></div>
-                <div class="check"><label><input type="checkbox" name="ext_legal"> Privacy/legal counsel</label></div>
-                <div class="check"><label><input type="checkbox" name="ext_background"> Background checks</label></div>
-                <div class="check"><label><input type="checkbox" name="ext_worm"> WORM / immutable retention</label></div>
-                <div class="check"><label><input type="checkbox" name="ext_translation"> Certified translation</label></div>
-                <div class="check"><label><input type="checkbox" name="ext_timestamp"> Qualified timestamp / notarization</label></div>
-                <div class="check"><label><input type="checkbox" name="ext_rohs"> Material tests (RoHS/REACH)</label></div>
-
-            </div>
-
-            <button class="submit" type="submit">
-                Start Compliance Intake
-            </button>
-
+    <section class="kyc-grid kyc-grid--intake">
+      <article class="kyc-card kyc-card--flat">
+        <span class="kyc-label-overline">Secure intake form</span>
+        <h2>Organization details</h2>
+        <form id="f" class="kyc-form">
+          <input type="hidden" id="token" name="token" />
+          <div class="kyc-form-grid">
+            <div class="kyc-field"><label>Company Name</label><input name="company" required></div>
+            <div class="kyc-field"><label>Primary Contact</label><input name="contact" required></div>
+            <div class="kyc-field"><label>Phone</label><input name="phone"></div>
+            <div class="kyc-field"><label>Email</label><input name="email" type="email"></div>
+            <div class="kyc-field kyc-field--full"><label>Notes</label><textarea name="notes"></textarea></div>
+          </div>
+          <span class="kyc-label-overline" style="margin-top:2rem;display:block;">External requirements</span>
+          <div class="kyc-check-grid">
+                <div class="kyc-check"><label><input type="checkbox" name="ext_cmmc_l2_c3pao"> CMMC L2 (C3PAO) required</label></div>
+                <div class="kyc-check"><label><input type="checkbox" name="ext_gs1"> GS1 GTIN/GLN needed</label></div>
+                <div class="kyc-check"><label><input type="checkbox" name="ext_docusign"> DocuSign/Adobe envelopes required</label></div>
+                <div class="kyc-check"><label><input type="checkbox" name="ext_eidas"> Qualified eSignature (eIDAS)</label></div>
+                <div class="kyc-check"><label><input type="checkbox" name="ext_lab_tests"> Lab tests (CE/EMC/Radio)</label></div>
+                <div class="kyc-check"><label><input type="checkbox" name="ext_pentest"> External penetration test</label></div>
+                <div class="kyc-check"><label><input type="checkbox" name="ext_vuln_scans"> External vulnerability scans</label></div>
+                <div class="kyc-check"><label><input type="checkbox" name="ext_iso27001"> ISO 27001 certificate</label></div>
+                <div class="kyc-check"><label><input type="checkbox" name="ext_soc2"> SOC 2 report</label></div>
+                <div class="kyc-check"><label><input type="checkbox" name="ext_pci"> PCI DSS (ASV/ROC)</label></div>
+                <div class="kyc-check"><label><input type="checkbox" name="ext_legal"> Privacy/legal counsel</label></div>
+                <div class="kyc-check"><label><input type="checkbox" name="ext_background"> Background checks</label></div>
+                <div class="kyc-check"><label><input type="checkbox" name="ext_worm"> WORM / immutable retention</label></div>
+                <div class="kyc-check"><label><input type="checkbox" name="ext_translation"> Certified translation</label></div>
+                <div class="kyc-check"><label><input type="checkbox" name="ext_timestamp"> Qualified timestamp / notarization</label></div>
+                <div class="kyc-check"><label><input type="checkbox" name="ext_rohs"> Material tests (RoHS/REACH)</label></div>
+          </div>
+          <button class="kyc-btn kyc-btn--primary kyc-btn--block" type="submit">Start compliance intake</button>
         </form>
-
-    </div>
-
-    <div class="card qr-card">
-
-        <div>
-
-            <h2>Continue Securely on Mobile</h2>
-
-            <p>
-                Scan the QR code below to continue uploads, evidence submission, and onboarding directly from your mobile device.
-            </p>
-
+      </article>
+      <aside class="kyc-card kyc-card--flat">
+        <span class="kyc-label-overline">Mobile &amp; trust</span>
+        <h2>Continue on mobile</h2>
+        <p>Scan to upload evidence and supporting documents from your phone.</p>
+        <div class="kyc-qr-block">
+          <img src="/ui/assets/qr/kyc_upload_qr.png" alt="Compliance upload QR">
         </div>
-
-        <div class="qr-box">
-
-            <img src="/ui/assets/qr/kyc_upload_qr.png" alt="Compliance Upload QR">
-
+        <div class="kyc-step"><span class="kyc-step-num">1</span><span class="kyc-step-text">Open the secure upload portal with your phone camera.</span></div>
+        <div class="kyc-step"><span class="kyc-step-num">2</span><span class="kyc-step-text">Upload contracts, policies, certifications, and supporting documentation.</span></div>
+        <div class="kyc-step"><span class="kyc-step-num">3</span><span class="kyc-step-text">Your workflow updates as evidence is received.</span></div>
+        <div class="kyc-trust-grid" style="margin-top:1.5rem;">
+          <div class="kyc-trust-item"><strong>Evidence-centric workflow</strong><p>Traceability and audit-ready operations.</p></div>
+          <div class="kyc-trust-item"><strong>Operational simplicity</strong><p>Reduce friction while improving accountability.</p></div>
+          <div class="kyc-trust-item"><strong>Enterprise readiness</strong><p>Built for regulated environments.</p></div>
         </div>
-
-        <div class="step">
-            <div class="step-number">1</div>
-            <div class="step-text">
-                Open the secure mobile upload portal instantly using your phone camera.
-            </div>
-        </div>
-
-        <div class="step">
-            <div class="step-number">2</div>
-            <div class="step-text">
-                Upload contracts, policies, evidence artifacts, certifications, and supporting documentation.
-            </div>
-        </div>
-
-        <div class="step">
-            <div class="step-number">3</div>
-            <div class="step-text">
-                Your onboarding workflow automatically updates in real time as evidence is received.
-            </div>
-        </div>
-
-        <div class="section-title">
-            Why Organizations Use KeepYourContracts
-        </div>
-
-        <div class="trust">
-
-            <div class="trust-item">
-                <strong>Evidence-Centric Workflow</strong>
-                Built around traceability, audit readiness, and defensible compliance operations.
-            </div>
-
-            <div class="trust-item">
-                <strong>Operational Simplicity</strong>
-                Reduce onboarding friction while improving document collection and accountability.
-            </div>
-
-            <div class="trust-item">
-                <strong>Enterprise Readiness</strong>
-                Designed for organizations handling regulatory, contractual, or cybersecurity obligations.
-            </div>
-
-        </div>
-
-    </div>
-
-</section>
-
-<div class="footer">
-    © KeepYourContracts.com — Enterprise Compliance Workflow Platform
-</div>
-
-<script src="/ui/intake.js"></script>
+      </aside>
+    </section>
+  </main>
+  <footer class="kyc-footer">KeepYourContracts.com · Enterprise Compliance Workflow Platform</footer>
+  <script src="/ui/intake.js"></script>
 </body>
 </html>
-
-
-
-
-

@@ -10,15 +10,17 @@
   <link rel="stylesheet" href="/ui/assets/styles/ops-dashboard.css">
 </head>
 <body class="kyc-page kyc-surface-ops">
-  <header class="kyc-topbar">
+    <header class="kyc-topbar">
     <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
     <nav class="kyc-nav kyc-nav--ops" aria-label="Operations">
       <a href="/ui/control.html">Control</a>
       <a href="/ui/command.html">Command</a>
       <a href="/ui/status.html">Status</a>
       <a href="/ui/inbox.html">Inbox</a>
+      <a href="/ui/shop.html">Public site</a>
     </nav>
   </header>
+
 
   <div class="kyc-ops-header"><div><h1>Webhook test</h1></div></div>
   <main class="kyc-main kyc-main--ops">
@@ -42,5 +44,6 @@ async function send() {
   document.getElementById("out").textContent = await res.text();
 }
   </script>
+  <footer class="kyc-footer">KeepYourContracts.com · Enterprise Compliance Workflow Platform</footer>
 </body>
 </html>

@@ -1,13 +1,14 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>KeepYourContracts | Compliance Control Panel</title>
+  <title>KeepYourContracts | Operations Control</title>
   <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
   <link rel="stylesheet" href="/ui/assets/styles/layout.css">
   <link rel="stylesheet" href="/ui/assets/styles/components.css">
   <link rel="stylesheet" href="/ui/assets/styles/ops-dashboard.css">
+
 </head>
 <body class="kyc-page kyc-surface-ops">
   <header class="kyc-topbar">
@@ -15,83 +16,58 @@
     <nav class="kyc-nav kyc-nav--ops" aria-label="Operations">
       <a href="/ui/control.html" aria-current="page">Control</a>
       <a href="/ui/command.html">Command</a>
+      <a href="/ui/status.html">Status</a>
+      <a href="/ui/inbox.html">Inbox</a>
       <a href="/ui/shop.html">Public site</a>
     </nav>
   </header>
 
   <div class="kyc-ops-header">
     <div>
-      <h1>Compliance control panel</h1>
-      <p class="kyc-ops-subtitle">Operational monitoring · project actions · system health</p>
+      <h1>Operations control panel</h1>
+      <p class="kyc-ops-subtitle">Monitoring · project actions · system health</p>
     </div>
-    <div class="kyc-ops-badges">
-      <span class="kyc-pill" id="health">checking</span>
-    </div>
+    <div class="kyc-ops-badges"><span class="kyc-pill" id="health">checking</span></div>
   </div>
-
   <main class="kyc-main kyc-main--ops">
-    <div id="meta" class="card">
-      <span class="kyc-label-overline">Runtime status</span>
-      <p><strong>Latest project:</strong> <span id="pid"></span></p>
-      <div class="kyc-btn-row" style="margin-top:1rem;">
-        <a id="openStatus" class="btn secondary" href="/ui/status.html" target="_blank" rel="noopener">Open status</a>
-        <a id="exportBtn" class="btn secondary" href="#" target="_blank" rel="noopener">Export binder</a>
-        <button id="demo" class="btn" type="button">Create demo project</button>
-      </div>
-    </div>
-
-    <h2>Actions</h2>
-    <div class="grid">
-      <div class="card">
-        <h4>Status board</h4>
-        <p>Projects and workflow steps.</p>
-        <a class="btn" href="/ui/status.html" target="_blank" rel="noopener">Open status board</a>
-      </div>
-      <div class="card">
-        <h4>Public host status</h4>
-        <p>Check tunnel / hostname reachability.</p>
-        <div class="kyc-row">
-          <div class="kyc-field">
-            <label for="pubHost">Hostname</label>
-            <input id="pubHost" placeholder="subdomain.yourdomain.tld">
-          </div>
-          <button class="btn" id="saveCheck" type="button">Save &amp; check</button>
+    <section class="kyc-section" style="padding-top:0;">
+      <article id="meta" class="card">
+        <span class="kyc-label-overline">Runtime status</span>
+        <p><strong>Latest project:</strong> <span id="pid">—</span></p>
+        <div class="kyc-btn-row" style="margin-top:1rem;">
+          <a id="openStatus" class="btn secondary" href="/ui/status.html" target="_blank" rel="noopener">Open status</a>
+          <a id="exportBtn" class="btn secondary" href="#" target="_blank" rel="noopener">Export binder</a>
+          <button id="demo" class="btn" type="button">Create demo project</button>
         </div>
-        <p><strong>Status:</strong> <span id="pubBadge" class="pill">unknown</span> <small id="pubWhen"></small></p>
+      </article>
+    </section>
+    <section class="kyc-section">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">Tools</span>
+        <h2>Operational actions</h2>
+        <p>Quick access to workflow, events, scanning, and onboarding utilities.</p>
+      </header>
+      <div class="grid">
+        <article class="card"><h4>Status board</h4><p>Projects and workflow steps.</p><a class="btn" href="/ui/status.html" target="_blank" rel="noopener">Open status</a></article>
+        <article class="card"><h4>Order inbox</h4><p>Live queue with new-order alerts.</p><a class="btn" href="/ui/inbox.html" target="_blank" rel="noopener">Open inbox</a></article>
+        <article class="card"><h4>Event helper</h4><p>Chain-of-custody event entry.</p><a class="btn" href="/ui/event.html" target="_blank" rel="noopener">Open events</a></article>
+        <article class="card"><h4>Scan &amp; log</h4><p>QR/barcode capture for mobile.</p><a class="btn" href="/ui/scan.html" target="_blank" rel="noopener">Open scan</a></article>
+        <article class="card"><h4>New client</h4><p>Manual kickoff without webhooks.</p><a class="btn" href="/ui/new_client.html" target="_blank" rel="noopener">New client</a></article>
+        <article class="card"><h4>Webhook test</h4><p>Diagnostic kickoff payload.</p><a class="btn" href="/ui/webhook_test.html" target="_blank" rel="noopener">Open verifier</a></article>
+        <article class="card"><h4>Public host</h4><p>Tunnel / hostname check.</p>
+          <div class="kyc-row"><div class="kyc-field"><label for="pubHost">Hostname</label><input id="pubHost" placeholder="subdomain.yourdomain.tld"></div>
+          <button class="btn secondary" id="saveCheck" type="button">Save &amp; check</button></div>
+          <p><strong>Status:</strong> <span id="pubBadge" class="pill">unknown</span> <small id="pubWhen"></small></p>
+        </article>
+        <article class="card"><h4>Command center</h4><p>Consolidated health and events.</p><a class="btn" href="/ui/command.html" target="_blank" rel="noopener">Open command</a></article>
       </div>
-      <div class="card">
-        <h4>Event helper</h4>
-        <p>Log an event without PowerShell.</p>
-        <a class="btn" href="/ui/event.html" target="_blank" rel="noopener">Open event helper</a>
-      </div>
-      <div class="card">
-        <h4>Scan &amp; log</h4>
-        <p>QR/barcode capture for mobile.</p>
-        <a class="btn" href="/ui/scan.html" target="_blank" rel="noopener">Open scan page</a>
-      </div>
-      <div class="card">
-        <h4>Kickoff test</h4>
-        <p>Test onboarding payload (calls kickoff).</p>
-        <a class="btn" href="/ui/webhook_test.html" target="_blank" rel="noopener">Open verifier</a>
-      </div>
-      <div class="card">
-        <h4>New client</h4>
-        <p>Create a project without webhooks.</p>
-        <a class="btn" href="/ui/new_client.html" target="_blank" rel="noopener">New client form</a>
-      </div>
-      <div class="card">
-        <h4>Order inbox</h4>
-        <p>Live project list with alerts.</p>
-        <a class="btn" href="/ui/inbox.html" target="_blank" rel="noopener">Open inbox</a>
-      </div>
-    </div>
-
-    <h2>Recent projects</h2>
-    <div id="table" class="card kyc-table-wrap"><em class="kyc-loading">Loading…</em></div>
+    </section>
+    <section class="kyc-section">
+      <header class="kyc-section-head"><span class="kyc-label-overline">Registry</span><h2>Recent projects</h2></header>
+      <article id="table" class="card kyc-table-wrap"><p class="kyc-loading">Loading…</p></article>
+    </section>
   </main>
-
   <footer class="kyc-footer">KeepYourContracts.com · Operations</footer>
-
   <script>
   async function api(u, opts) { const r = await fetch(u, opts || {}); return r.json(); }
   async function init() {
@@ -104,24 +80,19 @@
       document.getElementById('health').textContent = 'Down';
       document.getElementById('health').className = 'kyc-pill kyc-pill--bad';
     }
-
     let projects = [];
     try { projects = (await api('/api/projects')).projects || []; } catch {}
     const pid = projects.slice(-1)[0] || '';
     document.getElementById('pid').textContent = pid || '—';
     document.getElementById('exportBtn').href = pid ? '/api/project/' + pid + '/export' : '#';
-
     const tableEl = document.getElementById('table');
-    if (!projects.length) {
-      tableEl.innerHTML = '<p class="kyc-empty">No projects yet. Click “Create demo project”.</p>';
-    } else {
+    if (!projects.length) tableEl.innerHTML = '<p class="kyc-empty">No projects yet. Create a demo project to begin.</p>';
+    else {
       const rows = projects.slice(-10).reverse().map(p =>
         '<tr><td>' + p + '</td><td><a href="/ui/status.html" target="_blank" rel="noopener">Open</a></td>' +
-        '<td><a href="/api/project/' + p + '/export" target="_blank" rel="noopener">Export ZIP</a></td></tr>'
-      ).join('');
+        '<td><a href="/api/project/' + p + '/export" target="_blank" rel="noopener">Export</a></td></tr>').join('');
       tableEl.innerHTML = '<table><thead><tr><th>Project</th><th>Status</th><th>Export</th></tr></thead><tbody>' + rows + '</tbody></table>';
     }
-
     document.getElementById('demo').onclick = async () => {
       const body = { order_id: 'CP-DEMO-' + Date.now(), email: 'you@keepyourcontracts.com', name: 'Carl', skus: ['CMMC-L1'] };
       const r = await fetch('/events/payment/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -132,5 +103,6 @@
   }
   init();
   </script>
+  <footer class="kyc-footer">KeepYourContracts.com · Enterprise Compliance Workflow Platform</footer>
 </body>
 </html>

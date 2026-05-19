@@ -137,10 +137,30 @@ No route, server, or onboarding logic changes in this task.
 
 ---
 
+## Task 14 — Full platform UI quality (2026-05-19)
+
+**Gold standard:** `ui/shop.html`  
+**Report:** `docs/KYC_FULL_PLATFORM_UI_QUALITY_AUDIT.md`
+
+| Item | Result |
+|------|--------|
+| Active pages audited | **22/22** |
+| Intake inline CSS removed | **Done** — shared shell + `kyc-grid--intake` |
+| Command BOM / mojibake | **Done** — UTF-8 shell + `kyc-ops-header` |
+| Ops pages (status, inbox, event, scan, …) | **Done** — subtitles + full ops nav |
+| Readiness (8 pages) | **Done** — hero wrapper + nav cleanup |
+| Public utilities (vendor_quote, healthz, index) | **Done** — compact hero |
+| Functional hooks | **Preserved** (inspection) |
+| Live verification | **Pending** this deploy |
+
+**Helpers:** `scripts/task14_quality.py`, `scripts/task14_finish.py`
+
+---
+
 ## Next recommended UI lane
 
-1. **Lane 3 — Polish:** Remove `intake.html` UTF-8 BOM; trim duplicate readiness back links; manual mobile pass on scan/upload.
-2. **Custom domain:** When `keepyourcontracts.com` points at Render, re-spot-check CSS URLs on branded host.
+1. **Custom domain:** When `keepyourcontracts.com` points at Render, re-spot-check CSS URLs on branded host.
+2. **Mobile pass:** scan/upload on real devices.
 3. **Task 9 lock** — Owner env/DNS/Stripe unchanged by UI deploy.
 
 **Do not** expand features or change onboarding logic until production verifier exit 0.

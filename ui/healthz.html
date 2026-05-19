@@ -20,7 +20,7 @@
 
   <main class="kyc-main kyc-main--narrow">
     <div class="card">
-      <h1>System health</h1>
+      <section class="kyc-hero kyc-hero--compact"><span class="kyc-badge">System health</span><h1>Platform health check</h1><p>Runtime status from the /healthz endpoint.</p></section>
       <p>Status: <span id="status" class="kyc-pill">Loading...</span></p>
       <pre id="json" class="codebox" style="white-space:pre-wrap;"></pre>
     </div>
@@ -35,5 +35,6 @@
       document.getElementById("json").textContent = e.toString();
     });
   </script>
+  <footer class="kyc-footer">KeepYourContracts.com · Enterprise Compliance Workflow Platform</footer>
 </body>
 </html>

@@ -553,3 +553,66 @@ pre.codebox,
   font-size: var(--kyc-text-sm);
   color: var(--kyc-text-muted);
 }
+
+/* Task 14: shop-quality polish for ops surfaces */
+.card p {
+  color: var(--kyc-text-muted);
+  font-size: var(--kyc-text-sm);
+  line-height: var(--kyc-leading);
+}
+
+.card h4 {
+  color: var(--kyc-text);
+  font-size: var(--kyc-text-lg);
+  margin-bottom: var(--kyc-space-2);
+}
+
+.kyc-project-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.kyc-project-list li {
+  margin: 0;
+  border-bottom: 1px solid var(--kyc-line);
+}
+
+.kyc-project-list li:last-child {
+  border-bottom: none;
+}
+
+.kyc-project-list a {
+  display: block;
+  padding: var(--kyc-space-4);
+  color: var(--kyc-accent-hover);
+  text-decoration: none;
+  font-weight: 600;
+  border-radius: var(--kyc-radius-sm);
+}
+
+.kyc-project-list a:hover {
+  background: var(--kyc-accent-soft);
+}
+
+.btn {
+  transition: transform var(--kyc-ease), filter var(--kyc-ease);
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.kyc-table-wrap {
+  overflow-x: auto;
+}
+
+#detail h4 {
+  margin-top: var(--kyc-space-6);
+  font-size: var(--kyc-text-base);
+}
+
+.kyc-field--full {
+  grid-column: 1 / -1;
+}
