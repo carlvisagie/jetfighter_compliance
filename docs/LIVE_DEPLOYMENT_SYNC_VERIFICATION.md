@@ -181,3 +181,24 @@ powershell -File scripts/verify-production-live.ps1
 ```
 
 Committed in Task 16 (`943db24`). Use after owner env/DNS changes.
+
+---
+
+## 10. Task 18 — Owner blocker closeout (2026-05-19)
+
+**Objective:** Close Render env + Stripe + DNS blockers (Owner-only; no code changes).
+
+| Item | Result |
+|------|--------|
+| Verifier run | **Exit 1** (7 failures) |
+| `environment` | `development` |
+| `stripe_webhook_configured` | `false` |
+| `intake_secret_configured` | `false` |
+| Stripe unsigned POST | **503** |
+| Ops guard | **200** without key (expected until production env) |
+| `keepyourcontracts.com/healthz` | Not KYC JSON |
+| Render inquiry smoke | **PASS** |
+
+**Owner guide:** `docs/KYC_OWNER_BLOCKER_CLOSEOUT_TASK18.md`
+
+**Production lock:** **NOT CONFIRMED** — re-run this section after Owner completes closeout and verifier exits **0**.

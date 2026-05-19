@@ -1,9 +1,11 @@
-# KYC Production Lock — Verification Report (Task 9)
+# KYC Production Lock — Verification Report
 
-**Verification date:** 2026-05-19 (UTC ~post-activation probe)  
+**Last verification:** 2026-05-19 (Task 18 closeout probe)  
 **Verifier:** `scripts/verify-production-live.ps1`  
 **Exit code:** **1** (7 check groups failed)  
-**Verdict:** **PRODUCTION LOCK NOT CONFIRMED** — Owner activation not yet visible on live runtime
+**Verdict:** **PRODUCTION LOCK NOT CONFIRMED** — Owner dashboard + DNS steps not yet applied on live runtime  
+
+**Owner shortest path:** `docs/KYC_OWNER_BLOCKER_CLOSEOUT_TASK18.md`
 
 ---
 
@@ -16,7 +18,7 @@
 | **Render URL app runtime** | **OPERATIONAL** (inquiry + evidence pass) |
 | **Full production lock** | **BLOCKED** on env + Stripe + custom domain |
 
-Task 9 assumes Owner completed Render env, Stripe webhook, and DNS. **Live probes show those changes are not active yet.**
+Tasks 9 and 18 assume Owner completed Render env, Stripe webhook, and DNS. **Live probes (Task 18) show those changes are still not active.**
 
 ---
 
@@ -144,15 +146,15 @@ EXIT_CODE=1
 
 ---
 
-## 8. Approved next operational lane
+## 8. Approved next operational lane (Task 18)
 
-**Lane A (only lane):** Complete Owner activation checklist, then re-run Task 9.
+**Lane A (only lane):** Owner completes dashboard closeout, then verifier exit **0**.
 
-1. `jetfighter_compliance/docs/KYC_OWNER_ACTIVATION_CHECKLIST.md`  
+1. `docs/KYC_OWNER_BLOCKER_CLOSEOUT_TASK18.md` (shortest path)  
 2. `powershell -File scripts/verify-production-live.ps1` → must exit **0**  
-3. Re-request Task 9 lock verification  
+3. Agent updates this doc → **LOCK CONFIRMED**; freeze downgrades in `purposeful-platform`
 
-**Do not:** expansion, blueprint sync, architecture work until verifier passes.
+**Do not:** code changes, blueprint sync, or expansion until verifier passes.
 
 ---
 
