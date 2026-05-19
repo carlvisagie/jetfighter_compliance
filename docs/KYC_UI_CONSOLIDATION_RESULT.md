@@ -122,11 +122,26 @@ No route, server, or onboarding logic changes in this task.
 
 ---
 
+## Task 13 — Live deployment + verification (2026-05-19)
+
+| Item | Result |
+|------|--------|
+| Deploy commit | **`b1a711c`** on `origin/main` |
+| Previous live | `5492efa` (UI not in git) |
+| CSS on Render | **All 200** |
+| Pages unified (Render URL) | **PASS** |
+| Functional hooks (HTML/API) | **PASS** |
+| Full report | `docs/KYC_LIVE_UI_VERIFICATION.md` |
+
+**Root cause resolved:** UI/CSS were local-only until Task 13 commit + push.
+
+---
+
 ## Next recommended UI lane
 
-1. **Deploy** — Push UI + CSS to Render; re-run visual QA checklist in `KYC_UI_LANE2_CONSOLIDATION.md` §5.
-2. **Lane 3 — Post-deploy polish:** Duplicate readiness back links, UTF-8 BOM on `command.html`, mobile spot-check.
-3. **Task 9 lock** — Owner env/DNS/Stripe unchanged by UI work.
+1. **Lane 3 — Polish:** Remove `intake.html` UTF-8 BOM; trim duplicate readiness back links; manual mobile pass on scan/upload.
+2. **Custom domain:** When `keepyourcontracts.com` points at Render, re-spot-check CSS URLs on branded host.
+3. **Task 9 lock** — Owner env/DNS/Stripe unchanged by UI deploy.
 
 **Do not** expand features or change onboarding logic until production verifier exit 0.
 
