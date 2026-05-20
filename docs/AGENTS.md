@@ -12,9 +12,10 @@ You should be in **`jetfighter_compliance`**, not `purposeful-platform`.
 ## Mandatory read before changes
 
 1. This file  
-2. [`docs/README.md`](./README.md)  
-3. `server.py` — actual routes (do not assume endpoints exist because HTML references them)  
-4. `render.yaml` — production env vars  
+2. **[`docs/PRODUCTION_ENGINEERING_DOCTRINE.md`](./PRODUCTION_ENGINEERING_DOCTRINE.md)** — **LOCKED** — build/test/verify only on live deployed URL  
+3. [`docs/README.md`](./README.md)  
+4. `server.py` — actual routes (do not assume endpoints exist because HTML references them)  
+5. `render.yaml` — production env vars  
 
 ---
 
@@ -22,7 +23,7 @@ You should be in **`jetfighter_compliance`**, not `purposeful-platform`.
 
 | Page | Path | Notes |
 |------|------|--------|
-| Landing / shop | `/ui/shop.html` | Real marketing page; Stripe links in HTML |
+| Landing / shop | `/ui/shop.html` | Real marketing page; PayPal payment links in HTML |
 | Contact | `/ui/inquiry.html` | Posts to `/api/inquiry/submit` — **verify route exists** before deploy |
 | Intake | `/ui/intake.html?token=…` | After payment / project creation |
 | Upload | `/upload` or `/ui/upload.html` | Evidence upload |
@@ -68,4 +69,18 @@ Dockerfile uses port `10000`; confirm Render `PORT` binding matches.
 
 Document gaps in purposeful-platform `docs/INTEGRATION_STATUS.md` only when cross-organism; fix gaps in this repo with minimal diffs.
 
-When in doubt: read `server.py`, test locally, change less.
+When in doubt: read `server.py`, change less, then **verify on the deployed public URL** per doctrine.
+
+---
+
+## Task completion (doctrine — no exceptions)
+
+Every task must document before marking **DONE**:
+
+1. **Commit hash** on `main`  
+2. **Deployed URL** probed  
+3. **Live verification result** (pass/fail, exit code, or HTTP evidence)  
+4. **Rollback note** (revert commit / env / DNS)  
+5. **No local-only dependency** (laptop, tunnel, uncommitted secrets)
+
+**localhost, tunnels, and local PowerShell are never completion proof.** See [`PRODUCTION_ENGINEERING_DOCTRINE.md`](./PRODUCTION_ENGINEERING_DOCTRINE.md).

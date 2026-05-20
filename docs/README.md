@@ -18,10 +18,12 @@ Verify Render: `powershell -File scripts/verify-render-production.ps1`
 
 ## Agents — start here
 
-1. **[`AGENTS.md`](./AGENTS.md)** — rules, paths, deploy, do-not-confuse-with-Sage  
-2. **Ecosystem stabilization (SAGE repo):**  
+1. **[`PRODUCTION_ENGINEERING_DOCTRINE.md`](./PRODUCTION_ENGINEERING_DOCTRINE.md)** — **LOCKED** — live URL only; laptop/tunnel never production  
+2. **[`AGENTS.md`](./AGENTS.md)** — rules, paths, deploy, do-not-confuse-with-Sage  
+3. **Ecosystem stabilization (SAGE repo):**  
    https://github.com/carlvisagie/purposeful-platform/blob/main/docs/STABILIZATION_STATUS_MASTER.md  
-3. **KYC live verification:** [`KYC_PRODUCTION_VERIFICATION.md`](./KYC_PRODUCTION_VERIFICATION.md)  
+4. **KYC live verification:** [`KYC_PRODUCTION_VERIFICATION.md`](./KYC_PRODUCTION_VERIFICATION.md)  
+5. **Dependency audit:** [`BRUTAL_PRODUCTION_DEPENDENCY_AUDIT.md`](./BRUTAL_PRODUCTION_DEPENDENCY_AUDIT.md)  
 
 ---
 
@@ -30,7 +32,7 @@ Verify Render: `powershell -File scripts/verify-render-production.ps1`
 | Path | Role |
 |------|------|
 | `server.py` | FastAPI app, direct onboarding API, static `/ui` mount |
-| `ui/shop.html` | **Landing / offers** (Stripe Payment Links) |
+| `ui/shop.html` | **Landing / offers** (PayPal payment links) |
 | `ui/inquiry.html` | Contact form |
 | `ui/intake.html` | Post-sale client intake |
 | `ui/upload.html`, `ui/status.html` | Delivery workflow |
