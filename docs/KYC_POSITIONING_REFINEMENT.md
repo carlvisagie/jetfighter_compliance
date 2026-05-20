@@ -98,11 +98,11 @@ Do not reintroduce “expert elite” or “guaranteed compliance” language in
 
 | URL | Check | Result |
 |-----|-------|--------|
-| `/ui/shop.html` | New H1 + no “Expert-Guided” badge | Pending deploy |
-| `/ui/inquiry.html` | “Upload & readiness review” | Pending deploy |
-| PayPal / QR | Unchanged | Expected PASS |
+| `/ui/shop.html` | New H1 + no “Expert-Guided” badge | **PASS** |
+| `/ui/inquiry.html` | “Upload & readiness review” | **PASS** |
+| PayPal / QR | Unchanged | **PASS** |
 
-*Updated after push.*
+**Deploy commit:** `1380989` on `origin/main`.
 
 ---
 
