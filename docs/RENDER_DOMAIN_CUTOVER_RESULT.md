@@ -174,7 +174,7 @@ If branded domain regresses:
 
 | # | Item | Value |
 |---|------|--------|
-| 1 | **Commit hash** | *(after push)* |
+| 1 | **Commit hash** | `fd09d5b` |
 | 2 | **Deployed URL** | **Primary:** `https://compliance.keepyourcontracts.com` · **Fallback:** `https://jetfighter-compliance.onrender.com` |
 | 3 | **Live verification** | Branded `/healthz`, `/ui/shop.html`, `/ui/intake.html` **PASS**; Render `/healthz` **PASS** |
 | 4 | **Rollback** | Revert `compliance` CNAME; keep Render URL; no code rollback |
