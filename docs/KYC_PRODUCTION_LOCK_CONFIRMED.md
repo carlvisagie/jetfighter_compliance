@@ -1,7 +1,7 @@
 # KYC Production Lock — Verification Report
 
 **Last verification:** 2026-05-19 (Task 18 closeout probe)  
-**Verifier:** `scripts/verify-production-live.ps1`  
+**Verifiers:** `scripts/verify-render-production.ps1` (Render surface, Task 24), `scripts/verify-production-live.ps1` (full lock)  
 **Exit code:** **1** (7 check groups failed)  
 **Verdict:** **PRODUCTION LOCK NOT CONFIRMED** — Owner dashboard + DNS steps not yet applied on live runtime  
 

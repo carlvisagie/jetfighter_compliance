@@ -1,7 +1,10 @@
 ﻿$ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
-Write-Host "`n=== JetFighter Compliance Full Launch ===`n"
+# DEV / EMERGENCY ONLY - production customers use Render (jetfighter-compliance.onrender.com).
+# See docs/KYC_RENDER_PRODUCTION_CUTOVER.md
+
+Write-Host "`n=== JetFighter Compliance Full Launch (LOCAL DEV - NOT PRODUCTION) ===`n"
 
 # --- Stop old processes ---
 Get-Process cloudflared -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue

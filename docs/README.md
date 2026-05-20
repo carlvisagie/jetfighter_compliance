@@ -4,6 +4,16 @@
 **Product:** KeepYourContracts.com (CMMC, EU DPP, compliance operations)  
 **This is NOT the SAGE coaching organism.**
 
+## Production runtime (canonical)
+
+| Environment | Host | Notes |
+|-------------|------|--------|
+| **Production** | `https://jetfighter-compliance.onrender.com` | Render service `kyc-backend` — same model as Just Talk (hosted, not local PC) |
+| **Branded DNS (target)** | `https://compliance.keepyourcontracts.com` | CNAME → Render custom domain (see [`KYC_RENDER_PRODUCTION_CUTOVER.md`](./KYC_RENDER_PRODUCTION_CUTOVER.md)) |
+| **Local / tunnel** | `127.0.0.1` + `cloudflared` | **Dev or emergency only** — never for customer production |
+
+Verify Render: `powershell -File scripts/verify-render-production.ps1`
+
 ---
 
 ## Agents — start here

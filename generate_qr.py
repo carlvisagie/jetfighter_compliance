@@ -1,6 +1,7 @@
 import qrcode
 
-url = "https://compliance.keepyourcontracts.com/ui/intake.html"
+# Production: Render canonical host (set PUBLIC_BASE_URL when compliance subdomain is on Render)
+url = "https://jetfighter-compliance.onrender.com/ui/intake.html"
 
 qr = qrcode.QRCode(
     version=4,

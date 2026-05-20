@@ -44,9 +44,12 @@ You should be in **`jetfighter_compliance`**, not `purposeful-platform`.
 
 ## Deploy
 
-- **Render service:** `kyc-backend` (Docker)  
+- **Canonical production URL:** `https://jetfighter-compliance.onrender.com`  
+- **Render service:** `kyc-backend` (Docker) — **do not use Windows + Cloudflare Tunnel for production** (dev/emergency only; see [`KYC_RENDER_PRODUCTION_CUTOVER.md`](./KYC_RENDER_PRODUCTION_CUTOVER.md))  
 - **Health:** `GET /healthz` (liveness), `GET /health/ready` (readiness)  
+- **Verify:** `powershell -File scripts/verify-render-production.ps1`  
 - **Env:** `ENVIRONMENT=production`, `INTAKE_TOKEN_SECRET`, `STRIPE_WEBHOOK_SECRET`, `PUBLIC_BASE_URL` or `RENDER_EXTERNAL_URL`, `OPS_API_KEY` (test routes), SMTP optional  
+- **Branded host:** `compliance.keepyourcontracts.com` → Render **Custom Domain** (CNAME), not `cfargotunnel.com`  
 - **Remove:** `SHOPIFY_*`, unused `STRIPE_SECRET` unless wired later  
 
 Dockerfile uses port `10000`; confirm Render `PORT` binding matches.
