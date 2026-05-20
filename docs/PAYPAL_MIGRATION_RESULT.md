@@ -87,15 +87,16 @@ All links: `https://www.paypal.com/ncp/payment/{ID}` — `target="_blank"` `rel=
 
 | Check | Expected | Live (Task 19) |
 |-------|----------|----------------|
-| `/ui/shop.html` HTTP 200 | Pass | TBD after deploy |
-| No `stripe` / `buy.stripe` in shop HTML | Pass | TBD |
-| 5 PayPal `ncp/payment` links present | Pass | TBD |
-| `design-system.css` + new payment CSS | 200 | TBD |
-| `/ui/inquiry.html` hooks (`#f`, submit API) | Unchanged | TBD |
-| `/api/inquiry/submit` | 200 smoke | TBD |
-| Ops pages | 200 + shared CSS | TBD |
+| `/ui/shop.html` HTTP 200 | Pass | **PASS** |
+| No `buy.stripe` in shop HTML | Pass | **PASS** |
+| 5 PayPal `ncp/payment` links present | Pass | **PASS** (all 5 IDs) |
+| `.kyc-product-grid` / `.kyc-paypal-button` in shop | Pass | **PASS** |
+| `components.css` payment rules | 200 | **PASS** |
+| `/ui/inquiry.html` — no Stripe refs | Pass | **PASS** |
+| `/ui/intake.html`, `/ui/upload.html`, ops | 200, no Stripe UI | **PASS** |
+| `/ui/readiness/index.html` | 200, no Stripe UI | **PASS** |
 
-*Live column filled by deploy verification run.*
+**Deploy commit:** `b237f6a` on `origin/main` (verified ~2026-05-19 on Render).
 
 ---
 
