@@ -187,7 +187,7 @@ powershell -File scripts/verify-render-production.ps1
 | DNS instructions for compliance subdomain | **Done** |
 | Tunnel not required for production | **Documented** |
 | No secrets committed | **Done** |
-| Pushed to `origin/main` | Pending |
+| Pushed to `origin/main` | **Done** (`e0e95b1`) |
 
 ---
 
