@@ -1,0 +1,5 @@
+kyc-cmmc-l1-qr.png	https://www.paypal.com/ncp/payment/PAFCVQWAP8CNL	decode_ok=True	web_bytes=21624	poster_bytes=42389
+kyc-cmmc-l2-qr.png	https://www.paypal.com/ncp/payment/TGE3GEWHDUTG4	decode_ok=True	web_bytes=21375	poster_bytes=42158
+kyc-dpp-qr.png	https://www.paypal.com/ncp/payment/PFMJJ4P5W5KHU	decode_ok=True	web_bytes=20690	poster_bytes=40953
+kyc-ai-essential-qr.png	https://www.paypal.com/ncp/payment/9SW62N7N2ADFW	decode_ok=True	web_bytes=21411	poster_bytes=41422
+kyc-ai-growth-qr.png	https://www.paypal.com/ncp/payment/ZH3BTPVUS8SPJ	decode_ok=True	web_bytes=21961	poster_bytes=42664

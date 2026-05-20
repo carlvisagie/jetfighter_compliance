@@ -211,6 +211,73 @@
   border-radius: var(--kyc-radius);
 }
 
+/* —— Payment QR (Task 20) —— */
+.kyc-payment-qr {
+  margin-top: var(--kyc-space-4);
+  text-align: center;
+}
+
+.kyc-payment-qr img {
+  width: 100%;
+  max-width: 10rem;
+  height: auto;
+  border-radius: var(--kyc-radius);
+  border: 1px solid var(--kyc-line);
+}
+
+.kyc-qr-pay-options {
+  margin-top: var(--kyc-space-8);
+  padding: var(--kyc-space-5);
+  background: var(--kyc-surface-inset);
+  border: 1px solid var(--kyc-line);
+  border-radius: var(--kyc-radius-lg);
+}
+
+.kyc-qr-pay-options summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--kyc-text);
+  list-style: none;
+}
+
+.kyc-qr-pay-options summary::-webkit-details-marker {
+  display: none;
+}
+
+.kyc-qr-pay-lead {
+  margin: var(--kyc-space-4) 0 var(--kyc-space-5);
+  font-size: var(--kyc-text-sm);
+  color: var(--kyc-text-muted);
+}
+
+.kyc-qr-pay-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: var(--kyc-space-4);
+}
+
+.kyc-qr-pay-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--kyc-space-2);
+  text-decoration: none;
+  color: var(--kyc-text-muted);
+  font-size: var(--kyc-text-xs);
+  font-weight: 600;
+}
+
+.kyc-qr-pay-item img {
+  width: 100%;
+  max-width: 7.5rem;
+  border-radius: var(--kyc-radius-sm);
+  border: 1px solid var(--kyc-line);
+}
+
+.kyc-qr-pay-item:hover {
+  color: var(--kyc-accent-hover);
+}
+
 /* —— Badges & pills —— */
 .kyc-badge {
   display: inline-flex;
