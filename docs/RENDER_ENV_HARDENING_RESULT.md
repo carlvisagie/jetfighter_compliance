@@ -205,7 +205,7 @@ Record results in §7 after Owner redeploy.
 
 | # | Item | Value |
 |---|------|--------|
-| 1 | **Commit hash** | *(after push)* |
+| 1 | **Commit hash** | `b77e476` |
 | 2 | **Deployed URL** | `https://compliance.keepyourcontracts.com` |
 | 3 | **Live verification** | `/healthz` + UI **PASS**; readiness production checks **FAIL** until Owner applies §3 |
 | 4 | **Rollback** | Revert Render env vars; redeploy; no code rollback |
