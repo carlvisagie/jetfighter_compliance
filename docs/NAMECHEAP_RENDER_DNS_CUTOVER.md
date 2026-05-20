@@ -297,7 +297,7 @@ Document rollback time in [`RENDER_DOMAIN_CUTOVER_RESULT.md`](./RENDER_DOMAIN_CU
 
 | # | Item | Value |
 |---|------|--------|
-| 1 | **Commit hash** | *(set after `git push`)* |
+| 1 | **Commit hash** | `30301f2` |
 | 2 | **Deployed URL** | `https://jetfighter-compliance.onrender.com` (**PASS** at doc write); `https://compliance.keepyourcontracts.com` (**FAIL 530** until Owner executes §4–§6) |
 | 3 | **Live verification** | Render `/healthz` **PASS**; branded host **not cut over yet** |
 | 4 | **Rollback** | Revert Namecheap NS/CNAME; keep Render URL; no code rollback |
