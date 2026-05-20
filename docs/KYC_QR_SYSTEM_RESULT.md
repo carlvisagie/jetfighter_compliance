@@ -83,14 +83,13 @@ Inquiry form `#f` and shop PayPal links unchanged.
 
 ## Live asset verification (Render)
 
-| Asset | Expected | Post-deploy |
-|-------|----------|-------------|
-| `/ui/assets/qr/kyc-cmmc-l1-qr.png` | HTTP 200 | Pending |
-| All 5 web QR PNGs | HTTP 200 | Pending |
-| `/ui/shop.html` references 5 QR paths | Present | Pending |
-| `/ui/inquiry.html` details block | Present | Pending |
+| Asset | Expected | Live (Render) |
+|-------|----------|-----------------|
+| All 5 `/ui/assets/qr/kyc-*-qr.png` | HTTP 200 | **PASS** |
+| `/ui/shop.html` references 5 QR paths | Present | **PASS** |
+| `/ui/inquiry.html` `kyc-qr-pay-options` | Present | **PASS** |
 
-*Updated after deploy push.*
+**Deploy commit:** `ee3435b` on `origin/main`.
 
 ---
 
