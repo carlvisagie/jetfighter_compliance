@@ -158,7 +158,7 @@ Generate secrets locally (do not commit):
 
 | # | Item | Value |
 |---|------|--------|
-| 1 | **Commit hash** | *(after push)* |
+| 1 | **Commit hash** | `3c769d6` |
 | 2 | **Deployed URL** | `https://compliance.keepyourcontracts.com` |
 | 3 | **Live verification** | `/healthz`, `/health/ready`, shop, intake — **PASS**; production env **PASS** |
 | 4 | **Rollback** | Revert Render env vars; redeploy; no code rollback |
