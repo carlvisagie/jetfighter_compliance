@@ -36,3 +36,29 @@ def test_inquiry_submit_kickoff():
     assert j["ok"] is True
     assert "project_id" in j
     assert "intake_url" in j
+
+
+def test_customer_launch_inquiry_to_intake():
+  """Inquiry → project → intake submit marks workflow step."""
+  r = client.post(
+    "/api/inquiry/submit",
+    data={
+      "name": "Launch User",
+      "email": "launch@example.com",
+      "subject": "CMMC-L1",
+      "message": "Customer launch path test.",
+    },
+  )
+  assert r.status_code == 200
+  j = r.json()
+  pid = j["project_id"]
+  token = j["intake_url"].split("token=", 1)[1]
+  sub = client.post(
+    "/api/intake/submit",
+    data={"token": token, "company": "Acme", "contact": "Launch User", "notes": "test"},
+  )
+  assert sub.status_code == 200
+  assert sub.json()["ok"] is True
+  st = client.get(f"/api/project/{pid}/status").json()["status"]
+  intake_step = next(s for s in st["steps"] if s["id"] == "intake_received")
+  assert intake_step["status"] == "done"

@@ -343,11 +343,19 @@ async def intake_submit(
         cl = json.loads(cl_path.read_text())
         for t in cl:
             # Use ID if available, fallback to title matching
-            if t.get("id") == "intake_form" or t.get("title", "").lower().startswith("client intake form"):
+            if t.get("id") in ("intake_form", "intake_received") or t.get("title", "").lower().startswith(
+                "client intake form"
+            ):
                 t["status"] = "done"
         cl_path.write_text(json.dumps(cl, indent=2))
     except Exception as e:
         logging.warning(f"Failed to update checklist for project {project_id}: {e}")
+
+    try:
+        mark_done(project_id, "intake_received")
+        set_phase(project_id, "INTAKE")
+    except Exception as e:
+        logging.warning("Workflow intake_received mark failed for %s: %s", project_id, e)
 
     return {
         "ok": True,
