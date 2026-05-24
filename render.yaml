@@ -15,9 +15,5 @@ services:
         sync: false
       - key: SMTP_PASS
         sync: false
-      - key: STRIPE_SECRET
-        sync: false
-      - key: STRIPE_WEBHOOK_SECRET
-        sync: false
       - key: DATABASE_URL
         sync: false

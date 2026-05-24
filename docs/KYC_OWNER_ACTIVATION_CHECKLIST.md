@@ -1,7 +1,8 @@
-# KYC Owner Activation Checklist — Final P0
+# KYC Owner Activation Checklist — inquiry-led launch
 
-**Use after:** commit `5492efa` deployed to Render `kyc-backend`  
-**Verify with:** `scripts/verify-production-live.ps1`
+> **Current path:** See [`LAUNCH_PATH.md`](./LAUNCH_PATH.md). Stripe / Shopify / Cloudflare tunnel steps in older docs are **inactive**.
+
+**Verify with:** `scripts/verify-production-live.ps1` or `scripts/verify-render-production.ps1`
 
 ---
 
@@ -13,53 +14,36 @@ Dashboard → **kyc-backend** → **Environment**:
 |-----|--------|
 | `ENVIRONMENT` | `production` |
 | `INTAKE_TOKEN_SECRET` | *(strong random — not dev default)* |
-| `STRIPE_WEBHOOK_SECRET` | *(from Stripe, below)* |
 | `OPS_API_KEY` | *(random — for ops test routes)* |
-| `PUBLIC_BASE_URL` | `https://keepyourcontracts.com` *(after DNS section C)* |
+| `PUBLIC_BASE_URL` | `https://compliance.keepyourcontracts.com` *(or rely on `RENDER_EXTERNAL_URL`)* |
+| SMTP (`SMTP_*`, `SMTP_ENABLED`) | Optional — email intake links when ready |
 
-**Delete if present:** `SHOPIFY_WEBHOOK_SECRET`, `SHOPIFY_SECRET`
-
-**Pass:** `GET .../health/ready` shows `environment: production`, `stripe_webhook_configured: true`, `intake_secret_configured: true`.
-
----
-
-## B. Stripe Dashboard
-
-1. Developers → Webhooks → **Add endpoint**  
-2. URL: `https://jetfighter-compliance.onrender.com/webhooks/stripe`  
-   - After DNS: prefer `https://keepyourcontracts.com/webhooks/stripe`  
-3. Events: `checkout.session.completed`  
-4. Copy **Signing secret** → Render `STRIPE_WEBHOOK_SECRET`
-
-**Pass:** Unsigned `POST /webhooks/stripe` returns **401** (not 503).  
-**Pass:** Test payment creates project (Stripe delivery log 200).
+**Pass:** `GET .../health/ready` shows `environment: production`, `inquiry_onboarding_active: true`, `intake_secret_configured: true`.
 
 ---
 
-## C. Custom domain (Render + Cloudflare)
+## B. Custom domain (Render)
 
-1. Render → **kyc-backend** → **Settings** → **Custom Domains** → Add `keepyourcontracts.com` and `www.keepyourcontracts.com`  
-2. Cloudflare DNS → CNAME to Render target (remove parking/Pages/Workers on `@` and `www`)  
-3. SSL: Full (strict)
+1. Render → **kyc-backend** → **Settings** → **Custom Domains**  
+2. Add `compliance.keepyourcontracts.com` (CNAME to Render)  
+3. Confirm `GET https://compliance.keepyourcontracts.com/healthz` returns JSON `ok: true`
 
-**Pass:** `https://keepyourcontracts.com/healthz` → JSON `{"ok":true,...}`  
-**Pass:** `https://keepyourcontracts.com/ui/shop.html` → 200
-
----
-
-## D. Smoke test
-
-1. Open `https://keepyourcontracts.com/ui/inquiry.html` (or Render URL until DNS done)  
-2. Submit inquiry → receive intake link (HTTPS, not localhost)  
-3. Complete intake → upload test file  
-4. Optional: Stripe Payment Link → confirm webhook + new `P-…` project
+**Pass:** `/ui/inquiry.html` loads on the branded host.
 
 ---
 
-## E. Run verifier
+## C. Smoke test (inquiry → intake)
 
-```powershell
-powershell -File scripts/verify-production-live.ps1
-```
+1. Open `/ui/inquiry.html`, submit test inquiry (or use verify script).  
+2. Confirm response includes HTTPS `intake_url` (not localhost).  
+3. Open intake URL, submit intake form.  
+4. Confirm `GET /api/events/recent` shows new order event and project appears in ops status.
 
-Exit code **0** = eligible for **STABILIZED OPERATIONS MODE**.
+**Pass:** End-to-end inquiry → project → intake → event log without payment webhooks.
+
+---
+
+## D. Ops-only tools (not customer-facing)
+
+- Manual project: `/ui/new_client.html` or `POST /events/payment/test` with `X-Ops-Key` in production  
+- Diagnostic kickoff: `/ui/webhook_test.html` (`POST /api/test-webhook`)

@@ -1,3 +1,5 @@
+"""LEGACY INACTIVE: Stripe webhook route — kept for regression coverage only."""
+
 import hashlib
 import hmac
 import json

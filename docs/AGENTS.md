@@ -23,35 +23,35 @@ You should be in **`jetfighter_compliance`**, not `purposeful-platform`.
 
 | Page | Path | Notes |
 |------|------|--------|
-| Landing / shop | `/ui/shop.html` | Real marketing page; PayPal payment links in HTML |
-| Contact | `/ui/inquiry.html` | Posts to `/api/inquiry/submit` — **verify route exists** before deploy |
-| Intake | `/ui/intake.html?token=…` | After payment / project creation |
+| Services catalog | `/ui/shop.html` | Links to inquiry with program subject |
+| Readiness review | `/ui/inquiry.html` | **Primary customer entry** — `POST /api/inquiry/submit` |
+| Intake | `/ui/intake.html?token=…` | After inquiry creates project |
 | Upload | `/upload` or `/ui/upload.html` | Evidence upload |
 
-`/ui/index.html` is a **test stub**, not the production landing — root should route to shop.
+`/ui/index.html` is a **test stub**, not the production landing.
 
 ---
 
-## Onboarding → fulfillment (direct; no Shopify)
+## Onboarding → fulfillment (active path)
 
-| Path | Handler |
+| Step | Handler |
 |------|---------|
-| Contact inquiry | `POST /api/inquiry/submit` → `kickoff()` |
-| Ops / manual project | `POST /events/payment/test` → `kickoff()` |
-| Ops kickoff test UI | `POST /api/test-webhook` → `kickoff()` |
-| Stripe Payment Links | `POST /webhooks/stripe` on `checkout.session.completed` → `kickoff()` |
+| Customer inquiry | `POST /api/inquiry/submit` → `kickoff()` → intake/upload URLs + event |
+| Intake complete | `POST /api/intake/submit` → workflow + communications |
+| Ops manual project | `POST /events/payment/test` or `POST /api/test-webhook` (requires `X-Ops-Key` in production) |
+
+**Legacy (inactive for launch):** `POST /webhooks/stripe` — retained for tests only; not required in Render env.
 
 ---
 
 ## Deploy
 
 - **Canonical production URL:** `https://jetfighter-compliance.onrender.com`  
-- **Render service:** `kyc-backend` (Docker) — **do not use Windows + Cloudflare Tunnel for production** (dev/emergency only; see [`KYC_RENDER_PRODUCTION_CUTOVER.md`](./KYC_RENDER_PRODUCTION_CUTOVER.md))  
-- **Health:** `GET /healthz` (liveness), `GET /health/ready` (readiness)  
+- **Render service:** `kyc-backend` (Docker)  
+- **Health:** `GET /healthz`, `GET /health/ready`  
 - **Verify:** `powershell -File scripts/verify-render-production.ps1`  
-- **Env:** `ENVIRONMENT=production`, `INTAKE_TOKEN_SECRET`, `STRIPE_WEBHOOK_SECRET`, `PUBLIC_BASE_URL` or `RENDER_EXTERNAL_URL`, `OPS_API_KEY` (test routes), SMTP optional  
-- **Branded host:** `compliance.keepyourcontracts.com` → Render **Custom Domain** (CNAME), not `cfargotunnel.com`  
-- **Remove:** `SHOPIFY_*`, unused `STRIPE_SECRET` unless wired later  
+- **Env:** `ENVIRONMENT=production`, `INTAKE_TOKEN_SECRET`, `PUBLIC_BASE_URL` or `RENDER_EXTERNAL_URL`, `OPS_API_KEY`, SMTP optional  
+- **Branded host:** `compliance.keepyourcontracts.com` → Render custom domain (CNAME)
 
 Dockerfile uses port `10000`; confirm Render `PORT` binding matches.
 
@@ -62,6 +62,7 @@ Dockerfile uses port `10000`; confirm Render `PORT` binding matches.
 - Merge compliance `organism/` memory into Sage `client_profile` without Owner bridge spec  
 - Copy coaching `unifiedClientRepository` patterns here  
 - Treat `keepyourcontracts` GitHub scaffold as runtime source  
+- Document Stripe/Shopify/Cloudflare tunnel as the production launch path  
 
 ---
 
@@ -78,9 +79,5 @@ When in doubt: read `server.py`, change less, then **verify on the deployed publ
 Every task must document before marking **DONE**:
 
 1. **Commit hash** on `main`  
-2. **Deployed URL** probed  
-3. **Live verification result** (pass/fail, exit code, or HTTP evidence)  
-4. **Rollback note** (revert commit / env / DNS)  
-5. **No local-only dependency** (laptop, tunnel, uncommitted secrets)
-
-**localhost, tunnels, and local PowerShell are never completion proof.** See [`PRODUCTION_ENGINEERING_DOCTRINE.md`](./PRODUCTION_ENGINEERING_DOCTRINE.md).
+2. **Live URL** used for verification  
+3. **Test command** and pass/fail count  

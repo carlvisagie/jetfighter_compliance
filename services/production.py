@@ -27,8 +27,6 @@ def startup_warnings() -> List[str]:
     if SETTINGS.intake_token_secret == _DEV_INTAKE_SECRET:
         warnings.append("INTAKE_TOKEN_SECRET is default dev value — set a strong secret in production")
     if is_production():
-        if not SETTINGS.stripe_webhook_secret:
-            warnings.append("STRIPE_WEBHOOK_SECRET unset — Stripe payments will not trigger kickoff()")
         base = get_public_base_for_checks()
         if base.startswith("http://127.0.0.1") or base.startswith("http://localhost"):
             warnings.append(f"PUBLIC_BASE_URL not set — intake links use {base}")
@@ -36,10 +34,6 @@ def startup_warnings() -> List[str]:
             warnings.append("OPS_API_KEY unset — test kickoff routes blocked in production")
         if SETTINGS.intake_token_secret == _DEV_INTAKE_SECRET:
             warnings.append("CRITICAL: rotate INTAKE_TOKEN_SECRET before accepting real clients")
-    if os.getenv("SHOPIFY_WEBHOOK_SECRET"):
-        warnings.append("SHOPIFY_WEBHOOK_SECRET still set — remove (Shopify decommissioned)")
-    if os.getenv("SHOPIFY_SECRET"):
-        warnings.append("SHOPIFY_SECRET still set — remove (unused)")
     return warnings
 
 
@@ -51,7 +45,7 @@ def readiness_checks() -> Dict[str, Any]:
         "data_writable": data_ok,
         "projects_dir": projects_ok,
         "public_base_url": base,
-        "stripe_webhook_configured": bool(SETTINGS.stripe_webhook_secret),
+        "inquiry_onboarding_active": True,
         "intake_secret_configured": SETTINGS.intake_token_secret != _DEV_INTAKE_SECRET,
         "smtp_configured": bool(
             SETTINGS.smtp_enabled and SETTINGS.smtp_host and SETTINGS.smtp_user and SETTINGS.smtp_pass

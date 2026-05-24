@@ -1,6 +1,8 @@
 """
-Minimal Stripe webhook helpers (stdlib only — no stripe package).
-Handles Payment Link checkout.session.completed → kickoff() inputs.
+LEGACY INACTIVE — Stripe webhook helpers (stdlib only; no stripe package).
+
+Not used for the current inquiry-led launch path. Retained for tests/test_stripe_webhook.py.
+Handles Payment Link checkout.session.completed → kickoff() inputs when STRIPE_WEBHOOK_SECRET is set.
 """
 import hashlib
 import hmac

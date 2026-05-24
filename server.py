@@ -176,7 +176,7 @@ def kickoff(order_id: str, email: str, name: str, skus: list):
         "upload_url": upload_url,
     }
 
-# ---------- Stripe (Payment Links → kickoff) ----------
+# ---------- LEGACY INACTIVE: Stripe Payment Links → kickoff (tests: tests/test_stripe_webhook.py) ----------
 @app.post("/webhooks/stripe")
 async def stripe_webhook(request: Request):
     raw = await request.body()

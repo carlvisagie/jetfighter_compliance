@@ -1,58 +1,61 @@
-# KeepYourContracts / Jetfighter Compliance — Documentation
+# KeepYourContracts — JetFighter_Compliance
 
-**Production repo:** https://github.com/carlvisagie/jetfighter_compliance  
-**Product:** KeepYourContracts.com (CMMC, EU DPP, compliance operations)  
-**This is NOT the SAGE coaching organism.**
+Compliance operations backend and customer UI. Production runs on **Render** (`kyc-backend`); source of truth is **GitHub** (`jetfighter_compliance`).
 
-## Production runtime (canonical)
+## Active launch path (customer onboarding)
 
-| Environment | Host | Notes |
-|-------------|------|--------|
-| **Production** | `https://jetfighter-compliance.onrender.com` | Render service `kyc-backend` — same model as Just Talk (hosted, not local PC) |
-| **Branded DNS (target)** | `https://compliance.keepyourcontracts.com` | CNAME → Render custom domain (see [`KYC_RENDER_PRODUCTION_CUTOVER.md`](./KYC_RENDER_PRODUCTION_CUTOVER.md)) |
-| **Local / tunnel** | `127.0.0.1` + `cloudflared` | **Dev or emergency only** — never for customer production |
+1. **Inquiry** — Customer opens [`/ui/inquiry.html`](../ui/inquiry.html) (or arrives from [`/ui/shop.html`](../ui/shop.html) with a program subject).
+2. **Submit** — `POST /api/inquiry/submit` creates the project, returns `project_id`, `intake_url`, `upload_url`, and logs an order event.
+3. **Intake** — Customer completes [`/ui/intake.html`](../ui/intake.html) with the token from the inquiry response (`GET /api/intake/resolve`, `POST /api/intake/submit`).
+4. **Event log** — Ops and automation use `GET /api/events/recent` and the event helper UI.
+5. **Customer onboarding** — Workflow phases, upload, and status via intake + upload URLs and the operations console.
 
-Verify Render: `powershell -File scripts/verify-render-production.ps1`
+**Production entry URL:** `https://compliance.keepyourcontracts.com/ui/inquiry.html`  
+**Canonical API host:** `https://jetfighter-compliance.onrender.com`
 
----
+## Verify production
 
-## Agents — start here
+```powershell
+powershell -File scripts/verify-render-production.ps1
+```
 
-1. **[`PRODUCTION_ENGINEERING_DOCTRINE.md`](./PRODUCTION_ENGINEERING_DOCTRINE.md)** — **LOCKED** — live URL only; laptop/tunnel never production  
-2. **[`AGENTS.md`](./AGENTS.md)** — rules, paths, deploy, do-not-confuse-with-Sage  
-3. **Ecosystem stabilization (SAGE repo):**  
-   https://github.com/carlvisagie/purposeful-platform/blob/main/docs/STABILIZATION_STATUS_MASTER.md  
-4. **KYC live verification:** [`KYC_PRODUCTION_VERIFICATION.md`](./KYC_PRODUCTION_VERIFICATION.md)  
-5. **Dependency audit:** [`BRUTAL_PRODUCTION_DEPENDENCY_AUDIT.md`](./BRUTAL_PRODUCTION_DEPENDENCY_AUDIT.md)  
+Optional full live check (custom domain + inquiry smoke):
 
----
+```powershell
+powershell -File scripts/verify-production-live.ps1
+```
 
-## Code map
+## Required production configuration
 
-| Path | Role |
+| Variable | Purpose |
+|----------|---------|
+| `ENVIRONMENT` | `production` |
+| `INTAKE_TOKEN_SECRET` | Strong secret for intake tokens |
+| `PUBLIC_BASE_URL` or `RENDER_EXTERNAL_URL` | HTTPS links in inquiry/intake emails |
+| `OPS_API_KEY` | Blocks unauthenticated ops test routes |
+| SMTP (`SMTP_*`, `SMTP_ENABLED`) | Optional — intake links in email when configured |
+
+## Local development (not production)
+
+`start_production.ps1` and `start_everything.ps1` run uvicorn locally and may use a **Cloudflare Tunnel** for temporary public URLs on a developer machine. **Do not** use tunnel scripts as the production launch path; deploy via Render.
+
+## Operations UI
+
+| Page | Path |
 |------|------|
-| `server.py` | FastAPI app, direct onboarding API, static `/ui` mount |
-| `ui/shop.html` | **Landing / offers** (PayPal payment links) |
-| `ui/inquiry.html` | Contact form |
-| `ui/intake.html` | Post-sale client intake |
-| `ui/upload.html`, `ui/status.html` | Delivery workflow |
-| `organism/` | KYC continuity engine (events, state) |
-| `render.yaml` | Render Docker deploy (`kyc-backend`) |
-| `drafts/` | Plans (telemetry, shop v2, lead intelligence) — not all wired |
+| Services / catalog | `/ui/shop.html` |
+| Readiness review (customer) | `/ui/inquiry.html` |
+| Intake | `/ui/intake.html?token=…` |
+| Operations hub | `/ui/control.html` |
+| Command / health | `/ui/command.html` |
 
----
+## Health
 
-## Plans in repo (draft)
+- `GET /healthz` — liveness  
+- `GET /health/ready` — readiness (`intake_secret_configured`, `smtp_configured`, `inquiry_onboarding_active`)
 
-| File | Topic |
-|------|--------|
-| `drafts/lead_intelligence_plan.md` | Autonomous revenue / visitor intelligence |
-| `drafts/telemetry_schema_v1.md` | Telemetry event schema |
-| `drafts/telemetry_endpoint_plan.md` | Telemetry API plan |
-| `organism/docs/TEST_DOCTRINE.md` | KYC organism test doctrine |
+## Agent context
 
----
+See [`AGENTS.md`](./AGENTS.md) and [`PRODUCTION_ENGINEERING_DOCTRINE.md`](./PRODUCTION_ENGINEERING_DOCTRINE.md).
 
-## Boundary
-
-Do not implement Sage `client_profile`, `sageControlBus`, or coaching Canon here without explicit Owner decision and a written bridge spec in both repos.
+Historical integration notes (Stripe, Shopify, tunnel cutover) remain in archived `docs/KYC_*.md` files for reference only — they are **not** part of the current launch path.

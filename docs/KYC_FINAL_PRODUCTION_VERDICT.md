@@ -1,5 +1,7 @@
 # KYC Final Production Verdict — Task 8
 
+> **Superseded for launch decisions:** Use [`LAUNCH_PATH.md`](./LAUNCH_PATH.md) and [`README.md`](./README.md). This file is a historical probe snapshot; Stripe/Shopify/Cloudflare are not the active onboarding path.
+
 **Probe date:** 2026-05-19 (UTC ~09:38)  
 **Render host:** `https://jetfighter-compliance.onrender.com`  
 **Custom domain:** `https://keepyourcontracts.com`  

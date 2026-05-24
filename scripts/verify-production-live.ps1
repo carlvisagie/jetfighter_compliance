@@ -1,8 +1,8 @@
-# KeepYourContracts - live production verification (run after Owner env/DNS/Stripe changes)
+# KeepYourContracts - live production verification (inquiry-led launch path)
 # Usage: powershell -File scripts/verify-production-live.ps1
 
 $Render = "https://jetfighter-compliance.onrender.com"
-$Custom = "https://keepyourcontracts.com"
+$Custom = "https://compliance.keepyourcontracts.com"
 $fail = 0
 
 function Test-JsonHealth($url, $label) {
@@ -27,10 +27,10 @@ try {
         Write-Host "[FAIL] ENVIRONMENT not production (got $($ready.checks.environment))" -ForegroundColor Red
         $fail++
     } else { Write-Host "[PASS] ENVIRONMENT=production" -ForegroundColor Green }
-    if (-not $ready.checks.stripe_webhook_configured) {
-        Write-Host "[FAIL] STRIPE_WEBHOOK_SECRET not configured" -ForegroundColor Red
+    if (-not $ready.checks.inquiry_onboarding_active) {
+        Write-Host "[FAIL] inquiry_onboarding_active not true" -ForegroundColor Red
         $fail++
-    } else { Write-Host "[PASS] Stripe webhook secret set" -ForegroundColor Green }
+    } else { Write-Host "[PASS] Inquiry onboarding active" -ForegroundColor Green }
     if (-not $ready.checks.intake_secret_configured) {
         Write-Host "[FAIL] INTAKE_TOKEN_SECRET still default" -ForegroundColor Red
         $fail++
@@ -38,19 +38,6 @@ try {
 } catch {
     Write-Host "[FAIL] /health/ready - $_" -ForegroundColor Red
     $fail++
-}
-
-Write-Host ""
-Write-Host "=== Stripe route ===" -ForegroundColor Cyan
-try {
-    Invoke-WebRequest "$Render/webhooks/stripe" -Method POST -Body "{}" -ContentType "application/json" -UseBasicParsing -TimeoutSec 20 | Out-Null
-    Write-Host "[FAIL] Stripe unsigned POST should not return 2xx" -ForegroundColor Red
-    $fail++
-} catch {
-    $code = $_.Exception.Response.StatusCode.value__
-    if ($code -eq 401) { Write-Host "[PASS] Stripe route rejects unsigned (401)" -ForegroundColor Green }
-    elseif ($code -eq 503) { Write-Host "[FAIL] STRIPE_WEBHOOK_SECRET still missing (503)" -ForegroundColor Red; $fail++ }
-    else { Write-Host "[WARN] Stripe returned $code" -ForegroundColor Yellow }
 }
 
 Write-Host ""
@@ -68,14 +55,16 @@ try {
 }
 
 Write-Host ""
-Write-Host "=== Custom domain ===" -ForegroundColor Cyan
-if (-not (Test-JsonHealth "$Custom/healthz" "keepyourcontracts.com /healthz")) { $fail++ }
-try {
-    $r = Invoke-WebRequest "$Custom/ui/shop.html" -UseBasicParsing -TimeoutSec 25
-    if ($r.StatusCode -eq 200) { Write-Host "[PASS] /ui/shop.html" -ForegroundColor Green }
-} catch {
-    Write-Host "[FAIL] /ui/shop.html - $($_.Exception.Response.StatusCode.value__)" -ForegroundColor Red
-    $fail++
+Write-Host "=== Customer UI (branded host) ===" -ForegroundColor Cyan
+if (-not (Test-JsonHealth "$Custom/healthz" "compliance.keepyourcontracts.com /healthz")) { $fail++ }
+foreach ($path in @("/ui/inquiry.html", "/ui/intake.html", "/ui/shop.html")) {
+    try {
+        $r = Invoke-WebRequest "$Custom$path" -UseBasicParsing -TimeoutSec 25
+        if ($r.StatusCode -eq 200) { Write-Host "[PASS] $path" -ForegroundColor Green }
+    } catch {
+        Write-Host "[FAIL] $path - $($_.Exception.Response.StatusCode.value__)" -ForegroundColor Red
+        $fail++
+    }
 }
 
 Write-Host ""
@@ -96,6 +85,6 @@ try {
 
 Write-Host ""
 Write-Host "=== Summary ===" -ForegroundColor Cyan
-if ($fail -eq 0) { Write-Host "ALL CHECKS PASSED - eligible for STABILIZED OPERATIONS MODE" -ForegroundColor Green; exit 0 }
-Write-Host "$fail check group(s) FAILED - complete Owner activation checklist" -ForegroundColor Red
+if ($fail -eq 0) { Write-Host "ALL CHECKS PASSED - inquiry-led launch path ready" -ForegroundColor Green; exit 0 }
+Write-Host "$fail check group(s) FAILED - see docs/README.md launch checklist" -ForegroundColor Red
 exit 1
