@@ -86,6 +86,11 @@ def find_entity_id(
             hit = idx["by_ref"].get(f"{ref_type}:{ref_id}")
             if hit:
                 return hit
+    em = (email or "").strip().lower()
+    if em:
+        hit = idx["by_ref"].get(f"email:{em}")
+        if hit:
+            return hit
     dom = email_domain(email)
     if dom and dom in idx["by_domain"]:
         return idx["by_domain"][dom]
@@ -132,7 +137,7 @@ def upsert_entity(
     cn = normalize_company(company)
     slug = cn or dom or "org"
     if existing_id:
-        ent = next((e for e in entities if e.get("entity_id") == existing_id), None)
+        ent = get_entity(existing_id, base)
         if ent:
             ent = dict(ent)
             ent["updated_utc"] = utc_now()
@@ -140,8 +145,11 @@ def upsert_entity(
                 ent["company_norm"] = cn
             if dom and not ent.get("email_domain"):
                 ent["email_domain"] = dom
+            if contact_name and not ent.get("contact_name"):
+                ent["contact_name"] = contact_name
             if display_name:
                 ent["display_name"] = display_name
+            ent.setdefault("refs", list(ent.get("refs") or []))
             append_entity(ent, base)
         return existing_id, False
 
@@ -164,14 +172,10 @@ def upsert_entity(
 def add_ref(entity_id: str, ref_type: str, ref_id: str, base: Optional[Path] = None) -> None:
     if not ref_type or not ref_id:
         return
-    entities = load_entities(base)
-    ent = None
-    for e in reversed(entities):
-        if e.get("entity_id") == entity_id:
-            ent = dict(e)
-            break
+    ent = get_entity(entity_id, base)
     if not ent:
         return
+    ent = dict(ent)
     refs = list(ent.get("refs") or [])
     key = f"{ref_type}:{ref_id}"
     if not any(f"{r.get('ref_type')}:{r.get('ref_id')}" == key for r in refs):
@@ -179,6 +183,16 @@ def add_ref(entity_id: str, ref_type: str, ref_id: str, base: Optional[Path] = N
     ent["refs"] = refs
     ent["updated_utc"] = utc_now()
     append_entity(ent, base)
+
+
+def add_refs(
+    entity_id: str,
+    refs: List[Tuple[str, str]],
+    base: Optional[Path] = None,
+) -> None:
+    """Attach multiple refs in one entity snapshot (project, lead, inquiry, email, …)."""
+    for ref_type, ref_id in refs:
+        add_ref(entity_id, ref_type, ref_id, base)
 
 
 def get_entity(entity_id: str, base: Optional[Path] = None) -> Optional[Dict[str, Any]]:

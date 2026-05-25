@@ -16,6 +16,10 @@ from services.memory.central_memory import (
     read_entity_context,
     reconstruct_journey,
     resolve_or_create_entity,
+    safe_link_after_kickoff,
+    safe_link_ledger_event,
+    safe_write_after_inquiry,
+    safe_write_after_intake,
 )
 from services.memory.learning import get_learning_summary, record_learning_signal
 from services.memory.self_healing import run_self_healing_scan
@@ -149,3 +153,74 @@ def test_lookup_api_shape(mem_tmp):
     assert "journey" in result
     assert "learning" in result
     assert "self_healing" in result
+
+
+def test_upsert_preserves_entity_refs(mem_tmp):
+    mem, _ = mem_tmp
+    eid = resolve_or_create_entity(email="refs@acme.com", company="Acme", base=mem)
+    link_project("P-REF-1", eid, base=mem)
+    resolve_or_create_entity(email="refs@acme.com", company="Acme", base=mem)
+    ent = read_entity_context(entity_id=eid, base=mem)["entity"]
+    ref_keys = {f"{r['ref_type']}:{r['ref_id']}" for r in (ent.get("refs") or [])}
+    assert "project:P-REF-1" in ref_keys
+
+
+def test_kickoff_journey_full_chain(mem_tmp):
+    """lead/ref → inquiry → intake → project_created → ledger_event → lookup."""
+    mem, projects = mem_tmp
+    lead_ref = "organism-test-regression"
+    email = "organism.regression@acme.test"
+    order_id = "INQ-REG-001"
+    project_id = "P-INQ-REG-001"
+    evt_id = f"EVT-{project_id}-ORDER"
+
+    (projects / project_id).mkdir(parents=True)
+    (projects / project_id / "meta.json").write_text(
+        json.dumps({"project_id": project_id, "customer": {"email": email, "name": "Regression"}})
+    )
+    (projects / project_id / "communications").mkdir(exist_ok=True)
+
+    eid = safe_link_after_kickoff(project_id, order_id, email, "Regression", ["CMMC-L1"], lead_ref, base=mem)
+    assert eid
+    safe_link_ledger_event(
+        evt_id,
+        project_id,
+        email=email,
+        name="Regression",
+        event_type="ATTEST",
+        why="Onboarding started; project created",
+        base=mem,
+    )
+    safe_write_after_inquiry(
+        project_id,
+        order_id,
+        email,
+        "Regression",
+        "CMMC",
+        f"[ref:{lead_ref}]\n\nOrganism regression inquiry.",
+        lead_ref,
+        base=mem,
+    )
+    safe_write_after_intake(
+        project_id,
+        email,
+        {"company": "Acme Regression LLC", "notes": "intake done", "external_flags": {}},
+        base=mem,
+    )
+
+    result = lookup(project_id=project_id, base=mem)
+    journey = result["journey"]
+    entity = journey["context"]["entity"]
+    stage_types = [s["type"] for s in journey["stages"]]
+
+    assert journey["entity_id"] == eid
+    ref_keys = {f"{r['ref_type']}:{r['ref_id']}" for r in (entity.get("refs") or [])}
+    assert f"project:{project_id}" in ref_keys
+    assert f"lead:{lead_ref}" in ref_keys
+    assert f"inquiry:{order_id}" in ref_keys
+    assert f"email:{email}" in ref_keys
+    assert "project_created" in stage_types
+    assert "ledger_event" in stage_types
+    assert "inquiry_submitted" in stage_types
+    assert "lead_linked" in stage_types
+    assert "intake_completed" in stage_types

@@ -177,11 +177,17 @@ def kickoff(order_id: str, email: str, name: str, skus: list):
         "hash": "temp"
     })
     try:
-        from services.memory import safe_link_after_kickoff, link_event, find_entity_id
+        from services.memory import safe_link_after_kickoff, safe_link_ledger_event
 
-        eid = safe_link_after_kickoff(meta["project_id"], order_id, email, name, skus)
-        if eid:
-            link_event(evt_id, eid, meta["project_id"])
+        safe_link_after_kickoff(meta["project_id"], order_id, email, name, skus)
+        safe_link_ledger_event(
+            evt_id,
+            meta["project_id"],
+            email=email,
+            name=name,
+            event_type="ATTEST",
+            why="Onboarding started; project created",
+        )
     except Exception:
         pass
     return {

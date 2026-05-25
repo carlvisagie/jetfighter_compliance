@@ -9,9 +9,9 @@ from typing import Any, Dict, List, Optional
 from ..config import DATA, PROJECTS
 from .entity_graph import (
     add_ref,
+    add_refs,
     find_entity_id,
     get_entity,
-    load_entities,
     upsert_entity,
 )
 from .learning import record_learning_signal
@@ -19,6 +19,44 @@ from .signals import append_signal, load_signals
 from .timeline import append_timeline, load_timeline
 
 logger = logging.getLogger(__name__)
+
+
+def _timeline_has(
+    entity_id: str,
+    event_type: str,
+    *,
+    ref_id: str = "",
+    base: Optional[Path] = None,
+) -> bool:
+    for step in load_timeline(entity_id, base):
+        if step.get("event_type") != event_type:
+            continue
+        if ref_id and step.get("ref_id") != ref_id:
+            continue
+        return True
+    return False
+
+
+def _attach_entity_refs(
+    entity_id: str,
+    *,
+    project_id: str = "",
+    order_id: str = "",
+    email: str = "",
+    lead_id: str = "",
+    base: Optional[Path] = None,
+) -> None:
+    refs: List[tuple] = []
+    if project_id:
+        refs.append(("project", project_id))
+    if order_id:
+        refs.append(("inquiry", order_id))
+    if email:
+        refs.append(("email", email.strip().lower()))
+    if lead_id:
+        refs.append(("lead", lead_id))
+    if refs:
+        add_refs(entity_id, refs, base)
 
 
 def resolve_or_create_entity(
@@ -222,15 +260,75 @@ def safe_link_after_kickoff(
     base: Optional[Path] = None,
 ) -> Optional[str]:
     try:
-        eid = resolve_or_create_entity(email=email, company=name, contact_name=name, base=base)
-        link_project(project_id, eid, {"order_id": order_id, "skus": skus}, base)
-        link_inquiry(project_id, order_id, eid, {"email": email, "name": name}, base)
-        if lead_id:
-            link_lead(lead_id, eid, {"source": "inquiry_ref"}, base)
+        eid = resolve_or_create_entity(
+            email=email,
+            company=name,
+            contact_name=name,
+            display_name=name,
+            base=base,
+        )
+        _attach_entity_refs(
+            eid,
+            project_id=project_id,
+            order_id=order_id,
+            email=email,
+            lead_id=lead_id,
+            base=base,
+        )
+        if not _timeline_has(eid, "project_created", ref_id=project_id, base=base):
+            link_project(project_id, eid, {"order_id": order_id, "skus": skus}, base)
+        if not _timeline_has(eid, "inquiry_submitted", ref_id=project_id, base=base):
+            link_inquiry(
+                project_id,
+                order_id,
+                eid,
+                {"email": email, "name": name, "source": "kickoff"},
+                base,
+            )
+        if lead_id and not _timeline_has(eid, "lead_linked", ref_id=lead_id, base=base):
+            link_lead(lead_id, eid, {"source": "kickoff_ref"}, base)
         return eid
     except Exception as e:
         logger.warning("Central memory write (kickoff): %s", e)
         return None
+
+
+def safe_link_ledger_event(
+    event_id: str,
+    project_id: str,
+    *,
+    email: str = "",
+    name: str = "",
+    event_type: str = "ATTEST",
+    why: str = "",
+    base: Optional[Path] = None,
+) -> None:
+    """Link ORDER/ATTEST ledger events into central memory after kickoff."""
+    try:
+        eid = find_entity_id(project_id=project_id, email=email, company=name, base=base)
+        if not eid and email:
+            eid = resolve_or_create_entity(
+                email=email,
+                company=name,
+                contact_name=name,
+                display_name=name,
+                base=base,
+            )
+        if not eid:
+            logger.warning("Central memory ledger link: no entity for project %s", project_id)
+            return
+        _attach_entity_refs(eid, project_id=project_id, email=email, base=base)
+        if _timeline_has(eid, "ledger_event", ref_id=event_id, base=base):
+            return
+        link_event(
+            event_id,
+            eid,
+            project_id,
+            {"event_type": event_type, "why": why},
+            base,
+        )
+    except Exception as e:
+        logger.warning("Central memory write (ledger event): %s", e)
 
 
 def safe_write_after_inquiry(
@@ -247,10 +345,33 @@ def safe_write_after_inquiry(
         from services.acquisition.fingerprints import extract_ref_from_message
 
         lead_id = lead_id or extract_ref_from_message(message)
-        eid = resolve_or_create_entity(email=email, contact_name=name, base=base)
-        link_inquiry(project_id, order_id, eid, {"subject": subject, "message": message[:500]}, base)
-        if lead_id:
-            link_lead(lead_id, eid, {}, base)
+        eid = resolve_or_create_entity(
+            email=email,
+            company=name,
+            contact_name=name,
+            display_name=name,
+            base=base,
+        )
+        _attach_entity_refs(
+            eid,
+            project_id=project_id,
+            order_id=order_id,
+            email=email,
+            lead_id=lead_id,
+            base=base,
+        )
+        if not _timeline_has(eid, "project_created", ref_id=project_id, base=base):
+            link_project(project_id, eid, {"order_id": order_id, "source": "inquiry"}, base)
+        if not _timeline_has(eid, "inquiry_submitted", ref_id=project_id, base=base):
+            link_inquiry(
+                project_id,
+                order_id,
+                eid,
+                {"subject": subject, "message": message[:500], "email": email},
+                base,
+            )
+        if lead_id and not _timeline_has(eid, "lead_linked", ref_id=lead_id, base=base):
+            link_lead(lead_id, eid, {"source": "inquiry_ref"}, base)
             record_learning_signal(f"lead:{lead_id}", "lead_to_inquiry", success=True, base=base)
     except Exception as e:
         logger.warning("Central memory write (inquiry): %s", e)
@@ -258,12 +379,20 @@ def safe_write_after_inquiry(
 
 def safe_write_after_intake(project_id: str, email: str, intake: Dict[str, Any], base: Optional[Path] = None) -> None:
     try:
-        eid = resolve_or_create_entity(
-            email=email,
-            company=intake.get("company", ""),
-            base=base,
-        ) or find_entity_id(project_id=project_id, base=base)
-        if eid:
+        eid = (
+            find_entity_id(project_id=project_id, email=email, base=base)
+            or resolve_or_create_entity(
+                email=email,
+                company=intake.get("company", ""),
+                base=base,
+            )
+        )
+        if not eid:
+            return
+        _attach_entity_refs(eid, project_id=project_id, email=email, base=base)
+        if not _timeline_has(eid, "project_created", ref_id=project_id, base=base):
+            link_project(project_id, eid, {"source": "intake_backfill"}, base)
+        if not _timeline_has(eid, "intake_completed", ref_id=project_id, base=base):
             link_intake(project_id, eid, intake, base)
     except Exception as e:
         logger.warning("Central memory write (intake): %s", e)
