@@ -54,6 +54,10 @@ powershell -File scripts/verify-production-live.ps1
 - `GET /healthz` — liveness  
 - `GET /health/ready` — readiness (`intake_secret_configured`, `smtp_configured`, `inquiry_onboarding_active`)
 
+## Controlled onboarding tests (MVP)
+
+See [`CONTROLLED_ONBOARDING_ACQUISITION.md`](./CONTROLLED_ONBOARDING_ACQUISITION.md) — targets, outreach copy, CSV tracking, Sintra worker roles. Ops UI: `/ui/onboarding_validation.html`.
+
 ## Agent context
 
 See [`AGENTS.md`](./AGENTS.md) and [`PRODUCTION_ENGINEERING_DOCTRINE.md`](./PRODUCTION_ENGINEERING_DOCTRINE.md).

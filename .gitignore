@@ -6,7 +6,9 @@ __pycache__/
 .pytest_cache/
 *.sqlite3
 *.log
-data/
+data/*
+!data/acquisition/
+!data/acquisition/**
 .cloudflared/
 config_auth.json
 bin/cloudflared.exe

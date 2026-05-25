@@ -26,6 +26,10 @@
 - `intake_secret_configured`: `true` (strong `INTAKE_TOKEN_SECRET`)
 - `smtp_configured`: optional until email is required
 
+## Controlled acquisition (MVP validation only)
+
+Not a marketing program. See [`CONTROLLED_ONBOARDING_ACQUISITION.md`](./CONTROLLED_ONBOARDING_ACQUISITION.md). Use `ref=` on inquiry URLs for cohort tracking.
+
 ## Inactive for launch (legacy)
 
 Stripe webhooks, Shopify, and Cloudflare Tunnel rebuild/cutover docs are **not** part of this path. Legacy backend route `POST /webhooks/stripe` remains for automated tests only.

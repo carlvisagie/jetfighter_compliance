@@ -66,15 +66,28 @@
   const f = document.getElementById('f'), m = document.getElementById('msg');
   const params = new URLSearchParams(window.location.search);
   const subject = params.get('subject');
+  const ref = params.get('ref') || params.get('source');
   if (subject) {
     const subj = document.getElementById('subject');
     if (subj) subj.value = subject;
+  }
+  if (ref) {
+    const hint = document.createElement('p');
+    hint.className = 'kyc-status';
+    hint.textContent = 'Reference: ' + ref + ' (included when you submit)';
+    f.insertBefore(hint, f.querySelector('button'));
   }
   f.addEventListener('submit', async (e) => {
     e.preventDefault();
     m.className = 'kyc-status';
     m.textContent = 'Submitting…';
     const fd = new FormData(f);
+    if (ref) {
+      const msg = fd.get('message') || '';
+      if (!String(msg).includes('[ref:' + ref + ']')) {
+        fd.set('message', '[ref:' + ref + ']\n\n' + msg);
+      }
+    }
     const r = await fetch('/api/inquiry/submit', { method: 'POST', body: fd });
     const j = await r.json();
     if (j.ok) {
