@@ -1,13 +1,7 @@
 import io
 
-from fastapi.testclient import TestClient
 
-from server import app
-
-client = TestClient(app)
-
-
-def test_intake_resolve_and_evidence_register():
+def test_intake_resolve_and_evidence_register(client):
     kick = client.post(
         "/events/payment/test",
         json={"order_id": "UPLOAD-T1", "email": "upload@example.com", "name": "Up", "skus": ["TEST"]},

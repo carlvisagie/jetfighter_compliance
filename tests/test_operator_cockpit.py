@@ -1,13 +1,6 @@
 """Operator cockpit and knowledge API tests."""
 
-from fastapi.testclient import TestClient
-
-from server import app
-
-client = TestClient(app)
-
-
-def test_knowledge_catalog():
+def test_knowledge_catalog(client):
     r = client.get("/api/knowledge/catalog")
     assert r.status_code == 200
     j = r.json()
@@ -17,7 +10,7 @@ def test_knowledge_catalog():
     assert "fragmentation_note" in j
 
 
-def test_knowledge_search_phase_filter():
+def test_knowledge_search_phase_filter(client):
     r = client.get("/api/knowledge/search?phase=acquisition_discovery")
     assert r.status_code == 200
     topics = r.json()["topics"]
@@ -25,7 +18,7 @@ def test_knowledge_search_phase_filter():
     assert all("acquisition_discovery" in t["phases"] for t in topics)
 
 
-def test_knowledge_topic_real_content():
+def test_knowledge_topic_real_content(client):
     r = client.get("/api/knowledge/topic/launch-path")
     assert r.status_code == 200
     t = r.json()["topic"]
@@ -34,12 +27,12 @@ def test_knowledge_topic_real_content():
     assert not t["missing"]
 
 
-def test_knowledge_topic_404():
+def test_knowledge_topic_404(client):
     r = client.get("/api/knowledge/topic/does-not-exist")
     assert r.status_code == 404
 
 
-def test_operator_cockpit_shape():
+def test_operator_cockpit_shape(client):
     r = client.get("/api/operator/cockpit")
     assert r.status_code == 200
     c = r.json()["cockpit"]
@@ -50,7 +43,7 @@ def test_operator_cockpit_shape():
     assert "knowledge_topic_ids" in c
 
 
-def test_control_html_has_cockpit():
+def test_control_html_has_cockpit(client):
     r = client.get("/ui/control.html")
     assert r.status_code == 200
     assert "Operator cockpit" in r.text
@@ -59,7 +52,7 @@ def test_control_html_has_cockpit():
     assert "Learn this step" in r.text
 
 
-def test_knowledge_html_served():
+def test_knowledge_html_served(client):
     r = client.get("/ui/knowledge.html")
     assert r.status_code == 200
     assert "Operator knowledge base" in r.text

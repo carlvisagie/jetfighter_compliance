@@ -187,7 +187,10 @@
   <script src="/ui/assets/js/organism-intel.js"></script>
   <script src="/ui/assets/js/operator-cockpit.js"></script>
   <script>
-  async function api(u, opts) { const r = await fetch(u, opts || {}); return r.json(); }
+  async function api(u, opts) {
+    const r = await fetch(u, Object.assign({ credentials: 'same-origin' }, opts || {}));
+    return r.json();
+  }
   async function initProjects() {
     let projects = [];
     try { projects = (await api('/api/projects')).projects || []; } catch {}

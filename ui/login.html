@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>KeepYourContracts | Operator sign-in</title>
+  <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
+  <link rel="stylesheet" href="/ui/assets/styles/layout.css">
+  <link rel="stylesheet" href="/ui/assets/styles/components.css">
+</head>
+<body class="kyc-page kyc-surface-ops">
+  <main class="kyc-main" style="max-width:24rem;margin:4rem auto;">
+    <article class="card">
+      <h1 style="margin-top:0;">Operator sign-in</h1>
+      <p class="kyc-ops-subtitle">Internal access only. Customer services remain on the public site.</p>
+      <p id="err" class="kyc-empty" style="color:var(--kyc-danger);display:none;"></p>
+      <form id="loginForm" class="kyc-form">
+        <div class="kyc-field">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="kyc-btn kyc-btn--primary">Sign in</button>
+      </form>
+      <p style="margin-top:1.5rem;font-size:var(--kyc-text-sm);">
+        <a href="/ui/shop.html">← Back to public site</a>
+      </p>
+    </article>
+  </main>
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const next = params.get('next') || '/ui/control.html';
+    const errEl = document.getElementById('err');
+    if (params.get('error') === 'config') {
+      errEl.textContent = 'Operator password is not configured on the server (OPS_PASSWORD).';
+      errEl.style.display = 'block';
+    }
+    document.getElementById('loginForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      errEl.style.display = 'none';
+      const password = document.getElementById('password').value;
+      const r = await fetch('/api/ops/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ password: password })
+      });
+      const j = await r.json().catch(function () { return {}; });
+      if (!r.ok) {
+        errEl.textContent = j.detail || 'Sign-in failed';
+        errEl.style.display = 'block';
+        return;
+      }
+      location.href = next;
+    });
+  })();
+  </script>
+</body>
+</html>

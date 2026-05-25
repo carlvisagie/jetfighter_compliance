@@ -1,13 +1,6 @@
 """UI contract tests for organism command center (control + memory)."""
 
-from fastapi.testclient import TestClient
-
-from server import app
-
-client = TestClient(app)
-
-
-def test_control_html_serves_organism_command_center():
+def test_control_html_serves_organism_command_center(client):
     r = client.get("/ui/control.html")
     assert r.status_code == 200
     html = r.text
@@ -20,7 +13,7 @@ def test_control_html_serves_organism_command_center():
     assert 'data-org-feed="activity"' in html
 
 
-def test_memory_html_serves_intelligence_surface():
+def test_memory_html_serves_intelligence_surface(client):
     r = client.get("/ui/memory.html")
     assert r.status_code == 200
     html = r.text
@@ -31,13 +24,13 @@ def test_memory_html_serves_intelligence_surface():
     assert 'class="codebox"' not in html or "<details" in html
 
 
-def test_organism_intel_assets_served():
+def test_organism_intel_assets_served(anon_client):
     for path in ("/ui/assets/js/organism-intel.js", "/ui/assets/styles/organism-command.css"):
-        r = client.get(path)
+        r = anon_client.get(path)
         assert r.status_code == 200, path
 
 
-def test_memory_apis_still_function_for_dashboard():
+def test_memory_apis_still_function_for_dashboard(client):
     endpoints = [
         "/api/memory/observability?limit=5",
         "/api/memory/learning",
@@ -54,7 +47,7 @@ def test_memory_apis_still_function_for_dashboard():
         assert r.json().get("ok") is True or "verdict" in r.json() or "checks" in r.json()
 
 
-def test_observability_verdict_is_real_enum():
+def test_observability_verdict_is_real_enum(client):
     r = client.get("/api/memory/observability?limit=10")
     assert r.status_code == 200
     j = r.json()
@@ -67,7 +60,7 @@ def test_observability_verdict_is_real_enum():
     assert isinstance(j.get("recommended_improvements"), list)
 
 
-def test_self_heal_report_has_dashboard_fields():
+def test_self_heal_report_has_dashboard_fields(client):
     r = client.get("/api/memory/self-heal")
     assert r.status_code == 200
     report = r.json().get("report") or {}
@@ -76,8 +69,8 @@ def test_self_heal_report_has_dashboard_fields():
     assert isinstance(report["orphan_projects"], list)
 
 
-def test_organism_intel_js_exports_snapshot_helpers():
-    r = client.get("/ui/assets/js/organism-intel.js")
+def test_organism_intel_js_exports_snapshot_helpers(anon_client):
+    r = anon_client.get("/ui/assets/js/organism-intel.js")
     assert r.status_code == 200
     body = r.text
     assert "fetchOrganismSnapshot" in body
@@ -86,7 +79,7 @@ def test_organism_intel_js_exports_snapshot_helpers():
     assert "recommended_improvements" in body
 
 
-def test_control_html_no_debug_pre_dumps():
+def test_control_html_no_debug_pre_dumps(client):
     r = client.get("/ui/control.html")
     assert "codebox" not in r.text
     assert '<pre id=' not in r.text

@@ -15,9 +15,6 @@ from services.memory.organism_integration import run_integration_audit
 from services.memory.self_healing import run_self_healing_scan
 from services.memory.timeline import load_timeline
 
-client = TestClient(app)
-
-
 @pytest.fixture
 def organism_env(tmp_path, monkeypatch):
     mem = tmp_path / "memory"
@@ -59,7 +56,7 @@ def _timeline_types(entity_id: str, mem: Path) -> set:
     return {t["event_type"] for t in load_timeline(entity_id, mem)}
 
 
-def test_inquiry_writes_central_memory(organism_env):
+def test_inquiry_writes_central_memory(organism_env, client):
     mem, projects, _, data = organism_env
     lead_ref = "L-ORG-INQ"
     r = client.post(
@@ -83,7 +80,7 @@ def test_inquiry_writes_central_memory(organism_env):
     assert any(r["ref_type"] == "project" and r["ref_id"] == pid for r in (ent.get("refs") or []))
 
 
-def test_intake_writes_central_memory(organism_env):
+def test_intake_writes_central_memory(organism_env, client):
     mem, projects, _, data = organism_env
     r = client.post(
         "/api/inquiry/submit",
@@ -106,7 +103,7 @@ def test_intake_writes_central_memory(organism_env):
     assert "intake_completed" in types
 
 
-def test_ledger_event_writes_central_memory(organism_env):
+def test_ledger_event_writes_central_memory(organism_env, client):
     mem, projects, _, data = organism_env
     r = client.post(
         "/api/inquiry/submit",
@@ -203,7 +200,7 @@ def test_integration_audit_api(organism_env):
     assert "stripe_webhook" in legacy
 
 
-def test_organism_status_endpoint():
+def test_organism_status_endpoint(client):
     r = client.get("/api/memory/organism-status")
     assert r.status_code == 200
     body = r.json()

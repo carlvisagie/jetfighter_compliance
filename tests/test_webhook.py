@@ -1,11 +1,7 @@
 ﻿import json
-from fastapi.testclient import TestClient
-from server import app
-
-client = TestClient(app)
 
 
-def test_kickoff_via_payment_test():
+def test_kickoff_via_payment_test(client):
     r = client.post(
         "/events/payment/test",
         json={
@@ -21,8 +17,8 @@ def test_kickoff_via_payment_test():
     assert "intake_url" in j
 
 
-def test_inquiry_submit_kickoff():
-    r = client.post(
+def test_inquiry_submit_kickoff(anon_client):
+    r = anon_client.post(
         "/api/inquiry/submit",
         data={
             "name": "Test User",
@@ -38,7 +34,7 @@ def test_inquiry_submit_kickoff():
     assert "intake_url" in j
 
 
-def test_customer_launch_inquiry_to_intake():
+def test_customer_launch_inquiry_to_intake(client):
   """Inquiry → project → intake submit marks workflow step."""
   r = client.post(
     "/api/inquiry/submit",

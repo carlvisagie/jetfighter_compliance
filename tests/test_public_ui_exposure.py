@@ -6,11 +6,7 @@ import re
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
-
-from server import app
-
-client = TestClient(app)
+from tests.conftest import TEST_OPS_PASSWORD
 UI_ROOT = Path(__file__).resolve().parents[1] / "ui"
 
 # Customer-safe pages (served to prospects, clients, vendors).
@@ -89,28 +85,28 @@ HREF_RE = re.compile(r'href="([^"]+)"', re.IGNORECASE)
 
 
 @pytest.mark.parametrize("path", PUBLIC_PAGES)
-def test_public_pages_return_200(path: str) -> None:
-    r = client.get(path)
+def test_public_pages_return_200(anon_client, path: str) -> None:
+    r = anon_client.get(path)
     assert r.status_code == 200, path
 
 
 @pytest.mark.parametrize("path", PUBLIC_PAGES)
-def test_public_pages_have_no_internal_links(path: str) -> None:
-    html = client.get(path).text
+def test_public_pages_have_no_internal_links(anon_client, path: str) -> None:
+    html = anon_client.get(path).text
     for needle in FORBIDDEN_LINK_FRAGMENTS:
         assert needle not in html, f"{needle!r} found on {path}"
 
 
 @pytest.mark.parametrize("path", PUBLIC_PAGES)
-def test_public_pages_have_no_internal_terms(path: str) -> None:
-    lower = client.get(path).text.lower()
+def test_public_pages_have_no_internal_terms(anon_client, path: str) -> None:
+    lower = anon_client.get(path).text.lower()
     for term in FORBIDDEN_PUBLIC_TERMS:
         assert term not in lower, f"{term!r} found on {path}"
 
 
 @pytest.mark.parametrize("path", PUBLIC_PAGES)
-def test_public_nav_only_customer_links(path: str) -> None:
-    html = client.get(path).text
+def test_public_nav_only_customer_links(anon_client, path: str) -> None:
+    html = anon_client.get(path).text
     match = PUBLIC_NAV_LINK_RE.search(html)
     if not match:
         return
@@ -123,23 +119,30 @@ def test_public_nav_only_customer_links(path: str) -> None:
         assert href in ALLOWED_PUBLIC_NAV_HREFS, f"Unexpected public nav link {href!r} on {path}"
 
 
-def test_shop_uses_internal_tracking_wording() -> None:
-    html = client.get("/ui/shop.html").text
+def test_shop_uses_internal_tracking_wording(anon_client) -> None:
+    html = anon_client.get("/ui/shop.html").text
     assert "continue internally" in html.lower()
     assert "operations console" not in html.lower()
 
 
 @pytest.mark.parametrize("path", INTERNAL_PAGES)
-def test_internal_pages_have_noindex(path: str) -> None:
+def test_internal_pages_have_noindex(client, path: str) -> None:
     html = client.get(path).text.lower()
     assert "noindex" in html, f"{path} missing noindex meta"
     assert "nofollow" in html, f"{path} missing nofollow meta"
 
 
 @pytest.mark.parametrize("path", INTERNAL_PAGES)
-def test_internal_pages_not_linked_from_public_shop(path: str) -> None:
+def test_internal_pages_require_login(anon_client, path: str) -> None:
+    r = anon_client.get(path, follow_redirects=False)
+    assert r.status_code == 302, path
+    assert "/ui/login.html" in (r.headers.get("location") or "")
+
+
+@pytest.mark.parametrize("path", INTERNAL_PAGES)
+def test_internal_pages_not_linked_from_public_shop(anon_client, path: str) -> None:
     """Regression: shop is the main landing page."""
-    shop = client.get("/ui/shop.html").text
+    shop = anon_client.get("/ui/shop.html").text
     assert path not in shop, f"Internal path {path} linked from shop.html"
 
 

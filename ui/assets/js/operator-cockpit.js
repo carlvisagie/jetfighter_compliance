@@ -25,7 +25,7 @@
   }
 
   async function api(path) {
-    const r = await fetch(path);
+    const r = await fetch(path, { credentials: 'same-origin' });
     if (!r.ok) throw new Error(path + ' HTTP ' + r.status);
     return r.json();
   }

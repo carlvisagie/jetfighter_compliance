@@ -155,14 +155,10 @@ def test_no_subsystem_becomes_canonical_truth(obs_env):
     assert len(load_adaptive_signals(base=mem)) >= 0
 
 
-def test_observability_api_shape():
-    from fastapi.testclient import TestClient
-    from server import app
-
-    c = TestClient(app)
-    r = c.get("/api/memory/telemetry?limit=10")
+def test_observability_api_shape(client):
+    r = client.get("/api/memory/telemetry?limit=10")
     assert r.status_code == 200
     assert "telemetry" in r.json()
-    r2 = c.get("/api/memory/observability")
+    r2 = client.get("/api/memory/observability")
     assert r2.status_code == 200
     assert "verdict" in r2.json()

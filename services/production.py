@@ -32,6 +32,8 @@ def startup_warnings() -> List[str]:
             warnings.append(f"PUBLIC_BASE_URL not set — intake links use {base}")
         if not os.getenv("OPS_API_KEY"):
             warnings.append("OPS_API_KEY unset — test kickoff routes blocked in production")
+        if not os.getenv("OPS_PASSWORD", "").strip():
+            warnings.append("OPS_PASSWORD unset — internal UI/API require login or X-Ops-Key")
         if SETTINGS.intake_token_secret == _DEV_INTAKE_SECRET:
             warnings.append("CRITICAL: rotate INTAKE_TOKEN_SECRET before accepting real clients")
     return warnings
@@ -55,8 +57,14 @@ def readiness_checks() -> Dict[str, Any]:
 
 
 def require_ops_access(request: Request) -> None:
-    """Block ops/test kickoff routes in production unless OPS_API_KEY header matches."""
+    """Ops routes: valid session cookie or X-Ops-Key (production requires OPS_API_KEY when no session)."""
+    from .ops_auth import is_authenticated, ops_password_configured
+
+    if is_authenticated(request):
+        return
     if not is_production():
+        if ops_password_configured():
+            raise HTTPException(status_code=403, detail="Unauthorized")
         return
     expected = os.getenv("OPS_API_KEY", "")
     if not expected:

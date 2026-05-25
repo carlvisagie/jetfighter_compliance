@@ -8,8 +8,8 @@ try:
 except Exception as e:
     print("FASTAPI import failed:", e)
 
-from fastapi import FastAPI, Request, HTTPException, Form, UploadFile, File, Body
-from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
+from fastapi import FastAPI, Request, HTTPException, Form, UploadFile, File, Body, Response
+from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -49,6 +49,57 @@ app.add_middleware(
     allow_headers=["*"]
 )
 app.mount("/ui", StaticFiles(directory=str(ROOT / "ui"), html=True), name="ui")
+
+
+@app.middleware("http")
+async def ops_auth_middleware(request: Request, call_next):
+    from services.ops_auth import gate_request
+
+    blocked = gate_request(request)
+    if blocked is not None:
+        return blocked
+    return await call_next(request)
+
+
+# ---------- Operator auth ----------
+@app.post("/api/ops/login")
+async def ops_login(body: dict = Body(...), response: Response = None):
+    from services.ops_auth import (
+        create_session_token,
+        ops_password_configured,
+        set_session_cookie,
+        verify_ops_password,
+    )
+
+    if not ops_password_configured():
+        raise HTTPException(status_code=503, detail="OPS_PASSWORD not configured")
+    password = str(body.get("password") or "")
+    if not verify_ops_password(password):
+        raise HTTPException(status_code=401, detail="Invalid password")
+    token = create_session_token()
+    out = JSONResponse({"ok": True})
+    set_session_cookie(out, token)
+    return out
+
+
+@app.post("/api/ops/logout")
+async def ops_logout():
+    from services.ops_auth import clear_session_cookie
+
+    out = JSONResponse({"ok": True})
+    clear_session_cookie(out)
+    return out
+
+
+@app.get("/api/ops/session")
+def ops_session(request: Request):
+    from services.ops_auth import is_authenticated, ops_password_configured
+
+    return {
+        "ok": True,
+        "authenticated": is_authenticated(request),
+        "password_configured": ops_password_configured(),
+    }
 
 
 @app.get("/")
