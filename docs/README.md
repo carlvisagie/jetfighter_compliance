@@ -56,7 +56,7 @@ powershell -File scripts/verify-production-live.ps1
 
 ## Central memory (one brain, many vessels)
 
-See [`CENTRAL_MEMORY.md`](./CENTRAL_MEMORY.md). Ops UI: `/ui/memory.html`.
+See [`CENTRAL_MEMORY.md`](./CENTRAL_MEMORY.md) and [`KYC_ORGANISM_INTEGRATION_AUDIT.md`](./KYC_ORGANISM_INTEGRATION_AUDIT.md). Ops UI: `/ui/memory.html`.
 
 ## Lead Discovery Engine
 

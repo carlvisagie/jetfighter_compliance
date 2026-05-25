@@ -378,6 +378,14 @@ async def intake_submit(
     try:
         mark_done(project_id, "intake_received")
         set_phase(project_id, "INTAKE")
+        from services.memory.organism_integration import safe_write_after_workflow
+
+        safe_write_after_workflow(
+            project_id,
+            step_id="intake_received",
+            phase="INTAKE",
+            email=info.get("e", ""),
+        )
     except Exception as e:
         logging.warning("Workflow intake_received mark failed for %s: %s", project_id, e)
 
@@ -404,6 +412,12 @@ async def coc_event(event: dict):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid event payload: {e}")
     rec = record_event(norm)
+    try:
+        from services.memory.organism_integration import safe_write_after_coc_event
+
+        safe_write_after_coc_event(norm)
+    except Exception:
+        pass
     return {"ok": True, "event": rec}
 @app.post("/api/evidence/register")
 async def evidence_register(project_id: str, media_type: str, owner: str, file: UploadFile = File(...)):
@@ -451,6 +465,16 @@ def project_status(project_id: str):
 @app.post("/api/project/{project_id}/advance")
 def project_advance(project_id: str, step_id: str = Body(..., embed=True)):
     st = mark_done(project_id, step_id)
+    try:
+        from services.memory.organism_integration import safe_write_after_workflow
+
+        safe_write_after_workflow(
+            project_id,
+            step_id=step_id,
+            phase=st.get("phase", ""),
+        )
+    except Exception:
+        pass
     return {"ok": True, "status": st}
 
 # ---------- External cost view ----------
@@ -618,6 +642,13 @@ def memory_learning():
     from services.memory import get_learning_summary
 
     return {"ok": True, "learning": get_learning_summary()}
+
+
+@app.get("/api/memory/organism-status")
+def memory_organism_status():
+    from services.memory.organism_integration import run_integration_audit
+
+    return {"ok": True, **run_integration_audit()}
 
 
 # ---------- Ping Host + Test Webhook ----------

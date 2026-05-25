@@ -60,6 +60,25 @@
       <header class="kyc-section-head"><h2>Signal performance</h2></header>
       <article class="card"><pre id="signals" class="codebox">—</pre></article>
     </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head"><h2>Organism integration status</h2></header>
+      <article class="card">
+        <p class="kyc-ops-subtitle">One brain — engines must not keep separate durable truth.</p>
+        <p><strong>Verdict:</strong> <span id="organismVerdict">—</span> · <strong>Audited:</strong> <span id="organismAuditUtc">—</span></p>
+        <div class="kyc-form" style="margin-top:1rem;">
+          <button type="button" class="btn secondary" id="auditBtn">Refresh audit</button>
+        </div>
+        <h4 style="margin-top:1.25rem;">Plugged engines</h4>
+        <ul id="pluggedList" class="kyc-list"></ul>
+        <h4>Partial engines</h4>
+        <ul id="partialList" class="kyc-list"></ul>
+        <h4>Outside / legacy</h4>
+        <ul id="outsideList" class="kyc-list"></ul>
+        <h4>Warnings</h4>
+        <pre id="organismWarnings" class="codebox">—</pre>
+      </article>
+    </section>
   </main>
   <footer class="kyc-footer">Lawful memory only — user data + onboarding artifacts</footer>
   <script>
@@ -100,9 +119,31 @@
     const data = await api('/api/memory/self-heal');
     document.getElementById('warnings').textContent = JSON.stringify(data.report, null, 2);
   });
+  function renderOrganism(a) {
+    document.getElementById('organismVerdict').textContent = a.verdict || '—';
+    document.getElementById('organismAuditUtc').textContent = a.audit_utc || '—';
+    const li = (arr) => (arr || []).map(e =>
+      `<li><code>${e.id}</code> — ${e.label}${e.fix_needed ? ' <em>(' + e.fix_needed + ')</em>' : ''}</li>`
+    ).join('') || '<li>(none)</li>';
+    document.getElementById('pluggedList').innerHTML = li(a.plugged);
+    document.getElementById('partialList').innerHTML = li(a.partial);
+    const outside = [...(a.outside || []), ...(a.legacy_inactive || [])];
+    document.getElementById('outsideList').innerHTML = li(outside);
+    document.getElementById('organismWarnings').textContent = JSON.stringify({
+      warnings: a.warnings,
+      counts: a.counts,
+      duplicate_islands: (a.duplicate_memory_islands || []).map(x => x.id)
+    }, null, 2);
+  }
+  async function loadOrganism() {
+    const a = await api('/api/memory/organism-status');
+    renderOrganism(a);
+  }
+  document.getElementById('auditBtn').addEventListener('click', loadOrganism);
   api('/api/memory/learning').then(d => {
     document.getElementById('learning').textContent = JSON.stringify(d.learning || {}, null, 2);
   });
+  loadOrganism();
   </script>
 </body>
 </html>

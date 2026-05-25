@@ -75,6 +75,12 @@ def create_rfq(project_id:str, category:str, title:str, spec:Dict, invitees:List
     record_event({"event_id": f"{rfq.rfq_id}-OPEN","event_type":"ATTEST","why":f"RFQ opened for {category}",
                   "when_utc": _now(),"who":{"name":"System","role":"Automation","email":"noreply@keepyourcontracts.com"},
                   "where":{"address":"System"},"what":[{"id": project_id, "qty":1}]})
+    try:
+        from services.memory.organism_integration import safe_write_after_rfq
+
+        safe_write_after_rfq(rfq.rfq_id, project_id, event_kind="rfq_opened", category=category)
+    except Exception:
+        pass
     # send invites
     for v in invitees:
         token = make_intake_token(rfq.rfq_id, v.get("email",""))
@@ -99,6 +105,12 @@ def submit_bid(rfq_id:str, vendor_name:str, vendor_email:str, price_eur:float, d
     record_event({"event_id": f"{rfq.rfq_id}-{bid.bid_id}","event_type":"ATTEST","why":"RFQ bid submitted",
                   "when_utc": _now(),"who":{"name":vendor_name,"role":"Vendor","email":vendor_email},
                   "where":{"address":"Vendor Portal"},"what":[{"id": rfq.project_id,"qty":1}]})
+    try:
+        from services.memory.organism_integration import safe_write_after_rfq
+
+        safe_write_after_rfq(rfq.rfq_id, rfq.project_id, event_kind="rfq_bid", category=rfq.category)
+    except Exception:
+        pass
     return {"ok": True, "bid_id": bid.bid_id}
 
 def maybe_auto_award(rfq_id:str)->Dict:
@@ -124,4 +136,10 @@ def maybe_auto_award(rfq_id:str)->Dict:
     record_event({"event_id": f"{rfq.rfq_id}-AWARD","event_type":"ATTEST","why":f"Awarded to {best.vendor_name}",
                   "when_utc": _now(),"who":{"name":"System","role":"Automation","email":"noreply@keepyourcontracts.com"},
                   "where":{"address":"System"},"what":[{"id": rfq.project_id,"qty":1}]})
+    try:
+        from services.memory.organism_integration import safe_write_after_rfq
+
+        safe_write_after_rfq(rfq.rfq_id, rfq.project_id, event_kind="rfq_awarded", category=rfq.category)
+    except Exception:
+        pass
     return {"ok": True, "status":"awarded", "bid_id": best.bid_id}

@@ -72,6 +72,12 @@ def append_forensic_event(
         root / LONGITUDINAL_JSONL,
         {"org_key": org_key, "project_id": project_id, "event_type": event_type, "when_utc": rec["when_utc"]},
     )
+    try:
+        from services.memory.organism_integration import safe_write_after_forensic_event
+
+        safe_write_after_forensic_event(event_type, project_id, org_key, payload=payload, base=base)
+    except Exception:
+        pass
     return rec
 
 

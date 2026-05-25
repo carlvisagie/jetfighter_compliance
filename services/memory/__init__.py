@@ -21,6 +21,7 @@ from .central_memory import (
 )
 from .learning import get_learning_summary, record_learning_signal
 from .self_healing import run_self_healing_scan
+from .organism_integration import run_integration_audit
 
 __all__ = [
     "resolve_or_create_entity",
@@ -43,4 +44,5 @@ __all__ = [
     "record_learning_signal",
     "get_learning_summary",
     "run_self_healing_scan",
+    "run_integration_audit",
 ]

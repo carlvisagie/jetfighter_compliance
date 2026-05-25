@@ -75,6 +75,20 @@ def record_outcome(
         "metadata": metadata or {},
     }
     _append_outcome(rec, base)
+    try:
+        from services.memory.organism_integration import safe_write_after_acquisition_outcome
+
+        safe_write_after_acquisition_outcome(
+            lead_id=lead_id,
+            project_id=project_id,
+            org_key=org_key,
+            stage=stage,
+            success=success,
+            metadata=metadata,
+            base=base,
+        )
+    except Exception:
+        pass
     return rec
 
 

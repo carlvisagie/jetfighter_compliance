@@ -30,9 +30,23 @@ def _mark(job: Dict[str, Any], status: str, note: str = ""):
 
 def step_create_project(p):
     meta = new_project(p["order_id"], p["email"], p.get("name",""), p.get("skus",[]))
-    record_event({"event_id": f"EVT-{meta['project_id']}-ORDER","event_type":"ATTEST","why":"Order paid; project created",
+    evt_id = f"EVT-{meta['project_id']}-ORDER"
+    record_event({"event_id": evt_id,"event_type":"ATTEST","why":"Order paid; project created",
                   "when_utc": _now(),"who":{"name":"System","role":"Automation","email":"noreply@keepyourcontracts.com"},
                   "where":{"address":"System"},"what":[{"id": meta["project_id"], "qty":1}]})
+    try:
+        from services.memory.organism_integration import safe_write_after_job_kickoff
+
+        safe_write_after_job_kickoff(
+            meta["project_id"],
+            p["order_id"],
+            p["email"],
+            p.get("name", ""),
+            p.get("skus", []),
+            evt_id,
+        )
+    except Exception:
+        pass
     return meta["project_id"]
 
 def step_send_intake(p, project_id):
@@ -96,9 +110,16 @@ def check_slas():
         data = json.loads(s.read_text())
         if not data.get("escalated") and data.get("due_utc","") < _now():
             data["escalated"] = True; s.write_text(json.dumps(data, indent=2))
-            record_event({"event_id": f"EVT-{pdir.name}-SLA-ESC","event_type":"EXCEPTION","why":"Intake SLA breach escalated",
+            evt_id = f"EVT-{pdir.name}-SLA-ESC"
+            record_event({"event_id": evt_id,"event_type":"EXCEPTION","why":"Intake SLA breach escalated",
                           "when_utc": _now(),"who":{"name":"System","role":"Automation","email":"noreply@keepyourcontracts.com"},
                           "where":{"address":"System"},"what":[{"id": pdir.name,"qty":1}]})
+            try:
+                from services.memory.organism_integration import safe_write_after_sla_event
+
+                safe_write_after_sla_event(pdir.name, evt_id, "Intake SLA breach escalated")
+            except Exception:
+                pass
 
 scheduler = None
 def start_worker():
