@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KeepYourContracts | Onboarding validation (ops)</title>
+  <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
+  <link rel="stylesheet" href="/ui/assets/styles/layout.css">
+  <link rel="stylesheet" href="/ui/assets/styles/components.css">
+  <link rel="stylesheet" href="/ui/assets/styles/ops-dashboard.css">
+</head>
+<body class="kyc-page kyc-surface-ops">
+  <header class="kyc-topbar">
+    <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
+    <nav class="kyc-nav kyc-nav--ops" aria-label="Operations">
+      <a href="/ui/control.html">Control</a>
+      <a href="/ui/onboarding_validation.html" aria-current="page">Onboarding test</a>
+      <a href="/ui/inbox.html">Inbox</a>
+      <a href="/ui/shop.html">Public site</a>
+    </nav>
+  </header>
+
+  <div class="kyc-ops-header">
+    <div>
+      <h1>Controlled onboarding validation</h1>
+      <p class="kyc-ops-subtitle">5–15 subjects · no scale outreach · track in <code>data/acquisition/</code></p>
+    </div>
+  </div>
+
+  <main class="kyc-main kyc-main--ops">
+    <section class="kyc-section" style="padding-top:0;">
+      <article class="card">
+        <span class="kyc-label-overline">Live path</span>
+        <p>Inquiry → intake → project → events. Customer entry:</p>
+        <p><a class="btn" href="https://compliance.keepyourcontracts.com/ui/inquiry.html" target="_blank" rel="noopener">Open inquiry (production)</a></p>
+        <p class="small">Playbook: <code>docs/CONTROLLED_ONBOARDING_ACQUISITION.md</code></p>
+      </article>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">A · Targets</span>
+        <h2>MVP segments</h2>
+      </header>
+      <div class="grid">
+        <article class="card"><h4>Aerospace suppliers</h4><p>Prime-driven documentation / CMMC pressure.</p></article>
+        <article class="card"><h4>Manufacturing operators</h4><p>Repeat customer evidence requests.</p></article>
+        <article class="card"><h4>Compliance-heavy SMBs</h4><p>Policies exist; structure lacking.</p></article>
+        <article class="card"><h4>Audit-stressed owners</h4><p>“Binder person” before visits.</p></article>
+      </div>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">B · Routed inquiry links</span>
+        <h2>Copy into outreach (includes <code>ref</code>)</h2>
+      </header>
+      <div class="card kyc-table-wrap">
+        <table class="kyc-table">
+          <thead><tr><th>Segment</th><th>Link</th></tr></thead>
+          <tbody id="links"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">B · Messaging</span>
+        <h2>Short outreach (copy)</h2>
+      </header>
+      <article class="card">
+        <h4>LinkedIn (aerospace)</h4>
+        <pre class="codebox" id="li-aero"></pre>
+        <h4>Email subject</h4>
+        <pre class="codebox">Quick readiness review — organize what you already have</pre>
+        <h4>Onboarding invite</h4>
+        <pre class="codebox" id="invite"></pre>
+      </article>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">C · Funnel</span>
+        <h2>Track per subject</h2>
+      </header>
+      <article class="card">
+        <ol>
+          <li>Outreach sent → <code>tracking.csv</code></li>
+          <li>Response received</li>
+          <li>Inquiry clicked (link open)</li>
+          <li>Inquiry submitted → copy <code>project_id</code> from <a href="/ui/inbox.html">inbox</a></li>
+          <li>Intake completed → status <code>intake_received</code> done</li>
+        </ol>
+      </article>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">D · Feedback</span>
+        <h2>Quick capture → clipboard</h2>
+      </header>
+      <article class="card">
+        <form id="fb" class="kyc-form">
+          <div class="kyc-field"><label>Subject ID<input id="sid" required placeholder="mvp-aero-001"></label></div>
+          <div class="kyc-field"><label>Project ID<input id="pid" placeholder="P-INQ-…"></label></div>
+          <div class="kyc-field"><label>Stage<select id="stage"><option>inquiry</option><option>intake</option><option>upload</option><option>post-call</option></select></label></div>
+          <div class="kyc-field"><label>Confusion<textarea id="conf" rows="2"></textarea></label></div>
+          <div class="kyc-field"><label>Friction<textarea id="fric" rows="2"></textarea></label></div>
+          <div class="kyc-field"><label>Trust concern<textarea id="trust" rows="2"></textarea></label></div>
+          <div class="kyc-field"><label>Unclear wording<textarea id="word" rows="2"></textarea></label></div>
+          <button type="button" class="btn" id="copyFb">Copy CSV row for feedback.csv</button>
+          <p id="fbMsg" class="kyc-status" role="status"></p>
+        </form>
+      </article>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">E · Sintra (controlled)</span>
+        <h2>Worker roles</h2>
+      </header>
+      <div class="grid">
+        <article class="card"><h4>Buddy</h4><p>Warm follow-ups; approve before send.</p></article>
+        <article class="card"><h4>Milli</h4><p>10-name target list + segment tags only.</p></article>
+        <article class="card"><h4>Penn</h4><p>Shorten copy; ban hype language.</p></article>
+        <article class="card"><h4>Soshie (optional)</h4><p>One reminder post/week max.</p></article>
+      </div>
+    </section>
+  </main>
+  <footer class="kyc-footer">Ops only · not customer-facing nav</footer>
+  <script>
+  const BASE = 'https://compliance.keepyourcontracts.com/ui/inquiry.html';
+  const routes = [
+    ['Aerospace', 'CMMC Level 1', 'mvp-aero-001'],
+    ['Manufacturing', 'CMMC Level 1', 'mvp-mfg-001'],
+    ['Compliance-heavy', 'AI Compliance Essential', 'mvp-comp-001'],
+    ['Audit-stressed', 'CMMC Level 1', 'mvp-audit-001'],
+  ];
+  const tbody = document.getElementById('links');
+  routes.forEach(([seg, subj, ref]) => {
+    const u = BASE + '?subject=' + encodeURIComponent(subj) + '&ref=' + ref;
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + seg + '</td><td><a href="' + u + '" target="_blank" rel="noopener">' + ref + '</a></td>';
+    tbody.appendChild(tr);
+  });
+  document.getElementById('li-aero').textContent =
+    'Hi [Name] — I work with small suppliers who get documentation requests from primes and audits. We run a simple readiness review: show what you have, we help organize and flag gaps. One form, then short intake. Worth a look if paperwork is eating your week?';
+  document.getElementById('invite').textContent =
+    'Thanks for trying this. Submit the readiness review (2–3 min), then complete intake the same day. Have one sample policy or checklist ready. We help with organization and visibility — not guaranteed audit outcomes. Link: [your ref link below]. Reply if anything is confusing.';
+  document.getElementById('copyFb').addEventListener('click', () => {
+    const esc = (s) => '"' + String(s || '').replace(/"/g, '""') + '"';
+    const row = [
+      document.getElementById('sid').value,
+      document.getElementById('pid').value,
+      new Date().toISOString().slice(0, 10),
+      document.getElementById('stage').value,
+      document.getElementById('conf').value,
+      '',
+      document.getElementById('fric').value,
+      document.getElementById('trust').value,
+      document.getElementById('word').value,
+      'medium',
+      ''
+    ].map(esc).join(',');
+    navigator.clipboard.writeText(row).then(() => {
+      document.getElementById('fbMsg').textContent = 'Copied CSV row — paste into data/acquisition/feedback.csv';
+    }).catch(() => {
+      document.getElementById('fbMsg').textContent = row;
+    });
+  });
+  </script>
+</body>
+</html>
