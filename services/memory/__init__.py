@@ -22,6 +22,13 @@ from .central_memory import (
 from .learning import get_learning_summary, record_learning_signal
 from .self_healing import run_self_healing_scan
 from .organism_integration import run_integration_audit
+from .telemetry import emit_telemetry, load_telemetry
+from .adaptive_signals import load_adaptive_signals, record_adaptive_signal
+from .organism_observability import (
+    get_observability_dashboard,
+    load_system_patterns,
+    emit_content_creator_telemetry,
+)
 
 __all__ = [
     "resolve_or_create_entity",
@@ -45,4 +52,11 @@ __all__ = [
     "get_learning_summary",
     "run_self_healing_scan",
     "run_integration_audit",
+    "emit_telemetry",
+    "load_telemetry",
+    "load_adaptive_signals",
+    "record_adaptive_signal",
+    "get_observability_dashboard",
+    "load_system_patterns",
+    "emit_content_creator_telemetry",
 ]

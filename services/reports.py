@@ -27,7 +27,54 @@ def project_changed_within(pid: str, hours: int) -> bool:
     return datetime.fromtimestamp(latest, tz=timezone.utc) >= cutoff
 
 def export_binder(pid: str) -> Path:
+    used_entity_context = False
+    try:
+        from services.memory.central_memory import find_entity_id
+
+        used_entity_context = bool(find_entity_id(project_id=pid))
+    except Exception:
+        pass
+    try:
+        from services.memory.telemetry import emit_telemetry
+
+        emit_telemetry(
+            "reports",
+            "report_generated",
+            project_id=pid,
+            metadata={"binder": True, "used_entity_context": used_entity_context},
+        )
+    except Exception:
+        pass
     pdir = _project_dir(pid)
+    if not pdir.exists():
+        try:
+            from services.memory.telemetry import emit_telemetry
+
+            emit_telemetry(
+                "reports",
+                "export_failed",
+                severity="error",
+                success=False,
+                project_id=pid,
+                message="Project directory missing",
+            )
+        except Exception:
+            pass
+        raise FileNotFoundError(f"Project not found: {pid}")
+    if not used_entity_context:
+        try:
+            from services.memory.telemetry import emit_telemetry
+
+            emit_telemetry(
+                "reports",
+                "binder_missing_context",
+                severity="warning",
+                success=True,
+                project_id=pid,
+                message="Binder generated without central entity context",
+            )
+        except Exception:
+            pass
     expdir = pdir / "exports"; expdir.mkdir(parents=True, exist_ok=True)
     files: List[Path] = []
     for rel in ["meta.json","checklist.json"]:
@@ -68,6 +115,19 @@ def export_binder(pid: str) -> Path:
     for f in old:
         try: f.unlink()
         except Exception: pass
+    try:
+        from services.memory.telemetry import emit_telemetry
+
+        emit_telemetry(
+            "reports",
+            "binder_generated",
+            project_id=pid,
+            artifact_id=zpath.name,
+            success=True,
+            metadata={"used_entity_context": used_entity_context, "file_count": len(files)},
+        )
+    except Exception:
+        pass
     return zpath
 
 def build_digest_html(rows: List[Dict]) -> str:

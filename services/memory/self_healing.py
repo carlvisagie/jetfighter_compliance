@@ -143,6 +143,15 @@ def run_self_healing_scan(base: Optional[Path] = None, write_suggestions: bool =
 
     pending_orphans = _load_pending_orphans(base)
 
+    telemetry_failures: List[Dict[str, Any]] = []
+    try:
+        from .telemetry import load_telemetry
+
+        recent = load_telemetry(limit=300, base=base)
+        telemetry_failures = [t for t in recent if not t.get("success")][-30:]
+    except Exception:
+        pass
+
     report = {
         "orphan_projects": orphan_projects,
         "orphan_inquiries": orphan_inquiries[:50],
@@ -151,6 +160,8 @@ def run_self_healing_scan(base: Optional[Path] = None, write_suggestions: bool =
         "unlinked_forensic_projects": unlinked_forensic,
         "unlinked_rfq_projects": unlinked_rfq,
         "pending_orphans": pending_orphans,
+        "telemetry_failure_count": len(telemetry_failures),
+        "telemetry_recent_failures": telemetry_failures[-10:],
         "entity_count": len(entities),
         "suggestions_written": 0,
     }
@@ -207,6 +218,19 @@ def run_self_healing_scan(base: Optional[Path] = None, write_suggestions: bool =
                     "severity": "low",
                     "ref_id": pid,
                     "suggestion": f"Run RFQ memory adapter for project {pid}.",
+                },
+                base,
+            )
+            report["suggestions_written"] += 1
+        for tf in telemetry_failures[:10]:
+            key = f"{tf.get('subsystem')}:{tf.get('event_type')}"
+            _append_correction(
+                {
+                    "type": "telemetry_failure",
+                    "severity": tf.get("severity", "medium"),
+                    "ref_id": tf.get("telemetry_id", ""),
+                    "detail": key,
+                    "suggestion": f"Investigate telemetry failure: {key} — {tf.get('message', '')[:120]}",
                 },
                 base,
             )

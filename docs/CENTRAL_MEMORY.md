@@ -43,6 +43,17 @@ Legacy files (`data/projects/`, `data/acquisition/`, inquiries, ledger) **remain
 | Evidence | `safe_write_after_evidence` (via forensics) |
 | Manual events | `link_event` on `/api/coc/event/form` |
 
+## Organism observability
+
+Support subsystems (email, reports, health, job queue, acquisition) **emit telemetry** into `data/memory/telemetry.jsonl` — they do not become canonical truth stores.
+
+- `GET /api/memory/telemetry?limit=100`
+- `GET /api/memory/adaptive-signals`
+- `GET /api/memory/system-patterns`
+- `GET /api/memory/observability`
+
+UI: `/ui/memory.html` → **Organism Observability** panel.
+
 ## API
 
 - `GET /api/memory/lookup?entity_id=&email=&project_id=&lead_id=`

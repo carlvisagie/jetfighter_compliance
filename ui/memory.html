@@ -62,6 +62,25 @@
     </section>
 
     <section class="kyc-section">
+      <header class="kyc-section-head"><h2>Organism observability</h2></header>
+      <article class="card">
+        <p class="kyc-ops-subtitle">Support systems emit telemetry into central memory — not separate truth stores.</p>
+        <p><strong>Verdict:</strong> <span id="obsVerdict">—</span></p>
+        <button type="button" class="btn secondary" id="obsBtn">Refresh observability</button>
+        <h4 style="margin-top:1rem;">Subsystem health</h4>
+        <pre id="obsHealth" class="codebox">—</pre>
+        <h4>Recent telemetry</h4>
+        <pre id="obsTelemetry" class="codebox">—</pre>
+        <h4>Repeated failures</h4>
+        <pre id="obsFailures" class="codebox">—</pre>
+        <h4>Learning patterns</h4>
+        <pre id="obsPatterns" class="codebox">—</pre>
+        <h4>Recommended improvements</h4>
+        <pre id="obsRecs" class="codebox">—</pre>
+      </article>
+    </section>
+
+    <section class="kyc-section">
       <header class="kyc-section-head"><h2>Organism integration status</h2></header>
       <article class="card">
         <p class="kyc-ops-subtitle">One brain — engines must not keep separate durable truth.</p>
@@ -143,7 +162,21 @@
   api('/api/memory/learning').then(d => {
     document.getElementById('learning').textContent = JSON.stringify(d.learning || {}, null, 2);
   });
+  async function loadObservability() {
+    const o = await api('/api/memory/observability?limit=80');
+    document.getElementById('obsVerdict').textContent = o.verdict || '—';
+    document.getElementById('obsHealth').textContent = JSON.stringify(o.subsystem_health || {}, null, 2);
+    const recent = (o.recent_telemetry || []).slice(-25).map(t =>
+      `${t.observed_at_utc}  ${t.subsystem}/${t.event_type}  ok=${t.success}  ${t.message || ''}`
+    ).join('\n') || '(none)';
+    document.getElementById('obsTelemetry').textContent = recent;
+    document.getElementById('obsFailures').textContent = JSON.stringify(o.repeated_failures || [], null, 2);
+    document.getElementById('obsPatterns').textContent = JSON.stringify(o.learning_patterns || {}, null, 2);
+    document.getElementById('obsRecs').textContent = (o.recommended_improvements || []).join('\n') || '(none)';
+  }
+  document.getElementById('obsBtn').addEventListener('click', loadObservability);
   loadOrganism();
+  loadObservability();
   </script>
 </body>
 </html>

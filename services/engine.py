@@ -23,6 +23,14 @@ def enqueue(kind: str, payload: Dict[str, Any]) -> Path:
     job = {"job_id": jpath.stem, "kind": kind, "status": "queued", "created_utc": _now(),
            "attempts": 0, "last_error": "", "payload": payload, "history": []}
     jpath.write_text(json.dumps(job, indent=2))
+    try:
+        from services.memory.telemetry import emit_telemetry
+
+        pending = len(list(JOBS.glob("J-*.json")))
+        if pending > 50:
+            emit_telemetry("job_queue", "queue_congestion", severity="warning", metadata={"pending": pending})
+    except Exception:
+        pass
     return jpath
 
 def _mark(job: Dict[str, Any], status: str, note: str = ""):
@@ -86,14 +94,64 @@ def _process_one(jpath: Path):
     if job["status"] not in ("queued","retry"): return
     job["attempts"] += 1; _mark(job,"running","start"); jpath.write_text(json.dumps(job, indent=2))
     try:
+        from services.memory.telemetry import emit_telemetry
+
+        emit_telemetry(
+            "job_queue",
+            "job_started",
+            metadata={"job_id": job.get("job_id"), "kind": job.get("kind"), "attempt": job["attempts"]},
+        )
+    except Exception:
+        pass
+    try:
         if job["kind"] == "post_payment":
             res = run_post_payment_playbook(job["payload"])
             if not res.get("ok"): raise RuntimeError(res.get("error","unknown"))
             job["result"] = res; _mark(job,"done","ok")
+            try:
+                from services.memory.telemetry import emit_telemetry
+
+                emit_telemetry(
+                    "job_queue",
+                    "job_completed",
+                    project_id=res.get("project_id", ""),
+                    metadata={"job_id": job.get("job_id"), "kind": job.get("kind")},
+                )
+            except Exception:
+                pass
         else:
             _mark(job,"failed",f"unknown kind {job['kind']}")
+            try:
+                from services.memory.telemetry import emit_telemetry
+
+                emit_telemetry(
+                    "job_queue",
+                    "job_failed",
+                    severity="error",
+                    success=False,
+                    message=f"unknown kind {job['kind']}",
+                )
+            except Exception:
+                pass
     except Exception as e:
         job["last_error"] = f"{e}"; _mark(job,"retry","will retry")
+        try:
+            from services.memory.telemetry import emit_telemetry
+
+            ev = "retry_exhausted" if job["attempts"] >= 5 else "retry_scheduled"
+            emit_telemetry(
+                "job_queue",
+                ev,
+                severity="error" if ev == "retry_exhausted" else "warning",
+                success=False,
+                error_code=type(e).__name__,
+                message=str(e)[:200],
+                metadata={"job_id": job.get("job_id"), "attempts": job["attempts"]},
+            )
+            if ev != "retry_exhausted":
+                emit_telemetry("job_queue", "job_failed", severity="error", success=False, message=str(e)[:120])
+        except Exception:
+            pass
     finally:
         jpath.write_text(json.dumps(job, indent=2))
 

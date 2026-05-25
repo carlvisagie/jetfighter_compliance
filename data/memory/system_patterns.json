@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "updated_utc": "2026-05-25T11:51:11Z",
+  "subsystem_health": {
+    "acquisition": {
+      "success_rate": 1.0,
+      "events": 64,
+      "failures": 0,
+      "status": "healthy"
+    },
+    "health": {
+      "success_rate": 0.5,
+      "events": 4,
+      "failures": 2,
+      "status": "unhealthy"
+    },
+    "job_queue": {
+      "success_rate": 1.0,
+      "events": 8,
+      "failures": 0,
+      "status": "healthy"
+    },
+    "email": {
+      "success_rate": 0.5,
+      "events": 12,
+      "failures": 6,
+      "status": "unhealthy"
+    }
+  },
+  "repeated_failures": [
+    {
+      "key": "email:smtp_unconfigured",
+      "count": 6,
+      "suggestion": "Review email:smtp_unconfigured failures"
+    },
+    {
+      "key": "health:smtp_unconfigured",
+      "count": 2,
+      "suggestion": "Review health:smtp_unconfigured failures"
+    }
+  ],
+  "reliability_patterns": {
+    "acquisition": 1.0,
+    "health": 0.5,
+    "job_queue": 1.0,
+    "email": 0.5
+  },
+  "conversion_patterns": {},
+  "failure_patterns": {
+    "email:smtp_unconfigured": 6,
+    "health:smtp_unconfigured": 2
+  },
+  "bottleneck_patterns": {},
+  "best_paths": {
+    "acquisition_high_priority_refs": [
+      "L-x",
+      "pending"
+    ]
+  },
+  "recommended_improvements": [
+    "Review email:smtp_unconfigured failures",
+    "Review health:smtp_unconfigured failures",
+    "Email transport reliability low \u2014 verify SMTP or disable until configured."
+  ]
+}

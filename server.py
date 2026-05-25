@@ -114,6 +114,29 @@ def health_ready():
     checks = readiness_checks()
     core_ok = checks["data_writable"] and checks["projects_dir"]
     status = "ready" if core_ok else "degraded"
+    try:
+        from services.memory.telemetry import emit_telemetry
+        from services.memory import run_self_healing_scan
+
+        heal = run_self_healing_scan(write_suggestions=False)
+        orphan_n = len(heal.get("orphan_projects") or [])
+        emit_telemetry(
+            "health",
+            "memory_orphan_count",
+            severity="info" if orphan_n < 5 else "warning",
+            success=True,
+            metadata={"orphan_projects": orphan_n, "entity_count": heal.get("entity_count", 0)},
+        )
+        if not checks.get("smtp_configured"):
+            emit_telemetry("health", "smtp_unconfigured", severity="warning", success=False)
+        if not checks.get("data_writable"):
+            emit_telemetry("health", "data_not_writable", severity="critical", success=False)
+        if status == "degraded":
+            emit_telemetry("health", "service_degraded", severity="warning", success=False, message=status)
+        if not core_ok:
+            emit_telemetry("health", "readiness_failed", severity="error", success=False, metadata=checks)
+    except Exception:
+        pass
     return {"ok": core_ok, "status": status, "checks": checks}
 
 # ---------- Internal helper ----------
@@ -649,6 +672,44 @@ def memory_organism_status():
     from services.memory.organism_integration import run_integration_audit
 
     return {"ok": True, **run_integration_audit()}
+
+
+@app.get("/api/memory/telemetry")
+def memory_telemetry(limit: int = 100, subsystem: str = ""):
+    from services.memory.telemetry import load_telemetry
+
+    return {
+        "ok": True,
+        "telemetry": load_telemetry(limit=min(limit, 500), subsystem=subsystem or ""),
+    }
+
+
+@app.get("/api/memory/adaptive-signals")
+def memory_adaptive_signals(limit: int = 100):
+    from services.memory.adaptive_signals import load_adaptive_signals
+
+    return {"ok": True, "signals": load_adaptive_signals(limit=min(limit, 500))}
+
+
+@app.get("/api/memory/system-patterns")
+def memory_system_patterns():
+    from services.memory.organism_observability import get_observability_dashboard
+
+    dash = get_observability_dashboard()
+    return {
+        "ok": True,
+        "patterns": dash.get("learning_patterns", {}),
+        "subsystem_health": dash.get("subsystem_health", {}),
+        "recommended_improvements": dash.get("recommended_improvements", []),
+        "verdict": dash.get("verdict"),
+    }
+
+
+@app.get("/api/memory/observability")
+def memory_observability(limit: int = 100):
+    from services.memory.organism_observability import get_observability_dashboard
+
+    return {"ok": True, **get_observability_dashboard(telemetry_limit=min(limit, 200))}
 
 
 # ---------- Ping Host + Test Webhook ----------

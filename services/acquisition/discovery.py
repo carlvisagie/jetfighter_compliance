@@ -99,6 +99,12 @@ def run_csv_import(
     """
     Import candidates from CSV. Does not contact anyone. Does not set approved_for_outreach.
     """
+    try:
+        from services.memory.telemetry import emit_telemetry
+
+        emit_telemetry("acquisition", "discovery_started", metadata={"import": str(import_path or "")})
+    except Exception:
+        pass
     stats = ImportStats()
     root = leads_dir(base_dir)
     src = import_path or (root / IMPORT_CSV)
@@ -158,6 +164,21 @@ def run_csv_import(
     rewrite_review_queue(all_leads, base_dir, min_fit=65)
     report_root = base_dir.parent if base_dir and base_dir.name == "leads" else None
     write_discovery_report(stats, all_leads, report_root)
+    try:
+        from services.memory.telemetry import emit_telemetry
+
+        emit_telemetry(
+            "acquisition",
+            "discovery_completed",
+            success=True,
+            metadata={
+                "imported": stats.imported,
+                "rejected": stats.rejected_rows,
+                "scored_80_plus": stats.scored_80_plus,
+            },
+        )
+    except Exception:
+        pass
     return stats
 
 

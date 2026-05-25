@@ -253,4 +253,39 @@ def score_lead_full(lead: Lead, memory_context: dict | None = None) -> Lead:
     lead.pain_signals = list(dict.fromkeys(pain))[:8]
     lead.compliance_signals = comp
     lead.reason_summary = summary
-    return apply_intelligence_scores(lead)
+    lead = apply_intelligence_scores(lead)
+    try:
+        from services.memory.telemetry import emit_telemetry
+
+        high = lead.acquisition_priority_score >= 75 or lead.fit_score >= 80
+        emit_telemetry(
+            "acquisition",
+            "lead_scored",
+            lead_id=lead.lead_id,
+            success=True,
+            metadata={
+                "fit_score": lead.fit_score,
+                "priority": lead.acquisition_priority_score,
+                "high_priority": high,
+            },
+        )
+        if high:
+            emit_telemetry(
+                "acquisition",
+                "high_priority_lead_found",
+                lead_id=lead.lead_id,
+                severity="info",
+                metadata={"fit_score": lead.fit_score, "priority": lead.acquisition_priority_score},
+            )
+        if lead.fit_score < 40:
+            emit_telemetry(
+                "acquisition",
+                "lead_rejected",
+                lead_id=lead.lead_id,
+                severity="info",
+                success=True,
+                metadata={"fit_score": lead.fit_score, "reason": "low_fit"},
+            )
+    except Exception:
+        pass
+    return lead
