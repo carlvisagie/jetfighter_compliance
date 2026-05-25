@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KeepYourContracts | Lead Discovery (ops)</title>
+  <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
+  <link rel="stylesheet" href="/ui/assets/styles/layout.css">
+  <link rel="stylesheet" href="/ui/assets/styles/components.css">
+  <link rel="stylesheet" href="/ui/assets/styles/ops-dashboard.css">
+</head>
+<body class="kyc-page kyc-surface-ops">
+  <header class="kyc-topbar">
+    <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
+    <nav class="kyc-nav kyc-nav--ops" aria-label="Operations">
+      <a href="/ui/control.html">Control</a>
+      <a href="/ui/lead_discovery.html" aria-current="page">Lead discovery</a>
+      <a href="/ui/onboarding_validation.html">Onboarding test</a>
+      <a href="/ui/inbox.html">Inbox</a>
+    </nav>
+  </header>
+
+  <div class="kyc-ops-header">
+    <div>
+      <h1>Lead Discovery Engine</h1>
+      <p class="kyc-ops-subtitle">Import → score → review queue → owner-approved outreach only</p>
+    </div>
+    <span class="kyc-pill kyc-pill--warn">No automated outreach</span>
+  </div>
+
+  <main class="kyc-main kyc-main--ops">
+    <section class="kyc-section" style="padding-top:0;">
+      <article class="card">
+        <span class="kyc-label-overline">Warning</span>
+        <p><strong>Owner approval required before any human is contacted.</strong> This engine does not send email, LinkedIn messages, or spam. It stores and scores candidate leads from lawful manual/CSV sources only.</p>
+      </article>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">What it does</span>
+        <h2>Pipeline</h2>
+      </header>
+      <div class="kyc-flow-steps">
+        <div class="kyc-flow-step kyc-flow-step--active"><strong>1</strong> Import CSV</div>
+        <div class="kyc-flow-step"><strong>2</strong> Score &amp; dedupe</div>
+        <div class="kyc-flow-step"><strong>3</strong> Review queue (fit ≥ 65)</div>
+        <div class="kyc-flow-step"><strong>4</strong> Owner approves</div>
+        <div class="kyc-flow-step"><strong>5</strong> Manual outreach + inquiry link</div>
+      </div>
+      <p class="small">Code: <code>services/acquisition/</code> · Docs: <code>docs/LEAD_DISCOVERY_ENGINE.md</code></p>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">Run import</span>
+        <h2>Command (local or Render shell)</h2>
+      </header>
+      <article class="card">
+        <pre class="codebox">python scripts/acquisition_import_candidates.py</pre>
+        <p>Input: <code>data/acquisition/leads/import_candidates.csv</code></p>
+        <p>Output: <code>data/acquisition/leads/leads.jsonl</code>, <code>leads.csv</code>, <code>review_queue.csv</code>, <code>data/acquisition/reports/latest_discovery_report.md</code></p>
+      </article>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">CSV format</span>
+        <h2>import_candidates.csv columns</h2>
+      </header>
+      <article class="card">
+        <pre class="codebox">company_name,website,contact_name,contact_title,contact_email,linkedin_url,industry,segment,source,source_url,location,notes</pre>
+        <p><strong>segment</strong> must be one of:</p>
+        <ul>
+          <li>aerospace</li>
+          <li>manufacturing</li>
+          <li>compliance-heavy</li>
+          <li>audit-stressed</li>
+          <li>government-subcontractor</li>
+          <li>quality-ops-manager</li>
+        </ul>
+      </article>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">Scoring</span>
+        <h2>Rules summary (0–100)</h2>
+      </header>
+      <article class="card">
+        <p><strong>Positive:</strong> defense/aerospace/manufacturing, CMMC/AS9100/ISO/ITAR/DFARS/NIST mentions, quality/compliance/ops titles, business email, website.</p>
+        <p><strong>Negative:</strong> consumer industries, spam sources, mega-enterprise names, no contact channel.</p>
+        <p><strong>Review queue:</strong> fit_score ≥ 65 and status <code>new</code> or <code>reviewed</code>. Never auto-<code>approved_for_outreach</code>.</p>
+        <p><strong>Handoff link:</strong> <code>…/ui/inquiry.html?subject=…&amp;ref=&lt;lead_id&gt;</code></p>
+      </article>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">Safe sources only</span>
+        <h2>Allowed</h2>
+      </header>
+      <div class="grid">
+        <article class="card"><h4>Yes</h4><p>Owner CSV, public websites, allowed directories, trade pages, manual Sintra lists after review.</p></article>
+        <article class="card"><h4>No</h4><p>LinkedIn scraping, login walls, robots.txt violations, bulk spam, automated DMs/email.</p></article>
+      </div>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">Sintra (optional)</span>
+        <h2>Helper roles — not infrastructure</h2>
+      </header>
+      <div class="grid">
+        <article class="card"><h4>Buddy</h4><p>Find candidate company names manually. No sending without owner.</p></article>
+        <article class="card"><h4>Milli</h4><p>Organize candidates into import CSV format.</p></article>
+        <article class="card"><h4>Penn</h4><p>Tighten outreach copy after owner selects leads.</p></article>
+        <article class="card"><h4>Soshie</h4><p>Optional light awareness only.</p></article>
+      </div>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">Connected workflow</span>
+        <h2>Links</h2>
+      </header>
+      <div class="kyc-btn-row">
+        <a class="btn" href="/ui/onboarding_validation.html">Onboarding validation</a>
+        <a class="btn" href="/ui/inquiry.html">Public inquiry</a>
+        <a class="btn" href="/ui/control.html">Control panel</a>
+        <a class="btn secondary" href="/ui/inbox.html">Order inbox</a>
+      </div>
+    </section>
+  </main>
+  <footer class="kyc-footer">Ops only · Lead Discovery Engine MVP</footer>
+</body>
+</html>
