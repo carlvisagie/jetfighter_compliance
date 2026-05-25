@@ -57,7 +57,9 @@
         <h2>Command (local or Render shell)</h2>
       </header>
       <article class="card">
-        <pre class="codebox">python scripts/acquisition_import_candidates.py</pre>
+        <pre class="codebox">python scripts/acquisition_run_discovery.py
+python scripts/acquisition_import_candidates.py
+python scripts/acquisition_analyze_intelligence.py</pre>
         <p>Input: <code>data/acquisition/leads/import_candidates.csv</code></p>
         <p>Output: <code>data/acquisition/leads/leads.jsonl</code>, <code>leads.csv</code>, <code>review_queue.csv</code>, <code>data/acquisition/reports/latest_discovery_report.md</code></p>
       </article>
@@ -92,6 +94,18 @@
         <p><strong>Negative:</strong> consumer industries, spam sources, mega-enterprise names, no contact channel.</p>
         <p><strong>Review queue:</strong> fit_score ≥ 65 and status <code>new</code> or <code>reviewed</code>. Never auto-<code>approved_for_outreach</code>.</p>
         <p><strong>Handoff link:</strong> <code>…/ui/inquiry.html?subject=…&amp;ref=&lt;lead_id&gt;</code></p>
+        <p><strong>Intelligence scores:</strong> ability_to_pay, urgency, compliance_pain, operational_complexity, trust_readiness, acquisition_priority (adaptive weights from outcomes).</p>
+      </article>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">Forensic memory</span>
+        <h2>Paperwork is intelligence</h2>
+      </header>
+      <article class="card">
+        <p>Inquiry, intake, and evidence uploads build organizational profiles (maturity, documentation, compliance readiness). See <code>docs/FORENSIC_ACQUISITION_INTELLIGENCE.md</code>.</p>
+        <p>Reports: <code>data/acquisition/reports/forensic_intelligence_report.md</code>, <code>acquisition_analytics_report.md</code></p>
       </article>
     </section>
 

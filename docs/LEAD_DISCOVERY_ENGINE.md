@@ -96,16 +96,33 @@ Implemented in `services/acquisition/scoring.py`.
 
 Sintra is **not** foundational infrastructure.
 
+## Adaptive intelligence (forensic layer)
+
+See **`docs/FORENSIC_ACQUISITION_INTELLIGENCE.md`**.
+
+- Lawful public discovery: `python scripts/acquisition_run_discovery.py`  
+- Forensic analytics: `python scripts/acquisition_analyze_intelligence.py`  
+- Intelligence scores on each lead (ability to pay, urgency, priority)  
+- Learning loop via `data/acquisition/intelligence/outcomes.jsonl`  
+
 ## Module map
 
 | File | Role |
 |------|------|
 | `services/acquisition/models.py` | Lead model, segments |
-| `services/acquisition/scoring.py` | Rule-based scores |
+| `services/acquisition/scoring.py` | Rule-based + intelligence scores |
 | `services/acquisition/storage.py` | JSONL/CSV, dedupe |
-| `services/acquisition/discovery.py` | Import pipeline |
+| `services/acquisition/discovery.py` | Import + finder pipeline |
+| `services/acquisition/finder.py` | USASpending API, public websites |
+| `services/acquisition/forensics.py` | Onboarding forensic memory |
+| `services/acquisition/fingerprints.py` | Document/intake fingerprints |
+| `services/acquisition/history.py` | Longitudinal org memory |
+| `services/acquisition/memory.py` | Outcomes and adaptive weights |
+| `services/acquisition/analytics.py` | Intelligence reports |
 | `services/acquisition/export.py` | Markdown report |
-| `scripts/acquisition_import_candidates.py` | CLI entry |
+| `scripts/acquisition_import_candidates.py` | CSV import CLI |
+| `scripts/acquisition_run_discovery.py` | Public discovery CLI |
+| `scripts/acquisition_analyze_intelligence.py` | Analytics CLI |
 
 ## Deduplication
 

@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "updated_utc": "2026-05-25T10:35:12Z",
+  "signal_effectiveness": {
+    "intake_completed": {
+      "success": 8,
+      "fail": 0,
+      "outcomes": [
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake"
+      ]
+    },
+    "inquiry_submitted": {
+      "success": 8,
+      "fail": 0,
+      "outcomes": [
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake"
+      ]
+    }
+  },
+  "conversion_counts": {
+    "lead_to_inquiry": 0,
+    "inquiry_to_intake": 16,
+    "intake_to_evidence": 0,
+    "lead_failed": 0
+  },
+  "paperwork_patterns": {
+    "high_fit": [
+      "audit next month",
+      "test"
+    ],
+    "low_fit": []
+  },
+  "segment_performance": {}
+}

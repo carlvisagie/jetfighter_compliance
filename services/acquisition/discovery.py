@@ -8,7 +8,9 @@ from urllib.parse import quote
 
 from .export import write_discovery_report
 from .models import IMPORT_COLUMNS, ImportStats, Lead, normalize_segment, utc_now
-from .scoring import score_lead
+from .finder import run_public_discovery
+from .intelligence_paths import is_mock_domain
+from .scoring import score_lead_full
 from .storage import (
     IMPORT_CSV,
     append_lead,
@@ -44,6 +46,10 @@ def validate_row(row: Dict[str, str], line_no: int) -> tuple[Optional[Dict[str, 
     company = (row.get("company_name") or "").strip()
     if not company:
         return None, f"line {line_no}: missing company_name"
+    site = (row.get("website") or "").strip()
+    email = (row.get("contact_email") or "").strip()
+    if is_mock_domain(site) or is_mock_domain(email):
+        return None, f"line {line_no}: mock/example domain not allowed in production path"
     seg = normalize_segment(row.get("segment") or "")
     if not seg:
         return None, f"line {line_no}: invalid or missing segment"
@@ -53,6 +59,16 @@ def validate_row(row: Dict[str, str], line_no: int) -> tuple[Optional[Dict[str, 
 
 
 def row_to_lead(cleaned: Dict[str, str], lead_id: str, base_url: Optional[str] = None) -> Lead:
+    mem_ctx = {}
+    try:
+        from services.memory import safe_read_before_lead_score
+
+        mem_ctx = safe_read_before_lead_score(
+            cleaned.get("company_name", ""),
+            cleaned.get("contact_email", ""),
+        )
+    except Exception:
+        pass
     lead = Lead(
         lead_id=lead_id,
         company_name=cleaned["company_name"],
@@ -69,12 +85,7 @@ def row_to_lead(cleaned: Dict[str, str], lead_id: str, base_url: Optional[str] =
         notes=cleaned.get("notes", ""),
         status="new",
     )
-    fit, conf, pain, comp, summary = score_lead(lead)
-    lead.fit_score = fit
-    lead.confidence_score = conf
-    lead.pain_signals = pain
-    lead.compliance_signals = comp
-    lead.reason_summary = summary
+    lead = score_lead_full(lead, mem_ctx)
     lead.inquiry_routed_link = build_inquiry_link(lead_id, lead.segment, base_url)
     lead.updated_utc = utc_now()
     return lead
@@ -120,6 +131,18 @@ def run_csv_import(
             append_lead(lead, base_dir)
             all_leads.append(lead)
             by_key[key] = lead
+            try:
+                from services.memory import link_lead, resolve_or_create_entity
+
+                eid = resolve_or_create_entity(
+                    email=lead.contact_email,
+                    company=lead.company_name,
+                    contact_name=lead.contact_name,
+                    display_name=lead.company_name,
+                )
+                link_lead(lead.lead_id, eid, {"source": lead.source, "segment": lead.segment})
+            except Exception:
+                pass
             stats.imported += 1
             stats.new_lead_ids.append(lead.lead_id)
             if lead.fit_score >= 80:
@@ -136,3 +159,32 @@ def run_csv_import(
     report_root = base_dir.parent if base_dir and base_dir.name == "leads" else None
     write_discovery_report(stats, all_leads, report_root)
     return stats
+
+
+def run_finder_discovery(
+    *,
+    usaspending_queries: Optional[List[str]] = None,
+    website_urls: Optional[List[str]] = None,
+    base_dir: Optional[Path] = None,
+    public_base_url: Optional[str] = None,
+    limit_per_query: int = 15,
+) -> ImportStats:
+    """
+    Lawful public discovery → score → store. No auto-contact. Owner verifies contacts.
+    """
+    import csv
+
+    candidates = run_public_discovery(
+        usaspending_queries=usaspending_queries,
+        website_urls=website_urls,
+        limit_per_query=limit_per_query,
+    )
+    root = leads_dir(base_dir)
+    staging = root / "import_candidates.csv"
+    fields = list(IMPORT_COLUMNS)
+    with staging.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
+        w.writeheader()
+        for row in candidates:
+            w.writerow({k: row.get(k, "") for k in fields})
+    return run_csv_import(import_path=staging, base_dir=base_dir, public_base_url=public_base_url)

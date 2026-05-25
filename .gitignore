@@ -9,6 +9,8 @@ __pycache__/
 data/*
 !data/acquisition/
 !data/acquisition/**
+!data/memory/
+!data/memory/**
 .cloudflared/
 config_auth.json
 bin/cloudflared.exe

@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 from typing import List, Tuple
 
+from .memory import get_learned_weights
 from .models import Lead, SEGMENTS
 
 POSITIVE_KEYWORDS = [
@@ -174,3 +175,82 @@ def score_lead(lead: Lead) -> Tuple[int, int, List[str], List[str], str]:
     compliance = list(dict.fromkeys(compliance))[:10]
     summary = "; ".join(reasons[:6]) if reasons else "baseline import scoring"
     return fit, confidence, pain, compliance, summary
+
+
+def apply_intelligence_scores(lead: Lead, weights: dict | None = None) -> Lead:
+    """Buying capability, urgency, pain, complexity, trust, priority (adaptive weights)."""
+    w = weights or get_learned_weights()
+    blob = _text_blob(lead)
+
+    ability = 35
+    if lead.contact_email and "@" in lead.contact_email:
+        domain = lead.contact_email.split("@", 1)[-1].lower()
+        if domain and domain not in ("gmail.com", "yahoo.com", "hotmail.com", "outlook.com"):
+            ability += 20 + int(w.get("business_email", 0))
+    if lead.website:
+        ability += 10
+    if (lead.segment or "") in ("aerospace", "government-subcontractor", "manufacturing"):
+        ability += 12 + int(w.get(f"segment_{lead.segment}", 0))
+    if "machining" in blob or "fabrication" in blob:
+        ability += 8
+    ability = max(0, min(100, ability))
+
+    urgency = 20
+    for term in ("urgent", "deadline", "audit", "asap", "customer", "prime"):
+        if term in blob:
+            urgency += 12 + int(w.get("urgency_keyword", 0) / 2)
+    urgency = max(0, min(100, urgency))
+
+    pain_score = min(100, len(lead.pain_signals) * 12 + len(lead.compliance_signals) * 5 + 25)
+    complexity = 25
+    if (lead.industry or "").lower() in ("aerospace", "defense", "manufacturing"):
+        complexity += 20
+    if len(lead.compliance_signals) >= 4:
+        complexity += 25
+    elif len(lead.compliance_signals) >= 2:
+        complexity += 12
+    complexity = min(100, complexity)
+
+    trust = 30
+    if "readiness" in blob or "documentation" in blob or "upload" in blob:
+        trust += 25
+    if lead.contact_name:
+        trust += 10
+    trust = min(100, trust)
+
+    priority = int(
+        0.25 * lead.fit_score
+        + 0.2 * ability
+        + 0.2 * urgency
+        + 0.15 * pain_score
+        + 0.1 * trust
+        + 0.1 * lead.confidence_score
+    )
+    priority = max(0, min(100, priority))
+
+    lead.ability_to_pay_score = ability
+    lead.urgency_score = urgency
+    lead.compliance_pain_score = pain_score
+    lead.operational_complexity_score = complexity
+    lead.trust_readiness_score = trust
+    lead.acquisition_priority_score = priority
+    return lead
+
+
+def score_lead_full(lead: Lead, memory_context: dict | None = None) -> Lead:
+    fit, conf, pain, comp, summary = score_lead(lead)
+    if memory_context and memory_context.get("known"):
+        fit = min(100, fit + 3)
+        if memory_context.get("prior_projects"):
+            conf = min(100, conf + 5)
+            summary = summary + "; central_memory:prior_engagement"
+        for sig in memory_context.get("signals") or []:
+            st = sig.get("signal_type", "")
+            if st in ("acquisition", "paperwork", "operational_complexity"):
+                pain.append(f"prior_{st}")
+    lead.fit_score = fit
+    lead.confidence_score = conf
+    lead.pain_signals = list(dict.fromkeys(pain))[:8]
+    lead.compliance_signals = comp
+    lead.reason_summary = summary
+    return apply_intelligence_scores(lead)

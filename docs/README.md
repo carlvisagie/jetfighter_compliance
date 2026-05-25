@@ -54,6 +54,10 @@ powershell -File scripts/verify-production-live.ps1
 - `GET /healthz` — liveness  
 - `GET /health/ready` — readiness (`intake_secret_configured`, `smtp_configured`, `inquiry_onboarding_active`)
 
+## Central memory (one brain, many vessels)
+
+See [`CENTRAL_MEMORY.md`](./CENTRAL_MEMORY.md). Ops UI: `/ui/memory.html`.
+
 ## Lead Discovery Engine
 
 See [`LEAD_DISCOVERY_ENGINE.md`](./LEAD_DISCOVERY_ENGINE.md) — CSV import, scoring, review queue. Ops UI: `/ui/lead_discovery.html`. Run: `python scripts/acquisition_import_candidates.py`.

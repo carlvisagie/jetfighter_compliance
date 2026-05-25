@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KeepYourContracts | Central Memory</title>
+  <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
+  <link rel="stylesheet" href="/ui/assets/styles/layout.css">
+  <link rel="stylesheet" href="/ui/assets/styles/components.css">
+  <link rel="stylesheet" href="/ui/assets/styles/ops-dashboard.css">
+</head>
+<body class="kyc-page kyc-surface-ops">
+  <header class="kyc-topbar">
+    <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
+    <nav class="kyc-nav kyc-nav--ops" aria-label="Operations">
+      <a href="/ui/control.html">Control</a>
+      <a href="/ui/memory.html" aria-current="page">Central memory</a>
+      <a href="/ui/lead_discovery.html">Lead discovery</a>
+    </nav>
+  </header>
+
+  <div class="kyc-ops-header">
+    <div>
+      <h1>Central memory</h1>
+      <p class="kyc-ops-subtitle">One brain, many vessels — read before action, write after action</p>
+    </div>
+  </div>
+
+  <main class="kyc-main kyc-main--ops">
+    <section class="kyc-section" style="padding-top:0;">
+      <article class="card">
+        <span class="kyc-label-overline">Lookup</span>
+        <div class="kyc-form">
+          <div class="kyc-field"><label>Entity ID<input id="entityId" placeholder="E-company-0001"></label></div>
+          <div class="kyc-field"><label>Email<input id="email" type="email"></label></div>
+          <div class="kyc-field"><label>Project ID<input id="projectId" placeholder="P-INQ-…"></label></div>
+          <div class="kyc-field"><label>Lead ID<input id="leadId" placeholder="L-…"></label></div>
+          <button type="button" class="btn" id="lookupBtn">Lookup</button>
+          <button type="button" class="btn secondary" id="healBtn">Run self-heal scan</button>
+        </div>
+      </article>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head"><h2>Journey timeline</h2></header>
+      <article class="card"><pre id="timeline" class="codebox">Lookup an entity or project.</pre></article>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head"><h2>Self-healing warnings</h2></header>
+      <article class="card"><pre id="warnings" class="codebox">—</pre></article>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head"><h2>Learning summary</h2></header>
+      <article class="card"><pre id="learning" class="codebox">—</pre></article>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head"><h2>Signal performance</h2></header>
+      <article class="card"><pre id="signals" class="codebox">—</pre></article>
+    </section>
+  </main>
+  <footer class="kyc-footer">Lawful memory only — user data + onboarding artifacts</footer>
+  <script>
+  async function api(path) {
+    const r = await fetch(path);
+    return r.json();
+  }
+  function render(data) {
+    const j = data.journey || {};
+    const stages = (j.stages || []).map(s => `${s.when}  ${s.type}  ${s.ref}`).join('\n') || '(no timeline)';
+    document.getElementById('timeline').textContent =
+      `entity_id: ${j.entity_id || '—'}\n\n` + stages;
+    const h = data.self_healing || {};
+    document.getElementById('warnings').textContent = JSON.stringify({
+      orphan_projects: h.orphan_projects,
+      orphan_inquiries: h.orphan_inquiries,
+      duplicate_companies: h.duplicate_companies,
+      missing_timeline: h.missing_timeline_entities
+    }, null, 2);
+    document.getElementById('learning').textContent = JSON.stringify(data.learning || {}, null, 2);
+    const eff = (data.learning || {}).signal_effectiveness || {};
+    document.getElementById('signals').textContent = JSON.stringify(eff, null, 2);
+  }
+  document.getElementById('lookupBtn').addEventListener('click', async () => {
+    const q = new URLSearchParams();
+    const e = document.getElementById('entityId').value.trim();
+    const em = document.getElementById('email').value.trim();
+    const p = document.getElementById('projectId').value.trim();
+    const l = document.getElementById('leadId').value.trim();
+    if (e) q.set('entity_id', e);
+    if (em) q.set('email', em);
+    if (p) q.set('project_id', p);
+    if (l) q.set('lead_id', l);
+    const data = await api('/api/memory/lookup?' + q.toString());
+    render(data);
+  });
+  document.getElementById('healBtn').addEventListener('click', async () => {
+    const data = await api('/api/memory/self-heal');
+    document.getElementById('warnings').textContent = JSON.stringify(data.report, null, 2);
+  });
+  api('/api/memory/learning').then(d => {
+    document.getElementById('learning').textContent = JSON.stringify(d.learning || {}, null, 2);
+  });
+  </script>
+</body>
+</html>

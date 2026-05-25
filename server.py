@@ -124,6 +124,12 @@ def _find_project_by_order(order_id: str) -> Optional[str]:
 
 
 def kickoff(order_id: str, email: str, name: str, skus: list):
+    try:
+        from services.memory import safe_read_before_kickoff
+
+        safe_read_before_kickoff(email, name)
+    except Exception:
+        pass
     existing = _find_project_by_order(order_id)
     if existing:
         token = make_intake_token(existing, email)
@@ -158,8 +164,9 @@ def kickoff(order_id: str, email: str, name: str, skus: list):
     except Exception as e:
         logging.warning(f"Email failed to send to {email}: {e}")
 
+    evt_id = f"EVT-{meta['project_id']}-ORDER"
     record_event({
-        "event_id": f"EVT-{meta['project_id']}-ORDER",
+        "event_id": evt_id,
         "event_type": "ATTEST",
         "why": "Onboarding started; project created",
         "when_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -169,6 +176,14 @@ def kickoff(order_id: str, email: str, name: str, skus: list):
         "prev_hash": "GENESIS",
         "hash": "temp"
     })
+    try:
+        from services.memory import safe_link_after_kickoff, link_event, find_entity_id
+
+        eid = safe_link_after_kickoff(meta["project_id"], order_id, email, name, skus)
+        if eid:
+            link_event(evt_id, eid, meta["project_id"])
+    except Exception:
+        pass
     return {
         "ok": True,
         "project_id": meta["project_id"],
@@ -255,6 +270,9 @@ async def inquiry_submit(
     skus = [subject.strip()[:80] or "GENERAL-INQUIRY"]
     try:
         res = kickoff(order_id, email, name or email, skus)
+        from services.acquisition.forensics import safe_record_inquiry
+
+        safe_record_inquiry(res["project_id"], email, name, subject, message, order_id)
         return {
             "ok": True,
             "project_id": res["project_id"],
@@ -357,6 +375,10 @@ async def intake_submit(
     except Exception as e:
         logging.warning("Workflow intake_received mark failed for %s: %s", project_id, e)
 
+    from services.acquisition.forensics import safe_record_intake
+
+    safe_record_intake(project_id, info.get("e", ""), intake)
+
     return {
         "ok": True,
         "project_id": project_id,
@@ -401,6 +423,9 @@ async def evidence_register(project_id: str, media_type: str, owner: str, file: 
     }
     REGISTRY.validate("artifact.json", preview)
     rec = register_artifact(project_id, dest, media_type, owner)
+    from services.acquisition.forensics import safe_record_evidence
+
+    safe_record_evidence(project_id, safe_name, media_type)
     return {"ok": True, "artifact": rec}
 
 # ---------- Projects / Status Board ----------
@@ -520,6 +545,14 @@ async def coc_event_form(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid event payload: {e}")
     rec = record_event(ev)
+    try:
+        from services.memory import find_entity_id, link_event
+
+        eid = find_entity_id(project_id=project_id)
+        if eid:
+            link_event(ev["event_id"], eid, project_id)
+    except Exception:
+        pass
     return {"ok": True, "event": rec}
 
 @app.get("/api/events/recent")
@@ -551,6 +584,35 @@ def events_recent(project_id: Optional[str] = None, limit: int = 20):
             except Exception:
                 continue
     return {"ok": True, "events": list(reversed(out))}
+
+
+# ---------- Central memory (one brain, many vessels) ----------
+@app.get("/api/memory/lookup")
+def memory_lookup(
+    entity_id: str = "",
+    email: str = "",
+    project_id: str = "",
+    lead_id: str = "",
+):
+    from services.memory.central_memory import lookup
+
+    return {"ok": True, **lookup(entity_id=entity_id, email=email, project_id=project_id, lead_id=lead_id)}
+
+
+@app.get("/api/memory/self-heal")
+def memory_self_heal():
+    from services.memory import run_self_healing_scan
+
+    report = run_self_healing_scan(write_suggestions=True)
+    return {"ok": True, "report": report}
+
+
+@app.get("/api/memory/learning")
+def memory_learning():
+    from services.memory import get_learning_summary
+
+    return {"ok": True, "learning": get_learning_summary()}
+
 
 # ---------- Ping Host + Test Webhook ----------
 from fastapi import Query

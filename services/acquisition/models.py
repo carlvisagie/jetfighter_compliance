@@ -119,6 +119,12 @@ class Lead:
     updated_utc: str = field(default_factory=utc_now)
     reason_summary: str = ""
     inquiry_routed_link: str = ""
+    ability_to_pay_score: int = 0
+    urgency_score: int = 0
+    compliance_pain_score: int = 0
+    operational_complexity_score: int = 0
+    trust_readiness_score: int = 0
+    acquisition_priority_score: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -157,4 +163,10 @@ class Lead:
             updated_utc=str(data.get("updated_utc") or utc_now()),
             reason_summary=str(data.get("reason_summary", "")),
             inquiry_routed_link=str(data.get("inquiry_routed_link", "")),
+            ability_to_pay_score=int(data.get("ability_to_pay_score") or 0),
+            urgency_score=int(data.get("urgency_score") or 0),
+            compliance_pain_score=int(data.get("compliance_pain_score") or 0),
+            operational_complexity_score=int(data.get("operational_complexity_score") or 0),
+            trust_readiness_score=int(data.get("trust_readiness_score") or 0),
+            acquisition_priority_score=int(data.get("acquisition_priority_score") or 0),
         )

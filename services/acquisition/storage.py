@@ -42,6 +42,12 @@ CSV_FIELDNAMES = [
     "updated_utc",
     "reason_summary",
     "inquiry_routed_link",
+    "ability_to_pay_score",
+    "urgency_score",
+    "compliance_pain_score",
+    "operational_complexity_score",
+    "trust_readiness_score",
+    "acquisition_priority_score",
 ]
 
 REVIEW_QUEUE_FIELDS = CSV_FIELDNAMES
@@ -139,7 +145,7 @@ def rewrite_review_queue(leads: List[Lead], base: Optional[Path] = None, min_fit
     with path.open("w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=REVIEW_QUEUE_FIELDS, extrasaction="ignore")
         w.writeheader()
-        for lead in sorted(queue, key=lambda x: -x.fit_score):
+        for lead in sorted(queue, key=lambda x: (-(x.acquisition_priority_score or x.fit_score), -x.fit_score)):
             w.writerow(_lead_to_csv_row(lead))
     return queue
 
