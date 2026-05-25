@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KeepYourContracts | Operator Knowledge</title>
+  <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
+  <link rel="stylesheet" href="/ui/assets/styles/layout.css">
+  <link rel="stylesheet" href="/ui/assets/styles/components.css">
+  <link rel="stylesheet" href="/ui/assets/styles/ops-dashboard.css">
+  <link rel="stylesheet" href="/ui/assets/styles/operator-cockpit.css">
+</head>
+<body class="kyc-page kyc-surface-ops" id="knowledge-root">
+  <header class="kyc-topbar">
+    <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
+    <nav class="kyc-nav kyc-nav--ops" aria-label="Operations">
+      <a href="/ui/control.html">Cockpit</a>
+      <a href="/ui/knowledge.html" aria-current="page">Knowledge</a>
+      <a href="/ui/memory.html">Intelligence</a>
+    </nav>
+  </header>
+
+  <div class="kyc-ops-header">
+    <div>
+      <h1>Operator knowledge base</h1>
+      <p class="kyc-ops-subtitle">Real docs from the repo — curated index, no invented articles</p>
+    </div>
+    <a class="kyc-btn kyc-btn--secondary" href="/ui/control.html">← Cockpit</a>
+  </div>
+
+  <main class="kyc-main kyc-main--ops">
+    <section class="kyc-section" style="padding-top:0;">
+      <div class="cockpit-layout">
+        <article class="card">
+          <div class="cockpit-knowledge-search">
+            <input type="search" id="knowledgeSearchInput" placeholder="Search topics, tags, phases…">
+            <select id="knowledgePhaseFilter" aria-label="Filter by phase">
+              <option value="">All phases</option>
+              <option value="acquisition">Acquisition</option>
+              <option value="acquisition_discovery">Lead discovery</option>
+              <option value="inquiry">Inquiry</option>
+              <option value="intake">Intake</option>
+              <option value="evidence">Evidence</option>
+              <option value="binder">Binder / export</option>
+              <option value="event_logging">Event logging</option>
+              <option value="self_heal">Self-heal</option>
+            </select>
+            <button type="button" class="btn" id="knowledgeSearchBtn">Search</button>
+          </div>
+          <p class="org-metric-foot" data-cockpit="catalog-note"></p>
+          <ul class="cockpit-topic-list" data-cockpit="topic-list" style="max-height:24rem;"></ul>
+        </article>
+        <article class="card cockpit-knowledge-panel">
+          <h3 data-cockpit="topic-title" style="margin-top:0;">Select a topic</h3>
+          <div data-cockpit="topic-body"></div>
+        </article>
+      </div>
+    </section>
+    <section class="kyc-section">
+      <header class="kyc-section-head"><h2>Compliance glossary</h2></header>
+      <article class="card" data-cockpit="glossary-full"></article>
+    </section>
+  </main>
+  <footer class="kyc-footer">Indexed from docs/ and data/acquisition/ — see fragmentation note in catalog API</footer>
+  <script src="/ui/assets/js/operator-cockpit.js"></script>
+  <script>
+  (async function () {
+    const root = document.getElementById('knowledge-root');
+    const catalog = await OperatorCockpit.api('/api/knowledge/catalog');
+    root.querySelector('[data-cockpit="catalog-note"]').textContent = catalog.fragmentation_note || '';
+    const gloss = root.querySelector('[data-cockpit="glossary-full"]');
+    gloss.innerHTML = '<dl class="cockpit-glossary">' + (catalog.glossary || []).map(g =>
+      '<dt>' + g.term.replace(/</g,'&lt;') + '</dt><dd>' + g.definition.replace(/</g,'&lt;') + '</dd>').join('') + '</dl>';
+    const list = root.querySelector('[data-cockpit="topic-list"]');
+    list.innerHTML = (catalog.topics || []).map(t =>
+      '<li><a href="#" data-learn-topic="' + t.id + '">' + t.title.replace(/</g,'&lt;') + '</a><br><small>' + t.summary.replace(/</g,'&lt;') + '</small></li>').join('');
+    list.querySelectorAll('[data-learn-topic]').forEach(a => {
+      a.addEventListener('click', async (ev) => {
+        ev.preventDefault();
+        await OperatorCockpit.loadTopic(a.getAttribute('data-learn-topic'),
+          root.querySelector('[data-cockpit="topic-body"]'),
+          root.querySelector('[data-cockpit="topic-title"]'));
+      });
+    });
+    const runSearch = async () => {
+      const q = root.querySelector('#knowledgeSearchInput').value;
+      const phase = root.querySelector('#knowledgePhaseFilter').value;
+      const data = await OperatorCockpit.api('/api/knowledge/search?q=' + encodeURIComponent(q) + '&phase=' + encodeURIComponent(phase));
+      list.innerHTML = (data.topics || []).map(t =>
+        '<li><a href="#" data-learn-topic="' + t.id + '">' + t.title.replace(/</g,'&lt;') + '</a></li>').join('');
+      list.querySelectorAll('[data-learn-topic]').forEach(a => {
+        a.addEventListener('click', async (ev) => {
+          ev.preventDefault();
+          await OperatorCockpit.loadTopic(a.getAttribute('data-learn-topic'),
+            root.querySelector('[data-cockpit="topic-body"]'),
+            root.querySelector('[data-cockpit="topic-title"]'));
+        });
+      });
+    };
+    root.querySelector('#knowledgeSearchBtn').addEventListener('click', runSearch);
+  })();
+  </script>
+</body>
+</html>

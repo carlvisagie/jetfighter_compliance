@@ -3,14 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>KeepYourContracts | Operations Control</title>
+  <title>KeepYourContracts | Operator Cockpit</title>
   <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
   <link rel="stylesheet" href="/ui/assets/styles/layout.css">
   <link rel="stylesheet" href="/ui/assets/styles/components.css">
   <link rel="stylesheet" href="/ui/assets/styles/ops-dashboard.css">
-
+  <link rel="stylesheet" href="/ui/assets/styles/organism-command.css">
+  <link rel="stylesheet" href="/ui/assets/styles/operator-cockpit.css">
 </head>
-<body class="kyc-page kyc-surface-ops">
+<body class="kyc-page kyc-surface-ops" id="org-control-root">
   <header class="kyc-topbar">
     <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
     <nav class="kyc-nav kyc-nav--ops" aria-label="Operations">
@@ -18,18 +19,56 @@
       <a href="/ui/command.html">Command</a>
       <a href="/ui/status.html">Status</a>
       <a href="/ui/inbox.html">Inbox</a>
+      <a href="/ui/memory.html">Intelligence</a>
+      <a href="/ui/knowledge.html">Knowledge</a>
       <a href="/ui/shop.html">Public site</a>
     </nav>
   </header>
 
   <div class="kyc-ops-header">
     <div>
-      <h1>Operations control panel</h1>
-      <p class="kyc-ops-subtitle">Monitoring · project actions · system health</p>
+      <h1>Operator cockpit</h1>
+      <p class="kyc-ops-subtitle">Where we are · what to do next · why it matters · learn in place</p>
     </div>
-    <div class="kyc-ops-badges"><span class="kyc-pill" id="health">checking</span></div>
+    <div class="kyc-ops-badges">
+      <span class="org-pulse"><span class="org-pulse-dot" aria-hidden="true"></span><span id="org-pulse-label">Loading…</span></span>
+      <span class="kyc-pill" id="health">checking</span>
+      <button type="button" class="kyc-btn kyc-btn--secondary" id="orgRefresh">Refresh organism</button>
+    </div>
   </div>
+
   <main class="kyc-main kyc-main--ops">
+    <section class="kyc-section" style="padding-top:0;" id="operator-cockpit">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">Steering</span>
+        <h2>Workflow command</h2>
+        <p>Answers: where are we, what is wrong, what do I do next, why, where to learn more.</p>
+      </header>
+      <div class="cockpit-layout">
+        <div>
+          <div class="cockpit-command" data-cockpit="command">Loading cockpit…</div>
+          <article class="card">
+            <span class="kyc-label-overline">Guidance</span>
+            <div data-cockpit="guidance"><p class="kyc-loading">Loading guidance…</p></div>
+          </article>
+        </div>
+        <aside class="cockpit-knowledge-panel">
+          <span class="kyc-label-overline">Encyclopedia</span>
+          <h3 style="margin-top:0;">Knowledge for this phase</h3>
+          <p class="org-metric-foot" data-cockpit="catalog-note"></p>
+          <div class="cockpit-knowledge-search">
+            <input type="search" id="knowledgeSearchInput" placeholder="Search knowledge…" aria-label="Search knowledge">
+            <button type="button" class="btn secondary" id="knowledgeSearchBtn">Search</button>
+          </div>
+          <ul class="cockpit-topic-list" data-cockpit="topic-list"></ul>
+          <div data-cockpit="glossary-hits"></div>
+          <h4 data-cockpit="topic-title" style="margin-top:1rem;">Article</h4>
+          <div data-cockpit="topic-body"><p class="org-metric-foot">Select a topic or “Learn this step”.</p></div>
+          <p style="margin-top:1rem;"><a class="btn secondary" href="/ui/knowledge.html">Full knowledge base</a></p>
+        </aside>
+      </div>
+    </section>
+
     <section class="kyc-section" style="padding-top:0;">
       <article id="meta" class="card">
         <span class="kyc-label-overline">Runtime status</span>
@@ -37,59 +76,125 @@
         <div class="kyc-btn-row" style="margin-top:1rem;">
           <a id="openStatus" class="btn secondary" href="/ui/status.html" target="_blank" rel="noopener">Open status</a>
           <a id="exportBtn" class="btn secondary" href="#" target="_blank" rel="noopener">Export binder</a>
+          <a class="btn secondary" href="/ui/memory.html">Central intelligence</a>
           <button id="demo" class="btn" type="button">Create demo project</button>
         </div>
       </article>
     </section>
+
+    <section class="kyc-section" id="organism-health" aria-labelledby="org-health-heading">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">Organism</span>
+        <h2 id="org-health-heading">Organism health</h2>
+        <p>Real-time signals from central memory, telemetry, learning, and self-heal — no simulated metrics.</p>
+      </header>
+
+      <div class="org-summary-strip">
+        <div class="org-metric">
+          <div class="org-metric-label">Entities</div>
+          <div class="org-metric-value" data-org-metric="entities">—</div>
+          <div class="org-metric-foot">Central graph</div>
+        </div>
+        <div class="org-metric">
+          <div class="org-metric-label">Orphan warnings</div>
+          <div class="org-metric-value" data-org-metric="orphans">—</div>
+          <div class="org-metric-foot">Self-heal scan</div>
+        </div>
+        <div class="org-metric">
+          <div class="org-metric-label">Observability</div>
+          <div class="org-metric-value" data-org-metric="observability">—</div>
+          <div class="org-metric-foot">Subsystem coverage</div>
+        </div>
+        <div class="org-metric">
+          <div class="org-metric-label">Telemetry window</div>
+          <div class="org-metric-value" data-org-metric="telemetry">—</div>
+          <div class="org-metric-foot">Recent events loaded</div>
+        </div>
+      </div>
+
+      <div class="org-health-grid">
+        <article class="org-card" data-org-card="memory">
+          <div class="org-card-head"><h3 class="org-card-title">Memory integrity</h3><span class="org-card-state info">—</span></div>
+          <div class="org-card-body"></div>
+        </article>
+        <article class="org-card" data-org-card="observability">
+          <div class="org-card-head"><h3 class="org-card-title">Observability</h3><span class="org-card-state info">—</span></div>
+          <div class="org-card-body"></div>
+        </article>
+        <article class="org-card" data-org-card="learning">
+          <div class="org-card-head"><h3 class="org-card-title">Learning</h3><span class="org-card-state info">—</span></div>
+          <div class="org-card-body"></div>
+        </article>
+        <article class="org-card" data-org-card="acquisition">
+          <div class="org-card-head"><h3 class="org-card-title">Acquisition radar</h3><span class="org-card-state info">—</span></div>
+          <div class="org-card-body"></div>
+        </article>
+        <article class="org-card" data-org-card="selfheal">
+          <div class="org-card-head"><h3 class="org-card-title">Self-heal</h3><span class="org-card-state info">—</span></div>
+          <div class="org-card-body"></div>
+        </article>
+        <article class="org-card" data-org-card="email">
+          <div class="org-card-head"><h3 class="org-card-title">Email transport</h3><span class="org-card-state info">—</span></div>
+          <div class="org-card-body"></div>
+        </article>
+        <article class="org-card" data-org-card="telemetry">
+          <div class="org-card-head"><h3 class="org-card-title">Telemetry</h3><span class="org-card-state info">—</span></div>
+          <div class="org-card-body"></div>
+        </article>
+        <article class="org-card org-card--wide" data-org-card="activity-wide">
+          <div class="org-card-head"><h3 class="org-card-title">Recent activity</h3><span class="org-card-state info">Live feed</span></div>
+          <div class="org-feed" data-org-feed="activity" role="log" aria-live="polite"></div>
+        </article>
+        <article class="org-card org-card--wide" data-org-card="recs-wide">
+          <div class="org-card-head"><h3 class="org-card-title">Adaptive recommendations</h3><span class="org-card-state info">Patterns</span></div>
+          <div data-org-recs="list"></div>
+        </article>
+      </div>
+    </section>
+
     <section class="kyc-section">
       <header class="kyc-section-head">
-        <span class="kyc-label-overline">Tools</span>
+        <span class="kyc-label-overline">Operations</span>
         <h2>Operational actions</h2>
-        <p>Quick access to workflow, events, scanning, and onboarding utilities.</p>
+        <p>Workflow surfaces — organism truth stays in central memory.</p>
       </header>
-      <div class="grid">
+      <div class="grid org-tools-grid">
         <article class="card"><h4>Status board</h4><p>Projects and workflow steps.</p><a class="btn" href="/ui/status.html" target="_blank" rel="noopener">Open status</a></article>
         <article class="card"><h4>Order inbox</h4><p>Live queue with new-order alerts.</p><a class="btn" href="/ui/inbox.html" target="_blank" rel="noopener">Open inbox</a></article>
         <article class="card"><h4>Event helper</h4><p>Chain-of-custody event entry.</p><a class="btn" href="/ui/event.html" target="_blank" rel="noopener">Open events</a></article>
         <article class="card"><h4>Scan &amp; log</h4><p>QR/barcode capture for mobile.</p><a class="btn" href="/ui/scan.html" target="_blank" rel="noopener">Open scan</a></article>
         <article class="card"><h4>New client</h4><p>Ops manual project kickoff (internal).</p><a class="btn" href="/ui/new_client.html" target="_blank" rel="noopener">New client</a></article>
-        <article class="card"><h4>Central memory</h4><p>One brain — entities, timelines, learning, self-heal suggestions.</p><a class="btn" href="/ui/memory.html" target="_blank" rel="noopener">Open memory</a></article>
-        <article class="card"><h4>Lead discovery</h4><p>Import, score, and review candidate leads (no auto-contact).</p><a class="btn" href="/ui/lead_discovery.html" target="_blank" rel="noopener">Open discovery</a></article>
-        <article class="card"><h4>Onboarding validation</h4><p>Controlled MVP outreach, tracking, feedback capture.</p><a class="btn" href="/ui/onboarding_validation.html" target="_blank" rel="noopener">Open playbook</a></article>
-        <article class="card"><h4>Ops kickoff test</h4><p>Internal diagnostic kickoff payload (not customer-facing).</p><a class="btn" href="/ui/webhook_test.html" target="_blank" rel="noopener">Open verifier</a></article>
-        <article class="card"><h4>Public host</h4><p>Public hostname check (Render custom domain).</p>
+        <article class="card"><h4>Central intelligence</h4><p>Telemetry stream, forensic timeline, learning trends.</p><a class="btn" href="/ui/memory.html">Open intelligence</a></article>
+        <article class="card"><h4>Lead discovery</h4><p>Import, score, and review candidate leads.</p><a class="btn" href="/ui/lead_discovery.html" target="_blank" rel="noopener">Open discovery</a></article>
+        <article class="card"><h4>Onboarding validation</h4><p>Controlled MVP outreach and feedback.</p><a class="btn" href="/ui/onboarding_validation.html" target="_blank" rel="noopener">Open playbook</a></article>
+        <article class="card"><h4>Command center</h4><p>Consolidated health and ledger events.</p><a class="btn" href="/ui/command.html" target="_blank" rel="noopener">Open command</a></article>
+        <article class="card"><h4>Public host</h4><p>Custom domain check.</p>
           <div class="kyc-row"><div class="kyc-field"><label for="pubHost">Hostname</label><input id="pubHost" placeholder="subdomain.yourdomain.tld"></div>
           <button class="btn secondary" id="saveCheck" type="button">Save &amp; check</button></div>
           <p><strong>Status:</strong> <span id="pubBadge" class="pill">unknown</span> <small id="pubWhen"></small></p>
         </article>
-        <article class="card"><h4>Command center</h4><p>Consolidated health and events.</p><a class="btn" href="/ui/command.html" target="_blank" rel="noopener">Open command</a></article>
       </div>
     </section>
+
     <section class="kyc-section">
       <header class="kyc-section-head"><span class="kyc-label-overline">Registry</span><h2>Recent projects</h2></header>
       <article id="table" class="card kyc-table-wrap"><p class="kyc-loading">Loading…</p></article>
     </section>
   </main>
-  <footer class="kyc-footer">KeepYourContracts.com · Operations</footer>
+
+  <footer class="kyc-footer">KeepYourContracts.com · Organism operations</footer>
+  <script src="/ui/assets/js/organism-intel.js"></script>
+  <script src="/ui/assets/js/operator-cockpit.js"></script>
   <script>
   async function api(u, opts) { const r = await fetch(u, opts || {}); return r.json(); }
-  async function init() {
-    try {
-      const h = await api('/healthz');
-      const el = document.getElementById('health');
-      el.textContent = h.ok ? 'OK' : 'Check';
-      el.className = h.ok ? 'kyc-pill kyc-pill--ok' : 'kyc-pill kyc-pill--warn';
-    } catch {
-      document.getElementById('health').textContent = 'Down';
-      document.getElementById('health').className = 'kyc-pill kyc-pill--bad';
-    }
+  async function initProjects() {
     let projects = [];
     try { projects = (await api('/api/projects')).projects || []; } catch {}
     const pid = projects.slice(-1)[0] || '';
     document.getElementById('pid').textContent = pid || '—';
     document.getElementById('exportBtn').href = pid ? '/api/project/' + pid + '/export' : '#';
     const tableEl = document.getElementById('table');
-    if (!projects.length) tableEl.innerHTML = '<p class="kyc-empty">No projects yet. Create a demo project to begin.</p>';
+    if (!projects.length) tableEl.innerHTML = '<p class="kyc-empty">No projects yet.</p>';
     else {
       const rows = projects.slice(-10).reverse().map(p =>
         '<tr><td>' + p + '</td><td><a href="/ui/status.html" target="_blank" rel="noopener">Open</a></td>' +
@@ -104,8 +209,20 @@
       location.reload();
     };
   }
-  init();
+  async function refreshOrganism() {
+    const root = document.getElementById('org-control-root');
+    try {
+      await OrgIntel.refreshControl(root);
+    } catch (e) {
+      document.getElementById('health').textContent = 'Organism offline';
+      document.getElementById('health').className = 'kyc-pill kyc-pill--bad';
+      document.getElementById('org-pulse-label').textContent = String(e.message || e);
+    }
+  }
+  document.getElementById('orgRefresh').addEventListener('click', refreshOrganism);
+  initProjects();
+  refreshOrganism();
+  OperatorCockpit.init(document.getElementById('org-control-root'));
   </script>
-  <footer class="kyc-footer">KeepYourContracts.com · Enterprise Compliance Workflow Platform</footer>
 </body>
 </html>

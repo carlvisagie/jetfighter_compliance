@@ -3,124 +3,154 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>KeepYourContracts | Central Memory</title>
+  <title>KeepYourContracts | Central Organism Intelligence</title>
   <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
   <link rel="stylesheet" href="/ui/assets/styles/layout.css">
   <link rel="stylesheet" href="/ui/assets/styles/components.css">
   <link rel="stylesheet" href="/ui/assets/styles/ops-dashboard.css">
+  <link rel="stylesheet" href="/ui/assets/styles/organism-command.css">
 </head>
-<body class="kyc-page kyc-surface-ops">
+<body class="kyc-page kyc-surface-ops" id="org-memory-root">
   <header class="kyc-topbar">
     <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
     <nav class="kyc-nav kyc-nav--ops" aria-label="Operations">
-      <a href="/ui/control.html">Control</a>
-      <a href="/ui/memory.html" aria-current="page">Central memory</a>
+      <a href="/ui/control.html">Cockpit</a>
+      <a href="/ui/knowledge.html">Knowledge</a>
+      <a href="/ui/memory.html" aria-current="page">Intelligence</a>
       <a href="/ui/lead_discovery.html">Lead discovery</a>
     </nav>
   </header>
 
   <div class="kyc-ops-header">
     <div>
-      <h1>Central memory</h1>
-      <p class="kyc-ops-subtitle">One brain, many vessels — read before action, write after action</p>
+      <h1>Central organism intelligence</h1>
+      <p class="kyc-ops-subtitle">Telemetry · memory integrity · learning · acquisition · forensic timeline</p>
+    </div>
+    <div class="kyc-ops-badges">
+      <span class="org-pulse"><span class="org-pulse-dot" aria-hidden="true"></span><span id="org-pulse-label">Loading…</span></span>
+      <button type="button" class="kyc-btn kyc-btn--secondary" id="orgRefresh">Refresh intelligence</button>
+      <a class="kyc-btn kyc-btn--secondary" href="/ui/control.html">← Command center</a>
     </div>
   </div>
 
   <main class="kyc-main kyc-main--ops">
     <section class="kyc-section" style="padding-top:0;">
       <article class="card">
-        <span class="kyc-label-overline">Lookup</span>
-        <div class="kyc-form">
-          <div class="kyc-field"><label>Entity ID<input id="entityId" placeholder="E-company-0001"></label></div>
-          <div class="kyc-field"><label>Email<input id="email" type="email"></label></div>
-          <div class="kyc-field"><label>Project ID<input id="projectId" placeholder="P-INQ-…"></label></div>
-          <div class="kyc-field"><label>Lead ID<input id="leadId" placeholder="L-…"></label></div>
-          <button type="button" class="btn" id="lookupBtn">Lookup</button>
-          <button type="button" class="btn secondary" id="healBtn">Run self-heal scan</button>
+        <span class="kyc-label-overline">Forensic lookup</span>
+        <div class="org-lookup-bar kyc-form">
+          <div class="kyc-field"><label for="entityId">Entity ID</label><input id="entityId" placeholder="E-company-0001"></div>
+          <div class="kyc-field"><label for="email">Email</label><input id="email" type="email"></div>
+          <div class="kyc-field"><label for="projectId">Project ID</label><input id="projectId" placeholder="P-INQ-…"></div>
+          <div class="kyc-field"><label for="leadId">Lead ID</label><input id="leadId" placeholder="L-…"></div>
+          <button type="button" class="btn" id="lookupBtn">Reconstruct timeline</button>
+          <button type="button" class="btn secondary" id="healBtn">Run self-heal</button>
         </div>
+        <div class="org-feed" id="timelineFeed" role="log"><div class="org-feed-row"><span class="org-feed-msg">Enter entity, project, or lead to reconstruct journey.</span></div></div>
+      </article>
+    </section>
+
+    <section class="kyc-section" id="organism-health" aria-labelledby="intel-summary-heading">
+      <header class="kyc-section-head">
+        <span class="kyc-label-overline">Live state</span>
+        <h2 id="intel-summary-heading">Organism summary</h2>
+      </header>
+      <div class="org-summary-strip">
+        <div class="org-metric"><div class="org-metric-label">Entities</div><div class="org-metric-value" data-org-metric="entities">—</div></div>
+        <div class="org-metric"><div class="org-metric-label">Orphans</div><div class="org-metric-value" data-org-metric="orphans">—</div></div>
+        <div class="org-metric"><div class="org-metric-label">Observability</div><div class="org-metric-value" data-org-metric="observability">—</div></div>
+        <div class="org-metric"><div class="org-metric-label">Telemetry</div><div class="org-metric-value" data-org-metric="telemetry">—</div></div>
+      </div>
+      <div class="org-health-grid">
+        <article class="org-card" data-org-card="memory"><div class="org-card-head"><h3 class="org-card-title">Memory integrity</h3><span class="org-card-state info">—</span></div><div class="org-card-body"></div></article>
+        <article class="org-card" data-org-card="observability"><div class="org-card-head"><h3 class="org-card-title">Observability</h3><span class="org-card-state info">—</span></div><div class="org-card-body"></div></article>
+        <article class="org-card" data-org-card="learning"><div class="org-card-head"><h3 class="org-card-title">Learning</h3><span class="org-card-state info">—</span></div><div class="org-card-body"></div></article>
+        <article class="org-card" data-org-card="acquisition"><div class="org-card-head"><h3 class="org-card-title">Acquisition flow</h3><span class="org-card-state info">—</span></div><div class="org-card-body"></div></article>
+        <article class="org-card" data-org-card="selfheal"><div class="org-card-head"><h3 class="org-card-title">Self-heal warnings</h3><span class="org-card-state info">—</span></div><div class="org-card-body"></div></article>
+        <article class="org-card" data-org-card="email"><div class="org-card-head"><h3 class="org-card-title">Email transport</h3><span class="org-card-state info">—</span></div><div class="org-card-body"></div></article>
+        <article class="org-card org-card--wide" data-org-card="activity-wide">
+          <div class="org-card-head"><h3 class="org-card-title">Telemetry stream</h3><span class="org-card-state info">Rolling</span></div>
+          <div class="org-feed" data-org-feed="activity"></div>
+        </article>
+        <article class="org-card org-card--wide" data-org-card="recs-wide">
+          <div class="org-card-head"><h3 class="org-card-title">Bottlenecks &amp; recommendations</h3><span class="org-card-state info">Adaptive</span></div>
+          <div data-org-recs="list"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head"><h2>Subsystem status</h2></header>
+      <div class="kyc-status-tiles" data-org-subsystems></div>
+    </section>
+
+    <section class="kyc-section">
+      <header class="kyc-section-head"><h2>Learning trends</h2></header>
+      <article class="org-intel-panel">
+        <p class="org-metric-foot">Signal effectiveness (relative volume)</p>
+        <div data-org-learning-bars></div>
+        <ul id="bottleneckList" class="kyc-list" style="margin-top:1rem;"></ul>
       </article>
     </section>
 
     <section class="kyc-section">
-      <header class="kyc-section-head"><h2>Journey timeline</h2></header>
-      <article class="card"><pre id="timeline" class="codebox">Lookup an entity or project.</pre></article>
-    </section>
-
-    <section class="kyc-section">
-      <header class="kyc-section-head"><h2>Self-healing warnings</h2></header>
-      <article class="card"><pre id="warnings" class="codebox">—</pre></article>
-    </section>
-
-    <section class="kyc-section">
-      <header class="kyc-section-head"><h2>Learning summary</h2></header>
-      <article class="card"><pre id="learning" class="codebox">—</pre></article>
-    </section>
-
-    <section class="kyc-section">
-      <header class="kyc-section-head"><h2>Signal performance</h2></header>
-      <article class="card"><pre id="signals" class="codebox">—</pre></article>
-    </section>
-
-    <section class="kyc-section">
-      <header class="kyc-section-head"><h2>Organism observability</h2></header>
+      <header class="kyc-section-head"><h2>Engine integration</h2></header>
       <article class="card">
-        <p class="kyc-ops-subtitle">Support systems emit telemetry into central memory — not separate truth stores.</p>
-        <p><strong>Verdict:</strong> <span id="obsVerdict">—</span></p>
-        <button type="button" class="btn secondary" id="obsBtn">Refresh observability</button>
-        <h4 style="margin-top:1rem;">Subsystem health</h4>
-        <pre id="obsHealth" class="codebox">—</pre>
-        <h4>Recent telemetry</h4>
-        <pre id="obsTelemetry" class="codebox">—</pre>
-        <h4>Repeated failures</h4>
-        <pre id="obsFailures" class="codebox">—</pre>
-        <h4>Learning patterns</h4>
-        <pre id="obsPatterns" class="codebox">—</pre>
-        <h4>Recommended improvements</h4>
-        <pre id="obsRecs" class="codebox">—</pre>
-      </article>
-    </section>
-
-    <section class="kyc-section">
-      <header class="kyc-section-head"><h2>Organism integration status</h2></header>
-      <article class="card">
-        <p class="kyc-ops-subtitle">One brain — engines must not keep separate durable truth.</p>
         <p><strong>Verdict:</strong> <span id="organismVerdict">—</span> · <strong>Audited:</strong> <span id="organismAuditUtc">—</span></p>
-        <div class="kyc-form" style="margin-top:1rem;">
-          <button type="button" class="btn secondary" id="auditBtn">Refresh audit</button>
+        <button type="button" class="btn secondary" id="auditBtn">Refresh audit</button>
+        <div class="org-intel-grid" style="margin-top:1rem;">
+          <div><h4>Plugged</h4><ul id="pluggedList" class="kyc-list"></ul></div>
+          <div><h4>Partial</h4><ul id="partialList" class="kyc-list"></ul></div>
+          <div><h4>Outside / legacy</h4><ul id="outsideList" class="kyc-list"></ul></div>
+          <div><h4>Warnings</h4><ul id="warnList" class="kyc-list"></ul></div>
         </div>
-        <h4 style="margin-top:1.25rem;">Plugged engines</h4>
-        <ul id="pluggedList" class="kyc-list"></ul>
-        <h4>Partial engines</h4>
-        <ul id="partialList" class="kyc-list"></ul>
-        <h4>Outside / legacy</h4>
-        <ul id="outsideList" class="kyc-list"></ul>
-        <h4>Warnings</h4>
-        <pre id="organismWarnings" class="codebox">—</pre>
       </article>
     </section>
+
+    <details class="org-raw card">
+      <summary>Advanced: compact state snapshot (JSON)</summary>
+      <pre data-org-raw-json class="codebox">—</pre>
+    </details>
   </main>
-  <footer class="kyc-footer">Lawful memory only — user data + onboarding artifacts</footer>
+  <footer class="kyc-footer">Central memory — lawful organism truth only</footer>
+  <script src="/ui/assets/js/organism-intel.js"></script>
   <script>
-  async function api(path) {
-    const r = await fetch(path);
-    return r.json();
+  function renderTimelineFeed(j) {
+    const feed = document.getElementById('timelineFeed');
+    const stages = (j.stages || []);
+    if (!stages.length) {
+      feed.innerHTML = '<div class="org-feed-row"><span class="org-feed-msg">No timeline stages for this lookup.</span></div>';
+      return;
+    }
+    feed.innerHTML = stages.map(s =>
+      '<div class="org-feed-row">' +
+      '<span class="org-feed-time">' + (s.when || '').replace('T',' ').slice(0,16) + '</span>' +
+      '<span class="org-feed-msg"><strong>' + (s.type || 'stage') + '</strong><br>' + (s.ref || '') + '</span>' +
+      '<span class="org-feed-tag">timeline</span></div>'
+    ).join('');
   }
-  function render(data) {
-    const j = data.journey || {};
-    const stages = (j.stages || []).map(s => `${s.when}  ${s.type}  ${s.ref}`).join('\n') || '(no timeline)';
-    document.getElementById('timeline').textContent =
-      `entity_id: ${j.entity_id || '—'}\n\n` + stages;
-    const h = data.self_healing || {};
-    document.getElementById('warnings').textContent = JSON.stringify({
-      orphan_projects: h.orphan_projects,
-      orphan_inquiries: h.orphan_inquiries,
-      duplicate_companies: h.duplicate_companies,
-      missing_timeline: h.missing_timeline_entities
-    }, null, 2);
-    document.getElementById('learning').textContent = JSON.stringify(data.learning || {}, null, 2);
-    const eff = (data.learning || {}).signal_effectiveness || {};
-    document.getElementById('signals').textContent = JSON.stringify(eff, null, 2);
+
+  function renderOrganismAudit(a) {
+    document.getElementById('organismVerdict').textContent = a.verdict || '—';
+    document.getElementById('organismAuditUtc').textContent = a.audit_utc || '—';
+    const li = (arr) => (arr || []).map(e =>
+      '<li><code>' + e.id + '</code> — ' + e.label + (e.fix_needed ? ' (' + e.fix_needed + ')' : '') + '</li>'
+    ).join('') || '<li>(none)</li>';
+    document.getElementById('pluggedList').innerHTML = li(a.plugged);
+    document.getElementById('partialList').innerHTML = li(a.partial);
+    const outside = [...(a.outside || []), ...(a.legacy_inactive || [])];
+    document.getElementById('outsideList').innerHTML = li(outside);
+    const warns = (a.warnings || []).map(w => '<li>' + w + '</li>').join('') || '<li>(none)</li>';
+    document.getElementById('warnList').innerHTML = warns;
   }
+
+  function renderBottlenecks(patterns) {
+    const el = document.getElementById('bottleneckList');
+    const b = (patterns && patterns.bottlenecks) || {};
+    const keys = Object.keys(b);
+    if (!keys.length) { el.innerHTML = '<li>No bottleneck patterns recorded yet.</li>'; return; }
+    el.innerHTML = keys.slice(0, 6).map(k => '<li><strong>' + k + '</strong>: ' + JSON.stringify(b[k]) + '</li>').join('');
+  }
+
   document.getElementById('lookupBtn').addEventListener('click', async () => {
     const q = new URLSearchParams();
     const e = document.getElementById('entityId').value.trim();
@@ -131,52 +161,35 @@
     if (em) q.set('email', em);
     if (p) q.set('project_id', p);
     if (l) q.set('lead_id', l);
-    const data = await api('/api/memory/lookup?' + q.toString());
-    render(data);
+    const data = await OrgIntel.api('/api/memory/lookup?' + q.toString());
+    renderTimelineFeed(data.journey || {});
   });
+
   document.getElementById('healBtn').addEventListener('click', async () => {
-    const data = await api('/api/memory/self-heal');
-    document.getElementById('warnings').textContent = JSON.stringify(data.report, null, 2);
+    await OrgIntel.api('/api/memory/self-heal');
+    await refreshIntel();
   });
-  function renderOrganism(a) {
-    document.getElementById('organismVerdict').textContent = a.verdict || '—';
-    document.getElementById('organismAuditUtc').textContent = a.audit_utc || '—';
-    const li = (arr) => (arr || []).map(e =>
-      `<li><code>${e.id}</code> — ${e.label}${e.fix_needed ? ' <em>(' + e.fix_needed + ')</em>' : ''}</li>`
-    ).join('') || '<li>(none)</li>';
-    document.getElementById('pluggedList').innerHTML = li(a.plugged);
-    document.getElementById('partialList').innerHTML = li(a.partial);
-    const outside = [...(a.outside || []), ...(a.legacy_inactive || [])];
-    document.getElementById('outsideList').innerHTML = li(outside);
-    document.getElementById('organismWarnings').textContent = JSON.stringify({
-      warnings: a.warnings,
-      counts: a.counts,
-      duplicate_islands: (a.duplicate_memory_islands || []).map(x => x.id)
-    }, null, 2);
+
+  async function loadOrganismAudit() {
+    const a = await OrgIntel.api('/api/memory/organism-status');
+    renderOrganismAudit(a);
   }
-  async function loadOrganism() {
-    const a = await api('/api/memory/organism-status');
-    renderOrganism(a);
+
+  async function refreshIntel() {
+    const root = document.getElementById('org-memory-root');
+    try {
+      const snap = await OrgIntel.refreshMemory(root);
+      renderBottlenecks(snap.obs.learning_patterns);
+      document.getElementById('org-pulse-label').textContent = 'Refreshed ' + (snap.fetchedAt || '').replace('T',' ').slice(5,16);
+    } catch (e) {
+      document.getElementById('org-pulse-label').textContent = String(e.message || e);
+    }
   }
-  document.getElementById('auditBtn').addEventListener('click', loadOrganism);
-  api('/api/memory/learning').then(d => {
-    document.getElementById('learning').textContent = JSON.stringify(d.learning || {}, null, 2);
-  });
-  async function loadObservability() {
-    const o = await api('/api/memory/observability?limit=80');
-    document.getElementById('obsVerdict').textContent = o.verdict || '—';
-    document.getElementById('obsHealth').textContent = JSON.stringify(o.subsystem_health || {}, null, 2);
-    const recent = (o.recent_telemetry || []).slice(-25).map(t =>
-      `${t.observed_at_utc}  ${t.subsystem}/${t.event_type}  ok=${t.success}  ${t.message || ''}`
-    ).join('\n') || '(none)';
-    document.getElementById('obsTelemetry').textContent = recent;
-    document.getElementById('obsFailures').textContent = JSON.stringify(o.repeated_failures || [], null, 2);
-    document.getElementById('obsPatterns').textContent = JSON.stringify(o.learning_patterns || {}, null, 2);
-    document.getElementById('obsRecs').textContent = (o.recommended_improvements || []).join('\n') || '(none)';
-  }
-  document.getElementById('obsBtn').addEventListener('click', loadObservability);
-  loadOrganism();
-  loadObservability();
+
+  document.getElementById('orgRefresh').addEventListener('click', refreshIntel);
+  document.getElementById('auditBtn').addEventListener('click', loadOrganismAudit);
+  loadOrganismAudit();
+  refreshIntel();
   </script>
 </body>
 </html>

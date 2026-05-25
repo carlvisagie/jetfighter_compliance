@@ -712,6 +712,38 @@ def memory_observability(limit: int = 100):
     return {"ok": True, **get_observability_dashboard(telemetry_limit=min(limit, 200))}
 
 
+# ---------- Operator cockpit + knowledge ----------
+@app.get("/api/operator/cockpit")
+def operator_cockpit(project_id: str = "", mode: str = ""):
+    from services.operator_cockpit import build_cockpit
+
+    return {"ok": True, "cockpit": build_cockpit(project_id=project_id, mode=mode)}
+
+
+@app.get("/api/knowledge/search")
+def knowledge_search(q: str = "", phase: str = "", limit: int = 20):
+    from services.knowledge_index import search_knowledge
+
+    return {"ok": True, **search_knowledge(query=q, phase=phase, limit=limit)}
+
+
+@app.get("/api/knowledge/topic/{topic_id}")
+def knowledge_topic(topic_id: str):
+    from services.knowledge_index import get_topic
+
+    topic = get_topic(topic_id)
+    if not topic:
+        raise HTTPException(status_code=404, detail="Unknown knowledge topic")
+    return {"ok": True, "topic": topic}
+
+
+@app.get("/api/knowledge/catalog")
+def knowledge_catalog():
+    from services.knowledge_index import knowledge_catalog as catalog
+
+    return {"ok": True, **catalog()}
+
+
 # ---------- Ping Host + Test Webhook ----------
 from fastapi import Query
 import httpx

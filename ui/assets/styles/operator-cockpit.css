@@ -1,0 +1,200 @@
+/* Operator cockpit — workflow command strip + guidance + knowledge */
+
+.cockpit-command {
+  border-radius: var(--kyc-radius-lg);
+  border: 1px solid var(--kyc-accent-border);
+  background: linear-gradient(135deg, var(--kyc-surface) 0%, var(--kyc-surface-inset) 100%);
+  padding: var(--kyc-space-5);
+  margin-bottom: var(--kyc-space-5);
+  box-shadow: var(--kyc-shadow-md);
+}
+
+.cockpit-command-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--kyc-space-4);
+  margin-bottom: var(--kyc-space-4);
+}
+
+.cockpit-command-grid .label {
+  font-size: var(--kyc-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--kyc-tracking-label);
+  color: var(--kyc-text-dim);
+}
+
+.cockpit-command-grid .value {
+  font-size: var(--kyc-text-lg);
+  font-weight: 600;
+  color: var(--kyc-text);
+  margin-top: var(--kyc-space-1);
+}
+
+.cockpit-do-now {
+  border-left: 4px solid var(--kyc-accent);
+  padding: var(--kyc-space-3) var(--kyc-space-4);
+  background: var(--kyc-accent-soft);
+  border-radius: 0 var(--kyc-radius) var(--kyc-radius) 0;
+  margin-bottom: var(--kyc-space-3);
+}
+
+.cockpit-do-now strong {
+  display: block;
+  font-size: var(--kyc-text-xs);
+  text-transform: uppercase;
+  color: var(--kyc-text-dim);
+  margin-bottom: var(--kyc-space-1);
+}
+
+.cockpit-do-now p {
+  margin: 0;
+  font-size: var(--kyc-text-base);
+  color: var(--kyc-text);
+}
+
+.cockpit-why {
+  font-size: var(--kyc-text-sm);
+  color: var(--kyc-text-muted);
+  margin: 0 0 var(--kyc-space-3);
+}
+
+.cockpit-blockers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kyc-space-2);
+}
+
+.cockpit-blocker {
+  font-size: var(--kyc-text-xs);
+  padding: var(--kyc-space-1) var(--kyc-space-2);
+  border-radius: var(--kyc-radius-pill);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  background: var(--kyc-danger-soft);
+  color: var(--kyc-danger);
+}
+
+.cockpit-project-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--kyc-space-3);
+  align-items: flex-end;
+  margin-bottom: var(--kyc-space-4);
+}
+
+.cockpit-guidance {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--kyc-space-3);
+  margin-top: var(--kyc-space-3);
+}
+
+.cockpit-guidance dl {
+  margin: 0;
+  font-size: var(--kyc-text-sm);
+}
+
+.cockpit-guidance dt {
+  font-weight: 600;
+  color: var(--kyc-text-muted);
+  margin-top: var(--kyc-space-2);
+}
+
+.cockpit-guidance dt:first-child {
+  margin-top: 0;
+}
+
+.cockpit-guidance dd {
+  margin: var(--kyc-space-1) 0 0;
+  color: var(--kyc-text);
+}
+
+.cockpit-knowledge-panel {
+  border-radius: var(--kyc-radius-lg);
+  border: 1px solid var(--kyc-line);
+  background: var(--kyc-surface);
+  padding: var(--kyc-space-4);
+}
+
+.cockpit-knowledge-search {
+  display: flex;
+  gap: var(--kyc-space-2);
+  margin-bottom: var(--kyc-space-3);
+}
+
+.cockpit-knowledge-search input {
+  flex: 1;
+}
+
+.cockpit-topic-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.cockpit-topic-list li {
+  padding: var(--kyc-space-2) 0;
+  border-bottom: 1px solid var(--kyc-line);
+}
+
+.cockpit-topic-list li:last-child {
+  border-bottom: none;
+}
+
+.cockpit-topic-list a {
+  color: var(--kyc-accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.cockpit-topic-list a:hover {
+  text-decoration: underline;
+}
+
+.cockpit-topic-body {
+  margin-top: var(--kyc-space-3);
+  max-height: 18rem;
+  overflow-y: auto;
+  font-size: var(--kyc-text-sm);
+  line-height: 1.55;
+  color: var(--kyc-text-muted);
+  border-top: 1px solid var(--kyc-line);
+  padding-top: var(--kyc-space-3);
+}
+
+.cockpit-topic-body h1,
+.cockpit-topic-body h2,
+.cockpit-topic-body h3 {
+  color: var(--kyc-text);
+  font-size: var(--kyc-text-base);
+  margin: var(--kyc-space-3) 0 var(--kyc-space-2);
+}
+
+.cockpit-glossary {
+  font-size: var(--kyc-text-xs);
+  color: var(--kyc-text-dim);
+  margin-top: var(--kyc-space-3);
+}
+
+.cockpit-glossary dt {
+  font-weight: 600;
+  color: var(--kyc-text-muted);
+  margin-top: var(--kyc-space-2);
+}
+
+.cockpit-glossary dd {
+  margin: 2px 0 0;
+}
+
+.cockpit-layout {
+  display: grid;
+  grid-template-columns: 1fr minmax(18rem, 22rem);
+  gap: var(--kyc-space-4);
+}
+
+@media (max-width: 960px) {
+  .cockpit-layout {
+    grid-template-columns: 1fr;
+  }
+}
