@@ -1,37 +1,18 @@
-"""Ensure customer-facing UI does not link to internal operations consoles."""
+"""Ensure customer-facing UI does not link to internal operations consoles.
 
-from fastapi.testclient import TestClient
+Consolidated into tests/test_public_ui_exposure.py; kept for backwards compatibility.
+"""
 
-from server import app
+from tests.test_public_ui_exposure import (
+    FORBIDDEN_LINK_FRAGMENTS as FORBIDDEN,
+    PUBLIC_PAGES,
+    test_public_pages_have_no_internal_links as test_public_pages_have_no_ops_console_links,
+    test_shop_uses_internal_tracking_wording,
+)
 
-client = TestClient(app)
-
-PUBLIC_PAGES = [
-    "/ui/shop.html",
-    "/ui/inquiry.html",
-    "/ui/intake.html",
-    "/ui/upload.html",
+__all__ = [
+    "FORBIDDEN",
+    "PUBLIC_PAGES",
+    "test_public_pages_have_no_ops_console_links",
+    "test_shop_uses_internal_tracking_wording",
 ]
-
-FORBIDDEN = [
-    "/ui/control.html",
-    "/ui/memory.html",
-    "Operations Console",
-    'href="/ui/control.html"',
-    "href=\"/ui/memory.html\"",
-]
-
-
-def test_public_pages_have_no_ops_console_links():
-    for path in PUBLIC_PAGES:
-        r = client.get(path)
-        assert r.status_code == 200, path
-        html = r.text
-        for needle in FORBIDDEN:
-            assert needle not in html, f"{needle} found on {path}"
-
-
-def test_shop_uses_internal_tracking_wording():
-    r = client.get("/ui/shop.html")
-    assert "continue internally" in r.text
-    assert "operations console" not in r.text.lower()
