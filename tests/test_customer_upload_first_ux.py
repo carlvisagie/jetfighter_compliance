@@ -64,11 +64,13 @@ def test_upload_cta_present(name: str):
     assert "kyc-upload-cta-primary" in html or "kyc-upload-cta-primary" in html
 
 
-def test_inquiry_success_has_continuation_flow():
+def test_inquiry_has_pre_contact_session_flow():
     html = (UI / "inquiry.html").read_text(encoding="utf-8", errors="replace")
-    assert "inquirySuccess" in html
-    assert "/api/customer/qr.svg" in html
-    assert "copyContLink" in html or "Copy my link" in html
+    assert "customer-session-flow.js" in html
+    assert "phaseMinInfo" in html
+    assert "Create my secure workspace" in html
+    assert "copyMagicLink" in html or "customer-session-flow" in html
+    assert "KYCSessionFlow" in html
 
 
 def test_qr_visible_on_upload_and_continue():

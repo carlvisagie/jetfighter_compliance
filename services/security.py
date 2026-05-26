@@ -1,4 +1,4 @@
-import time
+﻿import time
 from itsdangerous import URLSafeSerializer, BadSignature, SignatureExpired
 from .config import SETTINGS
 
@@ -29,3 +29,20 @@ def parse_continuation_token(token: str) -> dict:
         raise ValueError("continuation_expired") from e
     except BadSignature as e:
         raise ValueError("continuation_invalid") from e
+
+
+_session_signer = URLSafeSerializer(SETTINGS.intake_token_secret, salt="kyc-customer-session")
+SESSION_TOKEN_MAX_AGE_SECONDS = 7 * 24 * 3600
+
+
+def make_session_token(session_id: str) -> str:
+    return _session_signer.dumps({"s": session_id, "ts": int(time.time())})
+
+
+def parse_session_token(token: str) -> dict:
+    try:
+        return _session_signer.loads(token, max_age=SESSION_TOKEN_MAX_AGE_SECONDS)
+    except SignatureExpired as e:
+        raise ValueError("session_expired") from e
+    except BadSignature as e:
+        raise ValueError("session_invalid") from e

@@ -250,6 +250,78 @@ def safe_read_before_kickoff(email: str, name: str, company: str = "", base: Opt
         return {"known": False}
 
 
+def safe_link_after_customer_session(
+    project_id: str,
+    session_id: str,
+    email: str,
+    name: str,
+    skus: List[str],
+    *,
+    file_count: int = 0,
+    note: str = "",
+    base: Optional[Path] = None,
+) -> Optional[str]:
+    """Link pre-contact upload session → workspace (upload-first onboarding)."""
+    try:
+        eid = resolve_or_create_entity(
+            email=email,
+            company=name,
+            contact_name=name,
+            display_name=name,
+            base=base,
+        )
+        _attach_entity_refs(
+            eid,
+            project_id=project_id,
+            order_id=session_id,
+            email=email,
+            base=base,
+        )
+        add_ref(eid, "session", session_id, base)
+        if not _timeline_has(eid, "paperwork_uploaded", ref_id=project_id, base=base):
+            append_timeline(
+                eid,
+                "paperwork_uploaded",
+                "project",
+                project_id,
+                {"session_id": session_id, "file_count": file_count},
+                base,
+            )
+        if not _timeline_has(eid, "customer_min_info_completed", ref_id=project_id, base=base):
+            append_timeline(
+                eid,
+                "customer_min_info_completed",
+                "project",
+                project_id,
+                {"email": email, "name": name, "note": note[:200]},
+                base,
+            )
+        if not _timeline_has(eid, "workspace_created", ref_id=project_id, base=base):
+            append_timeline(
+                eid,
+                "workspace_created",
+                "project",
+                project_id,
+                {"session_id": session_id, "skus": skus},
+                base,
+            )
+        if not _timeline_has(eid, "project_created", ref_id=project_id, base=base):
+            link_project(project_id, eid, {"session_id": session_id, "skus": skus, "source": "upload_first"}, base)
+        if not _timeline_has(eid, "continuation_created", ref_id=project_id, base=base):
+            append_timeline(
+                eid,
+                "continuation_created",
+                "project",
+                project_id,
+                {"session_id": session_id},
+                base,
+            )
+        return eid
+    except Exception as e:
+        logger.warning("Central memory write (customer session): %s", e)
+        return None
+
+
 def safe_link_after_kickoff(
     project_id: str,
     order_id: str,
@@ -301,12 +373,11 @@ def safe_link_ledger_event(
     name: str = "",
     event_type: str = "ATTEST",
     why: str = "",
-    entity_id: Optional[str] = None,
     base: Optional[Path] = None,
 ) -> None:
     """Link ORDER/ATTEST ledger events into central memory after kickoff."""
     try:
-        eid = entity_id or find_entity_id(project_id=project_id, email=email, company=name, base=base)
+        eid = find_entity_id(project_id=project_id, email=email, company=name, base=base)
         if not eid and email:
             eid = resolve_or_create_entity(
                 email=email,

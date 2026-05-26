@@ -48,6 +48,13 @@ jobs:
         run: |
           python -m pytest tests/test_customer_upload_first_ux.py -q --tb=short
 
+      - name: Pre-contact upload session
+        env:
+          OPS_PASSWORD: ci-test-ops-password
+          OPS_SECRET: ci-test-ops-secret
+        run: |
+          python -m pytest tests/test_customer_pre_contact_session.py -q --tb=short
+
       - name: Ops route authentication
         env:
           OPS_PASSWORD: ci-test-ops-password

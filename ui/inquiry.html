@@ -19,131 +19,80 @@
   </header>
 
   <main class="kyc-main kyc-main--narrow">
+  <section id="phaseUpload" class="kyc-phase">
     <section class="kyc-hero">
-      <span class="kyc-badge">Upload-first</span>
+      <span class="kyc-badge">We will take it from here</span>
       <h1>Give us exactly what you have.</h1>
-      <p>Upload any paperwork, screenshots, spreadsheets, exports, policies, notes, or evidence you already have. You do not need to organize anything first. We will review it, organize it, identify what is missing, and help you handle the rest.</p>
-      <p class="kyc-reassurance">You do not need perfect paperwork to begin.</p>
+      <p>Upload any paperwork, screenshots, spreadsheets, policies, exports, notes, or evidence you already have. You do not need to organize anything first. We will review it, organize it, identify what is missing, and help you handle the rest.</p>
+      <p class="kyc-reassurance">You do not need perfect paperwork to begin. Messy is fine. Partial is fine.</p>
     </section>
 
-    <article class="kyc-card kyc-card--flat" id="inquiryFormCard">
-      <h2 style="margin-top:0;font-size:1.15rem;">Start here — just the basics</h2>
-      <form id="f" class="kyc-form">
-        <div class="kyc-field">
-          <label for="name">Your name</label>
-          <input id="name" name="name" required autocomplete="name" placeholder="Jane Smith">
-        </div>
-        <div class="kyc-field">
-          <label for="email">Your email</label>
-          <input id="email" name="email" type="email" required autocomplete="email" placeholder="you@company.com">
-        </div>
-        <input type="hidden" id="subject" name="subject" value="Paperwork upload">
-        <div class="kyc-field kyc-field--optional">
-          <label for="message">Short note (optional)</label>
-          <textarea id="message" name="message" rows="3" placeholder="Anything you want us to know — or leave blank."></textarea>
-        </div>
-        <button class="kyc-btn kyc-btn--primary kyc-upload-cta-primary kyc-btn--block" type="submit">Upload my paperwork</button>
-        <p class="kyc-skip-intake-note">Prefer to ask first? <a href="#" id="askLink">Send a question instead</a> — we will still give you a secure upload link.</p>
-        <div id="msg" class="kyc-status" role="status" aria-live="polite"></div>
-      </form>
+    <article class="kyc-card kyc-card--flat">
+      <div class="kyc-upload-inbox kyc-upload-inbox--hero" id="dropZone">
+        <p><strong>Upload your paperwork</strong></p>
+        <p class="kyc-upload-hint">Drag files here or tap below — no account needed yet.</p>
+        <label class="kyc-btn kyc-btn--primary kyc-upload-cta-primary kyc-upload-trigger">
+          Upload my paperwork
+          <input type="file" id="fileInput" name="files" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip">
+        </label>
+        <label class="kyc-btn kyc-btn--secondary kyc-upload-trigger kyc-upload-camera">
+          Take a photo
+          <input type="file" id="cameraInput" accept="image/*" capture="environment">
+        </label>
+      </div>
+      <ul class="kyc-progress-list" id="progressList" aria-live="polite"></ul>
+      <p id="flowStatus" class="kyc-status" role="status" aria-live="polite"></p>
+      <p class="kyc-skip-intake-note">Have a question only? <a href="?mode=question">Ask a question first</a> — you can still attach files anytime.</p>
     </article>
+  </section>
 
-    <div id="inquirySuccess" hidden></div>
+  <section id="phaseMinInfo" class="kyc-phase" hidden>
+    <div class="kyc-mininfo-anchor"></div>
+    <section class="kyc-hero kyc-hero--compact">
+      <h2>We received your files.</h2>
+      <p>Now give us the minimum information we need so we can continue helping you.</p>
+    </section>
+    <article class="kyc-card kyc-card--flat">
+      <form id="minInfoForm" class="kyc-form">
+        <div class="kyc-field">
+          <label for="minName">Your name</label>
+          <input id="minName" name="name" required autocomplete="name" placeholder="Jane Smith">
+        </div>
+        <div class="kyc-field">
+          <label for="minEmail">Your email</label>
+          <input id="minEmail" name="email" type="email" required autocomplete="email" placeholder="you@company.com">
+        </div>
+        <div class="kyc-field kyc-field--optional">
+          <label for="minNote">Short note (optional)</label>
+          <textarea id="minNote" name="note" rows="3" placeholder="Anything you want us to know — or leave blank."></textarea>
+        </div>
+        <button class="kyc-btn kyc-btn--primary kyc-upload-cta-primary kyc-btn--block" type="submit">Create my secure workspace</button>
+      </form>
+      <p id="flowStatusMin" class="kyc-status" role="status" aria-live="polite"></p>
+    </article>
+  </section>
+
+  <section id="phaseSuccess" class="kyc-phase" hidden>
+    <div id="successPanel"></div>
+  </section>
   </main>
 
   <footer class="kyc-footer">
     <a href="/ui/shop.html">Home</a>
   </footer>
 
+  <script src="/ui/assets/js/customer-friction.js"></script>
+  <script src="/ui/assets/js/customer-session-flow.js"></script>
   <script>
-  const f = document.getElementById("f");
-  const m = document.getElementById("msg");
-  const formCard = document.getElementById("inquiryFormCard");
-  const successEl = document.getElementById("inquirySuccess");
-  const params = new URLSearchParams(window.location.search);
-  const subjectParam = params.get("subject");
-  const ref = params.get("ref") || params.get("source");
-  const askMode = params.get("mode") === "question";
-
-  if (subjectParam) {
-    document.getElementById("subject").value = subjectParam;
-  }
-  if (askMode) {
-    document.getElementById("subject").value = "Question before upload";
-    document.querySelector(".kyc-hero h1").textContent = "Ask a question first";
-    document.querySelector(".kyc-upload-cta-primary").textContent = "Send my question";
-  }
-  document.getElementById("askLink").addEventListener("click", function (e) {
-    e.preventDefault();
-    document.getElementById("subject").value = "Question before upload";
-    document.querySelector(".kyc-upload-cta-primary").textContent = "Send my question";
-    document.getElementById("message").focus();
-  });
-
-  function escapeHtml(s) {
-    const d = document.createElement("div");
-    d.textContent = s || "";
-    return d.innerHTML;
-  }
-
-  f.addEventListener("submit", async function (e) {
-    e.preventDefault();
-    m.className = "kyc-status";
-    m.textContent = "Setting up your secure upload…";
-    const fd = new FormData(f);
-    if (!fd.get("message")) {
-      fd.set("message", "Ready to upload paperwork.");
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const askMode = params.get("mode") === "question";
+    if (askMode) {
+      document.querySelector(".kyc-hero h1").textContent = "Give us what you have — we will take it from here.";
+      document.querySelector(".kyc-upload-cta-primary").textContent = "Upload supporting files";
     }
-    if (ref) {
-      const msg = fd.get("message") || "";
-      if (!String(msg).includes("[ref:" + ref + "]")) {
-        fd.set("message", "[ref:" + ref + "]\n\n" + msg);
-      }
-    }
-    const r = await fetch("/api/inquiry/submit", { method: "POST", body: fd });
-    const j = await r.json();
-    if (!j.ok) {
-      m.className = "kyc-status kyc-status--error";
-      m.textContent = "Something went wrong — please try again.";
-      return;
-    }
-    formCard.hidden = true;
-    successEl.hidden = false;
-    const uploadUrl = j.upload_url || "";
-    const contUrl = j.continuation_url || "";
-    let html =
-      '<article class="kyc-card kyc-card--flat kyc-inquiry-success">' +
-      "<h2>You are all set.</h2>" +
-      "<p>We received your details. Next: upload whatever you already have — any format, any messiness.</p>";
-    if (uploadUrl) {
-      html +=
-        '<a class="kyc-btn kyc-btn--primary kyc-upload-cta-primary kyc-btn--block" href="' +
-        escapeHtml(uploadUrl) +
-        '">Upload my paperwork now</a>';
-    }
-    if (contUrl) {
-      html +=
-        '<div class="kyc-qr-block kyc-qr-block--prominent">' +
-        "<h3>Continue on your phone</h3>" +
-        "<p>Scan or copy your link — no password. Pick up anytime.</p>" +
-        '<img src="/api/customer/qr.svg?data=' +
-        encodeURIComponent(contUrl) +
-        '" alt="QR code to continue upload" width="220" height="220">' +
-        '<div class="kyc-copy-link-row">' +
-        '<button type="button" id="copyContLink">Copy my link</button>' +
-        "</div></div>";
-    }
-    html += "</article>";
-    successEl.innerHTML = html;
-    const copyBtn = document.getElementById("copyContLink");
-    if (copyBtn && contUrl) {
-      copyBtn.addEventListener("click", function () {
-        navigator.clipboard.writeText(contUrl).then(function () {
-          copyBtn.textContent = "Copied!";
-        });
-      });
-    }
-  });
+    KYCSessionFlow.initUploadFirstFlow({ askMode: askMode, statusId: "flowStatus" });
+  })();
   </script>
 </body>
 </html>

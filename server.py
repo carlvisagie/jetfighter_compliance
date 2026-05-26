@@ -570,6 +570,37 @@ async def customer_continuation_event(body: dict = Body(...)):
     )
 
 
+@app.post("/api/customer/session/start")
+def customer_session_start():
+    from services.customer_session import start_session
+
+    return start_session()
+
+
+@app.post("/api/customer/session/upload")
+async def customer_session_upload(
+    session_id: str = Form(...),
+    session_token: str = Form(...),
+    file: UploadFile = File(...),
+):
+    from services.customer_session import upload_to_session
+
+    return await upload_to_session(session_id, session_token, file)
+
+
+@app.post("/api/customer/session/complete")
+async def customer_session_complete(
+    session_id: str = Form(...),
+    session_token: str = Form(...),
+    name: str = Form(...),
+    email: str = Form(...),
+    note: str = Form(""),
+):
+    from services.customer_session import complete_session
+
+    return complete_session(session_id, session_token, name, email, note)
+
+
 @app.get("/api/customer/qr.svg")
 def customer_qr_svg(data: str = "", token: str = "", page: str = "continue"):
     from services.customer_friction import generate_qr_png, resolve_continuation

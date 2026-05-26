@@ -15,13 +15,13 @@
     <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
     <nav class="kyc-nav" aria-label="Primary">
       <a href="/ui/shop.html">Home</a>
-      <a href="/ui/inquiry.html">Help</a>
+      <a href="/ui/inquiry.html">Start upload</a>
     </nav>
   </header>
 
   <main class="kyc-main kyc-main--narrow">
     <section class="kyc-hero">
-      <span class="kyc-badge">We handle the rest</span>
+      <span class="kyc-badge">We will take it from here</span>
       <h1 id="uploadHeadline">Give us exactly what you have.</h1>
       <p id="uploadSubline">Drop files here — policies, spreadsheets, screenshots, scans, exports. You do not need to organize anything first.</p>
       <p class="kyc-reassurance">You do not need perfect paperwork to begin. Messy is fine. Partial is fine. We will sort it out and tell you what may still help.</p>
@@ -31,19 +31,16 @@
       <div class="kyc-momentum-fill" id="momentumFill"></div>
     </div>
 
-    <article class="kyc-card kyc-card--flat">
+    <article class="kyc-card kyc-card--flat" id="uploadWorkspaceCard">
       <form id="uploadForm" class="kyc-form">
         <input type="hidden" id="project_id" name="project_id">
-        <div class="kyc-field">
-          <label for="email">Your email</label>
-          <input type="email" id="email" name="email" placeholder="you@company.com" autocomplete="email">
-        </div>
+        <input type="hidden" id="email" name="email">
 
         <div class="kyc-upload-inbox kyc-upload-inbox--hero" id="dropZone">
           <p><strong>Drag files here</strong> or tap below</p>
           <label class="kyc-btn kyc-btn--primary kyc-upload-cta-primary kyc-upload-trigger">
             Upload what I have
-            <input type="file" id="fileInput" name="files" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt">
+            <input type="file" id="fileInput" name="files" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip">
           </label>
           <label class="kyc-btn kyc-btn--secondary kyc-upload-trigger kyc-upload-camera">
             Take a photo
@@ -58,13 +55,18 @@
           <p>Scan to upload from your camera — same secure link, no password.</p>
           <img id="qrImg" src="" alt="QR code for mobile upload" width="220" height="220">
           <div class="kyc-copy-link-row">
-            <button type="button" id="copyUploadLink" hidden>Copy my link</button>
+            <button type="button" id="copyUploadLink" hidden>Copy magic link</button>
           </div>
         </div>
       </form>
       <p id="status" class="kyc-status" role="status" aria-live="polite"></p>
       <div id="intelligencePanel" class="kyc-intelligence-panel"></div>
       <div id="guidancePanel"></div>
+    </article>
+
+    <article class="kyc-card kyc-card--flat" id="uploadStartCard" hidden>
+      <p>New here? Upload first — we only ask for your name and email after we receive your files.</p>
+      <a class="kyc-btn kyc-btn--primary kyc-upload-cta-primary kyc-btn--block" href="/ui/inquiry.html">Upload my paperwork</a>
     </article>
   </main>
 
@@ -83,7 +85,18 @@
     const guidanceEl = document.getElementById("guidancePanel");
     const qrImg = document.getElementById("qrImg");
     const copyBtn = document.getElementById("copyUploadLink");
-    let shareUrl = "";
+    const workspaceCard = document.getElementById("uploadWorkspaceCard");
+    const startCard = document.getElementById("uploadStartCard");
+
+    let projectId = params.get("project_id") || "";
+    const token = params.get("token") || "";
+
+    if (!projectId && !token) {
+      workspaceCard.hidden = true;
+      startCard.hidden = false;
+      status.textContent = "";
+      return;
+    }
 
     const uploader = KYCFriction.initUploadPage({
       projectIdInput: pidInput,
@@ -99,12 +112,10 @@
       momentumSubline: document.getElementById("uploadSubline"),
       momentumBar: document.getElementById("momentumBar"),
       momentumFill: document.getElementById("momentumFill"),
-      projectId: params.get("project_id") || "",
-      token: params.get("token") || "",
+      projectId: projectId,
+      token: token,
     });
 
-    let projectId = params.get("project_id") || "";
-    const token = params.get("token") || "";
     if (token) uploader.setToken(token);
 
     if (!projectId && token) {
@@ -120,7 +131,7 @@
     if (projectId) {
       pidInput.value = projectId;
       uploader.setProjectId(projectId, emailInput.value);
-      shareUrl =
+      const shareUrl =
         location.origin +
         "/upload?project_id=" +
         encodeURIComponent(projectId) +
@@ -135,7 +146,9 @@
       }
     } else {
       status.className = "kyc-status kyc-status--error";
-      status.textContent = "Use the link from your email to upload — or start at the home page.";
+      status.textContent = "Use your secure link from email — or start at Upload my paperwork.";
+      workspaceCard.hidden = true;
+      startCard.hidden = false;
     }
 
     cameraInput.addEventListener("change", function () {

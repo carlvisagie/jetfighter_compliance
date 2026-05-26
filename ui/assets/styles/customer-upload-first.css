@@ -180,3 +180,22 @@
 .kyc-skip-intake-note a {
   font-weight: 600;
 }
+
+.kyc-phase[hidden] {
+  display: none !important;
+}
+
+.kyc-upload-hint {
+  font-size: 0.95rem;
+  color: #5a6472;
+  margin: 0.25rem 0 1rem;
+}
+
+.kyc-hero--compact h2 {
+  font-size: 1.35rem;
+}
+
+.kyc-drop-active {
+  outline: 2px dashed #2563eb;
+  outline-offset: 4px;
+}
