@@ -17,6 +17,14 @@ ORG_PROFILES_JSONL = "org_profiles.jsonl"
 LONGITUDINAL_JSONL = "longitudinal.jsonl"
 WEIGHTS_JSON = "weights.json"
 
+TARGETS_JSONL = "targets.jsonl"
+SIGNALS_JSONL = "signals.jsonl"
+INTERACTIONS_JSONL = "interactions.jsonl"
+CAMPAIGNS_JSONL = "campaigns.jsonl"
+WINNERS_JSONL = "winners.jsonl"
+FAILURES_JSONL = "failures.jsonl"
+EXPERIMENTS_JSONL = "experiments.jsonl"
+
 MOCK_DOMAIN_BLOCKLIST = (
     "example.com",
     "example.org",

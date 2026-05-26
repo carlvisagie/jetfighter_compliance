@@ -1088,6 +1088,32 @@ def operator_evidence_intelligence(project_id: str = ""):
     return get_operator_evidence_intelligence(project_id)
 
 
+@app.get("/api/operator/acquisition-intelligence")
+def operator_acquisition_intelligence():
+    from services.acquisition.orchestration import get_operator_dashboard
+
+    return get_operator_dashboard()
+
+
+@app.post("/api/operator/acquisition-intelligence/run")
+async def operator_acquisition_intelligence_run(body: dict = Body(default={})):
+    from services.acquisition.orchestration import ingest_public_signal, run_acquisition_cycle
+
+    if body.get("public_text"):
+        return ingest_public_signal(
+            text=str(body.get("public_text") or ""),
+            source=str(body.get("source") or "operator_manual"),
+            source_url=str(body.get("source_url") or ""),
+            company_name=str(body.get("company_name") or ""),
+            segment=str(body.get("segment") or "compliance-heavy"),
+        )
+    return run_acquisition_cycle(
+        run_finder=bool(body.get("run_finder")),
+        campaign_id=str(body.get("campaign_id") or "upload-first"),
+        message_variant=str(body.get("message_variant") or "A"),
+    )
+
+
 @app.get("/api/operator/compliance-intelligence")
 def operator_compliance_intelligence():
     from services.compliance_intelligence import get_operator_dashboard

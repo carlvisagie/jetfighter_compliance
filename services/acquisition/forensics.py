@@ -62,6 +62,20 @@ def record_inquiry_submitted(
     )
     if lead_id:
         correlate_lead_to_project(lead_id, project_id, intel_base)
+    try:
+        from services.acquisition.orchestration import track_funnel_event
+
+        track_funnel_event(
+            "inquiry_submitted",
+            success=True,
+            lead_id=lead_id,
+            project_id=project_id,
+            org_key=org_key,
+            metadata={"subject": subject},
+            base=intel_base,
+        )
+    except Exception:
+        pass
     return {"org_key": org_key, "lead_id": lead_id, "profiles": profiles}
 
 

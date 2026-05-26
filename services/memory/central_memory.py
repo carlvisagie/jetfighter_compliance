@@ -250,6 +250,36 @@ def safe_read_before_kickoff(email: str, name: str, company: str = "", base: Opt
         return {"known": False}
 
 
+def safe_link_acquisition_organism_event(
+    event_type: str,
+    payload: Optional[Dict[str, Any]] = None,
+    *,
+    entity_id: str = "",
+    lead_id: str = "",
+    project_id: str = "",
+    base: Optional[Path] = None,
+) -> None:
+    """Timeline entries for acquisition organism (no separate brain)."""
+    try:
+        eid = entity_id
+        if not eid and (lead_id or project_id):
+            eid = find_entity_id(project_id=project_id, lead_id=lead_id, base=base) or ""
+        if not eid and lead_id:
+            eid = resolve_or_create_entity(
+                email=f"lead-{lead_id}@acquisition.local",
+                company=lead_id,
+                display_name=lead_id,
+                base=base,
+            )
+        if not eid:
+            return
+        ref = project_id or lead_id or event_type
+        if not _timeline_has(eid, event_type, ref_id=ref, base=base):
+            append_timeline(eid, event_type, "acquisition", ref, payload or {}, base)
+    except Exception as e:
+        logger.warning("Central memory write (acquisition organism): %s", e)
+
+
 def safe_link_after_customer_session(
     project_id: str,
     session_id: str,

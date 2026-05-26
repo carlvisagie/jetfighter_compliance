@@ -199,6 +199,9 @@ def start_worker():
         from services.compliance_intelligence.scheduler import register_scheduler_jobs
 
         register_scheduler_jobs(scheduler)
+        from services.acquisition.scheduler import register_scheduler_jobs as register_acquisition_jobs
+
+        register_acquisition_jobs(scheduler)
     except Exception:
         pass
     scheduler.start()

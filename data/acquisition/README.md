@@ -26,3 +26,15 @@ See `docs/LEAD_DISCOVERY_ENGINE.md` and `/ui/lead_discovery.html`.
 | `observation_log.md` | Human session notes |
 
 Use `ref=<lead_id>` from discovery handoff links. See `docs/CONTROLLED_ONBOARDING_ACQUISITION.md`.
+
+## Autonomous acquisition organism
+
+| Path | Use |
+|------|-----|
+| `intelligence/targets.jsonl` | Scored targets with signals + upload routes |
+| `intelligence/signals.jsonl` | Detected pain/urgency bundles |
+| `intelligence/interactions.jsonl` | Organism telemetry mirror |
+| `intelligence/campaigns.jsonl` | Campaign runs |
+| `intelligence/winners.jsonl` / `failures.jsonl` / `experiments.jsonl` | Learning loop |
+
+See `docs/AUTONOMOUS_ACQUISITION_ORGANISM.md`. Operator panel: Control → Acquisition Intelligence.

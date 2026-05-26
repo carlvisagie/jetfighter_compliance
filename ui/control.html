@@ -90,6 +90,15 @@
           <p class="org-metric-foot">Select a project in the command strip, then refresh.</p>
           <div id="evidence-intelligence-insights"><p class="kyc-loading">Loading evidence intelligence…</p></div>
         </article>
+        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="acquisition-intelligence-panel">
+          <span class="kyc-label-overline">Acquisition intelligence</span>
+          <h3 style="margin-top:0;">Acquisition Intelligence</h3>
+          <p class="org-metric-foot">Finds compliance burden, routes to upload-first onboarding. Success = real paperwork submitted. No auto-spam.</p>
+          <div class="kyc-btn-row" style="margin-bottom:0.75rem;">
+            <button type="button" class="btn secondary" id="acquisitionIntelRunBtn">Run acquisition cycle</button>
+          </div>
+          <div id="acquisition-intelligence-insights"><p class="kyc-loading">Loading acquisition intelligence…</p></div>
+        </article>
         <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="compliance-intelligence-panel">
           <span class="kyc-label-overline">Compliance intelligence</span>
           <h3 style="margin-top:0;">Compliance Intelligence Watch</h3>
@@ -293,9 +302,55 @@
       OperatorGuidance.refreshGuidance(root, pid, mode),
       loadCustomerFriction(),
       loadEvidenceIntelligence(pid),
+      loadAcquisitionIntelligence(),
       loadComplianceIntelligence(),
     ]);
   }
+  async function loadAcquisitionIntelligence() {
+    const el = document.getElementById('acquisition-intelligence-insights');
+    if (!el) return;
+    try {
+      const j = await api('/api/operator/acquisition-intelligence');
+      const conv = j.upload_conversion || {};
+      const hottest = (j.hottest_targets || []).slice(0, 6);
+      let html =
+        '<p class="org-metric-foot"><strong>Doctrine:</strong> ' + escapeHtml((j.doctrine && j.doctrine.message) || '') + '</p>' +
+        '<ul class="guidance-list">' +
+        '<li><strong>Upload conversion:</strong> ' + ((conv.rate || 0) * 100).toFixed(1) + '% (' + (conv.completed || 0) + '/' + (conv.started || 0) + ')</li>' +
+        '<li><strong>Success metric:</strong> ' + escapeHtml((j.doctrine && j.doctrine.success_metric) || 'real_paperwork_submitted') + '</li>' +
+        '<li><strong>Primary route:</strong> ' + escapeHtml((j.doctrine && j.doctrine.primary_route) || '/ui/inquiry.html') + '</li>' +
+        '</ul>';
+      html += '<p class="org-metric-foot"><strong>What the organism is learning:</strong> ' + escapeHtml(j.what_organism_is_learning || '') + '</p>';
+      if (hottest.length) {
+        html += '<p class="org-metric-foot"><strong>Hottest targets:</strong></p><ul class="guidance-list">';
+        hottest.forEach(function (t) {
+          html += '<li>' + escapeHtml(t.company_name || '') + ' — priority ' + (t.priority_score || 0) + ', signal ' + escapeHtml(t.signal_level || '') + '</li>';
+        });
+        html += '</ul>';
+      }
+      const ch = j.best_channels || [];
+      if (ch.length) {
+        html += '<p class="org-metric-foot"><strong>Channels:</strong> ' + ch.map(function (c) { return escapeHtml(c.channel) + '(' + c.targets + ')'; }).join(', ') + '</p>';
+      }
+      el.innerHTML = html;
+    } catch (e) {
+      el.innerHTML = '<p class="org-metric-foot">Acquisition intelligence unavailable.</p>';
+    }
+  }
+  document.getElementById('acquisitionIntelRunBtn')?.addEventListener('click', async function () {
+    const el = document.getElementById('acquisition-intelligence-insights');
+    if (el) el.innerHTML = '<p class="kyc-loading">Running acquisition cycle…</p>';
+    try {
+      await api('/api/operator/acquisition-intelligence/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaign_id: 'upload-first', message_variant: 'A' }),
+      });
+      await loadAcquisitionIntelligence();
+    } catch (e) {
+      if (el) el.innerHTML = '<p class="org-metric-foot">Run failed.</p>';
+    }
+  });
   document.getElementById('complianceIntelRunBtn')?.addEventListener('click', async function () {
     const el = document.getElementById('compliance-intelligence-insights');
     if (el) el.innerHTML = '<p class="kyc-loading">Running compliance check…</p>';

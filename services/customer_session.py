@@ -322,6 +322,18 @@ def complete_session(
     _emit("workspace_created", session_id=session_id, project_id=project_id)
     _emit("continuation_created", session_id=session_id, project_id=project_id)
     _emit("qr_shown", session_id=session_id, project_id=project_id)
+    try:
+        from services.acquisition.orchestration import track_funnel_event
+
+        track_funnel_event(
+            "workspace_created",
+            success=True,
+            project_id=project_id,
+            org_key=email.split("@")[-1] if "@" in email else "",
+            metadata={"session_id": session_id, "files_linked": len(linked)},
+        )
+    except Exception:
+        pass
 
     sess = _load_session(session_id)
     sess["status"] = "completed"
