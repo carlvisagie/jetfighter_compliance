@@ -28,6 +28,10 @@ FORBIDDEN_PHRASES = [
     "enterprise compliance workflow platform",
     "ask a question",
     "mode=question",
+    "pick a program",
+    "advanced: how we work",
+    "advanced requirements",
+    "kyc-services-compact",
 ]
 
 REQUIRED_PHRASES = [
@@ -84,10 +88,11 @@ def test_qr_visible_on_upload_and_continue():
     assert "initContinuePage" in cont
 
 
-def test_intake_has_collapsed_advanced_only():
-    html = (UI / "intake.html").read_text(encoding="utf-8", errors="replace")
-    assert "<details" in html
-    assert "ext_cmmc" in html
+def test_intake_no_program_or_framework_self_classification():
+    html = (UI / "intake.html").read_text(encoding="utf-8", errors="replace").lower()
+    assert "ext_cmmc" not in html
+    assert "advanced requirements" not in html
+    assert "kyc-check-grid" not in html
     assert "kyc-upload-cta-primary" in html
 
 
@@ -134,3 +139,17 @@ def test_shop_upload_first_not_process_grid():
     assert "how it works" not in text
     assert "readiness outcomes" not in text
     assert "service catalog" not in text
+    assert "pick a program" not in text
+    assert "advanced: how we work" not in text
+    assert "kyc-services-compact" not in text
+    assert "cmmc / defense paperwork" not in text
+    assert r.headers.get("cache-control", "").startswith("no-cache")
+
+
+def test_shop_only_upload_reassurance_after_primary_cta():
+    html = (UI / "shop.html").read_text(encoding="utf-8", errors="replace").lower()
+    cta_idx = html.index("kyc-upload-cta-primary")
+    tail = html[cta_idx:]
+    assert "kyc-trust-strip" in tail or "kyc-upload-help" in tail
+    assert "pick a program" not in tail
+    assert "kyc-advanced-details" not in html

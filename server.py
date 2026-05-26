@@ -58,7 +58,12 @@ async def ops_auth_middleware(request: Request, call_next):
     blocked = gate_request(request)
     if blocked is not None:
         return blocked
-    return await call_next(request)
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/ui/") and (path.endswith(".html") or path in ("/ui", "/ui/")):
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+    return response
 
 
 # ---------- Operator auth ----------
@@ -1176,6 +1181,8 @@ async def operator_operational_alerts_config(body: dict = Body(default={})):
         "min_severity_telegram",
         "min_severity_email",
         "operator_email",
+        "operator_name",
+        "operator_phone",
     }
     updates = {k: body[k] for k in allowed if k in body}
     return {"ok": True, "config": save_config(updates)}
