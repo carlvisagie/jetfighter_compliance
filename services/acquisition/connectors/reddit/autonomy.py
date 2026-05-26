@@ -101,6 +101,55 @@ def decide_engagement(
             cooldown_hours=cooldown_h,
         )
 
+    intent = classification.get("author_intent", "UNKNOWN")
+    recommended = classification.get("recommended_action", "ignore")
+    seeker = int(classification.get("advice_seeker_score", 0))
+    giver = int(classification.get("advice_giver_score", 0))
+
+    if intent == "GIVING_ADVICE" or recommended in ("competitor_or_expert", "monitor_only"):
+        return _plan(
+            stage="defer",
+            safety=safety,
+            link_in_public_reply=False,
+            show_operator=False,
+            rationale="Advice-giver or expert — monitor thread only, no outreach.",
+            wording_variant=wording_variant,
+            cooldown_hours=cooldown_h,
+        )
+
+    if intent == "PROMOTING_SERVICE":
+        return _plan(
+            stage="defer",
+            safety=safety,
+            link_in_public_reply=False,
+            show_operator=False,
+            rationale="Promotional post — ignored (competitor watch only).",
+            wording_variant=wording_variant,
+            cooldown_hours=cooldown_h,
+        )
+
+    if intent == "DISCUSSING_NEWS" and seeker <= giver:
+        return _plan(
+            stage="defer",
+            safety=safety,
+            link_in_public_reply=False,
+            show_operator=False,
+            rationale="News discussion — context only, not a prospect thread.",
+            wording_variant=wording_variant,
+            cooldown_hours=cooldown_h,
+        )
+
+    if intent not in ("SEEKING_HELP", "VENTING_OR_OVERWHELMED") and recommended != "approve_engagement":
+        return _plan(
+            stage="defer",
+            safety=safety,
+            link_in_public_reply=False,
+            show_operator=False,
+            rationale=f"Intent {intent} — not deployable for outreach.",
+            wording_variant=wording_variant,
+            cooldown_hours=cooldown_h,
+        )
+
     if fit < 45:
         return _plan(
             stage="defer",

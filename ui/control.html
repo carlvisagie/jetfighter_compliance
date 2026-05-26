@@ -387,7 +387,8 @@
         pending.forEach(function (o) {
           html +=
             '<article class="reddit-approval-card">' +
-            '<p class="reddit-approval-meta"><strong>r/' + escapeHtml(o.subreddit || '') + '</strong> · confidence ' + (o.organism_confidence || 0) + '% · ' + escapeHtml(o.engagement_stage || '') + '</p>' +
+            '<p class="reddit-approval-meta"><strong>r/' + escapeHtml(o.subreddit || '') + '</strong> · Intent: <strong>' + escapeHtml(o.author_intent || '') + '</strong> · seeker ' + (o.advice_seeker_score || 0) + ' · fit ' + (o.fit_score || 0) + '</p>' +
+            '<p class="reddit-intent-badges">' + (o.intent_badges || []).map(function (b) { return '<span class="reddit-badge">' + escapeHtml(b) + '</span>'; }).join(' ') + '</p>' +
             '<p class="reddit-approval-title">' + escapeHtml((o.title || '').slice(0, 140)) + '</p>' +
             '<p class="org-metric-foot">' + escapeHtml(o.organism_rationale || '') + '</p>' +
             '<pre class="reddit-paste-preview">' + escapeHtml(o.paste_text || '') + '</pre>' +

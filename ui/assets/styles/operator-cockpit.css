@@ -313,3 +313,18 @@
   font-weight: 700;
   letter-spacing: 0.04em;
 }
+
+.reddit-intent-badges {
+  margin: 0.25rem 0 0.5rem;
+}
+
+.reddit-badge {
+  display: inline-block;
+  font-size: var(--kyc-text-xs);
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--kyc-radius-sm);
+  background: var(--kyc-accent-border);
+  color: var(--kyc-accent);
+  margin-right: 0.35rem;
+}

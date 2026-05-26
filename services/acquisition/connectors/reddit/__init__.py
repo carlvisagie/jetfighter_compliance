@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from ...models import utc_now
 from ...routing import build_upload_route
-from . import autonomy, classifier, draft_generation, discovery, learning, qualification, telemetry
+from . import autonomy, author_intent, classifier, draft_generation, discovery, learning, qualification, telemetry
 from .paths import (
     APPROVED_REPLIES_JSONL,
     DRAFT_REPLIES_JSONL,
@@ -113,6 +113,23 @@ def run_reddit_acquisition_cycle(
         qual = qualification.qualify_post(post, cls)
         plan = autonomy.decide_engagement(post, cls, qual, state=state)
 
+        telemetry.emit(
+            "intent_classified",
+            post_id=post.get("post_id", ""),
+            subreddit=post.get("subreddit", ""),
+            metadata={
+                "author_intent": cls.get("author_intent"),
+                "advice_seeker_score": cls.get("advice_seeker_score"),
+                "advice_giver_score": cls.get("advice_giver_score"),
+                "recommended_action": cls.get("recommended_action"),
+            },
+            base=base,
+        )
+        if cls.get("author_intent") in author_intent.DEPLOYABLE_INTENTS:
+            telemetry.emit("advice_seeker_detected", post_id=post.get("post_id", ""), base=base)
+        if cls.get("author_intent") in ("GIVING_ADVICE", "PROMOTING_SERVICE"):
+            telemetry.emit("advice_giver_detected", post_id=post.get("post_id", ""), base=base)
+
         if not cls.get("relevant") or qual["fit_score"] < min_fit_score:
             stats["organism_auto_skipped"] += 1
             learning.record_outcome(
@@ -165,6 +182,13 @@ def run_reddit_acquisition_cycle(
             "burden_score": cls.get("burden_score", 0),
             "pain_signal": ", ".join((cls.get("pain_themes") or [])[:5]),
             "emotional_burden_score": cls.get("emotional_burden_score", 0),
+            "author_intent": cls.get("author_intent"),
+            "intent_confidence": cls.get("intent_confidence"),
+            "advice_seeker_score": cls.get("advice_seeker_score"),
+            "advice_giver_score": cls.get("advice_giver_score"),
+            "recommended_action": cls.get("recommended_action"),
+            "intent_badges": cls.get("intent_badges", []),
+            "urgency_score": cls.get("urgency_score", 0),
             "draft_reply": draft,
             "route_url": routes["primary_url"],
             "lead_id": lead_id,
@@ -274,7 +298,20 @@ def deny_draft(post_id: str, reason: str = "operator_denied", base: Optional[Pat
         base,
     )
     _update_draft_status(post_id, "denied", base)
-    learning.record_outcome("operator_denied", post_id=post_id, subreddit=sub, metadata={"reason": reason}, base=base)
+    meta = {"reason": reason}
+    if match:
+        intent = match.get("author_intent") or (match.get("classification") or {}).get("author_intent")
+        meta["author_intent"] = intent
+        if intent in ("GIVING_ADVICE", "PROMOTING_SERVICE"):
+            learning.record_outcome(
+                "intent_corrected_by_operator",
+                post_id=post_id,
+                subreddit=sub,
+                metadata={"was_advice_giver": True},
+                base=base,
+            )
+            telemetry.emit("intent_false_positive", post_id=post_id, metadata=meta, base=base)
+    learning.record_outcome("operator_denied", post_id=post_id, subreddit=sub, metadata=meta, base=base)
     telemetry.emit("reddit_post_ignored", post_id=post_id, metadata={"reason": reason}, base=base)
     return {"ok": True, "denied": True}
 
@@ -291,7 +328,7 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
         for d in drafts
         if d.get("status") in ("awaiting_operator_decision", "pending_operator_review")
     ]
-    pending.sort(key=lambda x: (x.get("organism_plan") or {}).get("organism_confidence", 0), reverse=True)
+    pending.sort(key=author_intent.sort_priority_for_opportunity)
 
     state = learning.load_learning_state(base)
     from ...orchestration import get_operator_dashboard as acq_dash
@@ -326,6 +363,13 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
                 "url": o.get("url"),
                 "burden_score": o.get("burden_score"),
                 "fit_score": o.get("fit_score"),
+                "urgency_score": o.get("urgency_score", 0),
+                "author_intent": o.get("author_intent"),
+                "intent_confidence": o.get("intent_confidence"),
+                "advice_seeker_score": o.get("advice_seeker_score"),
+                "advice_giver_score": o.get("advice_giver_score"),
+                "recommended_action": o.get("recommended_action"),
+                "intent_badges": o.get("intent_badges", []),
                 "organism_rationale": (o.get("organism_plan") or {}).get("rationale", ""),
                 "engagement_stage": (o.get("organism_plan") or {}).get("engagement_stage", ""),
                 "organism_confidence": (o.get("organism_plan") or {}).get("organism_confidence", 0),

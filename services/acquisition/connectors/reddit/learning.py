@@ -35,6 +35,12 @@ def load_learning_state(base: Optional[Path] = None) -> Dict[str, Any]:
             "continuations": 0,
             "moderation_removed": 0,
             "ignored_replies": 0,
+            "intent_corrected_by_operator": 0,
+            "advice_giver_false_positives": 0,
+        },
+        "intent_learning": {
+            "giver_penalty": 0,
+            "seeker_boost": 0,
         },
     }
     if not path.is_file():
@@ -98,6 +104,11 @@ def record_outcome(
             variant = (metadata or {}).get("variant", "A")
             ww = state.setdefault("wording_winners", {"A": 0, "B": 0})
             ww[variant] = int(ww.get(variant, 0)) + 1
+        elif event_type == "intent_corrected_by_operator":
+            il = state.setdefault("intent_learning", {"giver_penalty": 0, "seeker_boost": 0})
+            il["giver_penalty"] = int(il.get("giver_penalty", 0)) + 1
+            totals["advice_giver_false_positives"] = int(totals.get("advice_giver_false_positives", 0)) + 1
+            state["min_fit_threshold"] = min(80, int(state.get("min_fit_threshold", 50)) + 1)
     save_learning_state(state, base)
     try:
         from ... import learning as acq_learning
@@ -151,6 +162,15 @@ def run_daily_reddit_learning(base: Optional[Path] = None) -> Dict[str, Any]:
     events = rdt.load_events(limit=500, base=base)
     approved = sum(1 for e in events if e.get("event_type") == "reddit_reply_approved")
     ignored = sum(1 for e in events if e.get("event_type") == "reddit_post_ignored")
+    giver_fp = sum(1 for e in events if e.get("event_type") == "intent_false_positive")
+    advice_givers = sum(1 for e in events if e.get("event_type") == "advice_giver_detected")
+
+    if giver_fp >= 2:
+        state["min_fit_threshold"] = min(80, int(state.get("min_fit_threshold", 50)) + 1)
+        il = state.setdefault("intent_learning", {"giver_penalty": 0, "seeker_boost": 0})
+        il["giver_penalty"] = int(il.get("giver_penalty", 0)) + giver_fp
+    if advice_givers > approved * 3 and advice_givers > 5:
+        state["min_fit_threshold"] = min(78, int(state.get("min_fit_threshold", 50)) + 1)
 
     if approved > ignored:
         state["min_fit_threshold"] = max(45, int(state.get("min_fit_threshold", 50)) - 1)

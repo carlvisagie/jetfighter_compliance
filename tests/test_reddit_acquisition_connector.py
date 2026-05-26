@@ -21,38 +21,6 @@ from services.acquisition.routing import build_upload_route
 from services.acquisition.intelligence_paths import TARGETS_JSONL
 
 
-@pytest.fixture
-def reddit_env(monkeypatch, tmp_path):
-    intel = tmp_path / "intelligence"
-    intel.mkdir(parents=True)
-    leads = tmp_path / "leads"
-    leads.mkdir(parents=True)
-    (leads / "leads.jsonl").write_text("", encoding="utf-8")
-    projects = tmp_path / "projects"
-    projects.mkdir(parents=True)
-    mem = tmp_path / "memory"
-    mem.mkdir()
-
-    monkeypatch.setattr("services.config.DATA", tmp_path)
-    monkeypatch.setattr("services.config.PROJECTS", projects)
-    monkeypatch.setattr("services.acquisition.intelligence_paths.ACQ_ROOT", tmp_path)
-    monkeypatch.setattr("services.acquisition.intelligence_paths.INTEL_DIR", intel)
-    monkeypatch.setattr("services.acquisition.intelligence_paths.LEADS_DIR", leads)
-    monkeypatch.setattr("services.acquisition.storage.DEFAULT_LEADS_DIR", leads)
-    monkeypatch.setattr("services.acquisition.storage.leads_dir", lambda base_dir=None: leads)
-    monkeypatch.setattr("services.acquisition.orchestration.ensure_intel_dirs", lambda base=None: intel)
-    monkeypatch.setattr("services.acquisition.telemetry.ensure_intel_dirs", lambda base=None: intel)
-    monkeypatch.setattr("services.acquisition.learning.ensure_intel_dirs", lambda base=None: intel)
-    monkeypatch.setattr("services.acquisition.memory.ensure_intel_dirs", lambda base=None: intel)
-    monkeypatch.setattr("services.memory.telemetry.memory_dir", lambda base=None: mem)
-    monkeypatch.setattr("services.memory.entity_graph.memory_dir", lambda base=None: mem)
-    monkeypatch.setattr("services.memory.entity_graph.MEMORY_DIR", mem)
-    from services.acquisition.intelligence_paths import ensure_intel_dirs
-
-    ensure_intel_dirs()
-    return tmp_path
-
-
 def _reddit_listing(post_id: str = "abc123", title: str = "CMMC confusion where do I start"):
     return {
         "data": {

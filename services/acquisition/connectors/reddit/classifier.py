@@ -5,6 +5,7 @@ import re
 from typing import Any, Dict, List
 
 from ...signals import detect_signals
+from .author_intent import classify_author_intent
 
 # Mission pain themes → search/classification hooks
 PAIN_THEMES: List[tuple[str, str]] = [
@@ -82,8 +83,22 @@ def classify_post(title: str, body: str = "") -> Dict[str, Any]:
     if "cmmc" in blob or "nist" in blob:
         likely_gaps.append("control_evidence_mapping")
 
+    intent = classify_author_intent(title, body)
+    if intent["author_intent"] in ("SEEKING_HELP", "VENTING_OR_OVERWHELMED"):
+        burden_score = min(100, burden_score + 10)
+        emotional_burden_score = min(100, emotional_burden_score + 8)
+    elif intent["author_intent"] in ("GIVING_ADVICE", "PROMOTING_SERVICE"):
+        burden_score = max(0, burden_score - 25)
+
+    relevant = burden_score >= 20 or bool(themes)
+    if intent["author_intent"] in ("GIVING_ADVICE", "PROMOTING_SERVICE") and intent["advice_giver_score"] > intent["advice_seeker_score"] + 10:
+        relevant = False
+    elif intent["deployable_engagement"]:
+        relevant = True
+
     return {
         **base,
+        **intent,
         "signal_level": level,
         "pain_themes": themes,
         "emotional_tags": emotional,
@@ -92,5 +107,5 @@ def classify_post(title: str, body: str = "") -> Dict[str, Any]:
         "emotional_burden_score": emotional_burden_score,
         "signal_confidence": confidence,
         "likely_documentation_gaps": likely_gaps,
-        "relevant": burden_score >= 20 or bool(themes),
+        "relevant": relevant,
     }
