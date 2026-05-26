@@ -1,5 +1,20 @@
 # Central KYC memory (one brain, many vessels)
 
+**Binding law:** see [`KYC_CONSTITUTION.md`](./KYC_CONSTITUTION.md) and [`../AGENTS.md`](../AGENTS.md).
+
+## KYC IRON LAW
+
+**Central memory is the canonical brain.**
+
+Every active engine must either:
+
+- read/write central memory directly (`services/memory/*`, `data/memory/*`), or
+- emit telemetry / adaptive signals into `data/memory/` (e.g. `telemetry.jsonl`, `adaptive_signals.jsonl`).
+
+No active business truth may live outside organism memory without a documented bridge in `services/memory/organism_integration.py` and an entry in [`KYC_ORGANISM_INTEGRATION_AUDIT.md`](./KYC_ORGANISM_INTEGRATION_AUDIT.md).
+
+---
+
 Purposeful-style pattern adapted for compliance: **one canonical memory**, modules are vessels that read before acting and write after acting.
 
 ## Data store (`data/memory/`)
@@ -76,3 +91,16 @@ Tracks signal → outcome correlations in `learning_state.json` (inquiry, intake
 ## Forensic journey
 
 `reconstruct_journey()` merges central timeline + optional `services.acquisition.forensics` project detail.
+
+---
+
+## Agent obligations
+
+| Rule | Detail |
+|------|--------|
+| No memory islands | Do not add parallel truth stores without audit + bridge |
+| No unlinking | Do not remove `safe_*` / `link_*` calls from inquiry, intake, kickoff, ledger, evidence |
+| Telemetry | Transport layers (email, health, jobs) emit `emit_telemetry` — they are not canonical truth |
+| Protected tests | `tests/test_central_memory.py`, `tests/test_organism_observability.py` must pass before commit |
+
+Change gate: `python -m pytest tests/test_central_memory.py tests/test_organism_observability.py tests/test_kyc_guardrails.py -q`

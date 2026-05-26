@@ -1,8 +1,12 @@
 # KYC Organism Integration Audit
 
-**Audit date:** 2026-05-25  
-**Commit baseline:** `e204198` + organism integration adapters  
+**Audit date:** 2026-05-26 (guardrails + constitution pass)  
+**Binding law:** [`KYC_CONSTITUTION.md`](./KYC_CONSTITUTION.md) · [`../AGENTS.md`](../AGENTS.md)  
 **Metaphor:** central memory = brain · engines = organs · timeline = nervous system · learning = adaptive memory · self-healing = immune system
+
+## KYC IRON LAW (summary)
+
+Central memory is canonical. Active engines **plugged** below must keep read/write or telemetry bridges. **Do not** add new islands without updating this audit and `tests/test_organism_integration.py`.
 
 ---
 
@@ -285,8 +289,11 @@ Live status: `GET /api/memory/organism-status`
 
 ```bash
 python -m pytest tests/test_organism_integration.py tests/test_central_memory.py -q
+python -m pytest tests/test_kyc_guardrails.py tests/test_public_ui_exposure.py tests/test_ops_route_auth.py -q
 python -m pytest tests/ -q
 ```
+
+**CI:** `.github/workflows/kyc_guardrails.yml` — fails on public ops links, missing noindex, unauthenticated protected APIs, central memory failures, UI backup files, fake production discovery flags.
 
 **Required proofs in `tests/test_organism_integration.py`:**
 

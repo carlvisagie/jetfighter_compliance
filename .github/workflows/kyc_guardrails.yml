@@ -1,0 +1,77 @@
+# KYC agent protection — fails PRs that break organism guardrails
+name: KYC Guardrails
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  guardrails:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Static KYC guardrails
+        env:
+          OPS_PASSWORD: ci-test-ops-password
+          OPS_SECRET: ci-test-ops-secret
+        run: |
+          python -m pytest tests/test_kyc_guardrails.py -q --tb=short
+
+      - name: Public UI exposure
+        env:
+          OPS_PASSWORD: ci-test-ops-password
+          OPS_SECRET: ci-test-ops-secret
+        run: |
+          python -m pytest tests/test_public_ui_exposure.py -q --tb=short
+
+      - name: Ops route authentication
+        env:
+          OPS_PASSWORD: ci-test-ops-password
+          OPS_SECRET: ci-test-ops-secret
+        run: |
+          python -m pytest tests/test_ops_route_auth.py -q --tb=short
+
+      - name: Central memory contract
+        env:
+          OPS_PASSWORD: ci-test-ops-password
+          OPS_SECRET: ci-test-ops-secret
+        run: |
+          python -m pytest tests/test_central_memory.py -q --tb=short
+
+      - name: Organism observability
+        env:
+          OPS_PASSWORD: ci-test-ops-password
+          OPS_SECRET: ci-test-ops-secret
+        run: |
+          python -m pytest tests/test_organism_observability.py -q --tb=short
+
+      - name: Operator guidance
+        env:
+          OPS_PASSWORD: ci-test-ops-password
+          OPS_SECRET: ci-test-ops-secret
+        run: |
+          python -m pytest tests/test_operator_guidance.py -q --tb=short
+
+      - name: Full test suite
+        env:
+          OPS_PASSWORD: ci-test-ops-password
+          OPS_SECRET: ci-test-ops-secret
+        run: |
+          python -m pytest tests/ -q --tb=line

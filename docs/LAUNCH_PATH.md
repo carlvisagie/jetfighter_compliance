@@ -1,7 +1,10 @@
 # Launch path — KeepYourContracts (current)
 
 **Status:** Active production onboarding (inquiry-led).  
+**Canonical agent docs:** [`../AGENTS.md`](../AGENTS.md), [`KYC_CONSTITUTION.md`](./KYC_CONSTITUTION.md)  
 **Verify:** `powershell -File scripts/verify-render-production.ps1` and `scripts/verify-production-live.ps1`
+
+> **Agent rule:** This is the only approved production onboarding path. Do not document or wire Stripe/Shopify/Cloudflare tunnel as launch without owner instruction.
 
 ## Customer flow
 
@@ -33,3 +36,28 @@ Not a marketing program. See [`CONTROLLED_ONBOARDING_ACQUISITION.md`](./CONTROLL
 ## Inactive for launch (legacy)
 
 Stripe webhooks, Shopify, and Cloudflare Tunnel rebuild/cutover docs are **not** part of this path. Legacy backend route `POST /webhooks/stripe` remains for automated tests only.
+
+---
+
+## Pre-commit change gate (agents)
+
+```bash
+python -m pytest tests/test_public_ui_exposure.py tests/test_ops_route_auth.py \
+  tests/test_central_memory.py tests/test_organism_observability.py \
+  tests/test_operator_guidance.py tests/test_kyc_guardrails.py -q
+python -m pytest tests/ -q
+```
+
+CI: `.github/workflows/kyc_guardrails.yml`
+
+## Organism memory on launch path
+
+| Step | Central memory |
+|------|----------------|
+| Inquiry | `safe_write_after_inquiry`, entity link, forensics bridge |
+| Kickoff | `safe_read_before_kickoff`, `safe_link_after_kickoff`, ledger link |
+| Intake | `safe_write_after_intake`, workflow timeline |
+| Evidence | `safe_record_evidence` / `evidence_uploaded` |
+| Email (optional) | Telemetry only — `email/send_*` events |
+
+Observability: `GET /api/memory/observability`, UI `/ui/memory.html` (operator auth required).
