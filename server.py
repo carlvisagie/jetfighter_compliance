@@ -385,6 +385,7 @@ async def inquiry_submit(
             "intake_url": res["intake_url"],
             "upload_url": res.get("upload_url"),
             "continuation_url": res.get("continuation_url"),
+            "continuation_token": res.get("continuation_token"),
         }
     except Exception as e:
         logging.exception("Inquiry kickoff failed for %s: %s", email, e)
@@ -586,7 +587,11 @@ def customer_qr_svg(data: str = "", token: str = "", page: str = "continue"):
             raise HTTPException(status_code=400, detail="Invalid token")
     if not target:
         raise HTTPException(status_code=400, detail="data or token required")
-    png = generate_qr_png(target)
+    try:
+        png = generate_qr_png(target)
+    except Exception as e:
+        logging.exception("QR generation failed: %s", e)
+        raise HTTPException(status_code=503, detail="QR generation unavailable") from e
     return Response(content=png, media_type="image/png")
 
 
