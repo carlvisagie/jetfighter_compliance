@@ -50,10 +50,16 @@ def load_config() -> Dict[str, Any]:
         "min_severity_telegram": "IMPORTANT",
         "min_severity_email": "HIGH",
         "critical_bypass_quiet_hours": True,
+        "operator_name": "",
+        "operator_phone": "",
+        "operator_email": "",
     }
     import os
 
     env_map = {
+        "operator_name": os.getenv("OPERATOR_NAME", "").strip(),
+        "operator_phone": os.getenv("OPERATOR_PHONE", "").strip(),
+        "operator_email": os.getenv("OPERATOR_EMAIL", "").strip() or os.getenv("DIGEST_EMAIL_TO", "").strip(),
         "email_enabled": os.getenv("ALERT_EMAIL_ENABLED", "true").lower() == "true",
         "telegram_enabled": os.getenv("ALERT_TELEGRAM_ENABLED", "true").lower() == "true",
         "high_fit_threshold": int(os.getenv("ALERT_HIGH_FIT_THRESHOLD", "75")),

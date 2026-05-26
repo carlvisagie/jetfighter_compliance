@@ -413,6 +413,8 @@
         '<li><strong>Telegram:</strong> ' + (cfg.telegram_configured ? 'configured' : 'not configured (set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID)') + '</li>' +
         '<li><strong>Email alerts:</strong> ' + (cfg.email_enabled ? 'on' : 'off') + ' · Quiet hours: ' + escapeHtml(cfg.quiet_hours || '') + '</li>' +
         '<li><strong>First paperwork alert sent:</strong> ' + (j.first_paperwork_sent ? 'yes' : 'not yet') + '</li>' +
+        (cfg.operator_name ? '<li><strong>Operator:</strong> ' + escapeHtml(cfg.operator_name) +
+          (cfg.operator_phone ? ' · ' + escapeHtml(cfg.operator_phone) : '') + '</li>' : '') +
         '</ul>';
       const crit = j.unacknowledged_critical || [];
       if (crit.length) {

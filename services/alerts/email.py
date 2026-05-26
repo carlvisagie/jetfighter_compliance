@@ -55,6 +55,18 @@ def render_alert_html(
 
     hint = f"<p style='margin-top:1rem;color:#444;'><strong>Next step:</strong> {_esc(action_hint)}</p>" if action_hint else ""
 
+    operator_footer = ""
+    op_name = context.get("operator_name") or context.get("_operator_name")
+    op_phone = context.get("operator_phone") or context.get("_operator_phone")
+    if op_name or op_phone:
+        phone_line = ""
+        if op_phone:
+            digits = "".join(c for c in str(op_phone) if c.isdigit() or c == "+")
+            phone_line = f" · <a href='tel:{_esc(digits)}'>{_esc(op_phone)}</a>"
+        operator_footer = (
+            f"<p style='font-size:12px;color:#666;margin-top:8px;'>Operator: {_esc(op_name or 'KYC')}{phone_line}</p>"
+        )
+
     return f"""
 <!DOCTYPE html>
 <html>
@@ -68,6 +80,7 @@ def render_alert_html(
   {"<table style='margin:16px 0;border-collapse:collapse;'>" + "".join(rows) + "</table>" if rows else ""}
   {links}
   {hint}
+  {operator_footer}
   <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
   <p style="font-size:12px;color:#999;">Operational alert — not legal advice. Customer documents are never attached.</p>
 </body>

@@ -48,6 +48,8 @@ def raise_alert(
     rule = get_rule(event_type, severity=severity)
     sev = severity or rule.severity
     ctx = dict(context or {})
+    ctx.setdefault("operator_name", cfg.get("operator_name", ""))
+    ctx.setdefault("operator_phone", cfg.get("operator_phone", ""))
     title = title or rule.title_template
     throttle_key = dedupe_key or f"{event_type}:{ctx.get('project_id') or ctx.get('lead_id') or ctx.get('company', '')[:40]}"
 
@@ -254,6 +256,9 @@ def get_operator_dashboard() -> Dict[str, Any]:
             "telegram_configured": telegram.telegram_configured(),
             "high_fit_threshold": cfg.get("high_fit_threshold"),
             "quiet_hours": f"{cfg.get('quiet_hours_start')}-{cfg.get('quiet_hours_end')} UTC",
+            "operator_name": cfg.get("operator_name"),
+            "operator_phone": cfg.get("operator_phone"),
+            "operator_email": routing.operator_email(cfg),
         },
         "recent_alerts": list(reversed(history[-25:])),
         "unacknowledged_critical": critical_open,
