@@ -90,6 +90,15 @@
           <p class="org-metric-foot">Select a project in the command strip, then refresh.</p>
           <div id="evidence-intelligence-insights"><p class="kyc-loading">Loading evidence intelligence…</p></div>
         </article>
+        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="compliance-intelligence-panel">
+          <span class="kyc-label-overline">Compliance intelligence</span>
+          <h3 style="margin-top:0;">Compliance Intelligence Watch</h3>
+          <p class="org-metric-foot">Monitors authoritative public sources — operator review required. Not legal advice.</p>
+          <div class="kyc-btn-row" style="margin-bottom:0.75rem;">
+            <button type="button" class="btn secondary" id="complianceIntelRunBtn">Run check now</button>
+          </div>
+          <div id="compliance-intelligence-insights"><p class="kyc-loading">Loading compliance intelligence…</p></div>
+        </article>
       </div>
 
       <header class="kyc-section-head" style="margin-top:1rem;">
@@ -284,7 +293,51 @@
       OperatorGuidance.refreshGuidance(root, pid, mode),
       loadCustomerFriction(),
       loadEvidenceIntelligence(pid),
+      loadComplianceIntelligence(),
     ]);
+  }
+  document.getElementById('complianceIntelRunBtn')?.addEventListener('click', async function () {
+    const el = document.getElementById('compliance-intelligence-insights');
+    if (el) el.innerHTML = '<p class="kyc-loading">Running compliance check…</p>';
+    try {
+      await api('/api/operator/compliance-intelligence/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ polling_filter: '' }),
+      });
+      await loadComplianceIntelligence();
+    } catch (e) {
+      if (el) el.innerHTML = '<p class="org-metric-foot">Run failed.</p>';
+    }
+  });
+  async function loadComplianceIntelligence() {
+    const el = document.getElementById('compliance-intelligence-insights');
+    if (!el) return;
+    try {
+      const j = await api('/api/operator/compliance-intelligence');
+      const pending = j.pending_review_count || 0;
+      const changes = (j.latest_changes || []).slice(-5);
+      let html =
+        '<ul class="guidance-list">' +
+        '<li><strong>Sources tracked:</strong> ' + (j.sources_count || 0) + '</li>' +
+        '<li><strong>Pending review:</strong> ' + pending + '</li>' +
+        '<li><strong>Stale sources:</strong> ' + ((j.stale_sources || []).join(', ') || '—') + '</li>' +
+        '<li><strong>Unreachable:</strong> ' + ((j.unreachable_sources || []).join(', ') || '—') + '</li>' +
+        '</ul>';
+      if (changes.length) {
+        html += '<p class="org-metric-foot"><strong>Recent changes:</strong></p><ul class="guidance-list">';
+        changes.forEach(function (c) {
+          html += '<li>' + escapeHtml(c.source_id || '') + ': ' + escapeHtml((c.diff_summary || '').slice(0, 120)) + '</li>';
+        });
+        html += '</ul>';
+      }
+      if (j.latest_digest && j.latest_digest.highlights) {
+        html += '<p class="org-metric-foot"><strong>Weekly digest:</strong> ' + escapeHtml(j.latest_digest.week || '') + '</p>';
+      }
+      el.innerHTML = html;
+    } catch (e) {
+      el.innerHTML = '<p class="org-metric-foot">Compliance intelligence unavailable.</p>';
+    }
   }
   document.getElementById('orgRefresh').addEventListener('click', refreshAll);
   async function loadEvidenceIntelligence(projectId) {

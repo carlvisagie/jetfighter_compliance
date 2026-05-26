@@ -68,6 +68,14 @@ KNOWLEDGE_TOPICS: List[Dict[str, Any]] = [
         "tags": ["memory", "organism"],
     },
     {
+        "id": "compliance-intelligence",
+        "title": "Compliance intelligence watch",
+        "summary": "Continuous monitoring of authoritative compliance sources — operator review required.",
+        "path": "docs/COMPLIANCE_INTELLIGENCE_ENGINE.md",
+        "phases": ["event_logging", "evidence"],
+        "tags": ["compliance", "cmmc", "nist", "regulatory"],
+    },
+    {
         "id": "organism-integration-audit",
         "title": "Organism integration audit",
         "summary": "Which engines are plugged into central memory vs legacy islands.",

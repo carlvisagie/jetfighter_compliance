@@ -127,6 +127,18 @@ ENGINE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "duplicate_truth_risk": "medium",
         "fix_needed": "",
     },
+    "compliance_intelligence": {
+        "label": "Continuous compliance intelligence",
+        "paths": ["services/compliance_intelligence/", "services/engine.py (scheduler)"],
+        "classification": "plugged",
+        "reads": ["data/compliance_intelligence/sources.json", "public authority URLs"],
+        "writes": ["snapshots/", "changes.jsonl", "central memory timeline", "telemetry"],
+        "read_before": False,
+        "write_after": True,
+        "orphan_risk": "low",
+        "duplicate_truth_risk": "low",
+        "fix_needed": "Local snapshots are artifacts; timeline + review queue drive actions",
+    },
     "evidence_intelligence": {
         "label": "Evidence intelligence (upload analysis)",
         "paths": ["services/evidence_intelligence/", "server.py (/api/evidence/register)"],

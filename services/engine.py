@@ -1,4 +1,4 @@
-﻿import json, traceback
+import json, traceback
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, Any
@@ -186,15 +186,22 @@ def start_worker():
     scheduler = BackgroundScheduler(timezone="UTC")
     scheduler.add_job(sweep_queue, "interval", seconds=10, id="queue")
     scheduler.add_job(check_slas, "interval", minutes=5, id="sla")
-        # --- Auto-jobs (idempotent) ---
+    # --- Auto-jobs (idempotent) ---
     try:
-        scheduler.add_job(nightly_exports, 'cron', hour=2, minute=0, id='nightly_exports')
+        scheduler.add_job(nightly_exports, "cron", hour=2, minute=0, id="nightly_exports")
     except Exception:
         pass
     try:
-        scheduler.add_job(weekly_digest, 'cron', day_of_week='fri', hour=9, minute=0, id='weekly_digest')
+        scheduler.add_job(weekly_digest, "cron", day_of_week="fri", hour=9, minute=0, id="weekly_digest")
     except Exception:
-        passscheduler.start()
+        pass
+    try:
+        from services.compliance_intelligence.scheduler import register_scheduler_jobs
+
+        register_scheduler_jobs(scheduler)
+    except Exception:
+        pass
+    scheduler.start()
 
 def nightly_exports():
     """Export binders for projects touched in last 24h."""

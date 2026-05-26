@@ -1056,6 +1056,32 @@ def operator_evidence_intelligence(project_id: str = ""):
     return get_operator_evidence_intelligence(project_id)
 
 
+@app.get("/api/operator/compliance-intelligence")
+def operator_compliance_intelligence():
+    from services.compliance_intelligence import get_operator_dashboard
+
+    return get_operator_dashboard()
+
+
+@app.post("/api/operator/compliance-intelligence/run")
+def operator_compliance_intelligence_run(body: dict = Body(default={})):
+    from services.compliance_intelligence import run_compliance_intel_cycle
+
+    polling = str(body.get("polling_filter") or "").strip()
+    source_ids = body.get("source_ids") or None
+    summary = run_compliance_intel_cycle(polling_filter=polling, source_ids=source_ids)
+    return {"ok": summary.ok, "summary": summary.model_dump()}
+
+
+@app.post("/api/operator/compliance-intelligence/review/{change_id}")
+def operator_compliance_intelligence_review(change_id: str, body: dict = Body(default={})):
+    from services.compliance_intelligence import review_change
+
+    action = str(body.get("action") or "approved").strip()
+    note = str(body.get("note") or "").strip()
+    return review_change(change_id, action=action, note=note)
+
+
 @app.get("/api/operator/smtp-status")
 def operator_smtp_status():
     from services.production import smtp_env_status

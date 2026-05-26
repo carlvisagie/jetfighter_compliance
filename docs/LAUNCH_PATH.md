@@ -59,6 +59,7 @@ CI: `.github/workflows/kyc_guardrails.yml`
 | Intake | `safe_write_after_intake`, workflow timeline |
 | Evidence | `safe_record_evidence` / `evidence_uploaded` |
 | Evidence intelligence (v1) | Upload → rule-based extract/classify → customer profile + confirmation; see [EVIDENCE_INTELLIGENCE_LAYER.md](./EVIDENCE_INTELLIGENCE_LAYER.md) |
+| Compliance intelligence (v1) | Scheduled public-source monitoring → review queue → central memory; see [COMPLIANCE_INTELLIGENCE_ENGINE.md](./COMPLIANCE_INTELLIGENCE_ENGINE.md) |
 | Email (optional) | Telemetry only — `email/send_*` events |
 
 Observability: `GET /api/memory/observability`, UI `/ui/memory.html` (operator auth required).

@@ -57,6 +57,7 @@ Legacy files (`data/projects/`, `data/acquisition/`, inquiries, ledger) **remain
 | Intake | `safe_write_after_intake` (via forensics) |
 | Evidence | `safe_write_after_evidence` (via forensics) |
 | Evidence intelligence | `safe_write_after_evidence_intelligence`, `safe_write_after_evidence_confirmation` — timeline: `evidence_analyzed`, `document_classified`, `profile_inferred`, `gap_detected` |
+| Compliance intelligence | Entity `KYC Compliance Intelligence Watch` — timeline: `compliance_source_checked`, `compliance_change_detected`, `compliance_impact_classified`, `compliance_review_required`, `knowledge_update_recommended` |
 | Manual events | `link_event` on `/api/coc/event/form` |
 
 ## Organism observability
