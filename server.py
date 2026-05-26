@@ -771,6 +771,41 @@ def operator_cockpit(project_id: str = "", mode: str = ""):
     return {"ok": True, "cockpit": build_cockpit(project_id=project_id, mode=mode)}
 
 
+@app.get("/api/operator/guidance")
+def operator_guidance(project_id: str = "", mode: str = ""):
+    from services.memory.operator_guidance import build_operator_guidance
+
+    return {"ok": True, "guidance": build_operator_guidance(project_id=project_id, mode=mode)}
+
+
+@app.get("/api/operator/bottlenecks")
+def operator_bottlenecks(project_id: str = "", mode: str = ""):
+    from services.memory.operator_guidance import get_bottlenecks
+
+    return get_bottlenecks(project_id=project_id, mode=mode)
+
+
+@app.get("/api/operator/attention")
+def operator_attention(project_id: str = "", mode: str = ""):
+    from services.memory.operator_guidance import get_attention
+
+    return get_attention(project_id=project_id, mode=mode)
+
+
+@app.get("/api/operator/learning")
+def operator_learning(project_id: str = "", mode: str = "", q: str = ""):
+    from services.memory.operator_guidance import get_learning_guidance
+
+    return get_learning_guidance(project_id=project_id, mode=mode, query=q)
+
+
+@app.get("/api/operator/organism-state")
+def operator_organism_state(project_id: str = "", mode: str = ""):
+    from services.memory.operator_guidance import get_organism_state_view
+
+    return get_organism_state_view(project_id=project_id, mode=mode)
+
+
 @app.get("/api/knowledge/search")
 def knowledge_search(q: str = "", phase: str = "", limit: int = 20):
     from services.knowledge_index import search_knowledge

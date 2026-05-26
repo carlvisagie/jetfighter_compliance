@@ -41,9 +41,39 @@
   <main class="kyc-main kyc-main--ops">
     <section class="kyc-section" style="padding-top:0;" id="operator-cockpit">
       <header class="kyc-section-head">
-        <span class="kyc-label-overline">Steering</span>
-        <h2>Workflow command</h2>
-        <p>Answers: where are we, what is wrong, what do I do next, why, where to learn more.</p>
+        <span class="kyc-label-overline">Adaptive guidance</span>
+        <h2>Operational command</h2>
+        <p>Where we are · what is broken · what matters most · what to do next · why · where to learn.</p>
+      </header>
+
+      <div class="guidance-grid" id="guidance-panels">
+        <article class="guidance-panel guidance-panel--priority">
+          <span class="kyc-label-overline">Priority command</span>
+          <div data-guidance="priority"><p class="kyc-loading">Loading priority…</p></div>
+        </article>
+        <article class="guidance-panel">
+          <span class="kyc-label-overline">Bottleneck detector</span>
+          <div data-guidance="bottlenecks"><p class="kyc-loading">Scanning…</p></div>
+        </article>
+        <article class="guidance-panel">
+          <span class="kyc-label-overline">Attention radar</span>
+          <div data-guidance="attention"><p class="kyc-loading">Scanning…</p></div>
+        </article>
+        <article class="guidance-panel">
+          <span class="kyc-label-overline">Organism state</span>
+          <span class="kyc-pill" id="guidance-state-badge">—</span>
+          <div data-guidance="organism-state"><p class="kyc-loading">…</p></div>
+          <div data-guidance="recommendations" style="margin-top:1rem;"></div>
+        </article>
+        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;">
+          <span class="kyc-label-overline">Learn this now</span>
+          <div data-guidance="learn"><p class="kyc-loading">Contextual learning…</p></div>
+        </article>
+      </div>
+
+      <header class="kyc-section-head" style="margin-top:1rem;">
+        <span class="kyc-label-overline">Workflow</span>
+        <h2>Project command strip</h2>
       </header>
       <div class="cockpit-layout">
         <div>
@@ -186,6 +216,7 @@
   <footer class="kyc-footer">KeepYourContracts.com · Organism operations</footer>
   <script src="/ui/assets/js/organism-intel.js"></script>
   <script src="/ui/assets/js/operator-cockpit.js"></script>
+  <script src="/ui/assets/js/operator-guidance.js"></script>
   <script>
   async function api(u, opts) {
     const r = await fetch(u, Object.assign({ credentials: 'same-origin' }, opts || {}));
@@ -223,10 +254,25 @@
       document.getElementById('org-pulse-label').textContent = String(e.message || e);
     }
   }
-  document.getElementById('orgRefresh').addEventListener('click', refreshOrganism);
-  initProjects();
-  refreshOrganism();
-  OperatorCockpit.init(document.getElementById('org-control-root'));
+  async function refreshAll() {
+    const root = document.getElementById('org-control-root');
+    const pid = root.querySelector('#cockpitProject')?.value || '';
+    const mode = root.querySelector('#cockpitMode')?.value || '';
+    await Promise.all([
+      refreshOrganism(),
+      OperatorGuidance.refreshGuidance(root, pid, mode),
+    ]);
+  }
+  document.getElementById('orgRefresh').addEventListener('click', refreshAll);
+  (async function boot() {
+    const root = document.getElementById('org-control-root');
+    initProjects();
+    await OperatorCockpit.init(root);
+    await refreshAll();
+    const sync = function () { refreshAll(); };
+    root.querySelector('#cockpitProject')?.addEventListener('change', sync);
+    root.querySelector('#cockpitMode')?.addEventListener('change', sync);
+  })();
   </script>
 </body>
 </html>

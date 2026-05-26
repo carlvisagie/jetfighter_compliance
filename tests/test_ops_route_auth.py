@@ -27,6 +27,8 @@ PROTECTED_API = [
     "/api/memory/observability?limit=1",
     "/api/memory/learning",
     "/api/operator/cockpit",
+    "/api/operator/guidance",
+    "/api/operator/bottlenecks",
     "/api/knowledge/catalog",
     "/api/projects",
     "/api/events/recent?limit=1",

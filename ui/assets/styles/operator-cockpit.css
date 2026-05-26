@@ -198,3 +198,75 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Adaptive guidance panels */
+.guidance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: var(--kyc-space-4);
+  margin-bottom: var(--kyc-space-5);
+}
+
+.guidance-panel {
+  border-radius: var(--kyc-radius-lg);
+  border: 1px solid var(--kyc-line);
+  background: var(--kyc-surface);
+  padding: var(--kyc-space-4);
+}
+
+.guidance-panel--priority {
+  grid-column: 1 / -1;
+  border-color: var(--kyc-accent-border);
+  background: linear-gradient(135deg, var(--kyc-surface) 0%, var(--kyc-accent-soft) 100%);
+}
+
+.guidance-priority .guidance-action {
+  margin: var(--kyc-space-3) 0 var(--kyc-space-2);
+  font-size: var(--kyc-text-xl);
+  line-height: 1.35;
+}
+
+.guidance-why,
+.guidance-risk,
+.guidance-time {
+  font-size: var(--kyc-text-sm);
+  color: var(--kyc-text-muted);
+  margin: var(--kyc-space-2) 0 0;
+}
+
+.guidance-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: var(--kyc-text-sm);
+  color: var(--kyc-text);
+}
+
+.guidance-list li {
+  margin-bottom: var(--kyc-space-3);
+}
+
+.guidance-organism-state {
+  font-size: var(--kyc-text-2xl);
+  font-weight: 700;
+  margin-bottom: var(--kyc-space-2);
+  color: var(--kyc-accent);
+}
+
+.guidance-learn-item {
+  padding: var(--kyc-space-2) 0;
+  border-bottom: 1px solid var(--kyc-line);
+}
+
+.guidance-learn-item:last-child {
+  border-bottom: none;
+}
+
+.guidance-learn-item a {
+  color: var(--kyc-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.guidance-learn-item a:hover {
+  text-decoration: underline;
+}
