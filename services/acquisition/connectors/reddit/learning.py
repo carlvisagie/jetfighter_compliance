@@ -25,6 +25,7 @@ def load_learning_state(base: Optional[Path] = None) -> Dict[str, Any]:
         "default_cooldown_hours": 24,
         "default_follow_up_hours": 48,
         "min_fit_threshold": 50,
+        "min_prey_threshold": 58,
         "subreddit_stats": {},
         "wording_winners": {"A": 0, "B": 0},
         "outcome_totals": {

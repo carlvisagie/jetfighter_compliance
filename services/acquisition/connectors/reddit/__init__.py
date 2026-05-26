@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ...models import utc_now
+from ...acquisition_probability import DEFAULT_MIN_PREY_SCORE
 from ...routing import build_upload_route
 from . import autonomy, author_intent, classifier, draft_generation, discovery, learning, qualification, telemetry
 from .paths import (
@@ -72,6 +73,7 @@ def run_reddit_acquisition_cycle(
     limit_per_query: int = 10,
     max_posts: int = 40,
     min_fit_score: Optional[int] = None,
+    min_prey_score: Optional[int] = None,
     campaign_id: str = "reddit-upload-first",
     message_variant: str = "A",
     pause_seconds: float = discovery.MIN_SECONDS_BETWEEN_REQUESTS,
@@ -83,6 +85,8 @@ def run_reddit_acquisition_cycle(
     state = learning.load_learning_state(base)
     if min_fit_score is None:
         min_fit_score = int(state.get("min_fit_threshold", 50))
+    if min_prey_score is None:
+        min_prey_score = int(state.get("min_prey_threshold", DEFAULT_MIN_PREY_SCORE))
 
     telemetry.emit("reddit_discovery_started", metadata={"connector": CONNECTOR_ID}, base=base)
     stats: Dict[str, Any] = {
@@ -143,6 +147,25 @@ def run_reddit_acquisition_cycle(
         if cls.get("author_intent") in ("GIVING_ADVICE", "PROMOTING_SERVICE"):
             telemetry.emit("advice_giver_detected", post_id=post.get("post_id", ""), base=base)
 
+        telemetry.emit(
+            "prey_scored",
+            post_id=post.get("post_id", ""),
+            subreddit=post.get("subreddit", ""),
+            metadata={
+                "prey_score": qual.get("prey_score"),
+                "predator_class": qual.get("predator_class"),
+                "queue_eligible": qual.get("queue_eligible"),
+            },
+            base=base,
+        )
+        if not qual.get("queue_eligible"):
+            telemetry.emit(
+                "low_prey_skipped",
+                post_id=post.get("post_id", ""),
+                metadata={"prey_score": qual.get("prey_score"), "predator_class": qual.get("predator_class")},
+                base=base,
+            )
+
         if not cls.get("relevant") or qual["fit_score"] < min_fit_score:
             stats["organism_auto_skipped"] += 1
             learning.record_outcome(
@@ -150,6 +173,20 @@ def run_reddit_acquisition_cycle(
                 post_id=post.get("post_id", ""),
                 subreddit=post.get("subreddit", ""),
                 metadata={"reason": "low_fit"},
+                base=base,
+            )
+            continue
+
+        if int(qual.get("prey_score", 0)) < min_prey_score or not qual.get("queue_eligible"):
+            stats["organism_auto_skipped"] += 1
+            learning.record_outcome(
+                "low_prey_deferred",
+                post_id=post.get("post_id", ""),
+                subreddit=post.get("subreddit", ""),
+                metadata={
+                    "prey_score": qual.get("prey_score"),
+                    "predator_class": qual.get("predator_class"),
+                },
                 base=base,
             )
             continue
@@ -222,6 +259,10 @@ def run_reddit_acquisition_cycle(
             "relationship_stage": plan.get("relationship_stage"),
             "trust_score": plan.get("trust_score"),
             "engagement_strategy": plan.get("engagement_strategy"),
+            "prey_score": qual.get("prey_score"),
+            "predator_class": qual.get("predator_class"),
+            "predator_penalty": qual.get("predator_penalty"),
+            "acquisition_probability": qual.get("acquisition_probability"),
             "social_intelligence": plan.get("social_intelligence"),
             "draft_reply": draft,
             "route_url": routes["primary_url"],
@@ -385,7 +426,9 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
         for d in drafts
         if d.get("status") in ("awaiting_operator_decision", "pending_operator_review")
     ]
-    pending.sort(key=author_intent.sort_priority_for_opportunity)
+    from ...acquisition_probability import sort_key_by_prey
+
+    pending.sort(key=sort_key_by_prey)
 
     state = learning.load_learning_state(base)
     from ...orchestration import get_operator_dashboard as acq_dash
@@ -430,6 +473,8 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
                 "relationship_state": o.get("relationship_state"),
                 "trust_score": o.get("trust_score"),
                 "engagement_strategy": o.get("engagement_strategy"),
+                "prey_score": o.get("prey_score"),
+                "predator_class": o.get("predator_class"),
                 "organism_rationale": (o.get("organism_plan") or {}).get("rationale", ""),
                 "engagement_stage": (o.get("organism_plan") or {}).get("engagement_stage", ""),
                 "organism_confidence": (o.get("organism_plan") or {}).get("organism_confidence", 0),

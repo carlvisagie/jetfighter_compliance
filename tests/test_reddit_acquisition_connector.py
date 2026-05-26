@@ -13,6 +13,7 @@ from services.acquisition.connectors.reddit import (
     run_reddit_acquisition_cycle,
 )
 from services.acquisition.connectors.reddit.classifier import classify_post
+from services.acquisition.connectors.reddit.qualification import qualify_post
 from services.acquisition.connectors.reddit.draft_generation import generate_draft_reply
 from services.acquisition.connectors.reddit.discovery import discover_posts, search_reddit
 from services.acquisition.connectors.reddit.paths import DRAFT_REPLIES_JSONL, ensure_reddit_dir
@@ -31,7 +32,7 @@ def _reddit_listing(post_id: str = "abc123", title: str = "CMMC confusion where 
                         "id": post_id,
                         "subreddit": "smallbusiness",
                         "title": title,
-                        "selftext": "Overwhelmed by security questionnaire and NIST 800-171 paperwork.",
+                        "selftext": "Small subcontractor — prime sent a questionnaire. Overwhelmed. What documents do I need?",
                         "permalink": "/r/smallbusiness/comments/abc123/test/",
                         "author": "test_user",
                         "created_utc": 1710000000,
@@ -68,9 +69,15 @@ def test_draft_generation_no_auto_post():
 def test_autonomy_engagement_stages():
     from services.acquisition.connectors.reddit.autonomy import decide_engagement
 
-    post = {"post_id": "p1", "subreddit": "smallbusiness", "num_comments": 2}
-    cls = classify_post("CMMC overwhelmed", "security questionnaire stress")
-    qual = {"fit_score": 80}
+    post = {
+        "post_id": "p1",
+        "subreddit": "smallbusiness",
+        "num_comments": 2,
+        "title": "Where do I start with CMMC?",
+        "selftext": "Small subcontractor — prime sent questionnaire. Overwhelmed. What documents do I need?",
+    }
+    cls = classify_post(post["title"], post["selftext"])
+    qual = qualify_post(post, cls)
     plan = decide_engagement(post, cls, qual)
     assert plan["show_operator_queue"] is True
     assert plan["operator_actions"] == ["approve", "deny"]

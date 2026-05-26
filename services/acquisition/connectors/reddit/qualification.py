@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from ...acquisition_probability import DEFAULT_MIN_PREY_SCORE, score_acquisition_probability
 from .author_intent import DEPLOYABLE_INTENTS
 from .classifier import classify_post
 
@@ -47,8 +48,25 @@ def qualify_post(post: Dict[str, Any], classification: Dict[str, Any] | None = N
 
     fit = max(0, min(100, fit))
 
+    prob = score_acquisition_probability(
+        post.get("title", ""),
+        post.get("selftext", ""),
+        classification=cls,
+        post=post,
+    )
+    # Fit reflects topic; prey_score reflects acquisition probability — gate on prey
+    if prob["prey_score"] >= 70:
+        fit = min(100, fit + 8)
+    elif prob["prey_score"] < DEFAULT_MIN_PREY_SCORE:
+        fit = min(fit, 40)
+
     return {
         "fit_score": fit,
+        "prey_score": prob["prey_score"],
+        "predator_penalty": prob["predator_penalty"],
+        "predator_class": prob["predator_class"],
+        "queue_eligible": prob["queue_eligible"],
+        "acquisition_probability": prob,
         "urgency_score": cls.get("urgency_score", 0),
         "burden_score": cls.get("burden_score", 0),
         "emotional_burden_score": cls.get("emotional_burden_score", 0),
@@ -56,7 +74,7 @@ def qualify_post(post: Dict[str, Any], classification: Dict[str, Any] | None = N
         "intent_confidence": cls.get("intent_confidence", 40),
         "overall_confidence": int((fit + cls.get("signal_confidence", 0) + cls.get("intent_confidence", 0)) / 3),
         "qualification_note": "Prioritizes advice-seekers over advice-givers. Public post only.",
-        "likely_buyer": fit >= 55 and intent in DEPLOYABLE_INTENTS,
+        "likely_buyer": prob["queue_eligible"],
         "author_intent": intent,
         "recommended_action": cls.get("recommended_action", "ignore"),
     }
