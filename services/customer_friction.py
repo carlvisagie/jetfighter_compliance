@@ -420,7 +420,11 @@ def generate_qr_png(data: str, *, box_size: int = 6) -> bytes:
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    try:
+        img.save(buf, format="PNG")
+    except TypeError:
+        # PyPNG backend (no Pillow) — save without format kwarg
+        img.save(buf)
     return buf.getvalue()
 
 
