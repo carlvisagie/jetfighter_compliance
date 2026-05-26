@@ -1107,8 +1107,20 @@ async def operator_acquisition_intelligence_run(body: dict = Body(default={})):
             company_name=str(body.get("company_name") or ""),
             segment=str(body.get("segment") or "compliance-heavy"),
         )
+    if body.get("run_live_connector") or body.get("connector") == "usaspending":
+        from services.acquisition.connectors.usaspending_live import run_usaspending_live_connector
+
+        return run_usaspending_live_connector(
+            queries=body.get("queries"),
+            limit_per_query=int(body.get("limit_per_query") or 12),
+            campaign_id=str(body.get("campaign_id") or "upload-first"),
+            message_variant=str(body.get("message_variant") or "A"),
+            min_fit_score=int(body.get("min_fit_score") or 50),
+        )
     return run_acquisition_cycle(
         run_finder=bool(body.get("run_finder")),
+        run_live_connector=bool(body.get("run_live_connector")),
+        connector=str(body.get("connector") or "usaspending"),
         campaign_id=str(body.get("campaign_id") or "upload-first"),
         message_variant=str(body.get("message_variant") or "A"),
     )

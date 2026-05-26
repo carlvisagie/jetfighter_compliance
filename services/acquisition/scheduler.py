@@ -10,9 +10,9 @@ logger = logging.getLogger(__name__)
 
 def daily_acquisition_cycle() -> None:
     try:
-        from .orchestration import run_acquisition_cycle
+        from .connectors.usaspending_live import run_usaspending_live_connector
 
-        run_acquisition_cycle(run_finder=False, campaign_id="upload-first-daily")
+        run_usaspending_live_connector(campaign_id="upload-first-daily", message_variant="A")
     except Exception as e:
         logger.warning("Daily acquisition cycle failed: %s", e)
         telemetry.emit("acquisition_failure", success=False, message=str(e)[:120], severity="warning")

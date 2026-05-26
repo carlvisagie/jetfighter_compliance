@@ -113,10 +113,31 @@ Funnel stages tracked via `track_funnel_event()`:
 - `GET /api/operator/acquisition-intelligence`
 - `POST /api/operator/acquisition-intelligence/run`
 
+## Live connector #1: USASpending (active)
+
+**Why first:** Federal open data API, no API key, no scraping, no login — lowest legal/ops risk.
+
+| Item | Detail |
+|------|--------|
+| Module | `services/acquisition/connectors/usaspending_live.py` |
+| API | `https://api.usaspending.gov/api/v2/autocomplete/recipient/` |
+| Scheduler | Daily 07:00 UTC (when worker runs) |
+| Operator | Control → **Run USASpending live fetch** |
+| API | `POST /api/operator/acquisition-intelligence/run` with `run_live_connector: true` |
+
+Each target includes: `source`, `pain_signal`, `qualification_score`, `suggested_message`, `route_url`, `outreach_status: draft_only`.
+
+CLI:
+
+```bash
+python scripts/acquisition_run_discovery.py --query "defense manufacturing"
+```
+
 ## Future integrations (designed for)
 
 - Sintra workflow triggers
 - Reddit / LinkedIn public monitoring (via `ingest_public_signal`)
+- SAM.gov entity API (when wired)
 - Email sequences with operator approval queue
 - Compliance-intelligence-triggered outreach when regulatory changes increase burden
 

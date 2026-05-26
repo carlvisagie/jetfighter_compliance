@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -170,6 +171,58 @@ def test_memory_linkage_on_winner(acq_env, tmp_path):
     if eid:
         events = [t["event_type"] for t in load_timeline(eid, mem)]
         assert "acquisition_winner" in events
+
+
+def test_usaspending_live_connector_creates_targets(acq_env, monkeypatch):
+    fake = {
+        "results": [
+            {"recipient_name": "LIVE DEFENSE MFG LLC", "uei": "UEI123"},
+            {"recipient_name": "LIVE AERO PARTS INC", "uei": "UEI456"},
+        ]
+    }
+    with patch("urllib.request.urlopen") as mock_url:
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps(fake).encode()
+        mock_resp.__enter__ = lambda s: mock_resp
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_url.return_value = mock_resp
+        monkeypatch.setattr("services.acquisition.connectors.usaspending_live.time.sleep", lambda _: None)
+        from services.acquisition.connectors.usaspending_live import run_usaspending_live_connector
+
+        out = run_usaspending_live_connector(
+            queries=["defense manufacturing"],
+            limit_per_query=5,
+            pause_seconds=0,
+            min_fit_score=0,
+            base=acq_env,
+        )
+    assert out["ok"] is True
+    assert out["targets_created"] >= 1
+    targets = (acq_env / TARGETS_JSONL).read_text(encoding="utf-8")
+    assert "LIVE DEFENSE" in targets
+    row = json.loads([l for l in targets.splitlines() if l.strip()][0])
+    assert row.get("source") == "usaspending_public_api"
+    assert row.get("pain_signal")
+    assert row.get("route_url")
+    assert row.get("suggested_message")
+    assert row.get("outreach_status") == "draft_only"
+
+
+def test_live_connector_api_ops(client, acq_env, monkeypatch):
+    fake = {"results": [{"recipient_name": "API TEST CONTRACTOR LLC", "uei": "X1"}]}
+    with patch("urllib.request.urlopen") as mock_url:
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps(fake).encode()
+        mock_resp.__enter__ = lambda s: mock_resp
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_url.return_value = mock_resp
+        monkeypatch.setattr("services.acquisition.connectors.usaspending_live.time.sleep", lambda _: None)
+        r = client.post(
+            "/api/operator/acquisition-intelligence/run",
+            json={"run_live_connector": True, "queries": ["machining"], "limit_per_query": 3, "min_fit_score": 0},
+        )
+    assert r.status_code == 200
+    assert r.json().get("targets_created", 0) >= 1
 
 
 def test_public_ui_no_acquisition_ops_links():

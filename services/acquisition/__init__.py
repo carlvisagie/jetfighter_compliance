@@ -14,8 +14,10 @@ from .learning import (
 )
 from .messaging import generate_message, list_variants, CORE_HEADLINE, CORE_SUBLINE
 from .models import Lead, SEGMENTS
+from .connectors.usaspending_live import run_usaspending_live_connector
 from .orchestration import (
     get_operator_dashboard,
+    ingest_discovery_candidate,
     ingest_public_signal,
     run_acquisition_cycle,
     track_funnel_event,
@@ -42,6 +44,8 @@ __all__ = [
     "generate_message",
     "list_variants",
     "ingest_public_signal",
+    "ingest_discovery_candidate",
+    "run_usaspending_live_connector",
     "run_acquisition_cycle",
     "track_funnel_event",
     "get_operator_dashboard",

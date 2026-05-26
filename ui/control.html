@@ -95,7 +95,7 @@
           <h3 style="margin-top:0;">Acquisition Intelligence</h3>
           <p class="org-metric-foot">Finds compliance burden, routes to upload-first onboarding. Success = real paperwork submitted. No auto-spam.</p>
           <div class="kyc-btn-row" style="margin-bottom:0.75rem;">
-            <button type="button" class="btn secondary" id="acquisitionIntelRunBtn">Run acquisition cycle</button>
+            <button type="button" class="btn secondary" id="acquisitionIntelRunBtn">Run USASpending live fetch</button>
           </div>
           <div id="acquisition-intelligence-insights"><p class="kyc-loading">Loading acquisition intelligence…</p></div>
         </article>
@@ -324,7 +324,13 @@
       if (hottest.length) {
         html += '<p class="org-metric-foot"><strong>Hottest targets:</strong></p><ul class="guidance-list">';
         hottest.forEach(function (t) {
-          html += '<li>' + escapeHtml(t.company_name || '') + ' — priority ' + (t.priority_score || 0) + ', signal ' + escapeHtml(t.signal_level || '') + '</li>';
+          const draft = (t.message_draft && t.message_draft.headline) ? t.message_draft.headline : (t.suggested_message || '').slice(0, 80);
+          html += '<li style="margin-bottom:0.75rem;"><strong>' + escapeHtml(t.company_name || '') + '</strong><br>' +
+            'Source: ' + escapeHtml(t.source || '') + ' · Pain: ' + escapeHtml(t.pain_signal || t.signal_level || '') + '<br>' +
+            'Qualification: ' + (t.qualification_score || 0) + '% · Fit: ' + (t.fit_score || 0) + '<br>' +
+            'Draft: <em>' + escapeHtml(draft) + '</em> (' + escapeHtml(t.outreach_status || 'draft_only') + ')<br>' +
+            (t.route_url ? '<a href="' + escapeHtml(t.route_url) + '" target="_blank" rel="noopener">Upload-first route</a>' : '') +
+            '</li>';
         });
         html += '</ul>';
       }
@@ -344,7 +350,7 @@
       await api('/api/operator/acquisition-intelligence/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaign_id: 'upload-first', message_variant: 'A' }),
+        body: JSON.stringify({ run_live_connector: true, connector: 'usaspending', campaign_id: 'upload-first', message_variant: 'A', limit_per_query: 8 }),
       });
       await loadAcquisitionIntelligence();
     } catch (e) {

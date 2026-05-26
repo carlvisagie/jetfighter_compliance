@@ -11,9 +11,16 @@ from .discovery import run_csv_import, run_finder_discovery
 from .intelligence_paths import CAMPAIGNS_JSONL, SIGNALS_JSONL, TARGETS_JSONL, ensure_intel_dirs
 from .models import Lead, utc_now
 from .scoring import score_lead_full
-from .storage import load_all_leads
+from .discovery import row_to_lead
+from .models import normalize_segment
+from .storage import append_lead, dedupe_key, load_all_leads, next_lead_id
 
 from ..memory.telemetry import load_telemetry
+
+# Pain context for federal award recipients (lawful public metadata only)
+_FEDERAL_BURDEN_HINT = (
+    "federal award recipient defense supply chain compliance documentation burden"
+)
 
 
 def _append_intel(filename: str, record: Dict[str, Any], base: Optional[Path] = None) -> None:
@@ -36,6 +43,174 @@ def _load_intel(filename: str, base: Optional[Path] = None, limit: int = 300) ->
             except json.JSONDecodeError:
                 continue
     return rows[-limit:]
+
+
+def load_recent_target_keys(base: Optional[Path] = None) -> set:
+    """Dedupe keys for live connectors (company name lower)."""
+    keys: set = set()
+    for t in _load_intel(TARGETS_JSONL, base, limit=5000):
+        k = (t.get("company_name") or "").strip().lower()
+        if k:
+            keys.add(k)
+    leads, _ = load_all_leads()
+    for lead in leads:
+        k = (lead.company_name or "").strip().lower()
+        if k:
+            keys.add(k)
+    return keys
+
+
+def format_target_for_panel(
+    lead: Lead,
+    sig: Dict[str, Any],
+    qual: Dict[str, Any],
+    msg: Dict[str, Any],
+    *,
+    source: str,
+    source_url: str = "",
+    target_id: str = "",
+) -> Dict[str, Any]:
+    """Flat fields for operator Acquisition Intelligence panel."""
+    pain_tags = sig.get("pain_tags") or list(lead.pain_signals) or []
+    pain_signal = ", ".join(pain_tags[:5]) if pain_tags else "compliance_burden_likely"
+    preview = msg if isinstance(msg, dict) else {}
+    headline = preview.get("headline") or messaging.CORE_HEADLINE
+    body = preview.get("body") or ""
+    route = lead.inquiry_routed_link or ""
+    return {
+        "target_id": target_id or f"TGT-{lead.lead_id}",
+        "lead_id": lead.lead_id,
+        "company_name": lead.company_name,
+        "source": source,
+        "source_url": source_url or lead.source_url,
+        "signal_level": sig.get("signal_level", "medium"),
+        "signal_bundle": sig,
+        "pain_signal": pain_signal,
+        "qualification": qual,
+        "qualification_score": qual.get("overall_confidence", lead.confidence_score),
+        "fit_score": lead.fit_score,
+        "priority_score": lead.acquisition_priority_score,
+        "routed_url": route,
+        "route_url": route,
+        "suggested_message": f"{headline} — {body[:220]}".strip(" —"),
+        "message_preview": preview,
+        "message_draft": preview,
+        "outreach_status": "draft_only",
+        "status": lead.status,
+        "when_utc": utc_now(),
+    }
+
+
+def ingest_discovery_candidate(
+    row: Dict[str, Any],
+    *,
+    campaign_id: str = "upload-first",
+    message_variant: str = "A",
+    min_fit_score: int = 0,
+    base: Optional[Path] = None,
+) -> Dict[str, Any]:
+    """
+    Ingest a lawful public discovery row → lead store + acquisition target.
+  Does not contact anyone.
+    """
+    company = (row.get("company_name") or "").strip()
+    if not company:
+        return {"ok": False, "skipped": True, "reason": "missing_company"}
+
+    segment = normalize_segment(row.get("segment") or "government-subcontractor") or "government-subcontractor"
+    cleaned = {
+        "company_name": company,
+        "website": row.get("website", ""),
+        "contact_name": row.get("contact_name", ""),
+        "contact_title": row.get("contact_title", ""),
+        "contact_email": row.get("contact_email", ""),
+        "linkedin_url": row.get("linkedin_url", ""),
+        "industry": row.get("industry", ""),
+        "segment": segment,
+        "source": row.get("source") or "public_discovery",
+        "source_url": row.get("source_url", ""),
+        "location": row.get("location", ""),
+        "notes": row.get("notes", ""),
+    }
+
+    leads, by_key = load_all_leads()
+    tmp = row_to_lead(cleaned, "pending")
+    key = dedupe_key(tmp)
+    if key in by_key:
+        return {"ok": True, "skipped": True, "reason": "duplicate_lead"}
+
+    lead_id = next_lead_id(leads)
+    lead = row_to_lead(cleaned, lead_id)
+    lead = routing.route_lead(lead, campaign_id=campaign_id, variant=message_variant)
+
+    blob = " ".join(
+        [
+            lead.notes,
+            _FEDERAL_BURDEN_HINT,
+            " ".join(lead.pain_signals),
+            " ".join(lead.compliance_signals),
+            lead.company_name,
+        ]
+    )
+    sig = signals.detect_signals(blob)
+    qual = qualification.qualify_lead(lead, sig)
+    msg = messaging.generate_message(lead, variant=message_variant)
+
+    if min_fit_score and lead.fit_score < min_fit_score:
+        return {"ok": True, "skipped": True, "reason": "below_fit_threshold", "fit_score": lead.fit_score}
+
+    append_lead(lead, base)
+    try:
+        from services.memory import link_lead, resolve_or_create_entity
+
+        eid = resolve_or_create_entity(
+            email=lead.contact_email or f"prospect-{lead.lead_id}@acquisition.local",
+            company=lead.company_name,
+            contact_name=lead.contact_name or lead.company_name,
+            display_name=lead.company_name,
+        )
+        link_lead(lead.lead_id, eid, {"source": lead.source, "segment": lead.segment})
+    except Exception:
+        pass
+
+    target = format_target_for_panel(
+        lead,
+        sig,
+        qual,
+        msg,
+        source=cleaned["source"],
+        source_url=cleaned["source_url"],
+    )
+    _append_intel(TARGETS_JSONL, target, base)
+    _append_intel(
+        SIGNALS_JSONL,
+        {"target_id": target["target_id"], **sig, "source": cleaned["source"], "when_utc": utc_now()},
+        base,
+    )
+
+    telemetry.emit(
+        "acquisition_target_detected",
+        target_id=target["target_id"],
+        lead_id=lead.lead_id,
+        metadata=target,
+        base=base,
+    )
+    telemetry.emit(
+        "acquisition_signal_detected",
+        target_id=target["target_id"],
+        metadata=sig,
+        base=base,
+    )
+    telemetry.emit(
+        "acquisition_message_sent",
+        target_id=target["target_id"],
+        success=False,
+        message="draft_only",
+        metadata=msg,
+        base=base,
+    )
+
+    return {"ok": True, "target": target, "lead": lead.to_dict()}
 
 
 def ingest_public_signal(
@@ -66,22 +241,18 @@ def ingest_public_signal(
     routes = routing.build_upload_route(lead_id=lead_id, segment=segment)
     lead = routing.route_lead(lead)
 
-    target = {
-        "target_id": target_id,
-        "lead_id": lead_id,
-        "company_name": lead.company_name,
-        "source": source,
-        "source_url": source_url,
-        "signal_level": sig["signal_level"],
-        "signal_bundle": sig,
-        "qualification": qual,
-        "fit_score": lead.fit_score,
-        "priority_score": lead.acquisition_priority_score,
-        "routed_url": routes["primary_url"],
-        "message_preview": msg,
-        "status": "discovered",
-        "when_utc": utc_now(),
-    }
+    target = format_target_for_panel(
+        lead,
+        sig,
+        qual,
+        msg,
+        source=source,
+        source_url=source_url,
+        target_id=target_id,
+    )
+    target["status"] = "discovered"
+    target["routed_url"] = routes["primary_url"]
+    target["route_url"] = routes["primary_url"]
     _append_intel(TARGETS_JSONL, target, base)
     _append_intel(SIGNALS_JSONL, {"target_id": target_id, **sig, "source": source, "when_utc": utc_now()}, base)
 
@@ -96,6 +267,8 @@ def run_acquisition_cycle(
     *,
     import_csv: Optional[Path] = None,
     run_finder: bool = False,
+    run_live_connector: bool = False,
+    connector: str = "usaspending",
     campaign_id: str = "upload-first",
     message_variant: str = "A",
     base: Optional[Path] = None,
@@ -106,8 +279,37 @@ def run_acquisition_cycle(
 
     if import_csv and Path(import_csv).is_file():
         run_csv_import(import_csv)
-    if run_finder:
+    live_ran = False
+    if run_live_connector and connector == "usaspending":
+        from .connectors.usaspending_live import run_usaspending_live_connector
+
+        live = run_usaspending_live_connector(
+            campaign_id=campaign_id,
+            message_variant=message_variant,
+            base=base,
+        )
+        stats["live_connector"] = live
+        stats["targets_created"] += live.get("targets_created", 0)
+        live_ran = True
+    elif run_finder:
         run_finder_discovery()
+
+    if live_ran:
+        _append_intel(
+            CAMPAIGNS_JSONL,
+            {
+                "campaign_id": campaign_id,
+                "variant": message_variant,
+                "when_utc": utc_now(),
+                "targets": stats["targets_created"],
+                "connector": "usaspending_live",
+                "doctrine": "upload_first",
+            },
+            base,
+        )
+        learning.run_learning_cycle(base)
+        telemetry.emit("acquisition_learning", metadata=stats, base=base)
+        return {"ok": True, **stats}
 
     leads, _by_key = load_all_leads()
     stats["leads_processed"] = len(leads)
@@ -119,20 +321,14 @@ def run_acquisition_cycle(
         lead = routing.route_lead(lead, campaign_id=campaign_id, variant=message_variant)
         msg = messaging.generate_message(lead, variant=message_variant)
 
-        target_id = f"TGT-{lead.lead_id}"
-        target = {
-            "target_id": target_id,
-            "lead_id": lead.lead_id,
-            "company_name": lead.company_name,
-            "signal_level": sig["signal_level"],
-            "qualification": qual,
-            "fit_score": lead.fit_score,
-            "priority_score": lead.acquisition_priority_score,
-            "routed_url": lead.inquiry_routed_link,
-            "message_preview": msg,
-            "status": lead.status,
-            "when_utc": utc_now(),
-        }
+        target = format_target_for_panel(
+            lead,
+            sig,
+            qual,
+            msg,
+            source=lead.source,
+            source_url=lead.source_url,
+        )
         _append_intel(TARGETS_JSONL, target, base)
         stats["targets_created"] += 1
         if lead.acquisition_priority_score >= 75:
@@ -237,6 +433,7 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
             "success_metric": "real_paperwork_submitted",
         },
         "hottest_targets": hottest,
+        "live_connectors": [{"id": "usaspending_live", "status": "active", "lawful": True}],
         "upload_conversion": conv,
         "best_channels": [{"channel": k, "targets": v} for k, v in best_channels],
         "active_experiments": [e for e in experiments if e.get("status") == "active"],
