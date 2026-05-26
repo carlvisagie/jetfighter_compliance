@@ -301,11 +301,12 @@ def safe_link_ledger_event(
     name: str = "",
     event_type: str = "ATTEST",
     why: str = "",
+    entity_id: Optional[str] = None,
     base: Optional[Path] = None,
 ) -> None:
     """Link ORDER/ATTEST ledger events into central memory after kickoff."""
     try:
-        eid = find_entity_id(project_id=project_id, email=email, company=name, base=base)
+        eid = entity_id or find_entity_id(project_id=project_id, email=email, company=name, base=base)
         if not eid and email:
             eid = resolve_or_create_entity(
                 email=email,

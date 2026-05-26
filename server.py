@@ -1,4 +1,4 @@
-
+﻿
 import logging, json
 from pathlib import Path
 from datetime import datetime, timezone
@@ -213,6 +213,22 @@ def kickoff(order_id: str, email: str, name: str, skus: list):
         intake_url = f"{base}/ui/intake.html?token={token}"
         upload_url = f"{base}/upload?project_id={existing}&token={token}"
         cont = build_continuation_bundle(existing, email)
+        evt_id = f"EVT-{existing}-ORDER"
+        try:
+            from services.memory import safe_link_after_kickoff, safe_link_ledger_event
+
+            eid = safe_link_after_kickoff(existing, order_id, email, name, skus)
+            safe_link_ledger_event(
+                evt_id,
+                existing,
+                email=email,
+                name=name,
+                event_type="ATTEST",
+                why="Onboarding resumed; project exists",
+                entity_id=eid,
+            )
+        except Exception as e:
+            logging.warning("Central memory link (existing kickoff) failed for %s: %s", existing, e)
         return {
             "ok": True,
             "project_id": existing,
@@ -257,10 +273,16 @@ def kickoff(order_id: str, email: str, name: str, skus: list):
         "prev_hash": "GENESIS",
         "hash": "temp"
     })
+    eid = None
     try:
-        from services.memory import safe_link_after_kickoff, safe_link_ledger_event
+        from services.memory import safe_link_after_kickoff
 
-        safe_link_after_kickoff(meta["project_id"], order_id, email, name, skus)
+        eid = safe_link_after_kickoff(meta["project_id"], order_id, email, name, skus)
+    except Exception as e:
+        logging.warning("Central memory kickoff link failed for %s: %s", meta["project_id"], e)
+    try:
+        from services.memory import safe_link_ledger_event
+
         safe_link_ledger_event(
             evt_id,
             meta["project_id"],
@@ -268,9 +290,10 @@ def kickoff(order_id: str, email: str, name: str, skus: list):
             name=name,
             event_type="ATTEST",
             why="Onboarding started; project created",
+            entity_id=eid,
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logging.warning("Central memory ledger link failed for %s: %s", meta["project_id"], e)
     return {
         "ok": True,
         "project_id": meta["project_id"],
@@ -639,7 +662,8 @@ def operator_customer_friction():
 
 # ---------- Chain of Custody / Evidence (with schema validation) ----------
 @app.post("/api/coc/event")
-async def coc_event(event: dict):
+async def coc_event(request: Request, event: dict):
+    require_ops_access(request)
     # Normalize: add defaults so callers don't need to supply crypto fields
     norm = dict(event)
     norm.setdefault("prev_hash", "GENESIS")
