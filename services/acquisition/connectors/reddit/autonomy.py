@@ -185,7 +185,7 @@ def decide_engagement(
     if stage == "assist_route":
         follow_up_h = 72
 
-    return _plan(
+    plan = _plan(
         stage=stage,
         safety=safety,
         link_in_public_reply=(stage == "assist_route"),
@@ -198,6 +198,12 @@ def decide_engagement(
         engagement_before_route=engagement_before_route,
         organism_confidence=min(95, (fit + safety["safety_score"]) // 2),
     )
+    try:
+        from ...social_intelligence import enrich_engagement_plan
+
+        return enrich_engagement_plan(plan, post, classification, qualification, state=state)
+    except Exception:
+        return plan
 
 
 def _pick_wording_variant(state: Dict[str, Any], burden: int, emotional: int) -> str:

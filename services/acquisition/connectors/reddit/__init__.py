@@ -112,6 +112,19 @@ def run_reddit_acquisition_cycle(
         cls = classifier.classify_post(post.get("title", ""), post.get("selftext", ""))
         qual = qualification.qualify_post(post, cls)
         plan = autonomy.decide_engagement(post, cls, qual, state=state)
+        if plan.get("social_intelligence"):
+            telemetry.emit(
+                "trust_progression",
+                post_id=post.get("post_id", ""),
+                subreddit=post.get("subreddit", ""),
+                metadata={
+                    "relationship_state": plan.get("relationship_state"),
+                    "trust_score": plan.get("trust_score"),
+                    "engagement_strategy": plan.get("engagement_strategy"),
+                    "link_allowed": (plan.get("social_intelligence") or {}).get("link_allowed"),
+                },
+                base=base,
+            )
 
         telemetry.emit(
             "intent_classified",
@@ -167,6 +180,22 @@ def run_reddit_acquisition_cycle(
         draft = draft_generation.generate_draft_reply(
             post, cls, routes["primary_url"], variant=variant, plan=plan
         )
+        try:
+            from ...social_intelligence import conversational_memory, record_engagement_outcome
+
+            conversational_memory.record_engagement(
+                post_id=post["post_id"],
+                subreddit=post.get("subreddit", ""),
+                author=post.get("author", ""),
+                outcome="drafted",
+                phrasing=draft.get("public_reply_text", ""),
+                relationship_state=plan.get("relationship_state", ""),
+                trust_score=int(plan.get("trust_score", 0)),
+                strategy=plan.get("engagement_strategy", ""),
+                base=base,
+            )
+        except Exception:
+            pass
 
         opportunity_id = f"RDT-{uuid.uuid4().hex[:10]}"
         record = {
@@ -189,6 +218,11 @@ def run_reddit_acquisition_cycle(
             "recommended_action": cls.get("recommended_action"),
             "intent_badges": cls.get("intent_badges", []),
             "urgency_score": cls.get("urgency_score", 0),
+            "relationship_state": plan.get("relationship_state"),
+            "relationship_stage": plan.get("relationship_stage"),
+            "trust_score": plan.get("trust_score"),
+            "engagement_strategy": plan.get("engagement_strategy"),
+            "social_intelligence": plan.get("social_intelligence"),
             "draft_reply": draft,
             "route_url": routes["primary_url"],
             "lead_id": lead_id,
@@ -278,6 +312,18 @@ def approve_draft(
             base=base,
         )
     telemetry.emit("reddit_reply_approved", post_id=post_id, metadata={"manual_post_only": True}, base=base)
+    try:
+        from ...social_intelligence import record_engagement_outcome
+
+        record_engagement_outcome(
+            "operator_approved",
+            post={"post_id": post_id, "subreddit": rec.get("subreddit", ""), "author": ""},
+            plan=rec.get("organism_plan"),
+            phrasing=(draft.get("public_reply_text") or ""),
+            base=base,
+        )
+    except Exception:
+        pass
     return {
         "ok": True,
         "approved": rec,
@@ -313,6 +359,17 @@ def deny_draft(post_id: str, reason: str = "operator_denied", base: Optional[Pat
             telemetry.emit("intent_false_positive", post_id=post_id, metadata=meta, base=base)
     learning.record_outcome("operator_denied", post_id=post_id, subreddit=sub, metadata=meta, base=base)
     telemetry.emit("reddit_post_ignored", post_id=post_id, metadata={"reason": reason}, base=base)
+    try:
+        from ...social_intelligence import record_engagement_outcome
+
+        record_engagement_outcome(
+            "operator_denied",
+            post={"post_id": post_id, "subreddit": sub},
+            plan=match.get("organism_plan") if match else None,
+            base=base,
+        )
+    except Exception:
+        pass
     return {"ok": True, "denied": True}
 
 
@@ -370,6 +427,9 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
                 "advice_giver_score": o.get("advice_giver_score"),
                 "recommended_action": o.get("recommended_action"),
                 "intent_badges": o.get("intent_badges", []),
+                "relationship_state": o.get("relationship_state"),
+                "trust_score": o.get("trust_score"),
+                "engagement_strategy": o.get("engagement_strategy"),
                 "organism_rationale": (o.get("organism_plan") or {}).get("rationale", ""),
                 "engagement_stage": (o.get("organism_plan") or {}).get("engagement_stage", ""),
                 "organism_confidence": (o.get("organism_plan") or {}).get("organism_confidence", 0),

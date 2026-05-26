@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from ...social_intelligence import emotional_resonance, etiquette
+
 FORBIDDEN_PHRASES = (
     "guaranteed certification",
     "you will pass",
@@ -49,29 +51,46 @@ def generate_draft_reply(
     opener_idx = hash(post.get("post_id", "")) % len(OPENERS)
     opener = OPENERS[opener_idx]
 
-    empathy = ""
-    if "overwhelm" in (classification.get("emotional_tags") or []):
-        empathy = "That overwhelmed feeling is really common with compliance paperwork. "
-    elif "confusion" in (classification.get("emotional_tags") or []):
-        empathy = "CMMC/DFARS/NIST language can feel like a wall of requirements. "
-    elif themes:
-        empathy = "A lot of small suppliers hit the same paperwork bottleneck. "
+    strategy = plan.get("engagement_strategy") or (plan.get("social_intelligence") or {}).get(
+        "engagement_strategy", "helpful_clarification"
+    )
+    guidance = emotional_resonance.build_reply_guidance(classification, strategy)
+    empathy = guidance.get("empathy_prefix", "")
+    if not empathy:
+        if "overwhelm" in (classification.get("emotional_tags") or []):
+            empathy = "That overwhelmed feeling is really common with compliance paperwork. "
+        elif "confusion" in (classification.get("emotional_tags") or []):
+            empathy = "CMMC/DFARS/NIST language can feel like a wall of requirements. "
+        elif themes:
+            empathy = "A lot of small suppliers hit the same paperwork bottleneck. "
 
     include_link = bool(plan.get("link_in_public_reply"))
     stage = plan.get("engagement_stage", "assist_soft")
 
-    if stage == "empathize_only" or not include_link:
+    social = plan.get("social_intelligence") or {}
+    if strategy == "practical_checklist":
+        checklist = (
+            "A practical starting point: list what the customer or prime already asked for, "
+            "gather whatever policies/screenshots you have (even messy), and note gaps — "
+            "you do not need a perfect SSP on day one."
+        )
+        public_body = f"{empathy}{checklist}".strip()
+    elif stage == "empathize_only" or not include_link:
         closer = CLOSERS_SOFT[0 if variant == "A" else 1]
         public_body = f"{empathy}{opener} {closer}".strip()
     else:
         closer = CLOSERS_ROUTE[0 if variant == "A" else 1]
         public_body = f"{empathy}{opener} {closer}".strip()
-        if include_link and route_url:
+        if include_link and route_url and social.get("link_allowed", include_link):
             public_body += f"\n\n{route_url}"
 
+    fallback = f"{OPENERS[0]} {CLOSERS_SOFT[0]}"
     for bad in FORBIDDEN_PHRASES:
         if bad in public_body.lower():
-            public_body = f"{OPENERS[0]} {CLOSERS_SOFT[0]}"
+            public_body = fallback
+    if conversational_memory_repetitive(public_body, post.get("subreddit", "")):
+        public_body = fallback
+    public_body = etiquette.sanitize_reply(public_body, fallback)
 
     return {
         "variant": variant,
@@ -85,5 +104,16 @@ def generate_draft_reply(
         "requires_operator_approval": True,
         "context_post_title": title,
         "forbidden_auto_post": True,
-        "link_in_public_reply": include_link,
+        "link_in_public_reply": include_link and bool((plan.get("social_intelligence") or {}).get("link_allowed", include_link)),
+        "social_tone": guidance.get("tone", "helpful_peer"),
+        "engagement_strategy": strategy,
     }
+
+
+def conversational_memory_repetitive(text: str, subreddit: str) -> bool:
+    try:
+        from ...social_intelligence.conversational_memory import is_repetitive_phrasing
+
+        return is_repetitive_phrasing(text, subreddit)
+    except Exception:
+        return False
