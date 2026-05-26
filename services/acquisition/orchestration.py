@@ -433,7 +433,10 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
             "success_metric": "real_paperwork_submitted",
         },
         "hottest_targets": hottest,
-        "live_connectors": [{"id": "usaspending_live", "status": "active", "lawful": True}],
+        "live_connectors": [
+            {"id": "usaspending_live", "status": "active", "lawful": True},
+            {"id": "reddit_live", "status": "active", "lawful": True, "operator_review": True, "auto_post": False},
+        ],
         "upload_conversion": conv,
         "best_channels": [{"channel": k, "targets": v} for k, v in best_channels],
         "active_experiments": [e for e in experiments if e.get("status") == "active"],

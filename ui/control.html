@@ -99,6 +99,15 @@
           </div>
           <div id="acquisition-intelligence-insights"><p class="kyc-loading">Loading acquisition intelligence…</p></div>
         </article>
+        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="reddit-acquisition-panel">
+          <span class="kyc-label-overline">Reddit acquisition intelligence</span>
+          <h3 style="margin-top:0;">Reddit Acquisition Intelligence</h3>
+          <p class="org-metric-foot">Burden detection from public Reddit discussions. Operator-reviewed drafts only — never auto-posted. Success = real paperwork submitted.</p>
+          <div class="kyc-btn-row" style="margin-bottom:0.75rem;">
+            <button type="button" class="btn secondary" id="redditIntelRunBtn">Run Reddit discovery</button>
+          </div>
+          <div id="reddit-acquisition-insights"><p class="kyc-loading">Loading Reddit acquisition intelligence…</p></div>
+        </article>
         <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="compliance-intelligence-panel">
           <span class="kyc-label-overline">Compliance intelligence</span>
           <h3 style="margin-top:0;">Compliance Intelligence Watch</h3>
@@ -303,6 +312,7 @@
       loadCustomerFriction(),
       loadEvidenceIntelligence(pid),
       loadAcquisitionIntelligence(),
+      loadRedditAcquisitionIntelligence(),
       loadComplianceIntelligence(),
     ]);
   }
@@ -343,6 +353,58 @@
       el.innerHTML = '<p class="org-metric-foot">Acquisition intelligence unavailable.</p>';
     }
   }
+  async function loadRedditAcquisitionIntelligence() {
+    const el = document.getElementById('reddit-acquisition-insights');
+    if (!el) return;
+    try {
+      const j = await api('/api/operator/reddit-acquisition');
+      const conv = j.upload_conversion || {};
+      const pending = (j.pending_opportunities || []).slice(0, 8);
+      let html =
+        '<p class="org-metric-foot"><strong>Doctrine:</strong> ' + escapeHtml((j.doctrine && j.doctrine.message) || '') +
+        ' · Auto-post: <strong>' + (j.safety && j.safety.auto_post === false ? 'disabled' : 'review') + '</strong></p>' +
+        '<ul class="guidance-list">' +
+        '<li><strong>Upload conversion:</strong> ' + ((conv.rate || 0) * 100).toFixed(1) + '% (' + (conv.completed || 0) + '/' + (conv.started || 0) + ')</li>' +
+        '<li><strong>Success metric:</strong> ' + escapeHtml((j.doctrine && j.doctrine.success_metric) || 'real_paperwork_submitted') + '</li>' +
+        '<li><strong>Ignored (recent):</strong> ' + (j.ignored_count || 0) + '</li>' +
+        '</ul>';
+      if (pending.length) {
+        html += '<p class="org-metric-foot"><strong>Discovered opportunities (review drafts):</strong></p><ul class="guidance-list">';
+        pending.forEach(function (o) {
+          const draft = o.draft_reply || {};
+          html += '<li style="margin-bottom:0.75rem;"><strong>r/' + escapeHtml(o.subreddit || '') + '</strong> · burden ' + (o.burden_score || 0) + ' · fit ' + (o.fit_score || 0) + '<br>' +
+            escapeHtml((o.title || '').slice(0, 120)) + '<br>' +
+            '<em>' + escapeHtml(draft.headline || '') + '</em><br>' +
+            escapeHtml((draft.body || '').slice(0, 200)) + '…<br>' +
+            (o.url ? '<a href="' + escapeHtml(o.url) + '" target="_blank" rel="noopener">View post</a> · ' : '') +
+            (o.route_url ? '<a href="' + escapeHtml(o.route_url) + '" target="_blank" rel="noopener">Upload-first route</a>' : '') +
+            '</li>';
+        });
+        html += '</ul>';
+      }
+      const pains = j.top_pain_signals || [];
+      if (pains.length) {
+        html += '<p class="org-metric-foot"><strong>Top pain signals:</strong> ' + pains.slice(0, 5).map(function (p) { return escapeHtml(p[0]); }).join(', ') + '</p>';
+      }
+      el.innerHTML = html;
+    } catch (e) {
+      el.innerHTML = '<p class="org-metric-foot">Reddit acquisition intelligence unavailable.</p>';
+    }
+  }
+  document.getElementById('redditIntelRunBtn')?.addEventListener('click', async function () {
+    const el = document.getElementById('reddit-acquisition-insights');
+    if (el) el.innerHTML = '<p class="kyc-loading">Running Reddit discovery…</p>';
+    try {
+      await api('/api/operator/reddit-acquisition/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ max_posts: 15, min_fit_score: 40, pause_seconds: 0, campaign_id: 'reddit-upload-first' }),
+      });
+      await loadRedditAcquisitionIntelligence();
+    } catch (e) {
+      if (el) el.innerHTML = '<p class="org-metric-foot">Reddit discovery failed.</p>';
+    }
+  });
   document.getElementById('acquisitionIntelRunBtn')?.addEventListener('click', async function () {
     const el = document.getElementById('acquisition-intelligence-insights');
     if (el) el.innerHTML = '<p class="kyc-loading">Running acquisition cycle…</p>';

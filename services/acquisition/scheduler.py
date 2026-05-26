@@ -50,3 +50,9 @@ def register_scheduler_jobs(scheduler) -> None:
         )
     except Exception:
         pass
+    try:
+        from .connectors.reddit.scheduler import register_scheduler_jobs as register_reddit_jobs
+
+        register_reddit_jobs(scheduler)
+    except Exception:
+        pass

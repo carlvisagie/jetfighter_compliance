@@ -1117,6 +1117,19 @@ async def operator_acquisition_intelligence_run(body: dict = Body(default={})):
             message_variant=str(body.get("message_variant") or "A"),
             min_fit_score=int(body.get("min_fit_score") or 50),
         )
+    if body.get("connector") == "reddit" or body.get("run_reddit_connector"):
+        from services.acquisition.connectors.reddit import run_reddit_acquisition_cycle
+
+        return run_reddit_acquisition_cycle(
+            queries=body.get("queries"),
+            subreddits=body.get("subreddits"),
+            limit_per_query=int(body.get("limit_per_query") or 8),
+            max_posts=int(body.get("max_posts") or 25),
+            min_fit_score=int(body.get("min_fit_score") or 50),
+            campaign_id=str(body.get("campaign_id") or "reddit-upload-first"),
+            message_variant=str(body.get("message_variant") or "A"),
+            pause_seconds=float(body.get("pause_seconds") or 0),
+        )
     return run_acquisition_cycle(
         run_finder=bool(body.get("run_finder")),
         run_live_connector=bool(body.get("run_live_connector")),
@@ -1124,6 +1137,49 @@ async def operator_acquisition_intelligence_run(body: dict = Body(default={})):
         campaign_id=str(body.get("campaign_id") or "upload-first"),
         message_variant=str(body.get("message_variant") or "A"),
     )
+
+
+@app.get("/api/operator/reddit-acquisition")
+def operator_reddit_acquisition():
+    from services.acquisition.connectors.reddit import get_operator_dashboard
+
+    return get_operator_dashboard()
+
+
+@app.post("/api/operator/reddit-acquisition/run")
+async def operator_reddit_acquisition_run(body: dict = Body(default={})):
+    from services.acquisition.connectors.reddit import run_reddit_acquisition_cycle
+
+    return run_reddit_acquisition_cycle(
+        queries=body.get("queries"),
+        subreddits=body.get("subreddits"),
+        limit_per_query=int(body.get("limit_per_query") or 8),
+        max_posts=int(body.get("max_posts") or 25),
+        min_fit_score=int(body.get("min_fit_score") or 50),
+        campaign_id=str(body.get("campaign_id") or "reddit-upload-first"),
+        message_variant=str(body.get("message_variant") or "A"),
+        pause_seconds=float(body.get("pause_seconds") or 0),
+    )
+
+
+@app.post("/api/operator/reddit-acquisition/approve")
+async def operator_reddit_acquisition_approve(body: dict = Body(default={})):
+    from services.acquisition.connectors.reddit import approve_draft
+
+    post_id = str(body.get("post_id") or "").strip()
+    if not post_id:
+        return {"ok": False, "detail": "post_id required"}
+    return approve_draft(post_id, operator_note=str(body.get("operator_note") or ""))
+
+
+@app.post("/api/operator/reddit-acquisition/ignore")
+async def operator_reddit_acquisition_ignore(body: dict = Body(default={})):
+    from services.acquisition.connectors.reddit import ignore_post
+
+    post_id = str(body.get("post_id") or "").strip()
+    if not post_id:
+        return {"ok": False, "detail": "post_id required"}
+    return ignore_post(post_id, reason=str(body.get("reason") or "operator_ignored"))
 
 
 @app.get("/api/operator/compliance-intelligence")
