@@ -1,21 +1,31 @@
-/* Customer Friction Elimination Layer v1 — mobile-first, low-stress onboarding */
+/* Customer Friction Elimination Layer — mobile-first, low-stress onboarding */
 
 .kyc-friction .kyc-upload-inbox {
-  border: 2px dashed var(--kyc-border, #c5d4e8);
+  border: 2px dashed var(--kyc-border, #c5d0e0);
   border-radius: 12px;
-  padding: 1.5rem;
+  padding: 2rem 1.25rem;
   text-align: center;
-  background: var(--kyc-surface-alt, #f8fafc);
-  min-height: 140px;
-  touch-action: manipulation;
+  background: var(--kyc-surface-muted, #f8fafc);
+  transition: border-color 0.2s, background 0.2s;
 }
 
-.kyc-friction .kyc-upload-inbox.is-dragover {
+.kyc-friction .kyc-upload-inbox.kyc-drag-over {
   border-color: var(--kyc-accent, #2563eb);
   background: #eff6ff;
 }
 
-.kyc-friction .kyc-upload-inbox input[type="file"] {
+.kyc-friction .kyc-upload-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  min-width: 140px;
+  margin: 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.kyc-friction .kyc-upload-trigger input[type="file"] {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -23,91 +33,148 @@
   overflow: hidden;
 }
 
-.kyc-friction .kyc-upload-trigger {
-  display: inline-block;
-  min-height: 48px;
-  min-width: 200px;
-  padding: 0.85rem 1.25rem;
-  font-size: 1.05rem;
-  cursor: pointer;
-}
-
 .kyc-friction .kyc-upload-camera {
-  margin-top: 0.75rem;
+  display: block;
+  margin: 0.75rem auto 0;
 }
 
-.kyc-friction .kyc-progress-list {
-  list-style: none;
-  padding: 0;
-  margin: 1rem 0 0;
-}
-
-.kyc-friction .kyc-progress-list li {
-  padding: 0.5rem 0;
-  border-bottom: 1px solid #e2e8f0;
-  font-size: 0.95rem;
-}
-
-.kyc-friction .kyc-momentum {
-  height: 8px;
+.kyc-momentum {
+  height: 6px;
   background: #e2e8f0;
   border-radius: 999px;
   overflow: hidden;
   margin: 1rem 0;
 }
 
-.kyc-friction .kyc-momentum-fill {
+.kyc-momentum-fill {
   height: 100%;
-  background: linear-gradient(90deg, #22c55e, #2563eb);
   width: 0%;
+  background: linear-gradient(90deg, #22c55e, #2563eb);
+  border-radius: 999px;
   transition: width 0.4s ease;
 }
 
-.kyc-friction .kyc-guidance-panel {
-  margin-top: 1.25rem;
+.kyc-progress-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+}
+
+.kyc-progress-list li {
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 0.35rem;
+  font-size: 0.95rem;
+  background: #f1f5f9;
+}
+
+.kyc-progress-list li.kyc-upload-done {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.kyc-progress-list li.kyc-upload-err {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.kyc-qr-block {
+  text-align: center;
   padding: 1rem;
-  border-radius: 10px;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.kyc-qr-block img {
+  max-width: 200px;
+  height: auto;
+  margin: 0.5rem auto;
+  display: block;
+}
+
+.kyc-guidance {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border-radius: 12px;
   background: #f0fdf4;
   border: 1px solid #bbf7d0;
 }
 
-.kyc-friction .kyc-guidance-panel h3 {
+.kyc-guidance h3 {
   margin: 0 0 0.5rem;
-  font-size: 1.1rem;
+  font-size: 1.15rem;
 }
 
-.kyc-friction .kyc-missing-item {
-  margin: 0.75rem 0;
-  padding: 0.75rem;
-  background: #fff;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
+.kyc-guidance-missing {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
 }
 
-.kyc-friction .kyc-help-actions {
+.kyc-guidance-missing li {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #dcfce7;
+}
+
+.kyc-guidance-missing li:last-child {
+  border-bottom: none;
+}
+
+.kyc-help-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.5rem;
 }
 
-.kyc-friction .kyc-help-actions button {
+.kyc-help-actions button {
   min-height: 44px;
   padding: 0.5rem 0.85rem;
   font-size: 0.9rem;
+  border-radius: 8px;
+  border: 1px solid #94a3b8;
+  background: #fff;
+  cursor: pointer;
 }
 
-.kyc-friction .kyc-retrieval-steps {
-  margin: 0.5rem 0 0 1.1rem;
+.kyc-help-actions button:hover {
+  background: #f1f5f9;
+}
+
+.kyc-help-panel {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: #fff;
+  border-radius: 8px;
   font-size: 0.9rem;
+  text-align: left;
 }
 
-@media (max-width: 640px) {
-  .kyc-friction .kyc-btn--block {
-    min-height: 52px;
-    font-size: 1.1rem;
+.kyc-continue-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.kyc-continue-actions .kyc-btn {
+  min-height: 52px;
+  font-size: 1.05rem;
+}
+
+@media (min-width: 640px) {
+  .kyc-continue-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
   }
+}
+
+@media (max-width: 480px) {
   .kyc-friction .kyc-upload-inbox {
-    padding: 1.25rem 1rem;
+    padding: 1.5rem 1rem;
+  }
+  .kyc-friction .kyc-upload-trigger {
+    width: 100%;
+    margin: 0.35rem 0;
   }
 }

@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
   <link rel="stylesheet" href="/ui/assets/styles/layout.css">
   <link rel="stylesheet" href="/ui/assets/styles/components.css">
+  <link rel="stylesheet" href="/ui/assets/styles/customer-friction.css">
 </head>
 <body class="kyc-page">
   <header class="kyc-topbar">
@@ -91,9 +92,26 @@
     const j = await r.json();
     if (j.ok) {
       m.className = 'kyc-status kyc-status--ok';
-      m.textContent = j.intake_url
-        ? 'Thanks — check your email for intake, or open: ' + j.intake_url
-        : 'Thanks — message received.';
+      let msg = 'Thanks — you are set up. ';
+      if (j.continuation_url) {
+        msg += 'Save this link to continue anytime (no password): ';
+        const a = document.createElement('a');
+        a.href = j.continuation_url;
+        a.textContent = 'Continue later';
+        m.textContent = msg;
+        m.appendChild(a);
+        if (j.intake_url) {
+          m.appendChild(document.createTextNode(' · Or start intake now: '));
+          const b = document.createElement('a');
+          b.href = j.intake_url;
+          b.textContent = 'Open intake';
+          m.appendChild(b);
+        }
+      } else if (j.intake_url) {
+        m.textContent = msg + 'Open intake: ' + j.intake_url;
+      } else {
+        m.textContent = msg + 'Message received.';
+      }
       f.reset();
     } else {
       m.className = 'kyc-status kyc-status--error';

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KeepYourContracts | Continue onboarding</title>
+  <title>KeepYourContracts | Continue where you left off</title>
   <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
   <link rel="stylesheet" href="/ui/assets/styles/layout.css">
   <link rel="stylesheet" href="/ui/assets/styles/components.css">
@@ -12,30 +12,36 @@
 <body class="kyc-page kyc-friction">
   <header class="kyc-topbar">
     <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
+    <nav class="kyc-nav" aria-label="Primary">
+      <a href="/ui/shop.html">Services</a>
+      <a href="/ui/inquiry.html">Contact</a>
+    </nav>
   </header>
+
   <main class="kyc-main kyc-main--narrow">
     <section class="kyc-hero">
-      <span class="kyc-badge kyc-badge--success">Magic link</span>
-      <h1 id="headline">Welcome back</h1>
-      <p id="subline">Picking up right where you left off…</p>
+      <span class="kyc-badge kyc-badge--success">Your secure link</span>
+      <h1 id="continueHeadline">Continue where you left off</h1>
+      <p id="continueSubline">No password needed — pick up intake or upload anytime.</p>
     </section>
+
     <div class="kyc-momentum" id="momentumBar" hidden>
       <div class="kyc-momentum-fill" id="momentumFill"></div>
     </div>
-    <article class="kyc-card kyc-card--flat" id="resumeCard">
-      <p class="kyc-status" id="status">Loading your progress…</p>
-      <div class="kyc-qr-block" id="qrBlock" hidden>
-        <h3>Continue on your phone</h3>
-        <p>Scan to open this step on mobile — no password needed.</p>
-        <img id="qrImg" alt="QR code to continue onboarding" width="200" height="200">
-      </div>
-      <a class="kyc-btn kyc-btn--primary kyc-btn--block" id="continueBtn" href="#" hidden>Continue</a>
-    </article>
+
+    <div id="continueRoot">
+      <p class="kyc-loading">Loading your progress…</p>
+    </div>
   </main>
-  <footer class="kyc-footer">KeepYourContracts.com</footer>
+
+  <footer class="kyc-footer">KeepYourContracts.com · Private and secure</footer>
+
   <script src="/ui/assets/js/customer-friction.js"></script>
   <script>
-    KYCFriction.initContinuePage();
+  (function () {
+    const token = new URLSearchParams(location.search).get("token") || "";
+    if (window.KYCFriction) KYCFriction.initContinuePage(token);
+  })();
   </script>
 </body>
 </html>

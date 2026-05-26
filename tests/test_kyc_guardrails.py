@@ -29,6 +29,7 @@ PUBLIC_HTML_FILES = [
     "inquiry.html",
     "intake.html",
     "upload.html",
+    "continue.html",
     "index.html",
     "vendor_quote.html",
 ]

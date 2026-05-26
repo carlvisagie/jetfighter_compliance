@@ -15,6 +15,7 @@ PUBLIC_PAGES = [
     "/ui/inquiry.html",
     "/ui/intake.html",
     "/ui/upload.html",
+    "/ui/continue.html",
     "/ui/index.html",
     "/ui/vendor_quote.html",
 ]
@@ -153,6 +154,7 @@ def test_public_pages_list_is_complete_vs_customer_html() -> None:
         "inquiry.html",
         "intake.html",
         "upload.html",
+        "continue.html",
         "index.html",
         "vendor_quote.html",
     }

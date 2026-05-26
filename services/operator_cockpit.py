@@ -230,6 +230,20 @@ def build_cockpit(project_id: str = "", mode: str = "") -> Dict[str, Any]:
 
     knowledge_topics = topics_for_phase(learn_phase)
 
+    customer_links: Dict[str, Any] = {}
+    if pid and customer.get("email"):
+        try:
+            from services.customer_friction import get_or_issue_continuation, qr_url_for_project
+
+            cont = get_or_issue_continuation(pid, customer.get("email", ""))
+            customer_links = {
+                "continuation_url": cont["continuation_url"],
+                "upload_url": qr_url_for_project(pid, customer.get("email", ""), page="upload"),
+                "qr_continue": f"/api/customer/qr.svg?data={cont['continuation_url']}",
+            }
+        except Exception:
+            pass
+
     return {
         "project_id": pid or None,
         "customer_label": customer_label,
@@ -248,4 +262,5 @@ def build_cockpit(project_id: str = "", mode: str = "") -> Dict[str, Any]:
             "export": f"/api/project/{pid}/export" if pid else None,
             "advance_hint": "POST /api/project/{id}/advance with step_id" if pid else None,
         },
+        "customer_links": customer_links,
     }

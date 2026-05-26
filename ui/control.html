@@ -59,10 +59,6 @@
           <span class="kyc-label-overline">Attention radar</span>
           <div data-guidance="attention"><p class="kyc-loading">Scanning…</p></div>
         </article>
-        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;">
-          <span class="kyc-label-overline">Customer friction</span>
-          <div data-guidance="customer-friction"><p class="kyc-loading">Loading onboarding friction signals…</p></div>
-        </article>
         <article class="guidance-panel">
           <span class="kyc-label-overline">Organism state</span>
           <span class="kyc-pill" id="guidance-state-badge">—</span>
@@ -82,6 +78,11 @@
         <article class="guidance-panel org-card--wide" style="grid-column:1/-1;">
           <span class="kyc-label-overline">Learn this now</span>
           <div data-guidance="learn"><p class="kyc-loading">Contextual learning…</p></div>
+        </article>
+        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="customer-friction-panel">
+          <span class="kyc-label-overline">Customer friction</span>
+          <h3 style="margin-top:0;">Onboarding &amp; upload experience</h3>
+          <div id="customer-friction-insights"><p class="kyc-loading">Loading friction insights…</p></div>
         </article>
       </div>
 
@@ -275,9 +276,36 @@
     await Promise.all([
       refreshOrganism(),
       OperatorGuidance.refreshGuidance(root, pid, mode),
+      loadCustomerFriction(),
     ]);
   }
   document.getElementById('orgRefresh').addEventListener('click', refreshAll);
+  async function loadCustomerFriction() {
+    const el = document.getElementById('customer-friction-insights');
+    if (!el) return;
+    try {
+      const j = await api('/api/operator/customer-friction');
+      const ab = j.abandonment_by_step || {};
+      const abRows = Object.keys(ab).length
+        ? Object.entries(ab).map(([k, v]) => '<li>' + k + ': ' + v + '</li>').join('')
+        : '<li>None in window</li>';
+      const ex = (j.top_example_items || []).map(([k, v]) => k + ' (' + v + ')').join(', ') || '—';
+      const help = (j.top_help_items || []).map(([k, v]) => k + ' (' + v + ')').join(', ') || '—';
+      el.innerHTML =
+        '<ul class="guidance-list">' +
+        '<li><strong>Continuation opened:</strong> ' + (j.continuation_opened || 0) + '</li>' +
+        '<li><strong>Continuation completed:</strong> ' + (j.continuation_completed || 0) +
+        (j.continuation_recovery_rate_pct != null ? ' (' + j.continuation_recovery_rate_pct + '% recovery)' : '') + '</li>' +
+        '<li><strong>Uploads completed:</strong> ' + (j.upload_completed || 0) + '</li>' +
+        '<li><strong>Mobile share:</strong> ' + (j.mobile_share_pct != null ? j.mobile_share_pct + '%' : '—') + '</li>' +
+        '</ul>' +
+        '<p class="org-metric-foot"><strong>Abandonment by step:</strong></p><ul class="guidance-list">' + abRows + '</ul>' +
+        '<p class="org-metric-foot"><strong>Top examples viewed:</strong> ' + ex + '</p>' +
+        '<p class="org-metric-foot"><strong>Top retrieval help:</strong> ' + help + '</p>';
+    } catch (e) {
+      el.innerHTML = '<p class="org-metric-foot">Friction insights unavailable.</p>';
+    }
+  }
   async function loadSmtpStatus() {
     try {
       const j = await api('/api/operator/smtp-status');

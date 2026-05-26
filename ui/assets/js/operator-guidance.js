@@ -186,44 +186,6 @@
     }
   }
 
-  function renderCustomerFriction(root, f) {
-    const el = root.querySelector('[data-guidance="customer-friction"]');
-    if (!el || !f) return;
-    const c = f.continuation || {};
-    const help = (f.top_requested_help || [])
-      .map((h) => '<li>' + esc(h.item_id) + ' (' + h.count + ')</li>')
-      .join('');
-    const drop = (f.onboarding_dropoffs || [])
-      .map((d) => '<li>' + esc(d.step) + ': ' + d.count + '</li>')
-      .join('');
-    el.innerHTML =
-      '<div class="guidance-grid">' +
-      '<p><strong>Continuation:</strong> opened ' +
-      (c.opened || 0) +
-      ', completed ' +
-      (c.completed || 0) +
-      ', abandoned ' +
-      (c.abandoned || 0) +
-      (c.completion_rate != null ? ' · completion ' + Math.round(c.completion_rate * 100) + '%' : '') +
-      '</p>' +
-      '<p><strong>Mobile vs desktop:</strong> ' +
-      (f.mobile_vs_desktop?.mobile || 0) +
-      ' / ' +
-      (f.mobile_vs_desktop?.desktop || 0) +
-      '</p>' +
-      '<p><strong>Example views:</strong> ' +
-      (f.example_views || 0) +
-      ' · <strong>Retrieval help:</strong> ' +
-      (f.retrieval_help_views || 0) +
-      '</p>' +
-      '<p><strong>Top help requests</strong></p><ul class="guidance-list">' +
-      (help || '<li>None yet</li>') +
-      '</ul>' +
-      '<p><strong>Drop-off steps</strong></p><ul class="guidance-list">' +
-      (drop || '<li>None yet</li>') +
-      '</ul></div>';
-  }
-
   async function refreshGuidance(root, projectId, mode) {
     const params = new URLSearchParams();
     if (projectId) params.set('project_id', projectId);
@@ -235,13 +197,6 @@
     renderAttention(root, g.attention_targets || []);
     renderLearn(root, g.recommended_learning || []);
     renderOrganismState(root, g);
-    try {
-      const friction = await api('/api/operator/customer-friction');
-      renderCustomerFriction(root, friction);
-    } catch (_) {
-      const el = root.querySelector('[data-guidance="customer-friction"]');
-      if (el) el.innerHTML = '<p class="org-metric-foot">Friction metrics unavailable.</p>';
-    }
     const badge = root.querySelector('#guidance-state-badge');
     if (badge) {
       badge.textContent = stateLabel(g.organism_state);

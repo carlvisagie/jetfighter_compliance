@@ -77,6 +77,18 @@
       esc(rag) +
       '</span></div></div>' +
       '</div>' +
+      (c.customer_links && c.customer_links.continuation_url
+        ? '<div class="cockpit-customer-links" style="margin:1rem 0;padding:1rem;background:var(--kyc-surface-muted,#f8fafc);border-radius:8px;">' +
+          '<strong>Customer resume link</strong><p class="org-metric-foot"><a href="' +
+          esc(c.customer_links.continuation_url) +
+          '">Magic continuation</a></p>' +
+          (c.customer_links.qr_continue
+            ? '<p class="org-metric-foot">Continue on phone: <img src="' +
+              esc(c.customer_links.qr_continue) +
+              '" alt="QR" width="120" height="120"></p>'
+            : '') +
+          '</div>'
+        : '') +
       '<div class="cockpit-do-now"><strong>What Carl should do now</strong><p>' +
       esc(c.do_now) +
       '</p></div>' +

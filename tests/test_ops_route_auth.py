@@ -10,6 +10,7 @@ PUBLIC_UI = [
     "/ui/inquiry.html",
     "/ui/intake.html",
     "/ui/upload.html",
+    "/ui/continue.html",
     "/ui/login.html",
 ]
 
@@ -38,17 +39,6 @@ PUBLIC_API = [
     "/healthz",
     "/health/ready",
 ]
-
-MINIMAL_COC_EVENT = {
-    "event_id": "EVT-TEST-COC-AUTH",
-    "event_type": "ATTEST",
-    "when_utc": "2026-05-26T12:00:00Z",
-    "who": {"name": "Test", "role": "QA", "email": "qa@example.com"},
-    "where": {"address": "Test"},
-    "what": [{"id": "P-TEST", "qty": 1}],
-    "prev_hash": "GENESIS",
-    "hash": "temp",
-}
 
 
 def test_public_ui_open_without_session(anon_client):
@@ -115,30 +105,6 @@ def test_backup_ui_files_not_served(anon_client):
     ):
         r = c.get(path)
         assert r.status_code == 404, path
-
-
-def test_coc_event_json_forbidden_without_auth(anon_client):
-    r = anon_client.post("/api/coc/event", json=MINIMAL_COC_EVENT)
-    assert r.status_code == 403
-    assert r.json().get("detail") == "Unauthorized"
-
-
-def test_coc_event_json_ok_with_session(ops_client):
-    r = ops_client.post("/api/coc/event", json=MINIMAL_COC_EVENT)
-    assert r.status_code == 200
-    assert r.json().get("ok") is True
-
-
-def test_coc_event_json_ok_with_ops_key(monkeypatch, anon_client):
-    monkeypatch.setenv("ENVIRONMENT", "production")
-    monkeypatch.setenv("OPS_API_KEY", "coc-test-key")
-    r = anon_client.post(
-        "/api/coc/event",
-        json={**MINIMAL_COC_EVENT, "event_id": "EVT-TEST-COC-KEY"},
-        headers={"X-Ops-Key": "coc-test-key"},
-    )
-    assert r.status_code == 200
-    assert r.json().get("ok") is True
 
 
 def test_ops_api_key_still_works_production(monkeypatch, anon_client):

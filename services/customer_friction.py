@@ -1,136 +1,127 @@
 """
-Customer Friction Elimination Layer v1 — continuation, upload guidance, momentum, telemetry.
+Customer Friction Elimination Layer v1 — continuation, QR, upload guidance, momentum, telemetry.
+All customer-impacting events emit into central memory telemetry (subsystem: customer_friction).
 """
 from __future__ import annotations
 
+import io
 import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from .config import DATA, PROJECTS
+from .process import compute_status
 from .public_url import get_public_base_url
-from .security import make_continuation_token, make_intake_token, parse_continuation_token
+from .security import (
+    CONTINUATION_MAX_AGE_SECONDS,
+    make_continuation_token,
+    parse_continuation_token,
+    parse_intake_token,
+)
 
-CONTINUATION_FILE = "continuation.json"
-UPLOAD_SESSION_FILE = "upload_session.json"
+SUBSYSTEM = "customer_friction"
 
-# Filename heuristics for post-upload interpretation (organism infers — customer does not classify)
-_EVIDENCE_HINTS: List[Tuple[re.Pattern, str, str]] = [
-    (re.compile(r"mfa|2fa|authenticator", re.I), "mfa", "Multi-factor authentication"),
-    (re.compile(r"train|awareness|knowbe|phish", re.I), "training", "Security awareness training"),
-    (re.compile(r"policy|policies|handbook", re.I), "policy", "Security or HR policy"),
-    (re.compile(r"ssp|system.security|800-171", re.I), "ssp", "System security plan section"),
-    (re.compile(r"pentest|penetration", re.I), "pentest", "Penetration test report"),
-    (re.compile(r"soc2|soc\s*2", re.I), "soc2", "SOC 2 report"),
-    (re.compile(r"vendor|supplier|subcontract", re.I), "vendor", "Vendor management"),
-    (re.compile(r"backup|restore|recovery", re.I), "backup", "Backup and recovery"),
-    (re.compile(r"incident|irp", re.I), "incident", "Incident response"),
-]
 
-# Common gaps when not detected (friendly ids)
-_DEFAULT_GAPS = [
-    {
-        "id": "mfa",
-        "title": "MFA enabled screenshot",
-        "why": "Shows access controls for accounts handling sensitive data.",
-    },
-    {
-        "id": "training",
-        "title": "Security awareness training records",
-        "why": "Demonstrates people-focused controls.",
-    },
-    {
-        "id": "policy",
-        "title": "Written security policy",
-        "why": "Foundation document auditors expect to see.",
-    },
-]
+def _data() -> Path:
+    from .config import DATA
 
-EVIDENCE_EXAMPLES: Dict[str, Dict[str, Any]] = {
+    return DATA
+
+
+def _projects() -> Path:
+    from .config import PROJECTS
+
+    return PROJECTS
+
+# Evidence hints — simple language, non-jargon
+EVIDENCE_CATALOG: Dict[str, Dict[str, Any]] = {
     "mfa": {
-        "title": "MFA screenshot example",
-        "summary": "A screenshot of your admin console showing MFA enabled for users.",
+        "title": "Multi-factor authentication (MFA)",
+        "plain": "A screenshot showing MFA is turned on for your work accounts.",
         "example_type": "screenshot",
-        "what_is_this": "Proof that accounts use a second factor (app, SMS, or hardware key).",
+        "example_note": "Settings page showing authenticator app or SMS MFA enabled.",
+        "retrieval": {
+            "where": ["Microsoft 365 admin center", "Google Workspace security", "Okta dashboard"],
+            "steps": [
+                "Sign in to your identity provider as an admin.",
+                "Open Security / Authentication settings.",
+                "Capture a screenshot showing MFA policy or enrollment status.",
+                "Upload the image here.",
+            ],
+            "vendors": ["Microsoft 365", "Google Workspace", "Okta", "Duo"],
+        },
     },
     "training": {
-        "title": "Training export example",
-        "summary": "CSV or PDF export from your training platform with completion dates.",
-        "example_type": "document",
-        "what_is_this": "Shows your team completed security awareness training.",
+        "title": "Security awareness training records",
+        "plain": "Proof that staff completed security training (export or certificate).",
+        "example_type": "export",
+        "example_note": "CSV or PDF export listing employees and completion dates.",
+        "retrieval": {
+            "where": ["KnowBe4", "Microsoft 365 compliance", "HR learning system"],
+            "steps": [
+                "Log in to your training platform.",
+                "Open Reports or Compliance.",
+                "Export completion report as PDF or CSV.",
+                "Upload here — any format you already have is fine.",
+            ],
+            "vendors": ["KnowBe4", "Microsoft 365", "SAP SuccessFactors", "BambooHR"],
+        },
     },
-    "policy": {
-        "title": "Policy document example",
-        "summary": "PDF of your information security or acceptable-use policy (signed or dated).",
+    "vendor_policy": {
+        "title": "Vendor / supplier security policy",
+        "plain": "How you evaluate vendors who touch your data.",
         "example_type": "document",
-        "what_is_this": "Written rules for how your organization protects data.",
+        "example_note": "Short policy PDF or Word doc describing vendor review.",
+        "retrieval": {
+            "where": ["Quality manual", "Shared drive / policy folder"],
+            "steps": [
+                "Locate your supplier or vendor management procedure.",
+                "Export or save as PDF.",
+                "Upload here.",
+            ],
+            "vendors": [],
+        },
     },
-    "ssp": {
-        "title": "SSP section sample",
-        "summary": "One section of a System Security Plan describing how a control is implemented.",
+    "ssp_section": {
+        "title": "System Security Plan (SSP) excerpt",
+        "plain": "A section from your SSP or security overview — we can work with a draft.",
         "example_type": "document",
-        "what_is_this": "Narrative evidence for CMMC/NIST-style assessments.",
+        "example_note": "Table of contents plus one completed control family is enough to start.",
+        "retrieval": {
+            "where": ["Compliance folder", "Consultant deliverables", "CMMC workspace"],
+            "steps": [
+                "Open your latest SSP or security plan draft.",
+                "Export the overview or one priority section as PDF.",
+                "Upload here.",
+            ],
+            "vendors": ["C3PAO workspace", "Consultant share folder"],
+        },
     },
-    "vendor": {
-        "title": "Vendor policy example",
-        "summary": "Policy or procedure describing how you review third-party vendors.",
+    "policy_general": {
+        "title": "Security or quality policy",
+        "plain": "Any policy you already use — handbook, IT policy, quality manual.",
         "example_type": "document",
-        "what_is_this": "Shows supply-chain risk is managed.",
+        "example_note": "PDF or Word; redactions are OK.",
+        "retrieval": {
+            "where": ["HR handbook", "IT shared drive"],
+            "steps": [
+                "Pick one policy you already have.",
+                "Save as PDF and upload.",
+            ],
+            "vendors": [],
+        },
     },
 }
 
-RETRIEVAL_HELP: Dict[str, Dict[str, Any]] = {
-    "mfa": {
-        "where_usually": "Microsoft 365 Admin, Google Workspace Admin, or your IdP dashboard.",
-        "sources": ["Microsoft 365", "Google Workspace", "Okta", "Duo"],
-        "quick_start": [
-            "Sign in to your admin portal.",
-            "Open Users or Security settings.",
-            "Find MFA / 2FA status page.",
-            "Take a screenshot showing MFA enabled.",
-            "Upload the screenshot here.",
-        ],
-    },
-    "training": {
-        "where_usually": "KnowBe4, Microsoft 365 compliance reports, or HR/LMS exports.",
-        "sources": ["KnowBe4", "Microsoft 365", "HR systems"],
-        "quick_start": [
-            "Log in to your training platform.",
-            "Open Reports or Compliance.",
-            "Export completion report (PDF or CSV).",
-            "Upload the export here.",
-        ],
-    },
-    "policy": {
-        "where_usually": "SharePoint, Google Drive, or policy management tool.",
-        "sources": ["Internal wiki", "SharePoint", "Compliance folder"],
-        "quick_start": [
-            "Locate your latest security policy PDF.",
-            "Confirm it is dated or approved.",
-            "Upload the PDF here.",
-        ],
-    },
-    "ssp": {
-        "where_usually": "CMMC consultant folder, GRC tool, or shared compliance drive.",
-        "sources": ["GRC platform", "Consultant deliverables"],
-        "quick_start": [
-            "Open your SSP working document.",
-            "Export one completed control section as PDF.",
-            "Upload here — we will organize it.",
-        ],
-    },
-    "vendor": {
-        "where_usually": "Vendor management spreadsheet or procurement policy folder.",
-        "sources": ["Procurement", "Legal", "Security team"],
-        "quick_start": [
-            "Find vendor review procedure or template.",
-            "Export or save as PDF.",
-            "Upload here.",
-        ],
-    },
-}
+# Filename heuristics for post-upload classification
+_CLASSIFY_PATTERNS: List[Tuple[re.Pattern, str, str]] = [
+    (re.compile(r"mfa|2fa|authenticator|multifactor", re.I), "mfa", "MFA-related file"),
+    (re.compile(r"train|awareness|knowbe|phishing", re.I), "training", "Training record"),
+    (re.compile(r"vendor|supplier|third.?party", re.I), "vendor_policy", "Vendor policy"),
+    (re.compile(r"ssp|system.?security|800-171|nist", re.I), "ssp_section", "SSP / security plan"),
+    (re.compile(r"policy|procedure|handbook|manual", re.I), "policy_general", "Policy document"),
+]
 
 
 def _utcnow() -> datetime:
@@ -141,32 +132,86 @@ def _ts() -> str:
     return _utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _project_dir(project_id: str) -> Path:
-    return DATA / "projects" / project_id
+def _emit(event_type: str, *, project_id: Optional[str] = None, success: bool = True, metadata: Optional[Dict] = None):
+    try:
+        from services.memory.telemetry import emit_telemetry
+
+        emit_telemetry(
+            SUBSYSTEM,
+            event_type,
+            severity="info" if success else "warning",
+            success=success,
+            project_id=project_id,
+            metadata=metadata or {},
+        )
+    except Exception:
+        pass
 
 
-def _communications_dir(project_id: str) -> Path:
-    d = _project_dir(project_id) / "communications"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+def _continuation_meta_path(project_id: str) -> Path:
+    return _data() / "projects" / project_id / "communications" / "continuation.json"
+
+
+def _load_continuation_meta(project_id: str) -> Dict[str, Any]:
+    p = _continuation_meta_path(project_id)
+    if not p.is_file():
+        return {}
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _save_continuation_meta(project_id: str, meta: Dict[str, Any]) -> None:
+    pdir = _continuation_meta_path(project_id).parent
+    pdir.mkdir(parents=True, exist_ok=True)
+    meta["updated_utc"] = _ts()
+    _continuation_meta_path(project_id).write_text(json.dumps(meta, indent=2), encoding="utf-8")
+
+
+def issue_continuation(project_id: str, email: str, *, force_new: bool = False) -> Dict[str, str]:
+    """Create continuation token + URL; persist on project (stable until force_new)."""
+    meta = _load_continuation_meta(project_id)
+    if (
+        not force_new
+        and meta.get("continuation_token")
+        and meta.get("continuation_url")
+        and (not email or meta.get("email") == email)
+    ):
+        return {
+            "continuation_token": meta["continuation_token"],
+            "continuation_url": meta["continuation_url"],
+        }
+    token = make_continuation_token(project_id, email)
+    base = get_public_base_url()
+    url = f"{base}/ui/continue.html?token={token}"
+    meta.update(
+        {
+            "email": email,
+            "continuation_token": token,
+            "continuation_url": url,
+            "continuation_token_issued_utc": _ts(),
+            "expires_seconds": CONTINUATION_MAX_AGE_SECONDS,
+        }
+    )
+    _save_continuation_meta(project_id, meta)
+    return {"continuation_token": token, "continuation_url": url}
+
+
+def get_or_issue_continuation(project_id: str, email: str) -> Dict[str, str]:
+    return issue_continuation(project_id, email, force_new=False)
+
+
+def _project_exists(project_id: str) -> bool:
+    return (_data() / "projects" / project_id).is_dir()
 
 
 def _has_intake(project_id: str) -> bool:
-    return (_communications_dir(project_id) / "intake.json").is_file()
+    return (_data() / "projects" / project_id / "communications" / "intake.json").is_file()
 
 
-def _workflow_phase(project_id: str) -> str:
-    wf = DATA / "process" / f"{project_id}.json"
-    if not wf.is_file():
-        return "INTAKE"
-    try:
-        return json.loads(wf.read_text(encoding="utf-8")).get("phase", "INTAKE")
-    except Exception:
-        return "INTAKE"
-
-
-def _list_evidence_files(project_id: str) -> List[Dict[str, Any]]:
-    ev = _project_dir(project_id) / "evidence"
+def _evidence_files(project_id: str) -> List[Dict[str, str]]:
+    ev = _data() / "projects" / project_id / "evidence"
     if not ev.is_dir():
         return []
     out = []
@@ -176,366 +221,358 @@ def _list_evidence_files(project_id: str) -> List[Dict[str, Any]]:
     return out
 
 
-def _classify_filename(name: str) -> Optional[str]:
-    for rx, key, _ in _EVIDENCE_HINTS:
+def _classify_filename(name: str) -> Tuple[Optional[str], str]:
+    for rx, item_id, label in _CLASSIFY_PATTERNS:
         if rx.search(name):
-            return key
-    return None
+            return item_id, label
+    return None, "General document"
 
 
-def _emit(event_type: str, *, project_id: str = "", success: bool = True, metadata: Optional[Dict] = None):
-    try:
-        from services.memory.telemetry import emit_telemetry
-
-        emit_telemetry(
-            "customer_friction",
-            event_type,
-            project_id=project_id,
-            success=success,
-            metadata=metadata or {},
-        )
-    except Exception:
-        pass
-
-
-def _learn(signal: str, conversion: str, *, success: bool = True, **meta):
-    try:
-        from services.memory.learning import record_learning_signal
-
-        record_learning_signal(signal, conversion, success=success, **meta)
-    except Exception:
-        pass
+def _recommended_missing(project_id: str, recognized: List[str]) -> List[Dict[str, Any]]:
+    """Suggest a few missing items — never overwhelm."""
+    priority = ["policy_general", "mfa", "training", "vendor_policy", "ssp_section"]
+    missing = []
+    for item_id in priority:
+        if item_id in recognized:
+            continue
+        cat = EVIDENCE_CATALOG.get(item_id)
+        if cat:
+            missing.append(
+                {
+                    "id": item_id,
+                    "title": cat["title"],
+                    "plain": cat["plain"],
+                }
+            )
+        if len(missing) >= 3:
+            break
+    return missing
 
 
-def ensure_continuation_record(project_id: str, email: str) -> Dict[str, Any]:
-    """Create or refresh continuation token + URL on disk."""
-    token = make_continuation_token(project_id, email)
+def build_resume_state(project_id: str, email: str = "") -> Dict[str, Any]:
+    """Resume snapshot: phase, progress, missing items, next URLs."""
+    if not _project_exists(project_id):
+        raise ValueError("project_not_found")
+
+    cont = get_or_issue_continuation(project_id, email or _load_continuation_meta(project_id).get("email", ""))
+    token = cont["continuation_token"]
     base = get_public_base_url()
-    continuation_url = f"{base}/ui/continue.html?token={token}"
-    intake_url = f"{base}/ui/intake.html?token={token}"
-    upload_url = f"{base}/upload?project_id={project_id}&token={token}"
-    rec = {
+    intake_done = _has_intake(project_id)
+    files = _evidence_files(project_id)
+    recognized_ids: List[str] = []
+    recognized_labels: List[str] = []
+    for f in files:
+        item_id, label = _classify_filename(f["name"])
+        if item_id and item_id not in recognized_ids:
+            recognized_ids.append(item_id)
+            recognized_labels.append(label)
+
+    try:
+        st = compute_status(project_id)
+        phase = st.get("phase", "ORDER")
+        rag = st.get("rag", "green")
+        open_steps = [
+            s.get("title")
+            for s in (st.get("steps") or [])
+            if s.get("required") and s.get("status") != "done"
+        ][:3]
+    except Exception:
+        phase, rag, open_steps = "ORDER", "green", []
+
+    if not intake_done:
+        next_step = "intake"
+        next_url = f"{base}/ui/intake?token={make_intake_token_for(project_id, email)}"
+        progress_pct = 25
+    elif len(files) < 2:
+        next_step = "upload"
+        next_url = f"{base}/upload?project_id={project_id}&token={token}"
+        progress_pct = min(90, 40 + len(files) * 15)
+    else:
+        next_step = "upload_more"
+        next_url = f"{base}/upload?project_id={project_id}&token={token}"
+        progress_pct = min(95, 55 + len(files) * 8)
+
+    missing = _recommended_missing(project_id, recognized_ids)
+    momentum_message = _momentum_message(progress_pct, len(files), len(recognized_ids), intake_done)
+
+    return {
+        "ok": True,
         "project_id": project_id,
         "email": email,
+        "phase": phase,
+        "rag": rag,
+        "intake_complete": intake_done,
+        "upload_count": len(files),
+        "uploads": files,
+        "recognized": recognized_labels,
+        "recognized_ids": recognized_ids,
+        "missing_items": missing,
+        "open_workflow_steps": open_steps,
+        "next_step": next_step,
+        "next_url": next_url,
+        "continuation_url": cont["continuation_url"],
         "continuation_token": token,
-        "continuation_url": continuation_url,
-        "intake_url": intake_url,
-        "upload_url": upload_url,
-        "updated_utc": _ts(),
-        "expires_note": "Link remains valid for 90 days; request a new welcome email if expired.",
+        "intake_url": f"{base}/ui/intake?token={make_intake_token_for(project_id, email)}",
+        "upload_url": f"{base}/upload?project_id={project_id}&token={token}",
+        "progress_percent": progress_pct,
+        "momentum_message": momentum_message,
+        "expires_in_days": CONTINUATION_MAX_AGE_SECONDS // 86400,
     }
-    path = _communications_dir(project_id) / CONTINUATION_FILE
-    if path.is_file():
-        try:
-            old = json.loads(path.read_text(encoding="utf-8"))
-            rec["created_utc"] = old.get("created_utc", _ts())
-            rec["open_count"] = old.get("open_count", 0)
-        except Exception:
-            rec["created_utc"] = _ts()
-    else:
-        rec["created_utc"] = _ts()
-        rec["open_count"] = 0
-    path.write_text(json.dumps(rec, indent=2), encoding="utf-8")
-    return rec
 
 
-def build_continuation_bundle(project_id: str, email: str) -> Dict[str, str]:
-    rec = ensure_continuation_record(project_id, email)
-    return {
-        "continuation_token": rec["continuation_token"],
-        "continuation_url": rec["continuation_url"],
-        "intake_url": rec["intake_url"],
-        "upload_url": rec["upload_url"],
-    }
+def make_intake_token_for(project_id: str, email: str) -> str:
+    from .security import make_intake_token
+
+    return make_intake_token(project_id, email)
 
 
 def resolve_continuation(token: str, *, client: str = "unknown") -> Dict[str, Any]:
-    """Magic link resolve — no password."""
-    info = parse_continuation_token(token)
+    try:
+        info = parse_continuation_token(token)
+    except ValueError as e:
+        code = str(e)
+        _emit("continuation_abandoned", success=False, metadata={"reason": code, "client": client})
+        if code == "continuation_expired":
+            return {"ok": False, "error": "expired", "detail": "This link has expired. Contact us for a fresh link."}
+        return {"ok": False, "error": "invalid", "detail": "Invalid continuation link."}
+
     project_id = info["p"]
     email = info.get("e", "")
-    pdir = _project_dir(project_id)
-    if not pdir.is_dir():
-        raise ValueError("project_not_found")
+    _emit("continuation_opened", project_id=project_id, metadata={"client": client})
+    meta = _load_continuation_meta(project_id)
+    meta["last_opened_utc"] = _ts()
+    meta["last_client"] = client
+    _save_continuation_meta(project_id, meta)
 
-    rec_path = _communications_dir(project_id) / CONTINUATION_FILE
-    if rec_path.is_file():
-        try:
-            rec = json.loads(rec_path.read_text(encoding="utf-8"))
-            rec["open_count"] = int(rec.get("open_count", 0)) + 1
-            rec["last_opened_utc"] = _ts()
-            rec_path.write_text(json.dumps(rec, indent=2), encoding="utf-8")
-        except Exception:
-            pass
-    else:
-        ensure_continuation_record(project_id, email)
-
-    intake_done = _has_intake(project_id)
-    uploads = _list_evidence_files(project_id)
-    phase = _workflow_phase(project_id)
-    intake_tok = make_intake_token(project_id, email)
-    base = get_public_base_url()
-    if not intake_done:
-        next_step = "intake"
-        primary_url = f"{base}/ui/intake.html?token={intake_tok}"
-    elif len(uploads) < 1:
-        next_step = "upload"
-        primary_url = f"{base}/upload?project_id={project_id}&token={intake_tok}"
-    else:
-        next_step = "upload_more"
-        primary_url = f"{base}/upload?project_id={project_id}&token={intake_tok}"
-
-    state = get_resume_state(project_id)
-    _emit(
-        "continuation_opened",
-        project_id=project_id,
-        metadata={"next_step": next_step, "client": client, "upload_count": len(uploads)},
-    )
-    _learn(f"continuation:{next_step}", "inquiry_to_intake", success=True)
-
-    qr_url = f"{base}/api/customer/qr.svg?url={primary_url}"
-
-    return {
-        "ok": True,
-        "project_id": project_id,
-        "email": email,
-        "next_step": next_step,
-        "workflow_phase": phase,
-        "intake_completed": intake_done,
-        "upload_count": len(uploads),
-        "primary_url": primary_url,
-        "intake_url": f"{base}/ui/intake.html?token={intake_tok}",
-        "upload_url": f"{base}/upload?project_id={project_id}&token={intake_tok}",
-        "continuation_url": f"{base}/ui/continue.html?token={token}",
-        "qr_url": qr_url,
-        "resume": state,
-        "momentum": momentum_message(project_id, intake_done, len(uploads)),
-    }
-
-
-def get_resume_state(project_id: str) -> Dict[str, Any]:
-    uploads = _list_evidence_files(project_id)
-    intake_done = _has_intake(project_id)
-    identified = []
-    for u in uploads:
-        cat = _classify_filename(u["name"])
-        if cat:
-            identified.append({"file": u["name"], "category": cat})
-    guidance = analyze_uploads(project_id)
-    return {
-        "intake_completed": intake_done,
-        "uploads": uploads,
-        "identified": identified,
-        "missing_items": guidance.get("likely_missing", []),
-        "progress_percent": guidance.get("progress_percent", 0),
-    }
-
-
-def momentum_message(project_id: str, intake_done: bool, upload_count: int) -> Dict[str, str]:
-    if not intake_done:
-        return {
-            "headline": "Good start — let's finish your intake",
-            "subline": "A few quick details, then you can upload whatever you already have.",
-            "tone": "encouraging",
-        }
-    if upload_count == 0:
-        return {
-            "headline": "You're on track",
-            "subline": "Upload whatever you already have — no need to organize it first.",
-            "tone": "encouraging",
-        }
-    if upload_count < 3:
-        return {
-            "headline": "Good progress",
-            "subline": "We already recognized several items from your uploads.",
-            "tone": "positive",
-        }
-    return {
-        "headline": "Strong momentum",
-        "subline": "Only a few remaining things may help — upload more anytime.",
-        "tone": "positive",
-    }
-
-
-def analyze_uploads(project_id: str) -> Dict[str, Any]:
-    uploads = _list_evidence_files(project_id)
-    detected: Dict[str, str] = {}
-    for u in uploads:
-        cat = _classify_filename(u["name"])
-        if cat:
-            detected[cat] = u["name"]
-
-    likely_missing = []
-    for gap in _DEFAULT_GAPS:
-        if gap["id"] not in detected:
-            likely_missing.append(
-                {
-                    **gap,
-                    "example": EVIDENCE_EXAMPLES.get(gap["id"]),
-                    "retrieval": RETRIEVAL_HELP.get(gap["id"]),
-                }
-            )
-    # Cap overwhelm — max 4 suggestions
-    likely_missing = likely_missing[:4]
-
-    total_hints = len(_DEFAULT_GAPS)
-    progress = min(100, int((len(detected) / max(total_hints, 1)) * 100))
-    if len(uploads) >= 5:
-        progress = max(progress, 70)
-
-    return {
-        "ok": True,
-        "project_id": project_id,
-        "upload_count": len(uploads),
-        "recognized": [{"category": k, "file": v} for k, v in detected.items()],
-        "likely_missing": likely_missing,
-        "progress_percent": progress,
-        "summary": "We already identified most of what we need."
-        if len(detected) >= 2
-        else "Upload whatever you have — we will sort it out.",
-    }
+    state = build_resume_state(project_id, email)
+    state["token"] = token
+    return state
 
 
 def record_continuation_event(
     token: str,
-    event: str,
+    event_type: str,
     *,
     step: str = "",
     client: str = "unknown",
     duration_ms: Optional[int] = None,
+    metadata: Optional[Dict] = None,
 ) -> Dict[str, Any]:
-    info = parse_continuation_token(token)
-    project_id = info["p"]
-    allowed = {"continuation_opened", "continuation_completed", "continuation_abandoned"}
-    if event not in allowed:
-        event = f"continuation_{event}" if not event.startswith("continuation_") else event
-    _emit(
-        event if event in allowed else "continuation_abandoned",
-        project_id=project_id,
-        success=event != "continuation_abandoned",
-        metadata={"step": step, "client": client, "duration_ms": duration_ms},
-    )
-    if event == "continuation_completed":
-        _learn("onboarding:completed", "intake_to_evidence", success=True)
-    elif event == "continuation_abandoned":
-        _learn(f"dropoff:{step or 'unknown'}", "inquiry_to_intake", success=False)
-    return {"ok": True, "project_id": project_id, "event": event}
-
-
-def save_upload_session(project_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-    path = _communications_dir(project_id) / UPLOAD_SESSION_FILE
-    data = {"updated_utc": _ts(), **payload}
-    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    _emit("upload_session_saved", project_id=project_id, metadata={"files": payload.get("files", [])})
-    return {"ok": True, "session": data}
-
-
-def load_upload_session(project_id: str) -> Dict[str, Any]:
-    path = _communications_dir(project_id) / UPLOAD_SESSION_FILE
-    if not path.is_file():
-        return {"ok": True, "session": None}
+    """Record continuation_completed, continuation_abandoned, etc."""
     try:
-        return {"ok": True, "session": json.loads(path.read_text(encoding="utf-8"))}
+        info = parse_continuation_token(token)
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
+
+    project_id = info["p"]
+    meta = metadata or {}
+    meta.update({"step": step, "client": client})
+    if duration_ms is not None:
+        meta["duration_ms"] = duration_ms
+
+    allowed = {
+        "continuation_completed",
+        "continuation_abandoned",
+        "upload_started",
+        "upload_completed",
+        "upload_abandoned",
+        "example_viewed",
+        "retrieval_help_viewed",
+        "guidance_viewed",
+        "step_abandoned",
+    }
+    if event_type not in allowed:
+        event_type = "continuation_completed"
+
+    success = event_type not in ("continuation_abandoned", "upload_abandoned", "step_abandoned")
+    _emit(event_type, project_id=project_id, success=success, metadata=meta)
+
+    if event_type == "continuation_abandoned":
+        m = _load_continuation_meta(project_id)
+        m["abandoned_utc"] = _ts()
+        m["abandoned_step"] = step
+        _save_continuation_meta(project_id, m)
+
+    return {"ok": True, "project_id": project_id, "event_type": event_type}
+
+
+def validate_project_access(project_id: str, token: Optional[str] = None) -> bool:
+    """Optional token validates continuation or intake token for project."""
+    if not token:
+        return _project_exists(project_id)
+    try:
+        info = parse_continuation_token(token)
+        return info.get("p") == project_id
+    except ValueError:
+        pass
+    try:
+        info = parse_intake_token(token)
+        return info.get("p") == project_id
     except Exception:
-        return {"ok": True, "session": None}
+        return False
 
 
-def get_evidence_example(item_id: str) -> Dict[str, Any]:
-    ex = EVIDENCE_EXAMPLES.get(item_id)
-    if not ex:
-        return {"ok": False, "detail": "unknown_item"}
-    return {"ok": True, "item_id": item_id, **ex, "retrieval": RETRIEVAL_HELP.get(item_id)}
+def generate_qr_png(data: str, *, box_size: int = 6) -> bytes:
+    import qrcode
+
+    qr = qrcode.QRCode(version=None, box_size=box_size, border=2)
+    qr.add_data(data)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
 
 
-def get_retrieval_help(item_id: str) -> Dict[str, Any]:
-    h = RETRIEVAL_HELP.get(item_id)
-    if not h:
-        return {"ok": False, "detail": "unknown_item"}
-    _emit("retrieval_help_viewed", metadata={"item_id": item_id})
-    _learn(f"help:{item_id}", "intake_to_evidence", success=True)
-    return {"ok": True, "item_id": item_id, **h}
+def qr_url_for_project(project_id: str, email: str, *, page: str = "continue") -> str:
+    """Return URL to embed in QR (continuation hub or direct upload)."""
+    cont = get_or_issue_continuation(project_id, email)
+    if page == "upload":
+        return f"{get_public_base_url()}/upload?project_id={project_id}&token={cont['continuation_token']}"
+    if page == "intake":
+        return f"{get_public_base_url()}/ui/intake?token={make_intake_token_for(project_id, email)}"
+    return cont["continuation_url"]
 
 
-def record_example_viewed(item_id: str, project_id: str = "") -> None:
-    _emit("example_viewed", project_id=project_id, metadata={"item_id": item_id})
-    _learn(f"example:{item_id}", "intake_to_evidence", success=True)
+def analyze_uploads(project_id: str) -> Dict[str, Any]:
+    files = _evidence_files(project_id)
+    classified: List[Dict[str, Any]] = []
+    recognized_ids: List[str] = []
+    for f in files:
+        item_id, label = _classify_filename(f["name"])
+        if item_id and item_id not in recognized_ids:
+            recognized_ids.append(item_id)
+        classified.append({**f, "label": label, "item_id": item_id})
 
-
-def friction_insights_for_operator(limit: int = 200) -> Dict[str, Any]:
-    """Aggregate telemetry for operator cockpit panels."""
-    from services.memory.telemetry import load_telemetry
-
-    rows = load_telemetry(subsystem="customer_friction", limit=limit)
-    opened = completed = abandoned = 0
-    examples = retrieval = 0
-    mobile = desktop = 0
-    dropoffs: Dict[str, int] = {}
-    help_items: Dict[str, int] = {}
-
-    for r in rows:
-        et = r.get("event_type", "")
-        meta = r.get("metadata") or {}
-        if et == "continuation_opened":
-            opened += 1
-        elif et == "continuation_completed":
-            completed += 1
-        elif et == "continuation_abandoned":
-            abandoned += 1
-            step = meta.get("step") or "unknown"
-            dropoffs[step] = dropoffs.get(step, 0) + 1
-        elif et == "example_viewed":
-            examples += 1
-            iid = meta.get("item_id", "unknown")
-            help_items[iid] = help_items.get(iid, 0) + 1
-        elif et == "retrieval_help_viewed":
-            retrieval += 1
-            iid = meta.get("item_id", "unknown")
-            help_items[iid] = help_items.get(iid, 0) + 1
-        client = meta.get("client", "")
-        if client == "mobile":
-            mobile += 1
-        elif client == "desktop":
-            desktop += 1
-
-    completion_rate = round(completed / opened, 2) if opened else None
-    recovery_rate = round(opened / max(opened + abandoned, 1), 2)
-
-    top_help = sorted(help_items.items(), key=lambda x: -x[1])[:8]
-    top_dropoffs = sorted(dropoffs.items(), key=lambda x: -x[1])[:8]
+    missing = _recommended_missing(project_id, recognized_ids)
+    headline = "We already identified most of what we need." if len(recognized_ids) >= 2 else "Good start — here is what may still help."
+    if not files:
+        headline = "Upload whatever you already have — we will sort it out."
 
     return {
         "ok": True,
-        "continuation": {
-            "opened": opened,
-            "completed": completed,
-            "abandoned": abandoned,
-            "completion_rate": completion_rate,
-            "recovery_rate": recovery_rate,
-        },
-        "mobile_vs_desktop": {"mobile": mobile, "desktop": desktop},
-        "example_views": examples,
-        "retrieval_help_views": retrieval,
-        "top_requested_help": [{"item_id": k, "count": v} for k, v in top_help],
-        "onboarding_dropoffs": [{"step": k, "count": v} for k, v in top_dropoffs],
-        "confusing_evidence_requests": [
-            {"item_id": k, "count": v} for k, v in top_help if v >= 2
-        ],
+        "project_id": project_id,
+        "headline": headline,
+        "subline": "Only a few remaining things may help — upload at your pace.",
+        "classified": classified,
+        "recognized_count": len(recognized_ids),
+        "missing_items": missing,
+        "progress_percent": min(95, 35 + len(files) * 12 + len(recognized_ids) * 5),
     }
 
 
-def record_upload_completed(project_id: str, filename: str) -> Dict[str, Any]:
-    _emit("upload_completed", project_id=project_id, metadata={"filename": filename})
-    return analyze_uploads(project_id)
+def get_evidence_example(item_id: str) -> Dict[str, Any]:
+    cat = EVIDENCE_CATALOG.get(item_id)
+    if not cat:
+        return {"ok": False, "error": "not_found"}
+    return {
+        "ok": True,
+        "item_id": item_id,
+        "title": cat["title"],
+        "plain": cat["plain"],
+        "example_type": cat.get("example_type"),
+        "example_note": cat.get("example_note"),
+    }
 
 
-def make_qr_svg(url: str) -> str:
-    import qrcode
-    import qrcode.image.svg
+def get_retrieval_help(item_id: str) -> Dict[str, Any]:
+    cat = EVIDENCE_CATALOG.get(item_id)
+    if not cat:
+        return {"ok": False, "error": "not_found"}
+    return {"ok": True, "item_id": item_id, "title": cat["title"], "retrieval": cat.get("retrieval", {})}
 
-    factory = qrcode.image.svg.SvgPathImage
-    qr = qrcode.QRCode(image_factory=factory, box_size=6, border=2)
-    qr.add_data(url)
-    qr.make(fit=True)
-    img = qr.make_image()
-    raw = img.to_string()
-    return raw.decode("utf-8") if isinstance(raw, bytes) else str(raw)
+
+def list_evidence_catalog() -> Dict[str, Any]:
+    items = [
+        {"id": k, "title": v["title"], "plain": v["plain"]}
+        for k, v in EVIDENCE_CATALOG.items()
+    ]
+    return {"ok": True, "items": items}
+
+
+def _momentum_message(progress_pct: int, upload_count: int, recognized: int, intake_done: bool) -> str:
+    if not intake_done:
+        return "Good progress — a few intake details and you are on your way."
+    if upload_count == 0:
+        return "You are set up — upload whatever you already have when ready."
+    if recognized >= 2:
+        return "We already recognized several items. Only a few remaining things may help."
+    return "Nice work — keep adding files at your own pace."
+
+
+def get_operator_friction_insights(*, days: int = 14) -> Dict[str, Any]:
+    """Aggregate customer_friction telemetry for operator cockpit."""
+    rows = []
+    try:
+        from services.memory.telemetry import load_telemetry
+
+        rows = load_telemetry(subsystem=SUBSYSTEM, limit=2000)
+    except Exception:
+        pass
+
+    cutoff = _utcnow() - __import__("datetime").timedelta(days=days)
+    recent = []
+    for r in rows:
+        ts = r.get("observed_at_utc") or ""
+        try:
+            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            if dt >= cutoff:
+                recent.append(r)
+        except Exception:
+            recent.append(r)
+
+    def count_event(et: str) -> int:
+        return sum(1 for r in recent if r.get("event_type") == et)
+
+    opened = count_event("continuation_opened")
+    completed = count_event("continuation_completed")
+    abandoned = count_event("continuation_abandoned")
+    uploads = count_event("upload_completed")
+    examples = count_event("example_viewed")
+    retrieval = count_event("retrieval_help_viewed")
+
+    mobile = sum(1 for r in recent if (r.get("metadata") or {}).get("client") == "mobile")
+    desktop = sum(1 for r in recent if (r.get("metadata") or {}).get("client") == "desktop")
+
+    # Drop-off by step
+    abandon_steps: Dict[str, int] = {}
+    for r in recent:
+        if r.get("event_type") in ("continuation_abandoned", "step_abandoned", "upload_abandoned"):
+            step = (r.get("metadata") or {}).get("step") or "unknown"
+            abandon_steps[step] = abandon_steps.get(step, 0) + 1
+
+    example_items: Dict[str, int] = {}
+    for r in recent:
+        if r.get("event_type") == "example_viewed":
+            iid = (r.get("metadata") or {}).get("item_id") or "unknown"
+            example_items[iid] = example_items.get(iid, 0) + 1
+
+    recovery_rate = round(100.0 * completed / opened, 1) if opened else None
+    mobile_rate = round(100.0 * mobile / (mobile + desktop), 1) if (mobile + desktop) else None
+
+    return {
+        "ok": True,
+        "window_days": days,
+        "continuation_opened": opened,
+        "continuation_completed": completed,
+        "continuation_abandoned": abandoned,
+        "upload_completed": uploads,
+        "example_views": examples,
+        "retrieval_help_views": retrieval,
+        "continuation_recovery_rate_pct": recovery_rate,
+        "mobile_events": mobile,
+        "desktop_events": desktop,
+        "mobile_share_pct": mobile_rate,
+        "abandonment_by_step": abandon_steps,
+        "top_example_items": sorted(example_items.items(), key=lambda x: -x[1])[:5],
+        "top_help_items": _top_retrieval(recent),
+    }
+
+
+def _top_retrieval(rows: List[Dict]) -> List[Tuple[str, int]]:
+    counts: Dict[str, int] = {}
+    for r in rows:
+        if r.get("event_type") == "retrieval_help_viewed":
+            iid = (r.get("metadata") or {}).get("item_id") or "unknown"
+            counts[iid] = counts.get(iid, 0) + 1
+    return sorted(counts.items(), key=lambda x: -x[1])[:5]

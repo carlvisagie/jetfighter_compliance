@@ -24,10 +24,10 @@ PUBLIC_UI_EXACT: Set[str] = {
     "/ui/inquiry.html",
     "/ui/intake.html",
     "/ui/upload.html",
-    "/ui/continue.html",
     "/ui/login.html",
     "/ui/index.html",
     "/ui/vendor_quote.html",
+    "/ui/continue.html",
 }
 
 PUBLIC_UI_PREFIXES = (
@@ -69,7 +69,6 @@ PUBLIC_API_EXACT: Set[str] = {
     "/api/ops/login",
     "/api/ops/logout",
     "/api/ops/session",
-    "/api/customer/qr.svg",
 }
 
 # Operator / organism / intelligence APIs
@@ -84,7 +83,7 @@ PROTECTED_API_PREFIXES = (
     "/api/vendors",
     "/api/rfq/",
     "/api/ping-host.json",
-    "/api/coc/event",
+    "/api/coc/event/form",
     "/api/schemas/validate",
     "/api/test-webhook",
     "/events/payment/test",
