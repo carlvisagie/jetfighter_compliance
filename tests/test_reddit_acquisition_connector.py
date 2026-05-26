@@ -89,12 +89,48 @@ def test_draft_generation_no_auto_post():
     post = {"post_id": "x1", "title": "NIST 800-171 help"}
     cls = classify_post(post["title"], "small business compliance documentation stress")
     routes = build_upload_route(lead_id="LD-RDT-x1", campaign_id="reddit-upload-first")
-    draft = generate_draft_reply(post, cls, routes["primary_url"])
+    draft = generate_draft_reply(post, cls, routes["primary_url"], plan={"link_in_public_reply": False})
     assert draft["auto_post"] is False
     assert draft["requires_operator_approval"] is True
     assert draft["forbidden_auto_post"] is True
-    assert "guaranteed certification" not in draft["body"].lower()
-    assert routes["primary_url"] in draft["body"] or "inquiry" in routes["primary_url"]
+    assert "guaranteed certification" not in draft["public_reply_text"].lower()
+    assert "check out our amazing" not in draft["public_reply_text"].lower()
+
+
+def test_autonomy_engagement_stages():
+    from services.acquisition.connectors.reddit.autonomy import decide_engagement
+
+    post = {"post_id": "p1", "subreddit": "smallbusiness", "num_comments": 2}
+    cls = classify_post("CMMC overwhelmed", "security questionnaire stress")
+    qual = {"fit_score": 80}
+    plan = decide_engagement(post, cls, qual)
+    assert plan["show_operator_queue"] is True
+    assert plan["operator_actions"] == ["approve", "deny"]
+    assert plan["engagement_stage"] in (
+        "empathize_only",
+        "assist_soft",
+        "assist_route",
+    )
+
+
+def test_autonomy_unsafe_subreddit_skips_queue():
+    from services.acquisition.connectors.reddit.autonomy import decide_engagement
+
+    post = {"post_id": "p2", "subreddit": "politics", "num_comments": 0}
+    cls = classify_post("CMMC", "help")
+    qual = {"fit_score": 90}
+    plan = decide_engagement(post, cls, qual)
+    assert plan["show_operator_queue"] is False
+    assert plan["engagement_stage"] == "skip_unsafe"
+
+
+def test_deny_records_learning(reddit_env):
+    from services.acquisition.connectors.reddit import deny_draft
+    from services.acquisition.connectors.reddit.learning import load_learning_state
+
+    deny_draft("deny99", base=reddit_env)
+    state = load_learning_state(reddit_env)
+    assert int((state.get("outcome_totals") or {}).get("operator_denied", 0)) >= 1
 
 
 def test_discovery_search_mock(reddit_env, monkeypatch):
@@ -125,7 +161,8 @@ def test_run_cycle_creates_drafts_not_posts(reddit_env, monkeypatch):
     assert drafts_path.is_file()
     row = json.loads(drafts_path.read_text(encoding="utf-8").strip().splitlines()[-1])
     assert row["auto_post"] is False
-    assert row["status"] == "pending_operator_review"
+    assert row["status"] == "awaiting_operator_decision"
+    assert "organism_plan" in row
     assert row["draft_reply"]["auto_post"] is False
     assert "inquiry" in row.get("route_url", "") or "ref=" in row.get("route_url", "")
 
@@ -143,7 +180,8 @@ def test_approve_requires_manual_post(reddit_env, monkeypatch):
         )
     res = approve_draft("approve1", operator_note="looks good", base=reddit_env)
     assert res["ok"] is True
-    assert "manual" in res.get("notice", "").lower()
+    assert "auto-post" in res.get("notice", "").lower()
+    assert res.get("paste_on_reddit")
     assert res["approved"]["auto_post"] is False
 
 
@@ -160,7 +198,8 @@ def test_operator_dashboard_api(client, reddit_env):
     j = r.json()
     assert j.get("ok") is True
     assert j["safety"]["auto_post"] is False
-    assert j["safety"]["operator_approval_required"] is True
+    assert j["operator_actions"] == ["approve", "deny"]
+    assert j.get("operator_role") == "strategic_approval_only"
 
 
 def test_reddit_run_api(client, reddit_env, monkeypatch):
@@ -225,3 +264,21 @@ def test_get_operator_dashboard_structure(reddit_env):
     dash = get_operator_dashboard(base=reddit_env)
     assert dash["connector"] == "reddit_live"
     assert "pending_opportunities" in dash
+    assert dash["operator_actions"] == ["approve", "deny"]
+
+
+def test_deny_api(client, reddit_env, monkeypatch):
+    fake = _reddit_listing(post_id="denyapi1")
+    with patch("services.acquisition.connectors.reddit.discovery._fetch_json", return_value=fake):
+        monkeypatch.setattr("services.acquisition.connectors.reddit.discovery.time.sleep", lambda _: None)
+        monkeypatch.setattr(
+            "services.acquisition.connectors.reddit.discovery.load_discovered_post_ids",
+            lambda base=None: set(),
+        )
+        client.post(
+            "/api/operator/reddit-acquisition/run",
+            json={"queries": ["CMMC"], "max_posts": 3, "min_fit_score": 20},
+        )
+    r = client.post("/api/operator/reddit-acquisition/deny", json={"post_id": "denyapi1"})
+    assert r.status_code == 200
+    assert r.json().get("denied") is True

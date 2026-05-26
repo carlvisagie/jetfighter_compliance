@@ -270,3 +270,46 @@
 .guidance-learn-item a:hover {
   text-decoration: underline;
 }
+
+/* Reddit strategic approval queue */
+.reddit-approval-queue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--kyc-space-4);
+  margin-top: var(--kyc-space-4);
+}
+
+.reddit-approval-card {
+  border: 1px solid var(--kyc-line);
+  border-radius: var(--kyc-radius-md);
+  padding: var(--kyc-space-4);
+  background: var(--kyc-surface-inset);
+}
+
+.reddit-approval-meta {
+  font-size: var(--kyc-text-sm);
+  margin: 0 0 var(--kyc-space-2);
+}
+
+.reddit-approval-title {
+  font-weight: 600;
+  margin: 0 0 var(--kyc-space-2);
+}
+
+.reddit-paste-preview {
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: var(--kyc-text-sm);
+  background: var(--kyc-surface);
+  border: 1px solid var(--kyc-line);
+  border-radius: var(--kyc-radius-sm);
+  padding: var(--kyc-space-3);
+  margin: var(--kyc-space-3) 0;
+  max-height: 12rem;
+  overflow: auto;
+}
+
+.reddit-btn-approve {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}

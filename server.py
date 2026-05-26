@@ -1233,14 +1233,15 @@ async def operator_reddit_acquisition_approve(body: dict = Body(default={})):
     return approve_draft(post_id, operator_note=str(body.get("operator_note") or ""))
 
 
+@app.post("/api/operator/reddit-acquisition/deny")
 @app.post("/api/operator/reddit-acquisition/ignore")
-async def operator_reddit_acquisition_ignore(body: dict = Body(default={})):
-    from services.acquisition.connectors.reddit import ignore_post
+async def operator_reddit_acquisition_deny(body: dict = Body(default={})):
+    from services.acquisition.connectors.reddit import deny_draft
 
     post_id = str(body.get("post_id") or "").strip()
     if not post_id:
         return {"ok": False, "detail": "post_id required"}
-    return ignore_post(post_id, reason=str(body.get("reason") or "operator_ignored"))
+    return deny_draft(post_id, reason=str(body.get("reason") or "operator_denied"))
 
 
 @app.get("/api/operator/compliance-intelligence")

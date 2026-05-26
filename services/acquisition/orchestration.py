@@ -404,6 +404,19 @@ def track_funnel_event(
         except Exception:
             pass
 
+    try:
+        from .connectors.reddit.learning import ingest_funnel_signal
+
+        ingest_funnel_signal(
+            stage,
+            project_id=project_id,
+            lead_id=lead_id,
+            metadata={"campaign_id": campaign_id, "variant": variant, **(metadata or {})},
+            base=base,
+        )
+    except Exception:
+        pass
+
     learning.record_conversion(
         stage=stage,
         success=success,

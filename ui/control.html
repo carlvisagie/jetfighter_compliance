@@ -101,12 +101,12 @@
         </article>
         <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="reddit-acquisition-panel">
           <span class="kyc-label-overline">Reddit acquisition intelligence</span>
-          <h3 style="margin-top:0;">Reddit Acquisition Intelligence</h3>
-          <p class="org-metric-foot">Burden detection from public Reddit discussions. Operator-reviewed drafts only — never auto-posted. Success = real paperwork submitted.</p>
+          <h3 style="margin-top:0;">Reddit — Approve or Deny</h3>
+          <p class="org-metric-foot">The organism decides pacing, safety, wording, and links. You only approve or deny. Never auto-posted.</p>
           <div class="kyc-btn-row" style="margin-bottom:0.75rem;">
-            <button type="button" class="btn secondary" id="redditIntelRunBtn">Run Reddit discovery</button>
+            <button type="button" class="btn secondary" id="redditIntelRunBtn">Run discovery</button>
           </div>
-          <div id="reddit-acquisition-insights"><p class="kyc-loading">Loading Reddit acquisition intelligence…</p></div>
+          <div id="reddit-acquisition-insights"><p class="kyc-loading">Loading…</p></div>
         </article>
         <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="operational-alerts-panel">
           <span class="kyc-label-overline">Operational alerts</span>
@@ -363,42 +363,69 @@
       el.innerHTML = '<p class="org-metric-foot">Acquisition intelligence unavailable.</p>';
     }
   }
+  async function redditDecide(postId, action) {
+    const path = action === 'approve' ? '/api/operator/reddit-acquisition/approve' : '/api/operator/reddit-acquisition/deny';
+    return api(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: postId }),
+    });
+  }
   async function loadRedditAcquisitionIntelligence() {
     const el = document.getElementById('reddit-acquisition-insights');
     if (!el) return;
     try {
       const j = await api('/api/operator/reddit-acquisition');
       const conv = j.upload_conversion || {};
-      const pending = (j.pending_opportunities || []).slice(0, 8);
+      const pending = j.pending_opportunities || [];
       let html =
-        '<p class="org-metric-foot"><strong>Doctrine:</strong> ' + escapeHtml((j.doctrine && j.doctrine.message) || '') +
-        ' · Auto-post: <strong>' + (j.safety && j.safety.auto_post === false ? 'disabled' : 'review') + '</strong></p>' +
-        '<ul class="guidance-list">' +
-        '<li><strong>Upload conversion:</strong> ' + ((conv.rate || 0) * 100).toFixed(1) + '% (' + (conv.completed || 0) + '/' + (conv.started || 0) + ')</li>' +
-        '<li><strong>Success metric:</strong> ' + escapeHtml((j.doctrine && j.doctrine.success_metric) || 'real_paperwork_submitted') + '</li>' +
-        '<li><strong>Ignored (recent):</strong> ' + (j.ignored_count || 0) + '</li>' +
-        '</ul>';
-      if (pending.length) {
-        html += '<p class="org-metric-foot"><strong>Discovered opportunities (review drafts):</strong></p><ul class="guidance-list">';
+        '<p class="org-metric-foot">Upload conversion: ' + ((conv.rate || 0) * 100).toFixed(1) + '% · Organism handles safety, pacing, and wording.</p>';
+      if (!pending.length) {
+        html += '<p class="org-metric-foot">No opportunities awaiting decision.</p>';
+      } else {
+        html += '<div class="reddit-approval-queue">';
         pending.forEach(function (o) {
-          const draft = o.draft_reply || {};
-          html += '<li style="margin-bottom:0.75rem;"><strong>r/' + escapeHtml(o.subreddit || '') + '</strong> · burden ' + (o.burden_score || 0) + ' · fit ' + (o.fit_score || 0) + '<br>' +
-            escapeHtml((o.title || '').slice(0, 120)) + '<br>' +
-            '<em>' + escapeHtml(draft.headline || '') + '</em><br>' +
-            escapeHtml((draft.body || '').slice(0, 200)) + '…<br>' +
-            (o.url ? '<a href="' + escapeHtml(o.url) + '" target="_blank" rel="noopener">View post</a> · ' : '') +
-            (o.route_url ? '<a href="' + escapeHtml(o.route_url) + '" target="_blank" rel="noopener">Upload-first route</a>' : '') +
-            '</li>';
+          html +=
+            '<article class="reddit-approval-card">' +
+            '<p class="reddit-approval-meta"><strong>r/' + escapeHtml(o.subreddit || '') + '</strong> · confidence ' + (o.organism_confidence || 0) + '% · ' + escapeHtml(o.engagement_stage || '') + '</p>' +
+            '<p class="reddit-approval-title">' + escapeHtml((o.title || '').slice(0, 140)) + '</p>' +
+            '<p class="org-metric-foot">' + escapeHtml(o.organism_rationale || '') + '</p>' +
+            '<pre class="reddit-paste-preview">' + escapeHtml(o.paste_text || '') + '</pre>' +
+            '<div class="kyc-btn-row">' +
+            '<button type="button" class="btn reddit-btn-approve" data-post-id="' + escapeHtml(o.post_id || '') + '">APPROVE</button>' +
+            '<button type="button" class="btn secondary reddit-btn-deny" data-post-id="' + escapeHtml(o.post_id || '') + '">DENY</button>' +
+            (o.url ? '<a class="btn secondary" href="' + escapeHtml(o.url) + '" target="_blank" rel="noopener">View post</a>' : '') +
+            '</div></article>';
         });
-        html += '</ul>';
-      }
-      const pains = j.top_pain_signals || [];
-      if (pains.length) {
-        html += '<p class="org-metric-foot"><strong>Top pain signals:</strong> ' + pains.slice(0, 5).map(function (p) { return escapeHtml(p[0]); }).join(', ') + '</p>';
+        html += '</div>';
       }
       el.innerHTML = html;
+      el.querySelectorAll('.reddit-btn-approve').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          const pid = btn.getAttribute('data-post-id');
+          if (!pid) return;
+          btn.disabled = true;
+          const res = await redditDecide(pid, 'approve');
+          if (res.paste_on_reddit) {
+            try { await navigator.clipboard.writeText(res.paste_on_reddit); } catch (e) {}
+            alert('Approved. Reply copied to clipboard — paste on Reddit manually.');
+          } else {
+            alert('Approved. Post the organism draft on Reddit manually.');
+          }
+          await loadRedditAcquisitionIntelligence();
+        });
+      });
+      el.querySelectorAll('.reddit-btn-deny').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          const pid = btn.getAttribute('data-post-id');
+          if (!pid) return;
+          btn.disabled = true;
+          await redditDecide(pid, 'deny');
+          await loadRedditAcquisitionIntelligence();
+        });
+      });
     } catch (e) {
-      el.innerHTML = '<p class="org-metric-foot">Reddit acquisition intelligence unavailable.</p>';
+      el.innerHTML = '<p class="org-metric-foot">Reddit queue unavailable.</p>';
     }
   }
   async function loadOperationalAlerts() {

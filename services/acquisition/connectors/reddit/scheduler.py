@@ -18,6 +18,15 @@ def reddit_discovery_job() -> None:
         telemetry.emit("reddit_discovery_failed", metadata={"error": str(e)[:120]})
 
 
+def reddit_daily_learning_job() -> None:
+    try:
+        from .learning import run_daily_reddit_learning
+
+        run_daily_reddit_learning()
+    except Exception as e:
+        logger.warning("Reddit daily learning failed: %s", e)
+
+
 def register_scheduler_jobs(scheduler) -> None:
     try:
         scheduler.add_job(
@@ -26,6 +35,17 @@ def register_scheduler_jobs(scheduler) -> None:
             hour="*/6",
             minute=15,
             id="reddit_acquisition_discovery",
+            replace_existing=True,
+        )
+    except Exception:
+        pass
+    try:
+        scheduler.add_job(
+            reddit_daily_learning_job,
+            "cron",
+            hour=6,
+            minute=30,
+            id="reddit_organism_daily_learning",
             replace_existing=True,
         )
     except Exception:
