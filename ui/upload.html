@@ -3,36 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KeepYourContracts | Upload what you have</title>
+  <title>KeepYourContracts | Upload my paperwork</title>
   <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
   <link rel="stylesheet" href="/ui/assets/styles/layout.css">
   <link rel="stylesheet" href="/ui/assets/styles/components.css">
   <link rel="stylesheet" href="/ui/assets/styles/customer-friction.css">
+  <link rel="stylesheet" href="/ui/assets/styles/customer-upload-first.css">
 </head>
-<body class="kyc-page kyc-friction">
+<body class="kyc-page kyc-friction kyc-upload-first">
   <header class="kyc-topbar">
     <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
     <nav class="kyc-nav" aria-label="Primary">
-      <a href="/ui/shop.html">Services</a>
-      <a href="/ui/inquiry.html">Contact</a>
+      <a href="/ui/shop.html">Home</a>
+      <a href="/ui/inquiry.html">Help</a>
     </nav>
   </header>
 
   <main class="kyc-main kyc-main--narrow">
     <section class="kyc-hero">
-      <span class="kyc-badge kyc-badge--success">Easy upload</span>
-      <h1 id="uploadHeadline">Upload whatever you already have</h1>
-      <p id="uploadSubline">Policies, spreadsheets, screenshots, scans — drop them here. We organize the rest.</p>
+      <span class="kyc-badge">We handle the rest</span>
+      <h1 id="uploadHeadline">Give us exactly what you have.</h1>
+      <p id="uploadSubline">Drop files here — policies, spreadsheets, screenshots, scans, exports. You do not need to organize anything first.</p>
+      <p class="kyc-reassurance">You do not need perfect paperwork to begin. Messy is fine. Partial is fine. We will sort it out and tell you what may still help.</p>
     </section>
 
     <div class="kyc-momentum" id="momentumBar" hidden>
       <div class="kyc-momentum-fill" id="momentumFill"></div>
-    </div>
-
-    <div class="kyc-flow-steps" aria-label="Onboarding flow">
-      <div class="kyc-flow-step"><strong>Step 1</strong> Inquiry</div>
-      <div class="kyc-flow-step"><strong>Step 2</strong> Intake</div>
-      <div class="kyc-flow-step kyc-flow-step--active"><strong>Step 3</strong> Upload</div>
     </div>
 
     <article class="kyc-card kyc-card--flat">
@@ -43,10 +39,10 @@
           <input type="email" id="email" name="email" placeholder="you@company.com" autocomplete="email">
         </div>
 
-        <div class="kyc-upload-inbox" id="dropZone">
-          <p><strong>Drag files here</strong> or tap to choose</p>
-          <label class="kyc-btn kyc-btn--primary kyc-upload-trigger">
-            Choose files
+        <div class="kyc-upload-inbox kyc-upload-inbox--hero" id="dropZone">
+          <p><strong>Drag files here</strong> or tap below</p>
+          <label class="kyc-btn kyc-btn--primary kyc-upload-cta-primary kyc-upload-trigger">
+            Upload what I have
             <input type="file" id="fileInput" name="files" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt">
           </label>
           <label class="kyc-btn kyc-btn--secondary kyc-upload-trigger kyc-upload-camera">
@@ -57,10 +53,13 @@
 
         <ul class="kyc-progress-list" id="progressList" aria-live="polite"></ul>
 
-        <div class="kyc-qr-block" style="margin-top:1.5rem;">
+        <div class="kyc-qr-block kyc-qr-block--prominent">
           <h3>Continue on your phone</h3>
           <p>Scan to upload from your camera — same secure link, no password.</p>
-          <img id="qrImg" src="" alt="QR code for mobile upload" width="200" height="200">
+          <img id="qrImg" src="" alt="QR code for mobile upload" width="220" height="220">
+          <div class="kyc-copy-link-row">
+            <button type="button" id="copyUploadLink" hidden>Copy my link</button>
+          </div>
         </div>
       </form>
       <p id="status" class="kyc-status" role="status" aria-live="polite"></p>
@@ -83,6 +82,8 @@
     const dropZone = document.getElementById("dropZone");
     const guidanceEl = document.getElementById("guidancePanel");
     const qrImg = document.getElementById("qrImg");
+    const copyBtn = document.getElementById("copyUploadLink");
+    let shareUrl = "";
 
     const uploader = KYCFriction.initUploadPage({
       projectIdInput: pidInput,
@@ -119,9 +120,22 @@
     if (projectId) {
       pidInput.value = projectId;
       uploader.setProjectId(projectId, emailInput.value);
+      shareUrl =
+        location.origin +
+        "/upload?project_id=" +
+        encodeURIComponent(projectId) +
+        (token ? "&token=" + encodeURIComponent(token) : "");
+      if (copyBtn) {
+        copyBtn.hidden = false;
+        copyBtn.addEventListener("click", function () {
+          navigator.clipboard.writeText(shareUrl).then(function () {
+            copyBtn.textContent = "Link copied!";
+          });
+        });
+      }
     } else {
       status.className = "kyc-status kyc-status--error";
-      status.textContent = "Use the link from your welcome email to upload.";
+      status.textContent = "Use the link from your email to upload — or start at the home page.";
     }
 
     cameraInput.addEventListener("change", function () {

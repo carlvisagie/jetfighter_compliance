@@ -3,91 +3,85 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>KeepYourContracts | Compliance Intake</title>
+  <title>KeepYourContracts | Quick details, then upload</title>
   <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
   <link rel="stylesheet" href="/ui/assets/styles/layout.css">
   <link rel="stylesheet" href="/ui/assets/styles/components.css">
   <link rel="stylesheet" href="/ui/assets/styles/customer-friction.css">
+  <link rel="stylesheet" href="/ui/assets/styles/customer-upload-first.css">
 </head>
-<body class="kyc-page kyc-friction">
+<body class="kyc-page kyc-friction kyc-upload-first">
   <header class="kyc-topbar">
     <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
     <nav class="kyc-nav" aria-label="Primary">
-      <a href="/ui/shop.html">Services</a>
-      <a href="/ui/inquiry.html">Contact</a>
+      <a href="/ui/shop.html">Home</a>
     </nav>
   </header>
 
-  <main class="kyc-main">
+  <main class="kyc-main kyc-main--narrow">
     <section class="kyc-hero">
-      <span class="kyc-badge">Client intake</span>
-      <h1 id="intakeHeadline">Quick intake — you're almost there</h1>
-      <p id="intakeSubline">A few details so we can prepare your path. Stop anytime; your magic link brings you back.</p>
+      <span class="kyc-badge">Almost there</span>
+      <h1 id="intakeHeadline">A few details — then upload.</h1>
+      <p id="intakeSubline">Tell us who you are. We will learn most of the rest from your paperwork. Skip anything you do not know.</p>
+      <p class="kyc-skip-intake-note">Already have files ready? <a id="skipToUpload" href="#">Go straight to upload</a></p>
+    </section>
+
     <div class="kyc-momentum" id="momentumBar" hidden>
       <div class="kyc-momentum-fill" id="momentumFill"></div>
     </div>
-    </section>
-    <div class="kyc-flow-steps" aria-label="Onboarding flow">
-      <div class="kyc-flow-step"><strong>Step 1</strong> Inquiry</div>
-      <div class="kyc-flow-step kyc-flow-step--active"><strong>Step 2</strong> Intake</div>
-      <div class="kyc-flow-step"><strong>Step 3</strong> Evidence upload</div>
-    </div>
-    <section class="kyc-grid kyc-grid--intake">
-      <article class="kyc-card kyc-card--flat">
-        <span class="kyc-label-overline">Secure intake form</span>
-        <h2>Organization details</h2>
-        <form id="f" class="kyc-form">
-          <input type="hidden" id="token" name="token" />
-          <div class="kyc-form-grid">
-            <div class="kyc-field"><label>Company Name</label><input name="company" required></div>
-            <div class="kyc-field"><label>Primary Contact</label><input name="contact" required></div>
-            <div class="kyc-field"><label>Phone</label><input name="phone"></div>
-            <div class="kyc-field"><label>Email</label><input name="email" type="email"></div>
-            <div class="kyc-field kyc-field--full"><label>Notes</label><textarea name="notes"></textarea></div>
-          </div>
-          <span class="kyc-label-overline" style="margin-top:2rem;display:block;">External requirements</span>
-          <div class="kyc-check-grid">
-                <div class="kyc-check"><label><input type="checkbox" name="ext_cmmc_l2_c3pao"> CMMC L2 (C3PAO) required</label></div>
-                <div class="kyc-check"><label><input type="checkbox" name="ext_gs1"> GS1 GTIN/GLN needed</label></div>
-                <div class="kyc-check"><label><input type="checkbox" name="ext_docusign"> DocuSign/Adobe envelopes required</label></div>
-                <div class="kyc-check"><label><input type="checkbox" name="ext_eidas"> Qualified eSignature (eIDAS)</label></div>
-                <div class="kyc-check"><label><input type="checkbox" name="ext_lab_tests"> Lab tests (CE/EMC/Radio)</label></div>
-                <div class="kyc-check"><label><input type="checkbox" name="ext_pentest"> External penetration test</label></div>
-                <div class="kyc-check"><label><input type="checkbox" name="ext_vuln_scans"> External vulnerability scans</label></div>
-                <div class="kyc-check"><label><input type="checkbox" name="ext_iso27001"> ISO 27001 certificate</label></div>
-                <div class="kyc-check"><label><input type="checkbox" name="ext_soc2"> SOC 2 report</label></div>
-                <div class="kyc-check"><label><input type="checkbox" name="ext_pci"> PCI DSS (ASV/ROC)</label></div>
-                <div class="kyc-check"><label><input type="checkbox" name="ext_legal"> Privacy/legal counsel</label></div>
-                <div class="kyc-check"><label><input type="checkbox" name="ext_background"> Background checks</label></div>
-                <div class="kyc-check"><label><input type="checkbox" name="ext_worm"> WORM / immutable retention</label></div>
-                <div class="kyc-check"><label><input type="checkbox" name="ext_translation"> Certified translation</label></div>
-                <div class="kyc-check"><label><input type="checkbox" name="ext_timestamp"> Qualified timestamp / notarization</label></div>
-                <div class="kyc-check"><label><input type="checkbox" name="ext_rohs"> Material tests (RoHS/REACH)</label></div>
-          </div>
-          <button class="kyc-btn kyc-btn--primary kyc-btn--block" type="submit">Start compliance intake</button>
-        </form>
-      </article>
-      <aside class="kyc-card kyc-card--flat">
-        <span class="kyc-label-overline">Mobile &amp; trust</span>
-        <h2>Continue on mobile</h2>
-        <p>Scan to upload evidence and supporting documents from your phone.</p>
-        <div class="kyc-qr-block">
-          <h3>Continue on your phone</h3>
-          <p>Scan to finish intake or upload from your camera.</p>
-          <img id="intakeQr" src="" alt="QR code to continue on mobile" width="200" height="200">
+
+    <article class="kyc-card kyc-card--flat kyc-intake-minimal">
+      <form id="f" class="kyc-form">
+        <input type="hidden" id="token" name="token" />
+        <div class="kyc-field">
+          <label>Your name</label>
+          <input name="contact" required placeholder="Jane Smith">
         </div>
-        <div class="kyc-step"><span class="kyc-step-num">1</span><span class="kyc-step-text">Open the secure upload portal with your phone camera.</span></div>
-        <div class="kyc-step"><span class="kyc-step-num">2</span><span class="kyc-step-text">Upload contracts, policies, certifications, and supporting documentation.</span></div>
-        <div class="kyc-step"><span class="kyc-step-num">3</span><span class="kyc-step-text">Your workflow updates as evidence is received.</span></div>
-        <div class="kyc-trust-grid" style="margin-top:1.5rem;">
-          <div class="kyc-trust-item"><strong>Evidence-centric workflow</strong><p>Traceability and audit-ready operations.</p></div>
-          <div class="kyc-trust-item"><strong>Operational simplicity</strong><p>Reduce friction while improving accountability.</p></div>
-          <div class="kyc-trust-item"><strong>Enterprise readiness</strong><p>Built for regulated environments.</p></div>
+        <div class="kyc-field">
+          <label>Email</label>
+          <input name="email" type="email" required placeholder="you@company.com">
         </div>
-      </aside>
-    </section>
+        <div class="kyc-field kyc-field--optional">
+          <label>Company (optional)</label>
+          <input name="company" placeholder="Your company name">
+        </div>
+        <div class="kyc-field kyc-field--optional">
+          <label>Phone (optional)</label>
+          <input name="phone" type="tel" placeholder="">
+        </div>
+        <div class="kyc-field kyc-field--optional">
+          <label>Note (optional)</label>
+          <textarea name="notes" rows="2" placeholder="Anything we should know — or leave blank."></textarea>
+        </div>
+
+        <details class="kyc-advanced-details">
+          <summary>Advanced requirements (optional — skip if unsure)</summary>
+          <div class="kyc-advanced-body">
+            <p>Only check items you already know apply. We can refine this later from your uploads.</p>
+            <div class="kyc-check-grid">
+              <div class="kyc-check"><label><input type="checkbox" name="ext_cmmc_l2_c3pao"> CMMC / C3PAO</label></div>
+              <div class="kyc-check"><label><input type="checkbox" name="ext_soc2"> SOC 2</label></div>
+              <div class="kyc-check"><label><input type="checkbox" name="ext_iso27001"> ISO 27001</label></div>
+              <div class="kyc-check"><label><input type="checkbox" name="ext_pci"> PCI</label></div>
+              <div class="kyc-check"><label><input type="checkbox" name="ext_gs1"> GS1 / product IDs</label></div>
+              <div class="kyc-check"><label><input type="checkbox" name="ext_pentest"> Penetration test</label></div>
+              <div class="kyc-check"><label><input type="checkbox" name="ext_vuln_scans"> Vulnerability scans</label></div>
+            </div>
+          </div>
+        </details>
+
+        <button class="kyc-btn kyc-btn--primary kyc-upload-cta-primary kyc-btn--block" type="submit">Save and upload my paperwork</button>
+      </form>
+
+      <div class="kyc-qr-block kyc-qr-block--prominent" style="margin-top:1.5rem;">
+        <h3>Or continue on your phone</h3>
+        <p>Scan to upload from your camera — same secure link.</p>
+        <img id="intakeQr" src="" alt="QR code to upload on mobile" width="220" height="220">
+      </div>
+    </article>
   </main>
-  <footer class="kyc-footer">KeepYourContracts.com · Enterprise Compliance Workflow Platform</footer>
+
+  <footer class="kyc-footer">KeepYourContracts.com · Your paperwork stays private</footer>
   <script src="/ui/intake.js"></script>
 </body>
 </html>

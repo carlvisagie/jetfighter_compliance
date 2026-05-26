@@ -251,14 +251,15 @@ def kickoff(order_id: str, email: str, name: str, skus: list):
         continuation_token = make_continuation_token(meta["project_id"], email)
         upload_url = f"{base}/upload?project_id={meta['project_id']}"
     html = f"""
-    <h2>Welcome to KeepYourContracts</h2>
-    <p>Your compliance project <b>{meta['project_id']}</b> is created.</p>
-    <p>Please complete intake here: <a href="{intake_url}">{intake_url}</a></p>
-    <p>After intake, upload documents here: <a href="{upload_url}">{upload_url}</a></p>
-    <p>Or resume anytime (no password): <a href="{continuation_url}">{continuation_url}</a></p>
+    <h2>You are set up — upload what you have</h2>
+    <p>Give us exactly what you already have. You do not need perfect or organized paperwork.</p>
+    <p><strong><a href="{upload_url}">Upload my paperwork</a></strong></p>
+    <p>Continue on your phone anytime (no password):<br><a href="{continuation_url}">{continuation_url}</a></p>
+    <p>Optional quick details: <a href="{intake_url}">{intake_url}</a></p>
+    <p><small>Project reference: {meta['project_id']}. This is operational assistance, not legal advice or a certification guarantee.</small></p>
     """
     try:
-        send_email(email, "Welcome  Your Compliance Project", html)
+        send_email(email, "Upload your paperwork — KeepYourContracts", html)
     except Exception as e:
         logging.warning(f"Email failed to send to {email}: {e}")
 

@@ -41,6 +41,13 @@ jobs:
         run: |
           python -m pytest tests/test_public_ui_exposure.py -q --tb=short
 
+      - name: Customer upload-first UX
+        env:
+          OPS_PASSWORD: ci-test-ops-password
+          OPS_SECRET: ci-test-ops-secret
+        run: |
+          python -m pytest tests/test_customer_upload_first_ux.py -q --tb=short
+
       - name: Ops route authentication
         env:
           OPS_PASSWORD: ci-test-ops-password

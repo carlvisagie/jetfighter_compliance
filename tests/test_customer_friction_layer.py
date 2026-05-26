@@ -156,7 +156,7 @@ def test_kickoff_returns_continuation_url(client, monkeypatch, tmp_path):
 def test_continue_page_public(friction_client):
     r = friction_client.get("/ui/continue.html")
     assert r.status_code == 200
-    assert "Continue where you left off" in r.text
+    assert "Pick up where you left off" in r.text
     assert "customer-friction" in r.text
 
 

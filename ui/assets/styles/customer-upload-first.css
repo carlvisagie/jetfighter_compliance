@@ -1,0 +1,182 @@
+/* Upload-first customer experience — calm, minimal, mobile-first */
+
+.kyc-upload-first .kyc-hero h1 {
+  font-size: clamp(1.75rem, 5vw, 2.35rem);
+  line-height: 1.15;
+  max-width: 22ch;
+}
+
+.kyc-upload-first .kyc-hero p {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--kyc-text-muted, #475569);
+  max-width: 42rem;
+}
+
+.kyc-upload-first .kyc-badge {
+  background: #ecfdf5;
+  color: #065f46;
+  border: none;
+}
+
+.kyc-upload-cta-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: 0.85rem 1.75rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  width: 100%;
+  max-width: 22rem;
+}
+
+.kyc-upload-cta-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+@media (min-width: 540px) {
+  .kyc-upload-cta-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .kyc-upload-cta-primary {
+    width: auto;
+  }
+}
+
+.kyc-upload-inbox--hero {
+  margin-top: 1.5rem;
+  padding: 2.25rem 1.25rem;
+}
+
+.kyc-upload-inbox--hero .kyc-upload-cta-primary {
+  max-width: 100%;
+  margin-top: 0.75rem;
+}
+
+.kyc-reassurance {
+  margin: 1.25rem 0 0;
+  padding: 1rem 1.15rem;
+  border-radius: 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  font-size: 0.98rem;
+  line-height: 1.5;
+}
+
+.kyc-qr-block--prominent {
+  margin-top: 1.75rem;
+  padding: 1.25rem;
+  border: 2px solid #bfdbfe;
+  background: #eff6ff;
+}
+
+.kyc-qr-block--prominent h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+}
+
+.kyc-qr-block--prominent img {
+  max-width: 220px;
+}
+
+.kyc-copy-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 0.75rem;
+}
+
+.kyc-copy-link-row button {
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #94a3b8;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.kyc-services-compact {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.kyc-services-compact article {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.15rem;
+}
+
+.kyc-services-compact h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.kyc-services-compact .kyc-price {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin: 0.15rem 0 0;
+}
+
+.kyc-advanced-details {
+  margin-top: 1.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0;
+  background: #f8fafc;
+}
+
+.kyc-advanced-details summary {
+  cursor: pointer;
+  padding: 0.85rem 1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #475569;
+}
+
+.kyc-advanced-details .kyc-advanced-body {
+  padding: 0 1rem 1rem;
+  font-size: 0.92rem;
+  color: #64748b;
+}
+
+.kyc-inquiry-success {
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+  border-radius: 12px;
+  background: #ecfdf5;
+  border: 1px solid #86efac;
+}
+
+.kyc-inquiry-success .kyc-upload-cta-primary {
+  margin-top: 1rem;
+}
+
+.kyc-intake-minimal .kyc-field--optional label::after {
+  content: " (optional)";
+  font-weight: normal;
+  color: #94a3b8;
+  font-size: 0.85em;
+}
+
+.kyc-skip-intake-note {
+  font-size: 0.95rem;
+  margin: 1rem 0 0;
+}
+
+.kyc-skip-intake-note a {
+  font-weight: 600;
+}

@@ -3,148 +3,70 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>KeepYourContracts.com | Structured Compliance Readiness</title>
+  <title>KeepYourContracts | Upload what you have</title>
   <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
   <link rel="stylesheet" href="/ui/assets/styles/layout.css">
   <link rel="stylesheet" href="/ui/assets/styles/components.css">
+  <link rel="stylesheet" href="/ui/assets/styles/customer-upload-first.css">
 </head>
-<body class="kyc-page">
+<body class="kyc-page kyc-upload-first">
   <header class="kyc-topbar">
     <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
     <nav class="kyc-nav" aria-label="Primary">
-      <a href="/ui/shop.html" aria-current="page">Services</a>
-      <a href="/ui/inquiry.html">Readiness review</a>
+      <a href="/ui/inquiry.html">Ask a question</a>
     </nav>
   </header>
 
-  <main class="kyc-main">
-    <section class="kyc-hero kyc-hero--split">
-      <div>
-        <span class="kyc-badge">Structured readiness support</span>
-        <h1>Show us what you have. We help you understand where you stand.</h1>
-        <p>Upload your current documentation and receive structured readiness visibility. We help you organize and understand where you currently stand — through evidence organization, gap identification, and guided workflow support.</p>
-        <div class="kyc-btn-row">
-          <a class="kyc-btn kyc-btn--primary" href="/ui/inquiry.html">Begin readiness review</a>
-        </div>
+  <main class="kyc-main kyc-main--narrow">
+    <section class="kyc-hero">
+      <span class="kyc-badge">We handle the rest</span>
+      <h1>Give us exactly what you have.</h1>
+      <p>Upload any paperwork, screenshots, spreadsheets, exports, policies, notes, or evidence you already have. You do not need to organize anything first. We will review it, organize it, identify what is missing, and help you handle the rest.</p>
+      <p class="kyc-reassurance">You do not need perfect paperwork to begin. Messy is fine. Partial is fine. We have got this.</p>
+      <div class="kyc-upload-cta-row">
+        <a class="kyc-btn kyc-btn--primary kyc-upload-cta-primary" href="/ui/inquiry.html">Upload my paperwork</a>
+        <a class="kyc-btn kyc-btn--secondary" href="/ui/inquiry.html?mode=question">Ask a question first</a>
       </div>
-      <aside class="kyc-card kyc-card--flat">
-        <div class="kyc-metric-row"><strong>Evidence</strong> Organized documentation workflows</div>
-        <div class="kyc-metric-row"><strong>Gaps</strong> Readiness visibility you can act on</div>
-        <div class="kyc-metric-row"><strong>Structure</strong> Traceable artifact collection</div>
-        <div class="kyc-metric-row"><strong>Guided</strong> Operational onboarding assistance</div>
-      </aside>
     </section>
 
-    <section class="kyc-section">
+    <section class="kyc-section" style="padding-top:0;">
       <header class="kyc-section-head">
-        <span class="kyc-label-overline">Service catalog</span>
-        <h2>Readiness programs</h2>
-        <p>Choose a program, then complete the readiness review form. We create your project, send intake, and guide evidence collection on Render-hosted infrastructure.</p>
+        <h2>Pick a program (optional)</h2>
+        <p>If you are not sure which applies, just upload — we will figure it out from your files.</p>
       </header>
-      <div class="kyc-product-grid">
+      <div class="kyc-services-compact">
         <article class="kyc-card kyc-card--flat">
-          <h3>CMMC Level 1 Readiness Assessment</h3>
-          <div class="kyc-price">From $3,500</div>
-          <ul class="kyc-feature-list">
-            <li>Readiness review</li>
-            <li>Evidence structure</li>
-            <li>Gap identification</li>
-            <li>Intake + audit workflow</li>
-          </ul>
-          <a class="kyc-btn kyc-btn--primary kyc-btn--block" href="/ui/inquiry.html?subject=CMMC%20Level%201">Start with readiness review</a>
+          <div>
+            <h3>CMMC / defense paperwork</h3>
+            <p class="kyc-price">We organize what you send</p>
+          </div>
+          <a class="kyc-btn kyc-btn--primary" href="/ui/inquiry.html?subject=CMMC">Start with upload</a>
         </article>
         <article class="kyc-card kyc-card--flat">
-          <h3>CMMC Level 2 Readiness Assessment</h3>
-          <div class="kyc-price">From $8,000</div>
-          <ul class="kyc-feature-list">
-            <li>SSP + POA&amp;M support</li>
-            <li>Evidence coordination</li>
-            <li>Chain-of-custody structure</li>
-            <li>Executive reporting</li>
-          </ul>
-          <a class="kyc-btn kyc-btn--primary kyc-btn--block" href="/ui/inquiry.html?subject=CMMC%20Level%202">Start with readiness review</a>
+          <div>
+            <h3>EU product passport (DPP)</h3>
+            <p class="kyc-price">Upload exports and product docs</p>
+          </div>
+          <a class="kyc-btn kyc-btn--primary" href="/ui/inquiry.html?subject=EU%20DPP">Start with upload</a>
         </article>
         <article class="kyc-card kyc-card--flat">
-          <h3>EU Digital Product Passport Pilot</h3>
-          <div class="kyc-price">From $6,000</div>
-          <ul class="kyc-feature-list">
-            <li>Product traceability</li>
-            <li>Vendor coordination</li>
-            <li>Audit documentation</li>
-            <li>Export structure</li>
-          </ul>
-          <a class="kyc-btn kyc-btn--primary kyc-btn--block" href="/ui/inquiry.html?subject=EU%20DPP%20Pilot">Start with readiness review</a>
-        </article>
-        <article class="kyc-card kyc-card--flat">
-          <h3>AI Compliance Essential</h3>
-          <div class="kyc-price">From $800</div>
-          <ul class="kyc-feature-list">
-            <li>Foundational AI governance</li>
-            <li>Policy templates</li>
-            <li>Risk snapshot</li>
-            <li>Intake workflow</li>
-          </ul>
-          <a class="kyc-btn kyc-btn--primary kyc-btn--block" href="/ui/inquiry.html?subject=AI%20Compliance%20Essential">Start with readiness review</a>
-        </article>
-        <article class="kyc-card kyc-card--flat">
-          <h3>AI Compliance Growth</h3>
-          <div class="kyc-price">From $2,500</div>
-          <ul class="kyc-feature-list">
-            <li>Expanded AI controls</li>
-            <li>Vendor review support</li>
-            <li>Evidence coordination</li>
-            <li>Executive summary</li>
-          </ul>
-          <a class="kyc-btn kyc-btn--primary kyc-btn--block" href="/ui/inquiry.html?subject=AI%20Compliance%20Growth">Start with readiness review</a>
+          <div>
+            <h3>General compliance files</h3>
+            <p class="kyc-price">Policies, screenshots, anything</p>
+          </div>
+          <a class="kyc-btn kyc-btn--primary" href="/ui/inquiry.html">Start with upload</a>
         </article>
       </div>
     </section>
 
-    <section class="kyc-section">
-      <header class="kyc-section-head">
-        <span class="kyc-label-overline">Customer onboarding</span>
-        <h2>How it works</h2>
-      </header>
-      <div class="kyc-grid kyc-grid--3">
-        <article class="kyc-card kyc-card--flat">
-          <h3>1. Readiness review</h3>
-          <p>Submit <a href="/ui/inquiry.html">inquiry.html</a> with your program and message. Backend creates your project and event log entry.</p>
-        </article>
-        <article class="kyc-card kyc-card--flat">
-          <h3>2. Intake</h3>
-          <p>Complete intake with your secure token link. Project workflow advances and communications are stored.</p>
-        </article>
-        <article class="kyc-card kyc-card--flat">
-          <h3>3. Evidence upload</h3>
-          <p>Upload artifacts via the guided upload URL. Chain-of-custody and status tracking continue internally.</p>
-        </article>
+    <details class="kyc-advanced-details">
+      <summary>Advanced: how we work (optional)</summary>
+      <div class="kyc-advanced-body">
+        <p>After you upload, we extract and classify your documents, track gaps, and guide you on what may still help. You confirm details — we do not expect you to type what is already in your files. This is operational help, not a promise of certification or legal advice.</p>
       </div>
-    </section>
-
-    <section class="kyc-section">
-      <header class="kyc-section-head">
-        <span class="kyc-label-overline">How we help</span>
-        <h2>Readiness outcomes</h2>
-      </header>
-      <div class="kyc-grid kyc-grid--3">
-        <article class="kyc-card kyc-card--flat">
-          <h3>Organize compliance evidence</h3>
-          <p>Bring scattered policies, contracts, and artifacts into a structured workflow — not another pile of files.</p>
-        </article>
-        <article class="kyc-card kyc-card--flat">
-          <h3>Identify readiness gaps</h3>
-          <p>See obvious missing pieces and priority areas so your team knows what to address next.</p>
-        </article>
-        <article class="kyc-card kyc-card--flat">
-          <h3>Reduce compliance chaos</h3>
-          <p>Workflow-based support for documentation and onboarding — operational assistance, not a promise of approval.</p>
-        </article>
-      </div>
-    </section>
+    </details>
   </main>
 
-  <footer class="kyc-footer">
-    KeepYourContracts.com · Structured compliance readiness assistance
-  </footer>
+  <footer class="kyc-footer">KeepYourContracts.com · Your paperwork stays private</footer>
 </body>
 </html>

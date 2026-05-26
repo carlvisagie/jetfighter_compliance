@@ -581,25 +581,50 @@
       j.momentum_message
     );
     if (root) {
-      let html = '<div class="kyc-card kyc-card--flat"><p><strong>Project:</strong> ' + escapeHtml(j.project_id) + "</p>";
+      let html =
+        '<div class="kyc-card kyc-card--flat">' +
+        "<p class=\"kyc-reassurance\">You do not need perfect paperwork. Upload whatever you have — we will organize the rest.</p>";
       if (j.recognized && j.recognized.length) {
-        html += "<p>We already recognized: " + escapeHtml(j.recognized.join(", ")) + "</p>";
+        html += "<p><strong>We already recognized:</strong> " + escapeHtml(j.recognized.join(", ")) + "</p>";
       }
       if (j.missing_items && j.missing_items.length) {
-        html += "<p>May still help: ";
-        html += j.missing_items.map(function (m) { return escapeHtml(m.title); }).join(", ");
+        html += "<p><strong>May still help (no rush):</strong> ";
+        html += j.missing_items
+          .slice(0, 3)
+          .map(function (m) {
+            return escapeHtml(m.title);
+          })
+          .join(", ");
         html += "</p>";
       }
       html += '<div class="kyc-continue-actions">';
+      html +=
+        '<a class="kyc-btn kyc-btn--primary kyc-upload-cta-primary" href="' +
+        escapeHtml(j.upload_url) +
+        '">Upload my paperwork</a>';
       if (!j.intake_complete) {
-        html += '<a class="kyc-btn kyc-btn--primary" href="' + escapeHtml(j.intake_url) + '">Continue intake</a>';
+        html +=
+          '<a class="kyc-btn kyc-btn--secondary" href="' +
+          escapeHtml(j.intake_url) +
+          '">Add quick details</a>';
       }
-      html += '<a class="kyc-btn kyc-btn--primary" href="' + escapeHtml(j.upload_url) + '">Upload files</a>';
-      html += '<a class="kyc-btn kyc-btn--secondary" href="' + escapeHtml(j.continuation_url) + '">Save this link</a>';
       html += "</div>";
-      html += '<div class="kyc-qr-block"><h3>Continue on your phone</h3>';
-      html += '<img src="' + qrSrcForUrl(j.continuation_url) + '" alt="QR code" width="200" height="200"></div></div>';
+      html +=
+        '<div class="kyc-qr-block kyc-qr-block--prominent"><h3>Continue on your phone</h3>' +
+        "<p>Scan or copy your link — no password.</p>" +
+        '<img src="' +
+        qrSrcForUrl(j.continuation_url) +
+        '" alt="QR code" width="220" height="220">' +
+        '<div class="kyc-copy-link-row"><button type="button" id="continueCopyLink">Copy my link</button></div></div></div>';
       root.innerHTML = html;
+      const copyBtn = document.getElementById("continueCopyLink");
+      if (copyBtn && j.continuation_url) {
+        copyBtn.addEventListener("click", function () {
+          navigator.clipboard.writeText(j.continuation_url).then(function () {
+            copyBtn.textContent = "Copied!";
+          });
+        });
+      }
     }
     const qr = document.getElementById("continueQr");
     if (qr && j.continuation_url) qr.src = qrSrcForUrl(j.continuation_url);

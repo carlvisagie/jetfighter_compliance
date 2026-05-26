@@ -3,28 +3,32 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>KeepYourContracts | Submit Quote</title>
+  <title>KeepYourContracts | Vendor quote</title>
   <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
   <link rel="stylesheet" href="/ui/assets/styles/layout.css">
   <link rel="stylesheet" href="/ui/assets/styles/components.css">
+  <link rel="stylesheet" href="/ui/assets/styles/customer-upload-first.css">
 </head>
-<body class="kyc-page">
+<body class="kyc-page kyc-upload-first">
   <header class="kyc-topbar">
     <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
-    <nav class="kyc-nav"><a href="/ui/shop.html">Services</a><a href="/ui/inquiry.html">Contact</a></nav>
   </header>
   <main class="kyc-main kyc-main--narrow">
     <div class="kyc-card kyc-card--flat">
-      <section class="kyc-hero kyc-hero--compact"><span class="kyc-badge">Vendor RFQ</span><h1>Submit vendor quote</h1><p>Structured quote capture for external compliance vendors.</p></section>
+      <section class="kyc-hero kyc-hero--compact">
+        <span class="kyc-badge">Vendor</span>
+        <h1>Send your quote</h1>
+        <p>Quick form — attach supporting documents by email if we asked for them.</p>
+      </section>
       <form id="f" class="kyc-form">
         <input type="hidden" id="token" name="token" />
-        <div class="kyc-field"><label>Vendor Name<input name="vendor_name" required></label></div>
+        <div class="kyc-field"><label>Vendor name<input name="vendor_name" required></label></div>
         <div class="kyc-field"><label>Email<input name="vendor_email" type="email" required></label></div>
         <div class="kyc-field"><label>Price (EUR)<input name="price_eur" type="number" min="0" step="0.01" required></label></div>
         <div class="kyc-field"><label>Delivery (days)<input name="delivery_days" type="number" min="1" step="1" required></label></div>
-        <div class="kyc-check"><label><input type="checkbox" name="accreditation"> Accredited / Authorized</label></div>
-        <div class="kyc-field"><label>Notes<textarea name="notes"></textarea></label></div>
-        <button type="submit" class="kyc-btn kyc-btn--primary">Submit Quote</button>
+        <div class="kyc-check"><label><input type="checkbox" name="accreditation"> Accredited / authorized</label></div>
+        <div class="kyc-field"><label>Notes<textarea name="notes" rows="3" placeholder="Optional"></textarea></label></div>
+        <button type="submit" class="kyc-btn kyc-btn--primary kyc-btn--block">Submit quote</button>
       </form>
     </div>
   </main>
@@ -38,10 +42,9 @@
     const fd = new FormData(document.getElementById("f"));
     const r = await fetch("/api/rfq/submit", {method:"POST", body:fd});
     const j = await r.json();
-    alert(j.ok ? "Quote submitted. Thank you!" : "Error: " + j.error);
+    alert(j.ok ? "Thank you — quote received." : "Error: " + (j.error || "try again"));
   });
 })();
   </script>
-  <footer class="kyc-footer">KeepYourContracts.com · Enterprise Compliance Workflow Platform</footer>
 </body>
 </html>

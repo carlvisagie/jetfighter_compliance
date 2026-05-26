@@ -133,6 +133,17 @@ def test_no_fake_production_flags_in_services():
     assert not violations, "\n".join(violations)
 
 
+@pytest.mark.parametrize("name", PUBLIC_HTML_FILES)
+def test_customer_pages_upload_first_no_steps(name: str):
+    path = UI_ROOT / name
+    if not path.is_file():
+        pytest.skip(f"{name} not present")
+    lower = path.read_text(encoding="utf-8", errors="replace").lower()
+    assert "step 1" not in lower and "step 2" not in lower, f"steps on {name}"
+    if name in ("shop.html", "inquiry.html", "upload.html", "index.html"):
+        assert "give us exactly what you have" in lower, name
+
+
 def test_github_guardrails_workflow_exists():
     wf = ROOT / ".github" / "workflows" / "kyc_guardrails.yml"
     assert wf.is_file(), "Missing .github/workflows/kyc_guardrails.yml"

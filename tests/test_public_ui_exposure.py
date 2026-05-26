@@ -120,10 +120,12 @@ def test_public_nav_only_customer_links(anon_client, path: str) -> None:
         assert href in ALLOWED_PUBLIC_NAV_HREFS, f"Unexpected public nav link {href!r} on {path}"
 
 
-def test_shop_uses_internal_tracking_wording(anon_client) -> None:
-    html = anon_client.get("/ui/shop.html").text
-    assert "continue internally" in html.lower()
-    assert "operations console" not in html.lower()
+def test_shop_uses_upload_first_wording(anon_client) -> None:
+    html = anon_client.get("/ui/shop.html").text.lower()
+    assert "give us exactly what you have" in html
+    assert "upload my paperwork" in html
+    assert "operations console" not in html
+    assert "structured readiness support" not in html
 
 
 @pytest.mark.parametrize("path", INTERNAL_PAGES)
