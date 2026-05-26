@@ -26,6 +26,8 @@ FORBIDDEN_PHRASES = [
     "compliance intake",
     "launch onboarding workflow",
     "enterprise compliance workflow platform",
+    "ask a question",
+    "mode=question",
 ]
 
 REQUIRED_PHRASES = [
@@ -87,6 +89,39 @@ def test_intake_has_collapsed_advanced_only():
     assert "<details" in html
     assert "ext_cmmc" in html
     assert "kyc-upload-cta-primary" in html
+
+
+SECONDARY_HELP_CTA = "not sure what to upload"
+
+
+@pytest.mark.parametrize("name", ["shop.html", "inquiry.html"])
+def test_no_ask_question_cta(name: str):
+    lower = (UI / name).read_text(encoding="utf-8", errors="replace").lower()
+    assert "ask a question" not in lower
+    assert "mode=question" not in lower
+
+
+@pytest.mark.parametrize("name", ["shop.html", "inquiry.html"])
+def test_secondary_help_cta_and_panel(name: str):
+    html = (UI / name).read_text(encoding="utf-8", errors="replace").lower()
+    assert SECONDARY_HELP_CTA in html
+    assert "kyc-upload-help-panel" in html
+    assert "upload whatever you already have" in html or "whatever you already have" in html
+
+
+def test_primary_upload_cta_dominant_on_shop():
+    html = (UI / "shop.html").read_text(encoding="utf-8", errors="replace")
+    assert html.index("kyc-upload-cta-primary") < html.index("kyc-help-cta")
+    assert "kyc-upload-help-details" in html
+    assert "support queue" not in html.lower()
+    assert "live chat" not in html.lower()
+
+
+def test_help_panel_funnels_to_upload_not_ops():
+    for name in ["shop.html", "inquiry.html"]:
+        html = (UI / name).read_text(encoding="utf-8", errors="replace")
+        assert "/ui/control.html" not in html
+        assert "upload my paperwork" in html.lower()
 
 
 def test_shop_upload_first_not_process_grid():

@@ -13,7 +13,7 @@
   <header class="kyc-topbar">
     <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
     <nav class="kyc-nav" aria-label="Primary">
-      <a href="/ui/inquiry.html">Ask a question</a>
+      <a href="#upload-help">Not sure what to upload?</a>
     </nav>
   </header>
 
@@ -25,8 +25,22 @@
       <p class="kyc-reassurance">You do not need perfect paperwork to begin. Messy is fine. Partial is fine. We have got this.</p>
       <div class="kyc-upload-cta-row">
         <a class="kyc-btn kyc-btn--primary kyc-upload-cta-primary" href="/ui/inquiry.html">Upload my paperwork</a>
-        <a class="kyc-btn kyc-btn--secondary" href="/ui/inquiry.html?mode=question">Ask a question first</a>
       </div>
+      <details class="kyc-upload-help-details" id="upload-help">
+        <summary class="kyc-help-cta">Not sure what to upload?</summary>
+        <div class="kyc-upload-help-panel" role="region" aria-label="What counts as paperwork">
+          <p class="kyc-upload-help-lead">Almost anything you already have counts. For example:</p>
+          <ul class="kyc-upload-help-list">
+            <li>Screenshots and photos of documents</li>
+            <li>Spreadsheets and exports</li>
+            <li>Policies, PDFs, and scans</li>
+            <li>Notes, emails, and vendor docs</li>
+            <li>Partial, messy, or incomplete files</li>
+          </ul>
+          <p class="kyc-reassurance kyc-reassurance--compact">You do not need perfect paperwork to begin. Upload whatever you already have. We will help organize the rest.</p>
+          <a class="kyc-btn kyc-btn--primary kyc-upload-cta-primary" href="/ui/inquiry.html">Upload my paperwork</a>
+        </div>
+      </details>
     </section>
 
     <section class="kyc-section" style="padding-top:0;">
@@ -68,5 +82,7 @@
   </main>
 
   <footer class="kyc-footer">KeepYourContracts.com · Your paperwork stays private</footer>
+  <script src="/ui/assets/js/customer-upload-help.js"></script>
+  <script>KYCUploadHelp.init();</script>
 </body>
 </html>

@@ -199,3 +199,96 @@
   outline: 2px dashed #2563eb;
   outline-offset: 4px;
 }
+
+/* Secondary CTA: upload guidance (not support chat) */
+.kyc-upload-help-details {
+  margin-top: 1rem;
+  width: 100%;
+  max-width: 42rem;
+}
+
+.kyc-upload-help-details--inline {
+  margin-top: 1.25rem;
+}
+
+.kyc-help-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #475569;
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  cursor: pointer;
+  list-style: none;
+  width: auto;
+}
+
+.kyc-help-cta::-webkit-details-marker {
+  display: none;
+}
+
+.kyc-help-cta::after {
+  content: " ▾";
+  font-size: 0.75em;
+  opacity: 0.7;
+}
+
+.kyc-upload-help-details[open] .kyc-help-cta::after {
+  content: " ▴";
+}
+
+.kyc-upload-help-details[open] .kyc-help-cta {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.kyc-upload-help-panel {
+  margin-top: 0.85rem;
+  padding: 1.15rem 1.2rem;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.kyc-upload-help-lead {
+  margin: 0 0 0.65rem;
+  font-size: 0.98rem;
+  color: #475569;
+}
+
+.kyc-upload-help-list {
+  margin: 0 0 1rem;
+  padding-left: 1.2rem;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: #334155;
+}
+
+.kyc-reassurance--compact {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.92rem;
+}
+
+.kyc-upload-help-panel .kyc-upload-cta-primary {
+  max-width: 100%;
+  text-transform: none;
+  font-size: 1rem;
+}
+
+.kyc-nav a {
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: #64748b;
+  text-decoration: none;
+}
+
+.kyc-nav a:hover {
+  color: #0f172a;
+  text-decoration: underline;
+}

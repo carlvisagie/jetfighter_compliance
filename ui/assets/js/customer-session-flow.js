@@ -181,7 +181,7 @@
           setStatus("Upload at least one file first.", "error");
           return;
         }
-        if (uploadCount < 1 && !askMode) {
+        if (uploadCount < 1) {
           setStatus("Upload at least one file first.", "error");
           return;
         }
