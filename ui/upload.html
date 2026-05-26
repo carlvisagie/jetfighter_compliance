@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KeepYourContracts | Evidence Upload</title>
+  <title>KeepYourContracts | Upload what you have</title>
   <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
   <link rel="stylesheet" href="/ui/assets/styles/layout.css">
   <link rel="stylesheet" href="/ui/assets/styles/components.css">
+  <link rel="stylesheet" href="/ui/assets/styles/customer-friction.css">
 </head>
-<body class="kyc-page">
+<body class="kyc-page kyc-friction">
   <header class="kyc-topbar">
     <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
     <nav class="kyc-nav" aria-label="Primary">
@@ -19,60 +20,90 @@
 
   <main class="kyc-main kyc-main--narrow">
     <section class="kyc-hero">
-      <span class="kyc-badge kyc-badge--success">Evidence collection</span>
-      <h1>Upload documentation exactly as it is</h1>
-      <p>Policies, contracts, spreadsheets, scans, and vendor paperwork  upload what you have. We structure the rest.</p>
+      <span class="kyc-badge kyc-badge--success">Easy upload</span>
+      <h1 id="uploadHeadline">Upload whatever you already have</h1>
+      <p id="uploadSubline">Policies, spreadsheets, screenshots, scans — drop them here. We organize the rest.</p>
     </section>
+
+    <div class="kyc-momentum" id="momentumBar" hidden>
+      <div class="kyc-momentum-fill" id="momentumFill"></div>
+    </div>
 
     <div class="kyc-flow-steps" aria-label="Onboarding flow">
       <div class="kyc-flow-step"><strong>Step 1</strong> Inquiry</div>
       <div class="kyc-flow-step"><strong>Step 2</strong> Intake</div>
-      <div class="kyc-flow-step kyc-flow-step--active"><strong>Step 3</strong> Evidence upload</div>
+      <div class="kyc-flow-step kyc-flow-step--active"><strong>Step 3</strong> Upload</div>
     </div>
 
     <article class="kyc-card kyc-card--flat">
-      <span class="kyc-label-overline">Secure evidence register</span>
-      <h2>Submit files</h2>
-      <form id="uploadForm" class="kyc-form" enctype="multipart/form-data">
+      <form id="uploadForm" class="kyc-form">
+        <input type="hidden" id="project_id" name="project_id">
         <div class="kyc-field">
-          <label for="project_id">Project ID</label>
-          <input type="text" id="project_id" name="project_id" placeholder="From intake link (P-)" required>
+          <label for="email">Your email</label>
+          <input type="email" id="email" name="email" placeholder="you@company.com" autocomplete="email">
         </div>
-        <div class="kyc-field">
-          <label for="email">Email address</label>
-          <input type="email" id="email" name="email" placeholder="you@company.com" required autocomplete="email">
+
+        <div class="kyc-upload-inbox" id="dropZone">
+          <p><strong>Drag files here</strong> or tap to choose</p>
+          <label class="kyc-btn kyc-btn--primary kyc-upload-trigger">
+            Choose files
+            <input type="file" id="fileInput" name="files" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt">
+          </label>
+          <label class="kyc-btn kyc-btn--secondary kyc-upload-trigger kyc-upload-camera">
+            Take a photo
+            <input type="file" id="cameraInput" accept="image/*" capture="environment">
+          </label>
         </div>
-        <div class="kyc-field">
-          <label for="notes">Notes (optional)</label>
-          <textarea id="notes" name="notes" placeholder="Optional context for this upload batch."></textarea>
+
+        <ul class="kyc-progress-list" id="progressList" aria-live="polite"></ul>
+
+        <div class="kyc-qr-block" style="margin-top:1.5rem;">
+          <h3>Continue on your phone</h3>
+          <p>Scan to upload from your camera — same secure link, no password.</p>
+          <img id="qrImg" src="" alt="QR code for mobile upload" width="200" height="200">
         </div>
-        <div class="kyc-upload-zone">
-          <h3>Upload documents</h3>
-          <p>Choose files from your computer, or use the QR code for mobile capture.</p>
-          <input type="file" name="files" multiple>
-        </div>
-        <div class="kyc-qr-block">
-          <h3>Continue on mobile</h3>
-          <p>Scan to upload photos, scans, and supporting documents from your phone.</p>
-          <img src="/ui/assets/qr/kyc_upload_qr.png" alt="Upload QR Code">
-        </div>
-        <button class="kyc-btn kyc-btn--primary kyc-btn--block" type="submit">Upload documents</button>
-        <p class="kyc-status">Your documents stay private. Upload what you have; we help organize the rest.</p>
       </form>
+      <p id="status" class="kyc-status" role="status" aria-live="polite"></p>
+      <div id="guidancePanel"></div>
     </article>
-    <p id="status" class="kyc-status" role="status" aria-live="polite"></p>
   </main>
 
-  <footer class="kyc-footer">KeepYourContracts.com · Evidence workflow</footer>
+  <footer class="kyc-footer">KeepYourContracts.com · Your files stay private</footer>
 
+  <script src="/ui/assets/js/customer-friction.js"></script>
   <script>
   (async function () {
     const params = new URLSearchParams(location.search);
     const pidInput = document.getElementById("project_id");
     const emailInput = document.getElementById("email");
     const status = document.getElementById("status");
+    const fileInput = document.getElementById("fileInput");
+    const cameraInput = document.getElementById("cameraInput");
+    const dropZone = document.getElementById("dropZone");
+    const guidanceEl = document.getElementById("guidancePanel");
+    const qrImg = document.getElementById("qrImg");
+
+    const uploader = KYCFriction.initUploadPage({
+      projectIdInput: pidInput,
+      emailInput: emailInput,
+      statusEl: status,
+      fileInput: fileInput,
+      dropZone: dropZone,
+      guidanceEl: guidanceEl,
+      qrImg: qrImg,
+      progressList: document.getElementById("progressList"),
+      momentumHeadline: document.getElementById("uploadHeadline"),
+      momentumSubline: document.getElementById("uploadSubline"),
+      momentumBar: document.getElementById("momentumBar"),
+      momentumFill: document.getElementById("momentumFill"),
+      projectId: params.get("project_id") || "",
+      token: params.get("token") || "",
+    });
+
     let projectId = params.get("project_id") || "";
     const token = params.get("token") || "";
+    if (token) uploader.setToken(token);
+
     if (!projectId && token) {
       try {
         const r = await fetch("/api/intake/resolve?token=" + encodeURIComponent(token));
@@ -83,49 +114,21 @@
         }
       } catch (_) {}
     }
-    if (projectId) pidInput.value = projectId;
-    if (!projectId) {
+    if (projectId) {
+      pidInput.value = projectId;
+      uploader.setProjectId(projectId, emailInput.value);
+    } else {
       status.className = "kyc-status kyc-status--error";
-      status.textContent = "Complete intake first, or open the upload link from your welcome email.";
+      status.textContent = "Use the link from your welcome email to upload.";
     }
 
-    document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+    cameraInput.addEventListener("change", function () {
+      if (cameraInput.files && cameraInput.files.length) uploader.uploadFiles(cameraInput.files);
+    });
+
+    document.getElementById("uploadForm").addEventListener("submit", function (e) {
       e.preventDefault();
-      const pid = pidInput.value.trim();
-      const email = emailInput.value.trim();
-      const files = document.querySelector('input[type="file"]').files;
-      if (!pid) {
-        status.className = "kyc-status kyc-status--error";
-        return (status.textContent = "Project ID is required.");
-      }
-      if (!files.length) {
-        status.className = "kyc-status kyc-status--error";
-        return (status.textContent = "Choose at least one file.");
-      }
-      status.className = "kyc-status";
-      status.textContent = "Uploading";
-      let ok = 0;
-      for (const file of files) {
-        const fd = new FormData();
-        fd.append("file", file);
-        const q = new URLSearchParams({
-          project_id: pid,
-          media_type: "document",
-          owner: email || "client",
-        });
-        try {
-          const res = await fetch("/api/evidence/register?" + q.toString(), { method: "POST", body: fd });
-          const j = await res.json();
-          if (res.ok && j.ok) ok++;
-        } catch (_) {}
-      }
-      if (ok) {
-        status.className = "kyc-status kyc-status--ok";
-        status.textContent = "Uploaded " + ok + " file(s). Thank you.";
-      } else {
-        status.className = "kyc-status kyc-status--error";
-        status.textContent = "Upload failed  check project ID and try again.";
-      }
+      if (fileInput.files && fileInput.files.length) uploader.uploadFiles(fileInput.files);
     });
   })();
   </script>

@@ -7,9 +7,9 @@
   <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
   <link rel="stylesheet" href="/ui/assets/styles/layout.css">
   <link rel="stylesheet" href="/ui/assets/styles/components.css">
-
+  <link rel="stylesheet" href="/ui/assets/styles/customer-friction.css">
 </head>
-<body class="kyc-page">
+<body class="kyc-page kyc-friction">
   <header class="kyc-topbar">
     <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
     <nav class="kyc-nav" aria-label="Primary">
@@ -21,8 +21,11 @@
   <main class="kyc-main">
     <section class="kyc-hero">
       <span class="kyc-badge">Client intake</span>
-      <h1>Structured compliance intake</h1>
-      <p>Complete the form below so our workflow engine can prepare your onboarding path, requirements map, and evidence collection structure.</p>
+      <h1 id="intakeHeadline">Quick intake — you're almost there</h1>
+      <p id="intakeSubline">A few details so we can prepare your path. Stop anytime; your magic link brings you back.</p>
+    <div class="kyc-momentum" id="momentumBar" hidden>
+      <div class="kyc-momentum-fill" id="momentumFill"></div>
+    </div>
     </section>
     <div class="kyc-flow-steps" aria-label="Onboarding flow">
       <div class="kyc-flow-step"><strong>Step 1</strong> Inquiry</div>
@@ -69,7 +72,9 @@
         <h2>Continue on mobile</h2>
         <p>Scan to upload evidence and supporting documents from your phone.</p>
         <div class="kyc-qr-block">
-          <img src="/ui/assets/qr/kyc_upload_qr.png" alt="Compliance upload QR">
+          <h3>Continue on your phone</h3>
+          <p>Scan to finish intake or upload from your camera.</p>
+          <img id="intakeQr" src="" alt="QR code to continue on mobile" width="200" height="200">
         </div>
         <div class="kyc-step"><span class="kyc-step-num">1</span><span class="kyc-step-text">Open the secure upload portal with your phone camera.</span></div>
         <div class="kyc-step"><span class="kyc-step-num">2</span><span class="kyc-step-text">Upload contracts, policies, certifications, and supporting documentation.</span></div>

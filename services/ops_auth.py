@@ -24,6 +24,7 @@ PUBLIC_UI_EXACT: Set[str] = {
     "/ui/inquiry.html",
     "/ui/intake.html",
     "/ui/upload.html",
+    "/ui/continue.html",
     "/ui/login.html",
     "/ui/index.html",
     "/ui/vendor_quote.html",
@@ -60,6 +61,7 @@ PUBLIC_API_PREFIXES = (
     "/health/ready",
     "/api/inquiry/",
     "/api/intake/",
+    "/api/customer/",
     "/webhooks/",
 )
 
@@ -67,6 +69,7 @@ PUBLIC_API_EXACT: Set[str] = {
     "/api/ops/login",
     "/api/ops/logout",
     "/api/ops/session",
+    "/api/customer/qr.svg",
 }
 
 # Operator / organism / intelligence APIs

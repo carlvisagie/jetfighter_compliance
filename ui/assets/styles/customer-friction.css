@@ -1,0 +1,113 @@
+/* Customer Friction Elimination Layer v1 — mobile-first, low-stress onboarding */
+
+.kyc-friction .kyc-upload-inbox {
+  border: 2px dashed var(--kyc-border, #c5d4e8);
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  background: var(--kyc-surface-alt, #f8fafc);
+  min-height: 140px;
+  touch-action: manipulation;
+}
+
+.kyc-friction .kyc-upload-inbox.is-dragover {
+  border-color: var(--kyc-accent, #2563eb);
+  background: #eff6ff;
+}
+
+.kyc-friction .kyc-upload-inbox input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.kyc-friction .kyc-upload-trigger {
+  display: inline-block;
+  min-height: 48px;
+  min-width: 200px;
+  padding: 0.85rem 1.25rem;
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+
+.kyc-friction .kyc-upload-camera {
+  margin-top: 0.75rem;
+}
+
+.kyc-friction .kyc-progress-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+}
+
+.kyc-friction .kyc-progress-list li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.95rem;
+}
+
+.kyc-friction .kyc-momentum {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 1rem 0;
+}
+
+.kyc-friction .kyc-momentum-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e, #2563eb);
+  width: 0%;
+  transition: width 0.4s ease;
+}
+
+.kyc-friction .kyc-guidance-panel {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border-radius: 10px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+.kyc-friction .kyc-guidance-panel h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.kyc-friction .kyc-missing-item {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.kyc-friction .kyc-help-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.kyc-friction .kyc-help-actions button {
+  min-height: 44px;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.9rem;
+}
+
+.kyc-friction .kyc-retrieval-steps {
+  margin: 0.5rem 0 0 1.1rem;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 640px) {
+  .kyc-friction .kyc-btn--block {
+    min-height: 52px;
+    font-size: 1.1rem;
+  }
+  .kyc-friction .kyc-upload-inbox {
+    padding: 1.25rem 1rem;
+  }
+}

@@ -47,6 +47,7 @@ def organism_env(tmp_path, monkeypatch):
     monkeypatch.setattr("services.acquisition.history.ensure_intel_dirs", lambda base=None: intel)
     monkeypatch.setattr("services.acquisition.memory.ensure_intel_dirs", lambda base=None: intel)
     monkeypatch.setattr("server.DATA", tmp_path)
+    monkeypatch.setattr("server.PROJECTS", projects)
     monkeypatch.setattr("services.projects.PROJECTS", projects)
     monkeypatch.setattr("services.ledger.DATA", tmp_path)
     return mem, projects, intel, tmp_path
