@@ -328,3 +328,8 @@
   color: var(--kyc-accent);
   margin-right: 0.35rem;
 }
+
+.reddit-badge-prey {
+  background: rgba(34, 120, 80, 0.15);
+  color: #1a6b45;
+}

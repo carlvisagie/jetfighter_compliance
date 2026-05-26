@@ -206,15 +206,8 @@ def decide_engagement(
         pass
 
     prey_score = int(qualification.get("prey_score", 0))
-    if plan.get("show_operator_queue") and not qualification.get("queue_eligible", False):
-        plan["show_operator_queue"] = False
-        plan["engagement_stage"] = "defer"
-        plan["rationale"] = (
-            f"Low acquisition probability (prey_score={prey_score}) — "
-            "topic discussion or predator profile; not a helpless prospect."
-        )
     plan["prey_score"] = prey_score
-    plan["queue_eligible"] = bool(qualification.get("queue_eligible"))
+    plan["prey_reasons"] = qualification.get("prey_reasons") or (qualification.get("acquisition_probability") or {}).get("prey_reasons", [])
     return plan
 
 

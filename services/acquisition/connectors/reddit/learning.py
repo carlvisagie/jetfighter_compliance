@@ -25,7 +25,7 @@ def load_learning_state(base: Optional[Path] = None) -> Dict[str, Any]:
         "default_cooldown_hours": 24,
         "default_follow_up_hours": 48,
         "min_fit_threshold": 50,
-        "min_prey_threshold": 58,
+        "min_prey_threshold": 52,
         "subreddit_stats": {},
         "wording_winners": {"A": 0, "B": 0},
         "outcome_totals": {
@@ -42,6 +42,16 @@ def load_learning_state(base: Optional[Path] = None) -> Dict[str, Any]:
         "intent_learning": {
             "giver_penalty": 0,
             "seeker_boost": 0,
+        },
+        "prey_learning": {
+            "financial_stress": 1.0,
+            "operational_pressure": 1.0,
+            "confusion_density": 1.0,
+            "small_business_stress": 1.0,
+            "compliance_uncertainty": 1.0,
+            "paperwork_likelihood": 1.0,
+            "emotional_overwhelm": 1.0,
+            "topical_weight": 1.0,
         },
     }
     if not path.is_file():
@@ -110,6 +120,30 @@ def record_outcome(
             il["giver_penalty"] = int(il.get("giver_penalty", 0)) + 1
             totals["advice_giver_false_positives"] = int(totals.get("advice_giver_false_positives", 0)) + 1
             state["min_fit_threshold"] = min(80, int(state.get("min_fit_threshold", 50)) + 1)
+
+    if event_type == "operator_approved":
+        try:
+            from ...acquisition_probability import apply_operator_prey_feedback
+
+            apply_operator_prey_feedback(
+                state,
+                approved=True,
+                prey_reasons=(metadata or {}).get("prey_reasons"),
+            )
+        except Exception:
+            pass
+    elif event_type == "operator_denied":
+        try:
+            from ...acquisition_probability import apply_operator_prey_feedback
+
+            apply_operator_prey_feedback(
+                state,
+                approved=False,
+                topical_only=bool((metadata or {}).get("topical_only_risk")),
+            )
+        except Exception:
+            pass
+
     save_learning_state(state, base)
     try:
         from ... import learning as acq_learning
@@ -177,6 +211,13 @@ def run_daily_reddit_learning(base: Optional[Path] = None) -> Dict[str, Any]:
         state["min_fit_threshold"] = max(45, int(state.get("min_fit_threshold", 50)) - 1)
     elif ignored > approved * 2 and ignored > 3:
         state["min_fit_threshold"] = min(75, int(state.get("min_fit_threshold", 50)) + 2)
+
+    prey_scored = [e for e in events if e.get("event_type") == "prey_scored"]
+    low_prey = sum(1 for e in events if e.get("event_type") == "low_prey_skipped")
+    if prey_scored and low_prey > len(prey_scored) * 0.85 and low_prey > 5:
+        state["min_prey_threshold"] = max(48, int(state.get("min_prey_threshold", 52)) - 2)
+    elif low_prey < len(prey_scored) * 0.3 and len(prey_scored) > 8:
+        state["min_prey_threshold"] = min(62, int(state.get("min_prey_threshold", 52)) + 1)
 
     state["last_daily_learning_utc"] = utc_now()
     save_learning_state(state, base)

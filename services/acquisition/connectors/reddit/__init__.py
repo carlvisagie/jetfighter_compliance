@@ -11,7 +11,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ...models import utc_now
-from ...acquisition_probability import DEFAULT_MIN_PREY_SCORE
+from ...acquisition_probability import (
+    DEFAULT_MIN_PREY_SCORE,
+    TARGET_QUEUE_MAX,
+    compute_adaptive_prey_threshold,
+    passes_prey_gate,
+)
 from ...routing import build_upload_route
 from . import autonomy, author_intent, classifier, draft_generation, discovery, learning, qualification, telemetry
 from .paths import (
@@ -110,12 +115,39 @@ def run_reddit_acquisition_cycle(
     )[:max_posts]
 
     seen_targets = load_recent_target_keys(base)
+    evaluated: List[Dict[str, Any]] = []
 
     for post in posts:
         stats["discovered"] += 1
         cls = classifier.classify_post(post.get("title", ""), post.get("selftext", ""))
-        qual = qualification.qualify_post(post, cls)
+        qual = qualification.qualify_post(post, cls, learning_state=state, min_prey_score=min_prey_score)
         plan = autonomy.decide_engagement(post, cls, qual, state=state)
+        evaluated.append({"post": post, "cls": cls, "qual": qual, "plan": plan})
+
+    prey_candidates = []
+    for item in evaluated:
+        qual = item["qual"]
+        prob = qual.get("acquisition_probability") or {}
+        intent = item["cls"].get("author_intent", "")
+        prey_candidates.append(
+            {
+                "prey_score": int(qual.get("prey_score", 0)),
+                "deployable_intent": intent in author_intent.DEPLOYABLE_INTENTS,
+                "low_predator": int(prob.get("predator_penalty", 99)) < 48,
+                "has_operational_need": bool(prob.get("has_operational_need")),
+            }
+        )
+    effective_prey = compute_adaptive_prey_threshold(min_prey_score, prey_candidates, learning_state=state)
+    state["min_prey_threshold"] = effective_prey
+    learning.save_learning_state(state, base)
+    stats["effective_prey_threshold"] = effective_prey
+
+    queued_this_cycle = 0
+    for item in evaluated:
+        post = item["post"]
+        cls = item["cls"]
+        qual = item["qual"]
+        plan = item["plan"]
         if plan.get("social_intelligence"):
             telemetry.emit(
                 "trust_progression",
@@ -177,7 +209,7 @@ def run_reddit_acquisition_cycle(
             )
             continue
 
-        if int(qual.get("prey_score", 0)) < min_prey_score or not qual.get("queue_eligible"):
+        if not passes_prey_gate(qual, cls, min_prey_score=effective_prey):
             stats["organism_auto_skipped"] += 1
             learning.record_outcome(
                 "low_prey_deferred",
@@ -186,9 +218,14 @@ def run_reddit_acquisition_cycle(
                 metadata={
                     "prey_score": qual.get("prey_score"),
                     "predator_class": qual.get("predator_class"),
+                    "effective_prey_threshold": effective_prey,
                 },
                 base=base,
             )
+            continue
+
+        if queued_this_cycle >= TARGET_QUEUE_MAX:
+            stats["organism_auto_skipped"] += 1
             continue
 
         if not plan.get("show_operator_queue"):
@@ -262,6 +299,7 @@ def run_reddit_acquisition_cycle(
             "prey_score": qual.get("prey_score"),
             "predator_class": qual.get("predator_class"),
             "predator_penalty": qual.get("predator_penalty"),
+            "prey_reasons": qual.get("prey_reasons", []),
             "acquisition_probability": qual.get("acquisition_probability"),
             "social_intelligence": plan.get("social_intelligence"),
             "draft_reply": draft,
@@ -276,6 +314,7 @@ def run_reddit_acquisition_cycle(
         _append_jsonl(DRAFT_REPLIES_JSONL, record, base)
         stats["drafts_created"] += 1
         stats["queued_for_operator"] += 1
+        queued_this_cycle += 1
 
         telemetry.emit(
             "reddit_post_discovered",
@@ -342,7 +381,12 @@ def approve_draft(
         "operator_approved",
         post_id=post_id,
         subreddit=rec.get("subreddit", ""),
-        metadata={"variant": draft.get("variant"), "stage": (rec.get("organism_plan") or {}).get("engagement_stage")},
+        metadata={
+            "variant": draft.get("variant"),
+            "stage": (rec.get("organism_plan") or {}).get("engagement_stage"),
+            "prey_reasons": rec.get("prey_reasons") or (rec.get("qualification") or {}).get("prey_reasons"),
+            "prey_score": rec.get("prey_score"),
+        },
         base=base,
     )
     if draft.get("variant"):
@@ -388,7 +432,9 @@ def deny_draft(post_id: str, reason: str = "operator_denied", base: Optional[Pat
     meta = {"reason": reason}
     if match:
         intent = match.get("author_intent") or (match.get("classification") or {}).get("author_intent")
+        prob = match.get("acquisition_probability") or (match.get("qualification") or {}).get("acquisition_probability") or {}
         meta["author_intent"] = intent
+        meta["topical_only_risk"] = prob.get("topical_only_risk")
         if intent in ("GIVING_ADVICE", "PROMOTING_SERVICE"):
             learning.record_outcome(
                 "intent_corrected_by_operator",
@@ -475,6 +521,7 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
                 "engagement_strategy": o.get("engagement_strategy"),
                 "prey_score": o.get("prey_score"),
                 "predator_class": o.get("predator_class"),
+                "prey_reasons": o.get("prey_reasons", []),
                 "organism_rationale": (o.get("organism_plan") or {}).get("rationale", ""),
                 "engagement_stage": (o.get("organism_plan") or {}).get("engagement_stage", ""),
                 "organism_confidence": (o.get("organism_plan") or {}).get("organism_confidence", 0),
