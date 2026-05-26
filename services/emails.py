@@ -84,6 +84,12 @@ def send_email_with_result(to_email: str, subject: str, html_body: str) -> Dict[
             metadata={"to": to_email, "error_type": err},
         )
         logger.warning("Email send failed to %s: %s", to_email, err)
+        try:
+            from services.alerts import alert_organism_failure
+
+            alert_organism_failure("smtp_failure", message=str(e)[:200], metadata={"to": to_email, "error_type": err})
+        except Exception:
+            pass
         return {"ok": False, "sent": False, "to": to_email, "error": err, "detail": str(e)[:200]}
 
 

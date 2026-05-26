@@ -108,6 +108,15 @@
           </div>
           <div id="reddit-acquisition-insights"><p class="kyc-loading">Loading Reddit acquisition intelligence…</p></div>
         </article>
+        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="operational-alerts-panel">
+          <span class="kyc-label-overline">Operational alerts</span>
+          <h3 style="margin-top:0;">Operational Alerts</h3>
+          <p class="org-metric-foot">Organism nervous system — Telegram (realtime) and email for conversions, paperwork, failures. No customer documents in alerts.</p>
+          <div class="kyc-btn-row" style="margin-bottom:0.75rem;">
+            <button type="button" class="btn secondary" id="alertsDigestDailyBtn">Send daily digest</button>
+          </div>
+          <div id="operational-alerts-insights"><p class="kyc-loading">Loading operational alerts…</p></div>
+        </article>
         <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="compliance-intelligence-panel">
           <span class="kyc-label-overline">Compliance intelligence</span>
           <h3 style="margin-top:0;">Compliance Intelligence Watch</h3>
@@ -313,6 +322,7 @@
       loadEvidenceIntelligence(pid),
       loadAcquisitionIntelligence(),
       loadRedditAcquisitionIntelligence(),
+      loadOperationalAlerts(),
       loadComplianceIntelligence(),
     ]);
   }
@@ -391,6 +401,64 @@
       el.innerHTML = '<p class="org-metric-foot">Reddit acquisition intelligence unavailable.</p>';
     }
   }
+  async function loadOperationalAlerts() {
+    const el = document.getElementById('operational-alerts-insights');
+    if (!el) return;
+    try {
+      const j = await api('/api/operator/operational-alerts');
+      const cfg = j.config || {};
+      const recent = (j.recent_alerts || []).slice(0, 12);
+      let html =
+        '<ul class="guidance-list">' +
+        '<li><strong>Telegram:</strong> ' + (cfg.telegram_configured ? 'configured' : 'not configured (set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID)') + '</li>' +
+        '<li><strong>Email alerts:</strong> ' + (cfg.email_enabled ? 'on' : 'off') + ' · Quiet hours: ' + escapeHtml(cfg.quiet_hours || '') + '</li>' +
+        '<li><strong>First paperwork alert sent:</strong> ' + (j.first_paperwork_sent ? 'yes' : 'not yet') + '</li>' +
+        '</ul>';
+      const crit = j.unacknowledged_critical || [];
+      if (crit.length) {
+        html += '<p class="org-metric-foot"><strong>Unacknowledged critical:</strong></p><ul class="guidance-list">';
+        crit.forEach(function (a) {
+          html += '<li><strong>' + escapeHtml(a.title || '') + '</strong> — ' + escapeHtml(a.when_utc || '') +
+            ' <button type="button" class="btn secondary" data-ack="' + escapeHtml(a.alert_id || '') + '">Acknowledge</button></li>';
+        });
+        html += '</ul>';
+      }
+      if (recent.length) {
+        html += '<p class="org-metric-foot"><strong>Recent alerts:</strong></p><ul class="guidance-list">';
+        recent.forEach(function (a) {
+          html += '<li>[' + escapeHtml(a.severity || '') + '] ' + escapeHtml(a.title || '') + ' <span style="color:#888;">' + escapeHtml(a.when_utc || '') + '</span></li>';
+        });
+        html += '</ul>';
+      } else {
+        html += '<p class="org-metric-foot">No alerts yet — organism is quiet.</p>';
+      }
+      el.innerHTML = html;
+      el.querySelectorAll('[data-ack]').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          const id = btn.getAttribute('data-ack');
+          if (!id) return;
+          await api('/api/operator/operational-alerts/acknowledge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ alert_id: id }),
+          });
+          await loadOperationalAlerts();
+        });
+      });
+    } catch (e) {
+      el.innerHTML = '<p class="org-metric-foot">Operational alerts unavailable.</p>';
+    }
+  }
+  document.getElementById('alertsDigestDailyBtn')?.addEventListener('click', async function () {
+    const el = document.getElementById('operational-alerts-insights');
+    if (el) el.innerHTML = '<p class="kyc-loading">Generating digest…</p>';
+    try {
+      await api('/api/operator/operational-alerts/digest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'daily' }) });
+      await loadOperationalAlerts();
+    } catch (e) {
+      if (el) el.innerHTML = '<p class="org-metric-foot">Digest failed.</p>';
+    }
+  });
   document.getElementById('redditIntelRunBtn')?.addEventListener('click', async function () {
     const el = document.getElementById('reddit-acquisition-insights');
     if (el) el.innerHTML = '<p class="kyc-loading">Running Reddit discovery…</p>';

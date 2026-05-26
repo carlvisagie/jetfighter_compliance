@@ -1139,6 +1139,60 @@ async def operator_acquisition_intelligence_run(body: dict = Body(default={})):
     )
 
 
+@app.get("/api/operator/operational-alerts")
+def operator_operational_alerts():
+    from services.alerts import get_operator_dashboard
+
+    return get_operator_dashboard()
+
+
+@app.post("/api/operator/operational-alerts/acknowledge")
+async def operator_operational_alerts_acknowledge(body: dict = Body(default={})):
+    from services.alerts.telemetry import acknowledge_alert, link_memory
+
+    alert_id = str(body.get("alert_id") or "").strip()
+    if not alert_id:
+        return {"ok": False, "detail": "alert_id required"}
+    ok = acknowledge_alert(alert_id)
+    if ok:
+        link_memory("alert_acknowledged", alert_id=alert_id)
+    return {"ok": ok}
+
+
+@app.post("/api/operator/operational-alerts/config")
+async def operator_operational_alerts_config(body: dict = Body(default={})):
+    from services.alerts import save_config
+
+    allowed = {
+        "email_enabled",
+        "telegram_enabled",
+        "high_fit_threshold",
+        "qualification_threshold",
+        "abandonment_hours",
+        "quiet_hours_start",
+        "quiet_hours_end",
+        "digest_daily_hour_utc",
+        "digest_weekly_hour_utc",
+        "min_severity_telegram",
+        "min_severity_email",
+        "operator_email",
+    }
+    updates = {k: body[k] for k in allowed if k in body}
+    return {"ok": True, "config": save_config(updates)}
+
+
+@app.post("/api/operator/operational-alerts/digest")
+async def operator_operational_alerts_digest(body: dict = Body(default={})):
+    kind = str(body.get("kind") or "daily").lower()
+    if kind == "weekly":
+        from services.alerts import generate_weekly_digest
+
+        return generate_weekly_digest()
+    from services.alerts import generate_daily_digest
+
+    return generate_daily_digest()
+
+
 @app.get("/api/operator/reddit-acquisition")
 def operator_reddit_acquisition():
     from services.acquisition.connectors.reddit import get_operator_dashboard

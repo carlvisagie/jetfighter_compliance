@@ -209,6 +209,12 @@ def ingest_discovery_candidate(
         metadata=msg,
         base=base,
     )
+    try:
+        from services.alerts import alert_high_fit_target
+
+        alert_high_fit_target(target)
+    except Exception:
+        pass
 
     return {"ok": True, "target": target, "lead": lead.to_dict()}
 
@@ -259,6 +265,12 @@ def ingest_public_signal(
     telemetry.emit("acquisition_target_detected", target_id=target_id, lead_id=lead_id, metadata=target, base=base)
     telemetry.emit("acquisition_signal_detected", target_id=target_id, metadata=sig, base=base)
     telemetry.emit("acquisition_message_sent", target_id=target_id, success=False, message="draft_only", metadata=msg, base=base)
+    try:
+        from services.alerts import alert_high_fit_target
+
+        alert_high_fit_target(target)
+    except Exception:
+        pass
 
     return {"ok": True, "target": target, "lead": lead.to_dict()}
 
@@ -371,6 +383,27 @@ def track_funnel_event(
         success=success,
         base=base,
     )
+    if success and stage == "workspace_created":
+        try:
+            from services.alerts import raise_alert
+
+            raise_alert(
+                "acquisition_conversion",
+                title="Acquisition conversion — workspace created",
+                body=f"Funnel stage {stage} completed.",
+                context={
+                    "project_id": project_id,
+                    "lead_id": lead_id,
+                    "campaign": campaign_id,
+                    "message_variant": variant,
+                    "stage": stage,
+                    **(metadata or {}),
+                },
+                dedupe_key=f"conversion:{project_id}",
+            )
+        except Exception:
+            pass
+
     learning.record_conversion(
         stage=stage,
         success=success,

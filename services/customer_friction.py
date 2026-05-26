@@ -393,6 +393,36 @@ def record_continuation_event(
         m["abandoned_step"] = step
         _save_continuation_meta(project_id, m)
 
+    try:
+        from services.alerts import raise_alert
+
+        if event_type == "continuation_completed":
+            raise_alert(
+                "continuation_resumed",
+                title="Continuation resumed",
+                body=f"Customer returned to project {project_id}.",
+                context={"project_id": project_id, "stage": step or "continuation"},
+                dedupe_key=f"continuation:{project_id}",
+            )
+        elif event_type in ("upload_abandoned", "continuation_abandoned", "step_abandoned"):
+            raise_alert(
+                "upload_abandonment",
+                title="Upload / continuation abandoned",
+                body=f"Customer left at stage: {step or event_type}.",
+                context={"project_id": project_id, "stage": step or event_type},
+                dedupe_key=f"abandon:{project_id}:{event_type}",
+            )
+        elif event_type == "upload_started":
+            raise_alert(
+                "upload_started",
+                title="Upload started",
+                body="Customer started an upload on an existing project.",
+                context={"project_id": project_id, "stage": step},
+                dedupe_key=f"upload_started:{project_id}",
+            )
+    except Exception:
+        pass
+
     return {"ok": True, "project_id": project_id, "event_type": event_type}
 
 

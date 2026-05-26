@@ -204,6 +204,12 @@ def start_worker():
         register_acquisition_jobs(scheduler)
     except Exception:
         pass
+    try:
+        from services.alerts.scheduler import register_scheduler_jobs as register_alert_jobs
+
+        register_alert_jobs(scheduler)
+    except Exception:
+        pass
     scheduler.start()
 
 def nightly_exports():

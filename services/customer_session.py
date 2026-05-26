@@ -169,6 +169,18 @@ async def upload_to_session(session_id: str, session_token: str, file: UploadFil
     if len(content) > MAX_FILE_BYTES:
         raise HTTPException(status_code=413, detail="File too large (max 50MB)")
     _emit("pre_contact_upload_started", session_id=session_id, metadata={"filename": safe_name})
+    try:
+        from services.alerts import raise_alert
+
+        raise_alert(
+            "upload_started",
+            title="Upload started",
+            body="Customer began upload-first session.",
+            context={"session_id": session_id, "stage": "pre_contact"},
+            dedupe_key=f"upload_started:{session_id}",
+        )
+    except Exception:
+        pass
 
     stored_name = f"{uuid.uuid4().hex[:8]}_{safe_name}"
     dest = _session_dir(session_id) / "uploads" / stored_name
@@ -355,6 +367,23 @@ def complete_session(
         send_email(email, "Your secure workspace — KeepYourContracts", html)
     except Exception as e:
         logger.warning("Session complete email failed: %s", e)
+
+    try:
+        from services.alerts import alert_first_paperwork_submission
+
+        file_types = list({f.get("media_type", "document") for f in files})
+        alert_first_paperwork_submission(
+            email=email,
+            name=name,
+            project_id=project_id,
+            upload_count=len(linked),
+            file_types=file_types,
+            source=sess.get("acquisition_source", "upload-first"),
+            continuation_url=continuation_url,
+            route_url=upload_url,
+        )
+    except Exception as e:
+        logger.warning("Operational alert after session complete: %s", e)
 
     return {
         "ok": True,

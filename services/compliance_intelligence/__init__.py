@@ -128,6 +128,24 @@ def run_compliance_cycle(
             telemetry.emit("review_queued", metadata={"review_id": review.review_id})
             memory_bridge.write_impact_classified(impact.impact_id, impact.model_dump())
             memory_bridge.write_review_required(review.review_id, review.model_dump())
+            if clf.severity in ("high", "critical"):
+                try:
+                    from services.alerts import raise_alert
+
+                    raise_alert(
+                        "compliance_review_critical",
+                        title=f"Compliance review: {src.name[:80]}",
+                        body=(change.diff_summary or change.title or "Regulatory change detected")[:400],
+                        context={
+                            "source": src.source_id,
+                            "severity": clf.severity,
+                            "change_id": change.change_id,
+                            "review_id": review.review_id,
+                        },
+                        dedupe_key=f"compliance:{change.change_id}",
+                    )
+                except Exception:
+                    pass
             for rec in impact.knowledge_recommendations:
                 memory_bridge.write_knowledge_update_recommended(
                     rec.get("topic_id", ""),
