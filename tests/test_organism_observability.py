@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from services.emails import send_email
+from services.emails import send_email_with_result
 from services.memory.adaptive_signals import load_adaptive_signals
 from services.memory.organism_observability import (
     get_observability_dashboard,
@@ -61,8 +61,9 @@ def test_email_failure_emits_telemetry(obs_env, monkeypatch):
         raise ConnectionError("smtp down")
 
     monkeypatch.setattr("services.emails.smtplib.SMTP", boom)
-    with pytest.raises(ConnectionError):
-        send_email("x@y.com", "subj", "<p>hi</p>")
+    result = send_email_with_result("x@y.com", "subj", "<p>hi</p>")
+    assert result.get("ok") is False
+    assert result.get("error") == "ConnectionError"
     fails = load_telemetry(subsystem="email", base=mem)
     types = [r["event_type"] for r in fails]
     assert "send_attempted" in types

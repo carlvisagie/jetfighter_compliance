@@ -220,8 +220,13 @@ def build_cockpit(project_id: str = "", mode: str = "") -> Dict[str, Any]:
 
     import os
 
-    if learn_phase in ("inquiry", "intake") and not os.getenv("SMTP_HOST"):
-        blockers.append({"type": "smtp", "message": "SMTP not configured — intake emails may not send."})
+    try:
+        from services.production import smtp_env_status
+
+        if learn_phase in ("inquiry", "intake") and not smtp_env_status()["configured"]:
+            blockers.append({"type": "smtp", "message": "SMTP not configured — intake emails may not send."})
+    except Exception:
+        pass
 
     knowledge_topics = topics_for_phase(learn_phase)
 

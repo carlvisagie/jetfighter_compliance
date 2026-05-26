@@ -1,33 +1,66 @@
-﻿import smtplib
+import logging
+import re
+import smtplib
 from email.message import EmailMessage
+from typing import Any, Dict
+
 from .config import SETTINGS
 
-def send_email(to_email: str, subject: str, html_body: str):
-    """Send HTML email when SMTP is enabled; otherwise no-op (used in tests)."""
+logger = logging.getLogger(__name__)
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def smtp_is_configured() -> bool:
+    return bool(
+        SETTINGS.smtp_enabled
+        and SETTINGS.smtp_host
+        and SETTINGS.smtp_user
+        and SETTINGS.smtp_pass
+    )
+
+
+def _emit(event_type: str, *, success: bool = True, severity: str = "info", message: str = "", metadata: Dict = None):
     try:
         from services.memory.telemetry import emit_telemetry
 
         emit_telemetry(
             "email",
-            "send_attempted",
-            metadata={"to": to_email, "subject": subject[:80]},
+            event_type,
+            severity=severity,
+            success=success,
+            message=message,
+            metadata=metadata or {},
         )
     except Exception:
         pass
-    if not (getattr(SETTINGS, "smtp_enabled", False) and SETTINGS.smtp_host and SETTINGS.smtp_user and SETTINGS.smtp_pass):
-        try:
-            from services.memory.telemetry import emit_telemetry
 
-            emit_telemetry(
-                "email",
-                "smtp_unconfigured",
-                severity="warning",
-                success=False,
-                message="SMTP not configured — email skipped",
-            )
-        except Exception:
-            pass
-        return
+
+def send_email(to_email: str, subject: str, html_body: str):
+    """Send HTML email when SMTP is enabled; otherwise no-op (used in tests)."""
+    result = send_email_with_result(to_email, subject, html_body)
+    if result.get("error"):
+        raise RuntimeError(result["error"])
+
+
+def send_email_with_result(to_email: str, subject: str, html_body: str) -> Dict[str, Any]:
+    """Send email and return structured result without logging secrets."""
+    _emit("send_attempted", metadata={"to": to_email, "subject": subject[:80]})
+
+    if not smtp_is_configured():
+        _emit(
+            "smtp_unconfigured",
+            success=False,
+            severity="warning",
+            message="SMTP not configured — email skipped",
+        )
+        return {
+            "ok": False,
+            "skipped": True,
+            "reason": "smtp_unconfigured",
+            "to": to_email,
+        }
+
     try:
         msg = EmailMessage()
         msg["Subject"] = subject
@@ -35,29 +68,33 @@ def send_email(to_email: str, subject: str, html_body: str):
         msg["To"] = to_email
         msg.set_content("HTML email. Please view in an HTML-capable client.")
         msg.add_alternative(html_body, subtype="html")
-        with smtplib.SMTP(SETTINGS.smtp_host, SETTINGS.smtp_port) as s:
+        with smtplib.SMTP(SETTINGS.smtp_host, SETTINGS.smtp_port, timeout=30) as s:
             s.starttls()
             s.login(SETTINGS.smtp_user, SETTINGS.smtp_pass)
             s.send_message(msg)
-        try:
-            from services.memory.telemetry import emit_telemetry
-
-            emit_telemetry("email", "send_success", metadata={"to": to_email})
-        except Exception:
-            pass
+        _emit("send_success", metadata={"to": to_email})
+        return {"ok": True, "sent": True, "to": to_email}
     except Exception as e:
-        try:
-            from services.memory.telemetry import emit_telemetry
+        err = type(e).__name__
+        _emit(
+            "send_failed",
+            success=False,
+            severity="error",
+            message=str(e)[:200],
+            metadata={"to": to_email, "error_type": err},
+        )
+        logger.warning("Email send failed to %s: %s", to_email, err)
+        return {"ok": False, "sent": False, "to": to_email, "error": err, "detail": str(e)[:200]}
 
-            emit_telemetry(
-                "email",
-                "send_failed",
-                severity="error",
-                success=False,
-                error_code=type(e).__name__,
-                message=str(e)[:200],
-                metadata={"to": to_email},
-            )
-        except Exception:
-            pass
-        raise
+
+def send_operator_test_email(to_email: str) -> Dict[str, Any]:
+    """Operator-only SMTP connectivity test."""
+    if not _EMAIL_RE.match((to_email or "").strip()):
+        return {"ok": False, "error": "invalid_email"}
+    to_email = to_email.strip()
+    html = (
+        "<h2>KeepYourContracts SMTP test</h2>"
+        "<p>This is an operator test message from the KYC compliance backend.</p>"
+        "<p>If you received this, SMTP transport is working.</p>"
+    )
+    return send_email_with_result(to_email, "KYC SMTP test — KeepYourContracts", html)

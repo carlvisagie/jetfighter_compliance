@@ -1,4 +1,4 @@
-﻿
+
 import logging, json
 from pathlib import Path
 from datetime import datetime, timezone
@@ -204,16 +204,22 @@ def kickoff(order_id: str, email: str, name: str, skus: list):
         safe_read_before_kickoff(email, name)
     except Exception:
         pass
+    from services.customer_friction import build_continuation_bundle
+
     existing = _find_project_by_order(order_id)
     if existing:
         token = make_intake_token(existing, email)
-        intake_url = f"{get_public_base_url()}/ui/intake?token={token}"
-        upload_url = f"{get_public_base_url()}/upload?project_id={existing}"
+        base = get_public_base_url()
+        intake_url = f"{base}/ui/intake.html?token={token}"
+        upload_url = f"{base}/upload?project_id={existing}&token={token}"
+        cont = build_continuation_bundle(existing, email)
         return {
             "ok": True,
             "project_id": existing,
             "intake_url": intake_url,
             "upload_url": upload_url,
+            "continuation_url": cont["continuation_url"],
+            "continuation_token": cont["continuation_token"],
             "existing": True,
         }
     meta = new_project(order_id, email, name, skus)
@@ -225,8 +231,9 @@ def kickoff(order_id: str, email: str, name: str, skus: list):
 
     token = make_intake_token(meta["project_id"], email)
     base = get_public_base_url()
-    intake_url = f"{base}/ui/intake?token={token}"
-    upload_url = f"{base}/upload?project_id={meta['project_id']}"
+    intake_url = f"{base}/ui/intake.html?token={token}"
+    upload_url = f"{base}/upload?project_id={meta['project_id']}&token={token}"
+    cont = build_continuation_bundle(meta["project_id"], email)
     html = f"""
     <h2>Welcome to KeepYourContracts</h2>
     <p>Your compliance project <b>{meta['project_id']}</b> is created.</p>
@@ -269,6 +276,8 @@ def kickoff(order_id: str, email: str, name: str, skus: list):
         "project_id": meta["project_id"],
         "intake_url": intake_url,
         "upload_url": upload_url,
+        "continuation_url": cont["continuation_url"],
+        "continuation_token": cont["continuation_token"],
     }
 
 # ---------- LEGACY INACTIVE: Stripe Payment Links → kickoff (tests: tests/test_stripe_webhook.py) ----------
@@ -358,6 +367,7 @@ async def inquiry_submit(
             "project_id": res["project_id"],
             "intake_url": res["intake_url"],
             "upload_url": res.get("upload_url"),
+            "continuation_url": res.get("continuation_url"),
         }
     except Exception as e:
         logging.exception("Inquiry kickoff failed for %s: %s", email, e)
@@ -371,7 +381,21 @@ def intake_resolve(token: str):
         info = parse_intake_token(token)
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid token")
-    return {"ok": True, "project_id": info["p"], "email": info.get("e", "")}
+    project_id = info["p"]
+    from services.customer_friction import get_resume_state, momentum_message, ensure_continuation_record
+
+    intake_done = (DATA / "projects" / project_id / "communications" / "intake.json").is_file()
+    uploads = get_resume_state(project_id)
+    cont = ensure_continuation_record(project_id, info.get("e", ""))
+    return {
+        "ok": True,
+        "project_id": project_id,
+        "email": info.get("e", ""),
+        "intake_completed": intake_done,
+        "resume": uploads,
+        "continuation_url": cont.get("continuation_url"),
+        "momentum": momentum_message(project_id, intake_done, len(uploads.get("uploads") or [])),
+    }
 
 
 @app.get("/ui/intake", response_class=HTMLResponse)
@@ -467,11 +491,151 @@ async def intake_submit(
 
     safe_record_intake(project_id, info.get("e", ""), intake)
 
+    from services.customer_friction import build_continuation_bundle, record_continuation_event
+
+    cont = build_continuation_bundle(project_id, info.get("e", ""))
+    try:
+        record_continuation_event(cont["continuation_token"], "continuation_completed", step="intake")
+    except Exception:
+        pass
+
     return {
         "ok": True,
         "project_id": project_id,
-        "upload_url": f"{get_public_base_url()}/upload?project_id={project_id}",
+        "upload_url": f"{get_public_base_url()}/upload?project_id={project_id}&token={token}",
+        "continuation_url": cont["continuation_url"],
     }
+
+# ---------- Customer friction layer (public) ----------
+@app.get("/ui/continue.html", response_class=HTMLResponse)
+def continue_page():
+    return FileResponse(str(ROOT / "ui" / "continue.html"))
+
+
+@app.get("/api/customer/continuation/resolve")
+def customer_continuation_resolve(token: str, client: str = "unknown"):
+    from services.customer_friction import resolve_continuation
+
+    try:
+        return resolve_continuation(token, client=client)
+    except ValueError as e:
+        code = str(e)
+        if code == "continuation_expired":
+            raise HTTPException(status_code=410, detail="This link has expired. Request a new welcome email.")
+        raise HTTPException(status_code=401, detail="Invalid continuation link")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid continuation link")
+
+
+@app.post("/api/customer/continuation/event")
+async def customer_continuation_event(body: dict = Body(...)):
+    from services.customer_friction import record_continuation_event
+
+    token = str(body.get("token") or "")
+    event = str(body.get("event") or "continuation_abandoned")
+    if not token:
+        raise HTTPException(status_code=400, detail="token required")
+    try:
+        return record_continuation_event(
+            token,
+            event,
+            step=str(body.get("step") or ""),
+            client=str(body.get("client") or "unknown"),
+            duration_ms=body.get("duration_ms"),
+        )
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+@app.get("/api/customer/qr.svg")
+def customer_qr_svg(url: str = ""):
+    from services.customer_friction import make_qr_svg
+    from urllib.parse import unquote
+
+    target = unquote(url or "").strip()
+    if not target or len(target) > 2000:
+        raise HTTPException(status_code=400, detail="url required")
+    svg = make_qr_svg(target)
+    return Response(content=svg, media_type="image/svg+xml")
+
+
+@app.get("/api/customer/upload/guidance")
+def customer_upload_guidance(project_id: str, token: str = ""):
+    validate_project_id(project_id)
+    if token:
+        try:
+            info = parse_intake_token(token)
+            if info["p"] != project_id:
+                raise HTTPException(status_code=403, detail="token mismatch")
+        except Exception:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    from services.customer_friction import analyze_uploads, momentum_message, get_resume_state
+
+    guidance = analyze_uploads(project_id)
+    resume = get_resume_state(project_id)
+    intake_done = resume.get("intake_completed", False)
+    guidance["momentum"] = momentum_message(project_id, intake_done, guidance.get("upload_count", 0))
+    guidance["resume"] = resume
+    return guidance
+
+
+@app.get("/api/customer/evidence/example/{item_id}")
+def customer_evidence_example(item_id: str, project_id: str = ""):
+    from services.customer_friction import get_evidence_example, record_example_viewed
+
+    out = get_evidence_example(item_id)
+    if out.get("ok"):
+        record_example_viewed(item_id, project_id)
+    return out
+
+
+@app.get("/api/customer/evidence/help/{item_id}")
+def customer_evidence_help(item_id: str):
+    from services.customer_friction import get_retrieval_help
+
+    return get_retrieval_help(item_id)
+
+
+@app.post("/api/customer/upload/session")
+async def customer_upload_session(body: dict = Body(...)):
+    project_id = str(body.get("project_id") or "")
+    token = str(body.get("token") or "")
+    if not project_id:
+        raise HTTPException(status_code=400, detail="project_id required")
+    validate_project_id(project_id)
+    if token:
+        try:
+            info = parse_intake_token(token)
+            if info["p"] != project_id:
+                raise HTTPException(status_code=403, detail="token mismatch")
+        except Exception:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    from services.customer_friction import save_upload_session
+
+    return save_upload_session(project_id, body.get("session") or body)
+
+
+@app.get("/api/customer/upload/session")
+def customer_upload_session_get(project_id: str, token: str = ""):
+    validate_project_id(project_id)
+    if token:
+        try:
+            info = parse_intake_token(token)
+            if info["p"] != project_id:
+                raise HTTPException(status_code=403, detail="token mismatch")
+        except Exception:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    from services.customer_friction import load_upload_session
+
+    return load_upload_session(project_id)
+
+
+@app.get("/api/operator/customer-friction")
+def operator_customer_friction():
+    from services.customer_friction import friction_insights_for_operator
+
+    return friction_insights_for_operator()
+
 
 # ---------- Chain of Custody / Evidence (with schema validation) ----------
 @app.post("/api/coc/event")
@@ -520,7 +684,13 @@ async def evidence_register(project_id: str, media_type: str, owner: str, file: 
     from services.acquisition.forensics import safe_record_evidence
 
     safe_record_evidence(project_id, safe_name, media_type)
-    return {"ok": True, "artifact": rec}
+    try:
+        from services.customer_friction import record_upload_completed
+
+        guidance = record_upload_completed(project_id, safe_name)
+    except Exception:
+        guidance = None
+    return {"ok": True, "artifact": rec, "guidance": guidance}
 
 # ---------- Projects / Status Board ----------
 @app.get("/api/projects")
@@ -804,6 +974,33 @@ def operator_organism_state(project_id: str = "", mode: str = ""):
     from services.memory.operator_guidance import get_organism_state_view
 
     return get_organism_state_view(project_id=project_id, mode=mode)
+
+
+@app.get("/api/operator/smtp-status")
+def operator_smtp_status():
+    from services.production import smtp_env_status
+
+    return {"ok": True, "smtp": smtp_env_status()}
+
+
+@app.post("/api/operator/test-email")
+async def operator_test_email(request: Request, body: dict = Body(...)):
+    from services.emails import send_operator_test_email
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    to_email = str(body.get("to") or "").strip()
+    if not to_email:
+        raise HTTPException(status_code=400, detail="to email required")
+    result = send_operator_test_email(to_email)
+    if result.get("reason") == "smtp_unconfigured":
+        return JSONResponse(
+            status_code=503,
+            content={"ok": False, "detail": "SMTP not configured", "smtp_missing": result},
+        )
+    if not result.get("ok"):
+        return JSONResponse(status_code=502, content={"ok": False, "result": result})
+    return {"ok": True, "result": result}
 
 
 @app.get("/api/knowledge/search")

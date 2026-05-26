@@ -9,11 +9,19 @@ services:
     envVars:
       - key: ENVIRONMENT
         value: production
+      - key: SMTP_ENABLED
+        value: "true"
       - key: SMTP_HOST
         sync: false
+      - key: SMTP_PORT
+        value: "587"
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASS
         sync: false
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      - key: SMTP_FROM_NAME
+        value: KeepYourContracts
       - key: DATABASE_URL
         sync: false

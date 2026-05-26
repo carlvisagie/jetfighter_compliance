@@ -59,11 +59,25 @@
           <span class="kyc-label-overline">Attention radar</span>
           <div data-guidance="attention"><p class="kyc-loading">Scanning…</p></div>
         </article>
+        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;">
+          <span class="kyc-label-overline">Customer friction</span>
+          <div data-guidance="customer-friction"><p class="kyc-loading">Loading onboarding friction signals…</p></div>
+        </article>
         <article class="guidance-panel">
           <span class="kyc-label-overline">Organism state</span>
           <span class="kyc-pill" id="guidance-state-badge">—</span>
           <div data-guidance="organism-state"><p class="kyc-loading">…</p></div>
           <div data-guidance="recommendations" style="margin-top:1rem;"></div>
+          <div class="cockpit-smtp-test" style="margin-top:1rem;">
+            <span class="kyc-label-overline">Email transport</span>
+            <p class="org-metric-foot" id="smtp-status-line">Checking SMTP…</p>
+            <div class="kyc-field" style="margin-top:0.5rem;">
+              <label for="smtpTestTo">Send test email to</label>
+              <input type="email" id="smtpTestTo" placeholder="you@keepyourcontracts.com">
+            </div>
+            <button type="button" class="btn secondary" id="smtpTestBtn">Send SMTP test email</button>
+            <p class="org-metric-foot" id="smtpTestResult"></p>
+          </div>
         </article>
         <article class="guidance-panel org-card--wide" style="grid-column:1/-1;">
           <span class="kyc-label-overline">Learn this now</span>
@@ -264,12 +278,48 @@
     ]);
   }
   document.getElementById('orgRefresh').addEventListener('click', refreshAll);
+  async function loadSmtpStatus() {
+    try {
+      const j = await api('/api/operator/smtp-status');
+      const s = j.smtp || {};
+      const line = document.getElementById('smtp-status-line');
+      if (line) {
+        line.textContent = s.configured
+          ? 'SMTP configured and ready.'
+          : 'Missing: ' + (s.missing || []).join(', ');
+      }
+    } catch (e) {
+      const line = document.getElementById('smtp-status-line');
+      if (line) line.textContent = 'Could not load SMTP status.';
+    }
+  }
+  document.getElementById('smtpTestBtn')?.addEventListener('click', async function () {
+    const to = document.getElementById('smtpTestTo')?.value?.trim();
+    const out = document.getElementById('smtpTestResult');
+    if (!to) { if (out) out.textContent = 'Enter an email address.'; return; }
+    if (out) out.textContent = 'Sending…';
+    try {
+      const r = await fetch('/api/operator/test-email', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: to })
+      });
+      const j = await r.json();
+      if (out) out.textContent = r.ok ? 'Sent — check inbox.' : (j.detail || j.result?.detail || r.status);
+      await loadSmtpStatus();
+      refreshOrganism();
+    } catch (e) {
+      if (out) out.textContent = String(e.message || e);
+    }
+  });
   (async function boot() {
     const root = document.getElementById('org-control-root');
     initProjects();
     await OperatorCockpit.init(root);
+    await loadSmtpStatus();
     await refreshAll();
-    const sync = function () { refreshAll(); };
+    const sync = function () { refreshAll(); loadSmtpStatus(); };
     root.querySelector('#cockpitProject')?.addEventListener('change', sync);
     root.querySelector('#cockpitMode')?.addEventListener('change', sync);
   })();

@@ -39,6 +39,44 @@ def startup_warnings() -> List[str]:
     return warnings
 
 
+def smtp_env_status() -> Dict[str, Any]:
+    """Which SMTP env vars are set (never exposes password value)."""
+    host = SETTINGS.smtp_host
+    user = SETTINGS.smtp_user
+    pwd_set = bool(SETTINGS.smtp_pass)
+    from_email = SETTINGS.smtp_from_email
+    return {
+        "smtp_enabled_flag": SETTINGS.smtp_enabled,
+        "SMTP_ENABLED": SETTINGS.smtp_enabled,
+        "SMTP_HOST": bool(host),
+        "SMTP_SERVER": bool(os.getenv("SMTP_SERVER")),
+        "SMTP_PORT": SETTINGS.smtp_port,
+        "SMTP_USER": bool(user),
+        "SMTP_USERNAME": bool(os.getenv("SMTP_USERNAME")),
+        "SMTP_PASS": pwd_set,
+        "SMTP_PASSWORD": bool(os.getenv("SMTP_PASSWORD")),
+        "SMTP_FROM_EMAIL": bool(from_email),
+        "SMTP_FROM_NAME": bool(SETTINGS.smtp_from_name),
+        "configured": bool(
+            SETTINGS.smtp_enabled and host and user and SETTINGS.smtp_pass
+        ),
+        "missing": _smtp_missing_fields(),
+    }
+
+
+def _smtp_missing_fields() -> list:
+    missing = []
+    if not SETTINGS.smtp_enabled:
+        missing.append("SMTP_ENABLED=true")
+    if not SETTINGS.smtp_host:
+        missing.append("SMTP_HOST or SMTP_SERVER")
+    if not SETTINGS.smtp_user:
+        missing.append("SMTP_USER or SMTP_USERNAME")
+    if not SETTINGS.smtp_pass:
+        missing.append("SMTP_PASS or SMTP_PASSWORD")
+    return missing
+
+
 def readiness_checks() -> Dict[str, Any]:
     data_ok = DATA.exists() and os.access(str(DATA), os.W_OK)
     projects_ok = PROJECTS.exists()
@@ -49,9 +87,8 @@ def readiness_checks() -> Dict[str, Any]:
         "public_base_url": base,
         "inquiry_onboarding_active": True,
         "intake_secret_configured": SETTINGS.intake_token_secret != _DEV_INTAKE_SECRET,
-        "smtp_configured": bool(
-            SETTINGS.smtp_enabled and SETTINGS.smtp_host and SETTINGS.smtp_user and SETTINGS.smtp_pass
-        ),
+        "smtp_configured": smtp_env_status()["configured"],
+        "smtp_status": smtp_env_status(),
         "environment": os.getenv("ENVIRONMENT", "development"),
     }
 
