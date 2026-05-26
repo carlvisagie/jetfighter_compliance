@@ -58,6 +58,7 @@ CI: `.github/workflows/kyc_guardrails.yml`
 | Kickoff | `safe_read_before_kickoff`, `safe_link_after_kickoff`, ledger link |
 | Intake | `safe_write_after_intake`, workflow timeline |
 | Evidence | `safe_record_evidence` / `evidence_uploaded` |
+| Evidence intelligence (v1) | Upload → rule-based extract/classify → customer profile + confirmation; see [EVIDENCE_INTELLIGENCE_LAYER.md](./EVIDENCE_INTELLIGENCE_LAYER.md) |
 | Email (optional) | Telemetry only — `email/send_*` events |
 
 Observability: `GET /api/memory/observability`, UI `/ui/memory.html` (operator auth required).

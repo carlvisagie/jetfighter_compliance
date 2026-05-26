@@ -127,6 +127,18 @@ ENGINE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "duplicate_truth_risk": "medium",
         "fix_needed": "",
     },
+    "evidence_intelligence": {
+        "label": "Evidence intelligence (upload analysis)",
+        "paths": ["services/evidence_intelligence/", "server.py (/api/evidence/register)"],
+        "classification": "plugged",
+        "reads": ["project evidence files"],
+        "writes": ["evidence_intelligence artifacts", "central memory timeline", "telemetry"],
+        "read_before": False,
+        "write_after": True,
+        "orphan_risk": "low",
+        "duplicate_truth_risk": "low",
+        "fix_needed": "Project jsonl artifacts are not canonical; timeline is source of truth",
+    },
     "evidence": {
         "label": "Evidence / artifact register",
         "paths": ["server.py (/api/evidence/register)", "services/ledger.py"],
@@ -489,6 +501,124 @@ def safe_write_after_sla_event(project_id: str, event_id: str, why: str, base: O
             record_learning_signal("sla:breach", "lead_failed", success=False, base=base)
     except Exception as e:
         logger.warning("Central memory write (sla): %s", e)
+
+
+def safe_write_after_evidence_intelligence(
+    project_id: str,
+    *,
+    filename: str,
+    artifact_id: str = "",
+    sha256: str = "",
+    classification: Optional[Dict[str, Any]] = None,
+    entities: Optional[List[Dict[str, Any]]] = None,
+    profile_delta: Optional[Dict[str, Any]] = None,
+    gaps: Optional[List[str]] = None,
+    status: str = "completed",
+    base: Optional[Any] = None,
+) -> None:
+    """Bridge evidence intelligence into central memory timeline (canonical brain)."""
+    try:
+        eid = find_entity_id(project_id=project_id, base=base)
+        if not eid:
+            safe_register_orphan(
+                "evidence_intelligence",
+                "project",
+                project_id,
+                "Evidence analyzed without linked entity",
+                base=base,
+            )
+            return
+        ref = f"{filename}:{sha256[:12]}" if sha256 else filename
+        if not _timeline_has(eid, "evidence_analyzed", ref_id=ref, base=base):
+            append_timeline(
+                eid,
+                "evidence_analyzed",
+                "project",
+                project_id,
+                {
+                    "filename": filename,
+                    "artifact_id": artifact_id,
+                    "sha256": sha256[:16] if sha256 else "",
+                    "status": status,
+                },
+                base,
+            )
+        if classification and classification.get("document_type") not in (None, "unknown"):
+            cref = f"{filename}:{classification.get('document_type')}"
+            if not _timeline_has(eid, "document_classified", ref_id=cref, base=base):
+                append_timeline(
+                    eid,
+                    "document_classified",
+                    "project",
+                    project_id,
+                    {
+                        "filename": filename,
+                        "document_type": classification.get("document_type"),
+                        "confidence": classification.get("confidence"),
+                    },
+                    base,
+                )
+        if profile_delta and not _timeline_has(eid, "profile_inferred", ref_id=project_id, base=base):
+            append_timeline(
+                eid,
+                "profile_inferred",
+                "project",
+                project_id,
+                {"fields": list(profile_delta.keys()), "status": status},
+                base,
+            )
+        for ent in entities or []:
+            if float(ent.get("confidence", 0)) < 0.5:
+                continue
+            record_learning_signal(
+                f"entity:{ent.get('type')}:{str(ent.get('value',''))[:40]}",
+                "intake_to_evidence",
+                success=True,
+                paperwork_hint=ent.get("type", ""),
+                base=base,
+            )
+        for gap_id in gaps or []:
+            record_learning_signal(f"gap:{gap_id}", "intake_to_evidence", success=False, base=base)
+            if not _timeline_has(eid, "gap_detected", ref_id=f"{project_id}:{gap_id}", base=base):
+                append_timeline(
+                    eid,
+                    "gap_detected",
+                    "project",
+                    project_id,
+                    {"gap_id": gap_id},
+                    base,
+                )
+    except Exception as e:
+        logger.warning("Central memory write (evidence intelligence): %s", e)
+
+
+def safe_write_after_evidence_confirmation(
+    project_id: str,
+    field: str,
+    value: str,
+    status: str,
+    base: Optional[Any] = None,
+) -> None:
+    try:
+        eid = find_entity_id(project_id=project_id, base=base)
+        if not eid:
+            return
+        append_timeline(
+            eid,
+            "confirmation_requested" if status == "unsure" else "profile_confirmed",
+            "project",
+            project_id,
+            {"field": field, "value": value[:120], "status": status},
+            base,
+        )
+        record_learning_signal(
+            f"confirm:{field}:{status}",
+            "intake_to_evidence",
+            success=status == "confirmed",
+            base=base,
+        )
+    except Exception as e:
+        logger.warning("Central memory write (evidence confirmation): %s", e)
 
 
 def safe_register_orphan(

@@ -65,6 +65,171 @@
     return r.json();
   }
 
+  async function fetchEvidenceProfile(projectId, token) {
+    if (!projectId || !token) return null;
+    const url =
+      "/api/customer/evidence/profile?project_id=" +
+      encodeURIComponent(projectId) +
+      "&token=" +
+      encodeURIComponent(token);
+    try {
+      const r = await fetch(url);
+      return r.json();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function renderEvidenceProfile(el, data, token) {
+    if (!el || !data || !data.ok) return;
+    let html =
+      '<div class="kyc-evidence-intel">' +
+      "<h3>" +
+      escapeHtml(data.headline || "We started organizing your paperwork") +
+      "</h3>";
+    const id = data.identified || {};
+    html += "<section><h4>What we found</h4><ul class=\"kyc-guidance-found\">";
+    function line(label, items) {
+      if (!items || !items.length) return;
+      html +=
+        "<li><strong>" +
+        escapeHtml(label) +
+        ":</strong> " +
+        items
+          .slice(0, 5)
+          .map(function (v) {
+            return escapeHtml(v);
+          })
+          .join(", ") +
+        "</li>";
+    }
+    line("Company names we may have identified", id.company_names);
+    line("Emails", id.emails);
+    line("Domains", id.domains);
+    line("Systems / tools", id.technologies);
+    line("Vendors", id.vendors);
+    line("Compliance references", id.compliance_references);
+    if (data.document_types && data.document_types.length) {
+      html +=
+        "<li><strong>Document types recognized:</strong> " +
+        data.document_types
+          .slice(-5)
+          .map(function (d) {
+            return escapeHtml(d.type || "unknown") + " (" + escapeHtml(d.file || "") + ")";
+          })
+          .join("; ") +
+        "</li>";
+    }
+    html += "</ul></section>";
+    if (data.needs_confirmation && data.needs_confirmation.length) {
+      html += "<section><h4>Please confirm</h4><ul class=\"kyc-confirm-list\">";
+      data.needs_confirmation.slice(0, 5).forEach(function (c) {
+        html +=
+          "<li data-field=\"" +
+          escapeHtml(c.field) +
+          "\" data-value=\"" +
+          escapeHtml(c.value) +
+          "\"><span>" +
+          escapeHtml(c.message || "Please confirm this detail.") +
+          "</span> " +
+          "<div class=\"kyc-help-actions\">" +
+          '<button type="button" data-confirm="confirmed">Correct</button>' +
+          '<button type="button" data-confirm="rejected">Not correct</button>' +
+          '<button type="button" data-confirm="unsure">I\'m not sure</button>' +
+          "</div></li>";
+      });
+      html += "</ul></section>";
+    }
+    if (data.missing_items && data.missing_items.length) {
+      html += "<section><h4>What may still help</h4><ul class=\"kyc-guidance-missing\">";
+      data.missing_items.forEach(function (m) {
+        const key = m.example_item_id || m.gap_id || "";
+        html +=
+          "<li><strong>" +
+          escapeHtml(m.label) +
+          "</strong><br>" +
+          escapeHtml(m.plain || "") +
+          (m.why ? "<br><em>" + escapeHtml(m.why) + "</em>" : "") +
+          '<div class="kyc-help-actions">' +
+          (m.example_url
+            ? '<a class="kyc-btn kyc-btn--secondary" href="' +
+              escapeHtml(m.example_url) +
+              '" target="_blank" rel="noopener">Show example</a>'
+            : '<button type="button" data-example="' +
+              escapeHtml(key) +
+              '">Show example</button>') +
+          '<button type="button" data-help="' +
+          escapeHtml(key) +
+          '">Help me get this</button>' +
+          '<button type="button" data-skip="' +
+          escapeHtml(m.gap_id || key) +
+          '">Skip for now</button>' +
+          "</div><div class=\"kyc-help-panel\" hidden data-panel=\"" +
+          escapeHtml(key) +
+          '"></div></li>';
+      });
+      html += "</ul></section>";
+    }
+    html += "</div>";
+    el.innerHTML = html;
+    el.querySelectorAll("button[data-confirm]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        const li = btn.closest("li");
+        if (!li) return;
+        postConfirm(
+          token,
+          li.getAttribute("data-field"),
+          li.getAttribute("data-value"),
+          btn.getAttribute("data-confirm")
+        );
+      });
+    });
+    el.querySelectorAll("button[data-example]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        showExample(btn.getAttribute("data-example"), el, token);
+        telemetry("example_clicked_after_gap", { token: token, metadata: { item_id: btn.getAttribute("data-example") } });
+      });
+    });
+    el.querySelectorAll("button[data-help]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        showRetrieval(btn.getAttribute("data-help"), el, token);
+        telemetry("missing_item_help_clicked", { token: token, metadata: { item_id: btn.getAttribute("data-help") } });
+      });
+    });
+    el.querySelectorAll("button[data-skip]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        telemetry("skipped_missing_item", { token: token, metadata: { gap_id: btn.getAttribute("data-skip") } });
+        btn.closest("li").style.opacity = "0.5";
+      });
+    });
+  }
+
+  async function postConfirm(token, field, value, action) {
+    const state = window.__kycUploadState || {};
+    if (!state.projectId) return;
+    try {
+      await fetch("/api/customer/evidence/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project_id: state.projectId,
+          token: token,
+          field: field,
+          value: value,
+          action: action,
+        }),
+      });
+      telemetry(
+        action === "confirmed"
+          ? "customer_confirmed_entity"
+          : action === "rejected"
+            ? "customer_rejected_entity"
+            : "customer_unsure_entity",
+        { token: token, metadata: { field: field } }
+      );
+    } catch (_) {}
+  }
+
   function renderGuidance(el, data, token) {
     if (!el || !data || !data.ok) return;
     let html =
@@ -222,6 +387,7 @@
       token: cfg.token || "",
       email: cfg.emailInput ? cfg.emailInput.value : "",
     };
+    window.__kycUploadState = state;
 
     function setProjectId(pid, email) {
       state.projectId = pid;
@@ -301,11 +467,15 @@
         cfg.statusEl.className = "kyc-status kyc-status--ok";
         cfg.statusEl.textContent =
           okCount === files.length
-            ? "Good progress — " + okCount + " file(s) received."
+            ? "We received your files. We are organizing them now."
             : "Some files need another try — you can re-upload.";
       }
       const g = await fetchGuidance(state.projectId, state.token);
       renderGuidance(cfg.guidanceEl, g, state.token);
+      if (cfg.intelligenceEl && state.token) {
+        const prof = await fetchEvidenceProfile(state.projectId, state.token);
+        renderEvidenceProfile(cfg.intelligenceEl, prof, state.token);
+      }
       if (g.progress_percent)
         setMomentum(
           {
@@ -445,5 +615,9 @@
     initContinuePage,
     telemetry,
     clientKind,
+    renderEvidenceProfile,
+    fetchEvidenceProfile,
+    renderGuidance,
+    qrSrcForUrl,
   };
 })(typeof window !== "undefined" ? window : globalThis);

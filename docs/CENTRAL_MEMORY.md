@@ -56,6 +56,7 @@ Legacy files (`data/projects/`, `data/acquisition/`, inquiries, ledger) **remain
 | Inquiry | `safe_write_after_inquiry` (via forensics) |
 | Intake | `safe_write_after_intake` (via forensics) |
 | Evidence | `safe_write_after_evidence` (via forensics) |
+| Evidence intelligence | `safe_write_after_evidence_intelligence`, `safe_write_after_evidence_confirmation` — timeline: `evidence_analyzed`, `document_classified`, `profile_inferred`, `gap_detected` |
 | Manual events | `link_event` on `/api/coc/event/form` |
 
 ## Organism observability

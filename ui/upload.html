@@ -64,6 +64,7 @@
         </div>
       </form>
       <p id="status" class="kyc-status" role="status" aria-live="polite"></p>
+      <div id="intelligencePanel" class="kyc-intelligence-panel"></div>
       <div id="guidancePanel"></div>
     </article>
   </main>
@@ -90,6 +91,7 @@
       fileInput: fileInput,
       dropZone: dropZone,
       guidanceEl: guidanceEl,
+      intelligenceEl: document.getElementById("intelligencePanel"),
       qrImg: qrImg,
       progressList: document.getElementById("progressList"),
       momentumHeadline: document.getElementById("uploadHeadline"),

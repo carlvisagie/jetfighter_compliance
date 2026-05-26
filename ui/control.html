@@ -84,6 +84,12 @@
           <h3 style="margin-top:0;">Onboarding &amp; upload experience</h3>
           <div id="customer-friction-insights"><p class="kyc-loading">Loading friction insights…</p></div>
         </article>
+        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="evidence-intelligence-panel">
+          <span class="kyc-label-overline">Evidence intelligence</span>
+          <h3 style="margin-top:0;">Upload analysis</h3>
+          <p class="org-metric-foot">Select a project in the command strip, then refresh.</p>
+          <div id="evidence-intelligence-insights"><p class="kyc-loading">Loading evidence intelligence…</p></div>
+        </article>
       </div>
 
       <header class="kyc-section-head" style="margin-top:1rem;">
@@ -277,9 +283,43 @@
       refreshOrganism(),
       OperatorGuidance.refreshGuidance(root, pid, mode),
       loadCustomerFriction(),
+      loadEvidenceIntelligence(pid),
     ]);
   }
   document.getElementById('orgRefresh').addEventListener('click', refreshAll);
+  async function loadEvidenceIntelligence(projectId) {
+    const el = document.getElementById('evidence-intelligence-insights');
+    if (!el) return;
+    if (!projectId) {
+      el.innerHTML = '<p class="org-metric-foot">Enter a project ID in the command strip to view evidence intelligence.</p>';
+      return;
+    }
+    try {
+      const j = await api('/api/operator/evidence-intelligence?project_id=' + encodeURIComponent(projectId));
+      const cs = j.confidence_summary || {};
+      el.innerHTML =
+        '<ul class="guidance-list">' +
+        '<li><strong>Files uploaded:</strong> ' + (j.files_uploaded || 0) + '</li>' +
+        '<li><strong>Files analyzed:</strong> ' + (j.files_analyzed || 0) + '</li>' +
+        '<li><strong>Pending analysis:</strong> ' + (j.pending_analysis || 0) + '</li>' +
+        '<li><strong>Missing items:</strong> ' + (j.missing_item_count || 0) + '</li>' +
+        '<li><strong>Confirmations needed:</strong> ' + ((j.confirmation_needed || []).length) + '</li>' +
+        '<li><strong>Confidence:</strong> confirmed ' + (cs.confirmed || 0) +
+        ', inferred ' + (cs.inferred || 0) + ', uncertain ' + (cs.uncertain || 0) + '</li>' +
+        '</ul>' +
+        '<p class="org-metric-foot"><strong>Profile:</strong> ' +
+        escapeHtml(JSON.stringify(j.profile || {})) + '</p>' +
+        '<p class="org-metric-foot"><strong>Next:</strong> ' +
+        ((j.next_actions || []).map(function (a) { return escapeHtml(a); }).join(' ') || '—') + '</p>';
+    } catch (e) {
+      el.innerHTML = '<p class="org-metric-foot">Evidence intelligence unavailable.</p>';
+    }
+  }
+  function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+  }
   async function loadCustomerFriction() {
     const el = document.getElementById('customer-friction-insights');
     if (!el) return;

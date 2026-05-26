@@ -632,6 +632,43 @@ def customer_evidence_retrieval(item_id: str):
     return out
 
 
+@app.get("/api/customer/evidence/profile")
+def customer_evidence_profile(project_id: str, token: str = ""):
+    from services.customer_friction import validate_project_access
+    from services.evidence_intelligence import get_customer_evidence_profile
+
+    validate_project_id(project_id)
+    if not token or not validate_project_access(project_id, token):
+        raise HTTPException(status_code=403, detail="Invalid token for project")
+    out = get_customer_evidence_profile(project_id)
+    try:
+        from services.evidence_intelligence.telemetry import emit
+
+        emit("evidence_profile_viewed", project_id=project_id)
+    except Exception:
+        pass
+    return out
+
+
+@app.post("/api/customer/evidence/confirm")
+async def customer_evidence_confirm(
+    project_id: str = Body(...),
+    token: str = Body(...),
+    field: str = Body(...),
+    value: str = Body(...),
+    action: str = Body(...),
+):
+    from services.customer_friction import validate_project_access
+    from services.evidence_intelligence import confirm_entity
+
+    validate_project_id(project_id)
+    if not validate_project_access(project_id, token):
+        raise HTTPException(status_code=403, detail="Invalid token for project")
+    if action not in ("confirmed", "rejected", "unsure"):
+        raise HTTPException(status_code=400, detail="action must be confirmed, rejected, or unsure")
+    return confirm_entity(project_id, field=field, value=value, action=action)
+
+
 # ---------- Chain of Custody / Evidence (with schema validation) ----------
 @app.post("/api/coc/event")
 async def coc_event(event: dict):
@@ -702,7 +739,21 @@ async def evidence_register(
             )
     except Exception:
         pass
-    return {"ok": True, "artifact": rec}
+    intel_message = "We received your files. We are organizing them now."
+    try:
+        from services.evidence_intelligence import process_evidence_upload
+
+        proc = process_evidence_upload(
+            project_id,
+            dest,
+            artifact_id=rec.get("artifact_id", ""),
+            sha256=rec.get("sha256", ""),
+            owner=owner,
+        )
+        intel_message = proc.message
+    except Exception:
+        pass
+    return {"ok": True, "artifact": rec, "intelligence_message": intel_message}
 
 # ---------- Projects / Status Board ----------
 @app.get("/api/projects")
@@ -993,6 +1044,16 @@ def operator_customer_friction(days: int = 14):
     from services.customer_friction import get_operator_friction_insights
 
     return get_operator_friction_insights(days=min(max(days, 1), 90))
+
+
+@app.get("/api/operator/evidence-intelligence")
+def operator_evidence_intelligence(project_id: str = ""):
+    from services.evidence_intelligence import get_operator_evidence_intelligence
+
+    if not project_id:
+        return {"ok": False, "error": "project_id required"}
+    validate_project_id(project_id)
+    return get_operator_evidence_intelligence(project_id)
 
 
 @app.get("/api/operator/smtp-status")
