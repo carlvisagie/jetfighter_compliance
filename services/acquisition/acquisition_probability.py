@@ -12,7 +12,7 @@ DEFAULT_MIN_PREY_SCORE = 52
 MIN_PREY_FLOOR = 48
 MAX_PREY_CEILING = 62
 TARGET_QUEUE_MIN = 1
-TARGET_QUEUE_MAX = 10
+TARGET_QUEUE_MAX = 8
 NEAR_MISS_MARGIN = 6
 
 # --- High-value prey signals (operational burden, not topic intensity) ---
@@ -138,14 +138,17 @@ def _confusion_density(blob: str) -> int:
     return density
 
 
-def _has_operational_personal_need(blob: str, title: str) -> bool:
+def _has_operational_personal_need(blob: str, title: str, soft: Optional[Dict[str, Any]] = None) -> bool:
+    soft = soft or {}
+    if soft.get("has_quiet_operational_need"):
+        return True
     return bool(
         re.search(
-            r"\b(i|we|my|our)\b.*\b(was|were|got|told|need|can't|cannot|don't|tasked|lost|confused|afford|provide)\b",
+            r"\b(i|we|my|our)\b.*\b(was|were|got|told|need|can't|cannot|don't|tasked|lost|confused|afford|provide|receive|store|house)\b",
             blob,
         )
         or re.search(
-            r"\b(where do i|what (documents|level|paperwork)|any advice|small business|can't afford|more confused)\b",
+            r"\b(where do i|what (documents|level|paperwork)|any advice|small business|can't afford|more confused|trying to understand|what applies)\b",
             blob,
         )
         or re.search(r"\b(which|what) cmmc level\b", blob, re.I)
@@ -206,8 +209,12 @@ def _compute_dimension_scores(
     }
 
 
-def _build_prey_reasons(dims: Dict[str, int], prey_hits: List[str]) -> List[str]:
-    reasons: List[str] = []
+def _build_prey_reasons(
+    dims: Dict[str, int],
+    prey_hits: List[str],
+    soft_badges: Optional[List[str]] = None,
+) -> List[str]:
+    reasons: List[str] = list(soft_badges or [])
     if dims.get("financial_stress_score", 0) >= 40:
         reasons.append("Financial stress")
     if dims.get("small_business_stress_score", 0) >= 35:
@@ -226,7 +233,13 @@ def _build_prey_reasons(dims: Dict[str, int], prey_hits: List[str]) -> List[str]
         reasons.append("Level uncertainty (what applies?)")
     if "operational_trigger" in prey_hits and "Operational pressure" not in reasons:
         reasons.append("Contract/questionnaire pressure")
-    return reasons[:6]
+    seen = set()
+    unique: List[str] = []
+    for r in reasons:
+        if r not in seen:
+            seen.add(r)
+            unique.append(r)
+    return unique[:8]
 
 
 def score_acquisition_probability(
@@ -257,7 +270,16 @@ def score_acquisition_probability(
         blob, prey_dims, cls, burden, emotional, seeker, weights
     )
 
-    has_personal_need = _has_operational_personal_need(blob, title)
+    from .intelligence.soft_burden import score_soft_burden
+
+    soft = score_soft_burden(title, body)
+    soft_mult = float(weights.get("soft_burden", 1.0))
+    soft_score = int(min(100, soft["soft_burden_score"] * soft_mult))
+    dimension_scores["soft_burden_score"] = soft_score
+
+    topical_relevance = min(100, (15 if cls.get("relevant") else 0) + burden // 3 + len(cls.get("pain_themes") or []) * 4)
+
+    has_personal_need = _has_operational_personal_need(blob, title, soft)
     topical_only = (
         (cls.get("relevant") or burden >= 15)
         and prey_raw < 16
@@ -266,7 +288,7 @@ def score_acquisition_probability(
         and generic_penalty >= 10
     )
 
-    predator_penalty = min(75, predator_raw + generic_penalty + giver // 3)
+    predator_penalty = min(75, predator_raw + generic_penalty + giver // 4)
     if intent == "GIVING_ADVICE":
         predator_penalty = min(75, predator_penalty + 22)
     elif intent == "PROMOTING_SERVICE":
@@ -276,9 +298,18 @@ def score_acquisition_probability(
     if topical_only:
         predator_penalty = min(75, predator_penalty + 24)
 
-    # Strong operational signals reduce over-penalization
-    op_strength = dimension_scores["operational_pressure_score"] + dimension_scores["small_business_stress_score"]
-    penalty_mult = 0.72 if op_strength >= 70 and predator_raw < 15 else 0.82
+    # Practical implementation questions — lighter penalty (not consultants/AMAs)
+    if soft.get("is_practical_clarification") and predator_class_hint_safe(predator_dims):
+        predator_penalty = max(0, predator_penalty - 12)
+
+    op_strength = (
+        dimension_scores["operational_pressure_score"]
+        + dimension_scores["small_business_stress_score"]
+        + soft_score
+    )
+    penalty_mult = 0.68 if op_strength >= 75 and predator_raw < 12 else 0.78
+    if soft_score >= 55 and predator_raw < 10:
+        penalty_mult = 0.65
 
     stacking_bonus = 0
     unique_hits = set(prey_hits)
@@ -295,29 +326,35 @@ def score_acquisition_probability(
     if dimension_scores["financial_stress_score"] >= 45 and dimension_scores["small_business_stress_score"] >= 30:
         stacking_bonus += 8
 
+    # prey = topical + dimensions + soft burden - predator penalty
     positive = (
-        dimension_scores["operational_pressure_score"] * 0.24
-        + dimension_scores["emotional_overwhelm_score"] * 0.14
-        + dimension_scores["confusion_density_score"] * 0.12
-        + dimension_scores["small_business_stress_score"] * 0.14
-        + dimension_scores["compliance_uncertainty_score"] * 0.12
-        + dimension_scores["financial_stress_score"] * 0.12
-        + dimension_scores["paperwork_likelihood_score"] * 0.12
+        topical_relevance * 0.06
+        + dimension_scores["financial_stress_score"] * 0.11
+        + dimension_scores["operational_pressure_score"] * 0.18
+        + dimension_scores["compliance_uncertainty_score"] * 0.11
+        + dimension_scores["paperwork_likelihood_score"] * 0.10
+        + soft_score * 0.16
+        + dimension_scores["confusion_density_score"] * 0.10
+        + dimension_scores["small_business_stress_score"] * 0.10
+        + dimension_scores["emotional_overwhelm_score"] * 0.08
     )
     positive += min(12, seeker // 8)
 
     prey_score = int(max(0, min(100, positive + stacking_bonus - predator_penalty * penalty_mult)))
 
     predator_class = _primary_predator_class(predator_dims, intent)
-    prey_reasons = _build_prey_reasons(dimension_scores, prey_hits)
+    prey_reasons = _build_prey_reasons(dimension_scores, prey_hits, soft.get("soft_burden_badges"))
 
+    deployable = intent in ("SEEKING_HELP", "VENTING_OR_OVERWHELMED") or (
+        soft_score >= 48 and has_personal_need and predator_raw < 12
+    )
     queue_eligible = (
         prey_score >= min_prey_score
-        and intent in ("SEEKING_HELP", "VENTING_OR_OVERWHELMED")
+        and deployable
         and predator_penalty < 48
         and predator_class not in ("consultant", "educator", "moderator", "promoter", "ama")
         and not topical_only
-        and (has_personal_need or prey_raw >= 20)
+        and (has_personal_need or prey_raw >= 16 or soft_score >= 45)
     )
 
     return {
@@ -331,6 +368,9 @@ def score_acquisition_probability(
         "prey_reasons": prey_reasons,
         "topical_only_risk": topical_only,
         "has_operational_need": has_personal_need,
+        "topical_relevance_score": topical_relevance,
+        "soft_burden": soft,
+        "soft_burden_badges": soft.get("soft_burden_badges", []),
         **dimension_scores,
         "likelihood_real_buyer": min(100, 20 + prey_raw + (15 if intent in ("SEEKING_HELP", "VENTING_OR_OVERWHELMED") else 0)),
         "likelihood_existing_paperwork": dimension_scores["paperwork_likelihood_score"],
@@ -340,6 +380,12 @@ def score_acquisition_probability(
         "likelihood_needing_guidance": dimension_scores["compliance_uncertainty_score"],
         "likelihood_small_contractor_confusion": dimension_scores["small_business_stress_score"],
     }
+
+
+def predator_class_hint_safe(predator_dims: Dict[str, int]) -> bool:
+    """No hard predator hits — safe to reduce penalty for practical questions."""
+    banned = {"consultant", "educator", "moderator", "promoter", "ama", "authority", "influencer"}
+    return not predator_dims or not any(k in banned for k in predator_dims)
 
 
 def _primary_predator_class(predator_dims: Dict[str, int], intent: str) -> str:
@@ -415,9 +461,13 @@ def apply_operator_prey_feedback(
             "compliance_uncertainty": 1.0,
             "paperwork_likelihood": 1.0,
             "emotional_overwhelm": 1.0,
+            "soft_burden": 1.0,
             "topical_weight": 1.0,
         },
     )
+    if approved:
+        if any("Quiet" in r or "Operational uncertainty" in r for r in reasons):
+            pl["soft_burden"] = min(1.35, pl.get("soft_burden", 1.0) + 0.04)
     reasons = prey_reasons or []
     if approved:
         if any("Financial" in r for r in reasons):
@@ -454,7 +504,10 @@ def passes_prey_gate(
         and int(prob.get("predator_penalty", 99)) < 48
         and prob.get("predator_class") not in BANNED_PREDATOR_CLASSES
         and not prob.get("topical_only_risk")
-        and prob.get("has_operational_need")
+        and (
+            prob.get("has_operational_need")
+            or int(prob.get("soft_burden_score", 0)) >= 45
+        )
     )
 
 

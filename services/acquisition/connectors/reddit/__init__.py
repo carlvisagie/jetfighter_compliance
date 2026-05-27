@@ -132,9 +132,12 @@ def run_reddit_acquisition_cycle(
         prey_candidates.append(
             {
                 "prey_score": int(qual.get("prey_score", 0)),
-                "deployable_intent": intent in author_intent.DEPLOYABLE_INTENTS,
+                "soft_burden_score": int(prob.get("soft_burden_score", 0)),
+                "deployable_intent": intent in author_intent.DEPLOYABLE_INTENTS
+                or int(prob.get("soft_burden_score", 0)) >= 48,
                 "low_predator": int(prob.get("predator_penalty", 99)) < 48,
-                "has_operational_need": bool(prob.get("has_operational_need")),
+                "has_operational_need": bool(prob.get("has_operational_need"))
+                or int(prob.get("soft_burden_score", 0)) >= 45,
             }
         )
     effective_prey = compute_adaptive_prey_threshold(min_prey_score, prey_candidates, learning_state=state)
@@ -300,6 +303,8 @@ def run_reddit_acquisition_cycle(
             "predator_class": qual.get("predator_class"),
             "predator_penalty": qual.get("predator_penalty"),
             "prey_reasons": qual.get("prey_reasons", []),
+            "soft_burden_score": qual.get("soft_burden_score", 0),
+            "soft_burden_badges": qual.get("soft_burden_badges", []),
             "acquisition_probability": qual.get("acquisition_probability"),
             "social_intelligence": plan.get("social_intelligence"),
             "draft_reply": draft,
@@ -522,6 +527,8 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
                 "prey_score": o.get("prey_score"),
                 "predator_class": o.get("predator_class"),
                 "prey_reasons": o.get("prey_reasons", []),
+                "soft_burden_score": o.get("soft_burden_score", 0),
+                "soft_burden_badges": o.get("soft_burden_badges", []),
                 "organism_rationale": (o.get("organism_plan") or {}).get("rationale", ""),
                 "engagement_stage": (o.get("organism_plan") or {}).get("engagement_stage", ""),
                 "organism_confidence": (o.get("organism_plan") or {}).get("organism_confidence", 0),

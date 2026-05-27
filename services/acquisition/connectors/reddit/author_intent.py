@@ -59,6 +59,12 @@ SEEKING_PATTERNS: List[Tuple[str, int]] = [
     (r"\bwhat should i\b", 8),
     (r"\bneed help\b", 10),
     (r"\blost\b", 5),
+    (r"\btrying to understand\b", 12),
+    (r"\bwhat applies to (us|our)\b", 12),
+    (r"\bnot sure whether\b", 12),
+    (r"\bdoes this mean\b", 10),
+    (r"\bwe receive cui\b", 10),
+    (r"\bwe don'?t know if\b", 12),
     (r"\?", 4),
 ]
 

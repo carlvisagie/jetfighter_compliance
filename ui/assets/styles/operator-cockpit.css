@@ -333,3 +333,8 @@
   background: rgba(34, 120, 80, 0.15);
   color: #1a6b45;
 }
+
+.reddit-badge-soft {
+  background: rgba(60, 100, 160, 0.12);
+  color: #2a5080;
+}
