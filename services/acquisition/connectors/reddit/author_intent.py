@@ -65,7 +65,32 @@ SEEKING_PATTERNS: List[Tuple[str, int]] = [
     (r"\bdoes this mean\b", 10),
     (r"\bwe receive cui\b", 10),
     (r"\bwe don'?t know if\b", 12),
+    (r"\bwhich level applies\b", 14),
+    (r"\bwhat level applies\b", 14),
+    (r"\bdo we (actually )?need level\b", 12),
+    (r"\bsecurity questionnaire\b", 12),
+    (r"\bvendor onboarding\b", 12),
+    (r"\b(sprs|supplier performance risk)\b", 10),
+    (r"\bprime contractor asked\b", 12),
+    (r"\bwhat documentation (is )?(needed|required)\b", 12),
+    (r"\bwe store (drawings|cui)\b", 10),
+    (r"\b(customer|client) asked (for|us)\b", 10),
     (r"\?", 4),
+]
+
+# Calm operational questions — not venting, still deployable
+OPERATIONAL_QUESTION_PATTERNS: List[Tuple[str, int]] = [
+    (r"\bwhich level applies\b", 12),
+    (r"\bwhat level applies\b", 12),
+    (r"\bdo we (actually )?need level\b", 12),
+    (r"\bsecurity questionnaire\b", 10),
+    (r"\bvendor onboarding\b", 10),
+    (r"\b(sprs|supplier performance risk)\b", 10),
+    (r"\bprime contractor asked\b", 12),
+    (r"\bwhat documentation (is )?(needed|required)\b", 12),
+    (r"\bwe store (drawings|cui)\b", 10),
+    (r"\b(customer|client) asked (for|us)\b", 10),
+    (r"\b(mfa|multi.?factor).{0,30}\b(required|asked)\b", 10),
 ]
 
 GIVING_PATTERNS: List[Tuple[str, int]] = [
@@ -133,7 +158,7 @@ def _score_patterns(blob: str, patterns: List[Tuple[str, int]]) -> int:
     return total
 
 
-def _recommended_action(intent: str, seeker: int, giver: int) -> str:
+def _recommended_action(intent: str, seeker: int, giver: int, *, blob: str = "") -> str:
     if intent == "PROMOTING_SERVICE":
         return "competitor_or_expert"
     if intent == "GIVING_ADVICE":
@@ -142,8 +167,12 @@ def _recommended_action(intent: str, seeker: int, giver: int) -> str:
         return "news_context_only"
     if intent in DEPLOYABLE_INTENTS:
         return "approve_engagement"
-    if intent == "UNKNOWN" and seeker > giver + 8:
-        return "monitor_only"
+    if intent == "UNKNOWN":
+        op_q = _score_patterns(blob, OPERATIONAL_QUESTION_PATTERNS)
+        if op_q >= 10 and giver < seeker + 12:
+            return "approve_engagement"
+        if seeker > giver + 8:
+            return "monitor_only"
     return "ignore"
 
 
@@ -181,6 +210,8 @@ def classify_author_intent(title: str, body: str = "") -> Dict[str, Any]:
         intent = "DISCUSSING_NEWS"
     elif seeker >= 8 and seeker >= giver:
         intent = "SEEKING_HELP"
+    elif _score_patterns(blob, OPERATIONAL_QUESTION_PATTERNS) >= 10 and giver < seeker + 8:
+        intent = "SEEKING_HELP"
     elif venting >= 8:
         intent = "VENTING_OR_OVERWHELMED"
     elif giver >= 10:
@@ -198,7 +229,7 @@ def classify_author_intent(title: str, body: str = "") -> Dict[str, Any]:
     if intent in ("SEEKING_HELP", "VENTING_OR_OVERWHELMED") and advice_seeker_score > advice_giver_score + 15:
         confidence = min(98, confidence + 10)
 
-    recommended = _recommended_action(intent, advice_seeker_score, advice_giver_score)
+    recommended = _recommended_action(intent, advice_seeker_score, advice_giver_score, blob=blob)
 
     return {
         "author_intent": intent,

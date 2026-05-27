@@ -88,6 +88,24 @@ def test_autonomy_engagement_stages():
     )
 
 
+def test_autonomy_calm_operational_unknown_reaches_queue():
+    """Quiet operational posts must not die at autonomy after prey rebalance."""
+    from services.acquisition.connectors.reddit.autonomy import decide_engagement
+
+    post = {
+        "post_id": "p-quiet",
+        "subreddit": "smallbusiness",
+        "num_comments": 1,
+        "title": "Level 2 question",
+        "selftext": "Which level applies to us? We store drawings. Prime contractor asked for documentation.",
+    }
+    cls = classify_post(post["title"], post["selftext"])
+    qual = qualify_post(post, cls)
+    plan = decide_engagement(post, cls, qual)
+    assert qual.get("queue_eligible") or int(qual.get("prey_score", 0)) >= 46
+    assert plan["show_operator_queue"] is True
+
+
 def test_autonomy_unsafe_subreddit_skips_queue():
     from services.acquisition.connectors.reddit.autonomy import decide_engagement
 

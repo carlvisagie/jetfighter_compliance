@@ -139,7 +139,22 @@ def decide_engagement(
             cooldown_hours=cooldown_h,
         )
 
-    if intent not in ("SEEKING_HELP", "VENTING_OR_OVERWHELMED") and recommended != "approve_engagement":
+    prob = qualification.get("acquisition_probability") or {}
+    prey_tier = int(qualification.get("prey_tier") or prob.get("prey_tier", 4))
+    operational_prey = bool(
+        qualification.get("queue_eligible")
+        or (
+            prey_tier <= 3
+            and prob.get("has_operational_need")
+            and int(qualification.get("prey_score") or prob.get("prey_score", 0)) >= 46
+        )
+    )
+
+    if (
+        intent not in ("SEEKING_HELP", "VENTING_OR_OVERWHELMED")
+        and recommended != "approve_engagement"
+        and not operational_prey
+    ):
         return _plan(
             stage="defer",
             safety=safety,
