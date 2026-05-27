@@ -308,10 +308,11 @@
     </div>
   </aside>
 
-  <script src="/ui/assets/js/contextual-knowledge-overlay.js"></script>
-  <script src="/ui/assets/js/organism-intel.js"></script>
-  <script src="/ui/assets/js/operator-cockpit.js"></script>
-  <script src="/ui/assets/js/operator-guidance.js"></script>
+  <script src="/ui/assets/js/cockpit-safe-boot.js"></script>
+  <script src="/ui/assets/js/contextual-knowledge-overlay.js" onerror="reportCockpitScriptError('contextual-knowledge-overlay.js')"></script>
+  <script src="/ui/assets/js/organism-intel.js" onerror="reportCockpitScriptError('organism-intel.js')"></script>
+  <script src="/ui/assets/js/operator-cockpit.js" onerror="reportCockpitScriptError('operator-cockpit.js')"></script>
+  <script src="/ui/assets/js/operator-guidance.js" onerror="reportCockpitScriptError('operator-guidance.js')"></script>
   <script>
   async function api(u, opts) {
     const r = await fetch(u, Object.assign({ credentials: 'same-origin' }, opts || {}));
@@ -368,6 +369,12 @@
   }
   async function refreshOrganism() {
     const root = document.getElementById('org-control-root');
+    if (typeof OrgIntel === 'undefined' || !OrgIntel.refreshControl) {
+      document.getElementById('health').textContent = 'Organism scripts unavailable';
+      document.getElementById('health').className = 'kyc-pill kyc-pill--bad';
+      document.getElementById('org-pulse-label').textContent = 'Reload the page; check /healthz';
+      return;
+    }
     try {
       const snap = await OrgIntel.refreshControl(root);
       if (window.KnowledgeOverlay && snap) {
@@ -392,9 +399,10 @@
     const root = document.getElementById('org-control-root');
     const pid = root.querySelector('#cockpitProject')?.value || '';
     const mode = root.querySelector('#cockpitMode')?.value || '';
-    await Promise.all([
+    const tasks = [
       refreshOrganism(),
-      OperatorGuidance.refreshGuidance(root, pid, mode),
+      (typeof OperatorGuidance !== 'undefined' && OperatorGuidance.refreshGuidance)
+        ? OperatorGuidance.refreshGuidance(root, pid, mode) : Promise.resolve(),
       loadOrganismObservability(),
       loadCustomerFriction(),
       loadEvidenceIntelligence(pid),
@@ -402,7 +410,8 @@
       loadRedditAcquisitionIntelligence(),
       loadOperationalAlerts(),
       loadComplianceIntelligence(),
-    ]);
+    ];
+    await Promise.allSettled(tasks);
   }
   function renderKnowledgeExplain(out) {
     const box = document.getElementById('kc-detail');
@@ -930,18 +939,33 @@
   });
   (async function boot() {
     const root = document.getElementById('org-control-root');
-    initProjects();
-    await OperatorCockpit.init(root);
-    await loadSmtpStatus();
-    await refreshAll();
-    if (window.KnowledgeOverlay) KnowledgeOverlay.initAuto({ rootSelector: '#guidance-panels' });
-    const sync = function () { refreshAll(); loadSmtpStatus(); };
-    document.getElementById('kcSearchBtn')?.addEventListener('click', searchKnowledgeCockpit);
-    document.getElementById('kcSearchInput')?.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') searchKnowledgeCockpit();
-    });
-    root.querySelector('#cockpitProject')?.addEventListener('change', sync);
-    root.querySelector('#cockpitMode')?.addEventListener('change', sync);
+    try {
+      initProjects();
+      if (window.OperatorCockpit && OperatorCockpit.init) {
+        await OperatorCockpit.init(root);
+      }
+      await loadSmtpStatus();
+      await refreshAll();
+      if (window.KnowledgeOverlay && KnowledgeOverlay.initAuto) {
+        KnowledgeOverlay.initAuto({ rootSelector: '#guidance-panels' });
+      }
+      const sync = function () { refreshAll(); loadSmtpStatus(); };
+      document.getElementById('kcSearchBtn')?.addEventListener('click', searchKnowledgeCockpit);
+      document.getElementById('kcSearchInput')?.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') searchKnowledgeCockpit();
+      });
+      root.querySelector('#cockpitProject')?.addEventListener('change', sync);
+      root.querySelector('#cockpitMode')?.addEventListener('change', sync);
+    } catch (e) {
+      console.error('cockpit boot failed', e);
+      var health = document.getElementById('health');
+      if (health) {
+        health.textContent = 'Cockpit boot error';
+        health.className = 'kyc-pill kyc-pill--bad';
+      }
+      var pulse = document.getElementById('org-pulse-label');
+      if (pulse) pulse.textContent = String(e.message || e);
+    }
   })();
   </script>
 </body>

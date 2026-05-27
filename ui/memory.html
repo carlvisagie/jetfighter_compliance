@@ -116,7 +116,8 @@
     </details>
   </main>
   <footer class="kyc-footer">Central memory — lawful organism truth only</footer>
-  <script src="/ui/assets/js/organism-intel.js"></script>
+  <script src="/ui/assets/js/cockpit-safe-boot.js"></script>
+  <script src="/ui/assets/js/organism-intel.js" onerror="reportCockpitScriptError('organism-intel.js')"></script>
   <script>
   function renderTimelineFeed(j) {
     const feed = document.getElementById('timelineFeed');
@@ -181,6 +182,10 @@
 
   async function refreshIntel() {
     const root = document.getElementById('org-memory-root');
+    if (typeof OrgIntel === 'undefined' || !OrgIntel.refreshMemory) {
+      document.getElementById('org-pulse-label').textContent = 'Organism scripts unavailable';
+      return;
+    }
     try {
       const snap = await OrgIntel.refreshMemory(root);
       renderBottlenecks(snap.obs.learning_patterns);

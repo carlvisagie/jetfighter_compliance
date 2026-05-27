@@ -60,7 +60,9 @@ async def ops_auth_middleware(request: Request, call_next):
         return blocked
     response = await call_next(request)
     path = request.url.path
-    if path.startswith("/ui/") and (path.endswith(".html") or path in ("/ui", "/ui/")):
+    if path.startswith("/ui/assets/"):
+        response.headers.setdefault("Cache-Control", "public, max-age=3600")
+    elif path.startswith("/ui/") and (path.endswith(".html") or path in ("/ui", "/ui/")):
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
         response.headers["Pragma"] = "no-cache"
     return response
@@ -165,34 +167,35 @@ def health():
 
 
 @app.get("/health/ready")
-def health_ready():
+def health_ready(deep: bool = False):
     """Readiness — data dirs + config flags (monitoring; not used by Render default)."""
     checks = readiness_checks()
     core_ok = checks["data_writable"] and checks["projects_dir"]
     status = "ready" if core_ok else "degraded"
-    try:
-        from services.memory.telemetry import emit_telemetry
-        from services.memory import run_self_healing_scan
+    if deep:
+        try:
+            from services.memory.telemetry import emit_telemetry
+            from services.memory import run_self_healing_scan
 
-        heal = run_self_healing_scan(write_suggestions=False)
-        orphan_n = len(heal.get("orphan_projects") or [])
-        emit_telemetry(
-            "health",
-            "memory_orphan_count",
-            severity="info" if orphan_n < 5 else "warning",
-            success=True,
-            metadata={"orphan_projects": orphan_n, "entity_count": heal.get("entity_count", 0)},
-        )
-        if not checks.get("smtp_configured"):
-            emit_telemetry("health", "smtp_unconfigured", severity="warning", success=False)
-        if not checks.get("data_writable"):
-            emit_telemetry("health", "data_not_writable", severity="critical", success=False)
-        if status == "degraded":
-            emit_telemetry("health", "service_degraded", severity="warning", success=False, message=status)
-        if not core_ok:
-            emit_telemetry("health", "readiness_failed", severity="error", success=False, metadata=checks)
-    except Exception:
-        pass
+            heal = run_self_healing_scan(write_suggestions=False)
+            orphan_n = len(heal.get("orphan_projects") or [])
+            emit_telemetry(
+                "health",
+                "memory_orphan_count",
+                severity="info" if orphan_n < 5 else "warning",
+                success=True,
+                metadata={"orphan_projects": orphan_n, "entity_count": heal.get("entity_count", 0)},
+            )
+            if not checks.get("smtp_configured"):
+                emit_telemetry("health", "smtp_unconfigured", severity="warning", success=False)
+            if not checks.get("data_writable"):
+                emit_telemetry("health", "data_not_writable", severity="critical", success=False)
+            if status == "degraded":
+                emit_telemetry("health", "service_degraded", severity="warning", success=False, message=status)
+            if not core_ok:
+                emit_telemetry("health", "readiness_failed", severity="error", success=False, metadata=checks)
+        except Exception:
+            pass
     return {"ok": core_ok, "status": status, "checks": checks}
 
 # ---------- Internal helper ----------
@@ -1125,46 +1128,64 @@ def operator_acquisition_intelligence():
 
 @app.post("/api/operator/acquisition-intelligence/run")
 async def operator_acquisition_intelligence_run(body: dict = Body(default={})):
+    import logging
+
     from services.acquisition.orchestration import ingest_public_signal, run_acquisition_cycle
+    from services.runtime_blocking import run_blocking
 
-    if body.get("public_text"):
-        return ingest_public_signal(
-            text=str(body.get("public_text") or ""),
-            source=str(body.get("source") or "operator_manual"),
-            source_url=str(body.get("source_url") or ""),
-            company_name=str(body.get("company_name") or ""),
-            segment=str(body.get("segment") or "compliance-heavy"),
-        )
-    if body.get("run_live_connector") or body.get("connector") == "usaspending":
-        from services.acquisition.connectors.usaspending_live import run_usaspending_live_connector
+    logger = logging.getLogger(__name__)
 
-        return run_usaspending_live_connector(
-            queries=body.get("queries"),
-            limit_per_query=int(body.get("limit_per_query") or 12),
+    try:
+        if body.get("public_text"):
+            return await run_blocking(
+                ingest_public_signal,
+                text=str(body.get("public_text") or ""),
+                source=str(body.get("source") or "operator_manual"),
+                source_url=str(body.get("source_url") or ""),
+                company_name=str(body.get("company_name") or ""),
+                segment=str(body.get("segment") or "compliance-heavy"),
+            )
+        if body.get("run_live_connector") or body.get("connector") == "usaspending":
+            from services.acquisition.connectors.usaspending_live import run_usaspending_live_connector
+
+            return await run_blocking(
+                run_usaspending_live_connector,
+                queries=body.get("queries"),
+                limit_per_query=int(body.get("limit_per_query") or 12),
+                campaign_id=str(body.get("campaign_id") or "upload-first"),
+                message_variant=str(body.get("message_variant") or "A"),
+                min_fit_score=int(body.get("min_fit_score") or 50),
+            )
+        if body.get("connector") == "reddit" or body.get("run_reddit_connector"):
+            from services.acquisition.connectors.reddit import run_reddit_acquisition_cycle
+
+            return await run_blocking(
+                run_reddit_acquisition_cycle,
+                queries=body.get("queries"),
+                subreddits=body.get("subreddits"),
+                limit_per_query=int(body.get("limit_per_query") or 8),
+                max_posts=int(body.get("max_posts") or 25),
+                min_fit_score=int(body.get("min_fit_score") or 50),
+                campaign_id=str(body.get("campaign_id") or "reddit-upload-first"),
+                message_variant=str(body.get("message_variant") or "A"),
+                pause_seconds=float(body.get("pause_seconds") or 0),
+            )
+        return await run_blocking(
+            run_acquisition_cycle,
+            run_finder=bool(body.get("run_finder")),
+            run_live_connector=bool(body.get("run_live_connector")),
+            connector=str(body.get("connector") or "usaspending"),
             campaign_id=str(body.get("campaign_id") or "upload-first"),
             message_variant=str(body.get("message_variant") or "A"),
-            min_fit_score=int(body.get("min_fit_score") or 50),
         )
-    if body.get("connector") == "reddit" or body.get("run_reddit_connector"):
-        from services.acquisition.connectors.reddit import run_reddit_acquisition_cycle
-
-        return run_reddit_acquisition_cycle(
-            queries=body.get("queries"),
-            subreddits=body.get("subreddits"),
-            limit_per_query=int(body.get("limit_per_query") or 8),
-            max_posts=int(body.get("max_posts") or 25),
-            min_fit_score=int(body.get("min_fit_score") or 50),
-            campaign_id=str(body.get("campaign_id") or "reddit-upload-first"),
-            message_variant=str(body.get("message_variant") or "A"),
-            pause_seconds=float(body.get("pause_seconds") or 0),
-        )
-    return run_acquisition_cycle(
-        run_finder=bool(body.get("run_finder")),
-        run_live_connector=bool(body.get("run_live_connector")),
-        connector=str(body.get("connector") or "usaspending"),
-        campaign_id=str(body.get("campaign_id") or "upload-first"),
-        message_variant=str(body.get("message_variant") or "A"),
-    )
+    except Exception as e:
+        logger.exception("acquisition-intelligence/run failed")
+        return {
+            "ok": False,
+            "error_code": "acquisition_runtime_error",
+            "error_detail": str(e)[:500],
+            "operator_message": f"Acquisition runtime error: {str(e)[:200]}",
+        }
 
 
 @app.get("/api/operator/operational-alerts")
@@ -1237,11 +1258,13 @@ async def operator_reddit_acquisition_run(body: dict = Body(default={})):
     from fastapi.responses import JSONResponse
 
     from services.acquisition.connectors.reddit import run_reddit_acquisition_cycle
+    from services.runtime_blocking import run_blocking
 
     logger = logging.getLogger(__name__)
     broad = bool(body.get("founding_beta_broad") or body.get("founding_beta_discovery"))
     try:
-        result = run_reddit_acquisition_cycle(
+        result = await run_blocking(
+            run_reddit_acquisition_cycle,
             queries=body.get("queries"),
             subreddits=body.get("subreddits"),
             limit_per_query=int(body.get("limit_per_query") or 10),
