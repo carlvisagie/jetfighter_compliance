@@ -68,7 +68,10 @@ def test_cycle_skips_advice_giver(reddit_env, monkeypatch):
             }
         }
 
-    with patch("services.acquisition.connectors.reddit.discovery._fetch_json", side_effect=lambda url: fake_listing()):
+    with patch(
+        "services.acquisition.connectors.reddit.discovery._fetch_json",
+        side_effect=lambda url: (fake_listing(), None),
+    ):
         monkeypatch.setattr("services.acquisition.connectors.reddit.discovery.time.sleep", lambda _: None)
         monkeypatch.setattr(
             "services.acquisition.connectors.reddit.discovery.load_discovered_post_ids",
@@ -107,7 +110,10 @@ def test_cycle_queues_advice_seeker(reddit_env, monkeypatch):
             }
         }
 
-    with patch("services.acquisition.connectors.reddit.discovery._fetch_json", side_effect=lambda url: fake_listing()):
+    with patch(
+        "services.acquisition.connectors.reddit.discovery._fetch_json",
+        side_effect=lambda url: (fake_listing(), None),
+    ):
         monkeypatch.setattr("services.acquisition.connectors.reddit.discovery.time.sleep", lambda _: None)
         monkeypatch.setattr(
             "services.acquisition.connectors.reddit.discovery.load_discovered_post_ids",

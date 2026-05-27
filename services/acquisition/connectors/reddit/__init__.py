@@ -6,9 +6,19 @@ Organism-autonomous engagement decisions. Operator: approve or deny only. No aut
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from .resilience import (
+    ERROR_UNKNOWN,
+    classify_exception,
+    log_phase_failure,
+    normalize_post,
+)
+
+logger = logging.getLogger(__name__)
 
 from ...models import utc_now
 from ...acquisition_probability import (
@@ -86,6 +96,68 @@ def run_reddit_acquisition_cycle(
     base: Optional[Path] = None,
 ) -> Dict[str, Any]:
     """Discover → classify → organism plan → draft → operator queue (approve/deny only)."""
+    try:
+        return _run_reddit_acquisition_cycle_impl(
+            queries=queries,
+            subreddits=subreddits,
+            limit_per_query=limit_per_query,
+            max_posts=max_posts,
+            min_fit_score=min_fit_score,
+            min_prey_score=min_prey_score,
+            campaign_id=campaign_id,
+            message_variant=message_variant,
+            pause_seconds=pause_seconds,
+            founding_beta_broad=founding_beta_broad,
+            base=base,
+        )
+    except Exception as e:
+        code, detail = classify_exception(e)
+        log_phase_failure("acquisition_cycle", e)
+        return {
+            "ok": False,
+            "error_code": code,
+            "error_detail": detail,
+            "operator_message": _operator_message_for_error(code, detail),
+            "connector": CONNECTOR_ID,
+            "discovered": 0,
+            "queued_for_operator": 0,
+            "when_utc": utc_now(),
+        }
+
+
+def _operator_message_for_error(error_code: str, detail: str) -> str:
+    labels = {
+        "discovery_cluster_failed": "Discovery cluster failed",
+        "rate_limited": "Rate limited",
+        "qualification_pipeline_error": "Qualification pipeline error",
+        "prey_scoring_error": "Prey scoring error",
+        "soft_burden_analysis_error": "Soft burden analysis error",
+        "founding_beta_discovery_error": "Founding beta discovery error",
+        "reddit_parse_error": "Reddit parse error",
+        "telemetry_serialization_error": "Telemetry warning (run may have partial results)",
+        "discovery_time_budget": "Discovery time budget reached",
+        "acquisition_runtime_error": "Acquisition runtime error",
+    }
+    label = labels.get(error_code, "Run failed")
+    if detail:
+        return f"{label}: {detail[:200]}"
+    return label
+
+
+def _run_reddit_acquisition_cycle_impl(
+    *,
+    queries: Optional[List[str]] = None,
+    subreddits: Optional[List[str]] = None,
+    limit_per_query: int = 10,
+    max_posts: int = 40,
+    min_fit_score: Optional[int] = None,
+    min_prey_score: Optional[int] = None,
+    campaign_id: str = "reddit-upload-first",
+    message_variant: str = "A",
+    pause_seconds: float = discovery.MIN_SECONDS_BETWEEN_REQUESTS,
+    founding_beta_broad: bool = False,
+    base: Optional[Path] = None,
+) -> Dict[str, Any]:
     from ...orchestration import ingest_discovery_candidate, load_recent_target_keys
 
     from services.founding_beta.reddit_discovery import (
@@ -127,15 +199,30 @@ def run_reddit_acquisition_cycle(
         "when_utc": utc_now(),
     }
 
-    posts = discovery.discover_posts(
-        queries=queries,
-        subreddits=subreddits,
-        limit_per_query=limit_per_query,
-        pause_seconds=pause_seconds,
-        learning_state=state,
-        founding_beta_broad=beta_discovery,
-        base=base,
-    )
+    try:
+        posts = discovery.discover_posts(
+            queries=queries,
+            subreddits=subreddits,
+            limit_per_query=limit_per_query,
+            pause_seconds=pause_seconds,
+            learning_state=state,
+            founding_beta_broad=beta_discovery,
+            base=base,
+        )
+    except Exception as e:
+        code, detail = log_phase_failure("discovery", e)
+        stats["ok"] = False
+        stats["error_code"] = code
+        stats["error_detail"] = detail
+        stats["operator_message"] = _operator_message_for_error(code, detail)
+        posts = []
+    disc_diag = getattr(discovery.discover_posts, "last_diagnostics", None) or {}
+    stats["discovery_diagnostics"] = disc_diag
+    if disc_diag.get("rate_limited"):
+        stats["warning_code"] = "rate_limited"
+        stats["operator_message"] = _operator_message_for_error("rate_limited", "Reddit HTTP 429 during discovery")
+    if disc_diag.get("cluster_errors"):
+        stats["cluster_errors"] = disc_diag["cluster_errors"][:12]
     posts = posts[:max_posts]
     stats["discovery_clusters"] = list({p.get("discovery_source_cluster") for p in posts if p.get("discovery_source_cluster")})
     stats["discovery_subreddits"] = list({(p.get("subreddit") or "").lower() for p in posts if p.get("subreddit")})
@@ -144,12 +231,36 @@ def run_reddit_acquisition_cycle(
     seen_targets = load_recent_target_keys(base)
     evaluated: List[Dict[str, Any]] = []
 
+    stats["post_errors"] = []
     for post in posts:
         stats["discovered"] += 1
-        cls = classifier.classify_post(post.get("title", ""), post.get("selftext", ""))
-        qual = qualification.qualify_post(post, cls, learning_state=state, min_prey_score=min_prey_score)
-        plan = autonomy.decide_engagement(post, cls, qual, state=state)
-        evaluated.append({"post": post, "cls": cls, "qual": qual, "plan": plan})
+        try:
+            post = normalize_post(post)
+            cls = classifier.classify_post(post.get("title", ""), post.get("selftext", ""))
+            try:
+                qual = qualification.qualify_post(
+                    post, cls, learning_state=state, min_prey_score=min_prey_score
+                )
+            except Exception as e:
+                code, detail = log_phase_failure("qualification", e, post_id=post.get("post_id"))
+                stats["post_errors"].append(
+                    {"post_id": post.get("post_id"), "error_code": code, "detail": detail}
+                )
+                continue
+            try:
+                plan = autonomy.decide_engagement(post, cls, qual, state=state)
+            except Exception as e:
+                code, detail = log_phase_failure("qualification", e, post_id=post.get("post_id"))
+                stats["post_errors"].append(
+                    {"post_id": post.get("post_id"), "error_code": code, "detail": detail}
+                )
+                continue
+            evaluated.append({"post": post, "cls": cls, "qual": qual, "plan": plan})
+        except Exception as e:
+            code, detail = log_phase_failure("prey_scoring", e, post_id=post.get("post_id"))
+            stats["post_errors"].append(
+                {"post_id": post.get("post_id"), "error_code": code, "detail": detail}
+            )
 
     prey_candidates = []
     for item in evaluated:
@@ -203,7 +314,8 @@ def run_reddit_acquisition_cycle(
             plan = plan_for_founding_beta_fallback(plan)
             item["plan"] = plan
 
-        lead_id = f"LD-RDT-{post['post_id'][:8]}"
+        pid = str(post.get("post_id") or uuid.uuid4().hex[:8])
+        lead_id = f"LD-RDT-{pid[:8]}"
         variant = plan.get("wording_variant") or message_variant
         routes = build_upload_route(
             lead_id=lead_id,
@@ -234,7 +346,19 @@ def run_reddit_acquisition_cycle(
 
         from ...intelligence.discovery_expansion import infer_burden_profile, record_cluster_outcome
 
-        burden_profile = infer_burden_profile(post, cls, qual)
+        try:
+            burden_profile = infer_burden_profile(post, cls, qual)
+        except Exception as e:
+            log_phase_failure("soft_burden", e, post_id=post.get("post_id"))
+            burden_profile = {
+                "burden_category": "",
+                "operational_context": "",
+                "likely_paperwork_indicators": [],
+                "burden_badges": [],
+                "discovery_ecosystem": post.get("discovery_ecosystem", ""),
+                "likely_frameworks": [],
+                "future_compliance_burden": "",
+            }
         cluster = post.get("discovery_source_cluster", "")
         if cluster:
             record_cluster_outcome(state, cluster, "queued")
@@ -451,7 +575,13 @@ def run_reddit_acquisition_cycle(
                 )
             continue
 
-        _queue_item(item, fallback_used=False)
+        try:
+            _queue_item(item, fallback_used=False)
+        except Exception as e:
+            code, detail = log_phase_failure("qualification", e, post_id=post.get("post_id"))
+            stats.setdefault("post_errors", []).append(
+                {"post_id": post.get("post_id"), "error_code": code, "detail": detail}
+            )
 
     if beta_discovery and queued_this_cycle < TARGET_QUEUE_MIN:
         diag.fallback_discovery_used = True
@@ -480,15 +610,45 @@ def run_reddit_acquisition_cycle(
     )
     stats["queue_diagnostics"] = state["last_cycle_diagnostics"]
     stats["founding_beta_discovery"] = beta_discovery
-    learning.save_learning_state(state, base)
-    emit_cycle_telemetry(stats, diag)
+    try:
+        learning.save_learning_state(state, base)
+    except Exception as e:
+        log_phase_failure("acquisition_cycle", e)
 
-    learning.run_daily_reddit_learning(base)
-    telemetry.emit("reddit_discovery_completed", metadata=stats, base=base)
+    try:
+        emit_cycle_telemetry(stats, diag)
+    except Exception as e:
+        log_phase_failure("telemetry", e)
+
+    try:
+        learning.run_daily_reddit_learning(base)
+    except Exception as e:
+        log_phase_failure("acquisition_cycle", e)
+
+    try:
+        telemetry.emit("reddit_discovery_completed", metadata=stats, base=base)
+    except Exception as e:
+        log_phase_failure("telemetry", e)
+
+    if stats.get("cluster_errors") or stats.get("post_errors"):
+        stats["partial_success"] = bool(stats.get("queued_for_operator") or stats.get("discovered"))
+    if not stats.get("operator_message"):
+        if stats.get("partial_success") and stats.get("warning_code"):
+            stats["operator_message"] = _operator_message_for_error(
+                str(stats["warning_code"]), "Discovery completed with warnings"
+            )
+        elif stats.get("discovered", 0) == 0 and disc_diag.get("rate_limited"):
+            stats["ok"] = False
+            stats["error_code"] = "rate_limited"
+            stats["operator_message"] = _operator_message_for_error(
+                "rate_limited", "No posts returned; Reddit may be rate limiting"
+            )
     stats["message"] = (
         f"Reddit: {stats['queued_for_operator']} awaiting approve/deny, "
         f"{stats['organism_auto_skipped']} handled by organism."
     )
+    if stats.get("operator_message"):
+        stats["message"] = stats["operator_message"] + " — " + stats["message"]
     return stats
 
 

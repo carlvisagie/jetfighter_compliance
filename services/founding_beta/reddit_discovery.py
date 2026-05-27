@@ -210,11 +210,33 @@ def _beta_fit_label(qual: Dict[str, Any], prob: Dict[str, Any], fallback: bool) 
 
 
 def emit_cycle_telemetry(stats: Dict[str, Any], diag: CycleDiagnostics) -> None:
-    meta = {**stats, **diag.to_dict(effective_threshold=stats.get("effective_prey_threshold", 50), queued=stats.get("queued_for_operator", 0), discovered=stats.get("discovered", 0))}
-    if meta.get("zero_result_cycle"):
-        emit_beta_event("zero_result_cycle", metadata=meta)
-    if diag.fallback_discovery_used:
-        emit_beta_event("fallback_discovery_used", metadata=meta)
-    if diag.near_miss_candidates:
-        emit_beta_event("near_miss_candidate", metadata={"count": len(diag.near_miss_candidates), "samples": diag.near_miss_candidates[:5]})
-    emit_beta_event("beta_discovery_cycle_completed", metadata=meta)
+    try:
+        from services.acquisition.connectors.reddit.resilience import sanitize_telemetry_metadata
+
+        meta = sanitize_telemetry_metadata(
+            {
+                **stats,
+                **diag.to_dict(
+                    effective_threshold=stats.get("effective_prey_threshold", 50),
+                    queued=stats.get("queued_for_operator", 0),
+                    discovered=stats.get("discovered", 0),
+                ),
+            }
+        )
+        if meta.get("zero_result_cycle"):
+            emit_beta_event("zero_result_cycle", metadata=meta)
+        if diag.fallback_discovery_used:
+            emit_beta_event("fallback_discovery_used", metadata=meta)
+        if diag.near_miss_candidates:
+            emit_beta_event(
+                "near_miss_candidate",
+                metadata={
+                    "count": len(diag.near_miss_candidates),
+                    "samples": diag.near_miss_candidates[:5],
+                },
+            )
+        emit_beta_event("beta_discovery_cycle_completed", metadata=meta)
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).warning("emit_cycle_telemetry skipped", exc_info=True)

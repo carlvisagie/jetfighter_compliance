@@ -162,7 +162,7 @@ def test_discover_posts_tags_cluster(reddit_env, monkeypatch):
 
     def fake_search(query, **kwargs):
         captured.append({"query": query, "subreddit": kwargs.get("subreddit", "")})
-        return [
+        return ([
             {
                 "post_id": f"pid_{hash((query, kwargs.get('subreddit', ''))) % 10000}",
                 "subreddit": kwargs.get("subreddit") or "smallbusiness",
@@ -172,7 +172,7 @@ def test_discover_posts_tags_cluster(reddit_env, monkeypatch):
                 "author": "u1",
                 "num_comments": 1,
             }
-        ]
+        ], None)
 
     monkeypatch.setattr(discovery, "search_reddit", fake_search)
     monkeypatch.setattr("services.acquisition.connectors.reddit.discovery.time.sleep", lambda _: None)

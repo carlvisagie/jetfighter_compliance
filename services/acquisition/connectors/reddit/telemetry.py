@@ -2,20 +2,29 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .paths import REDDIT_TELEMETRY_JSONL, ensure_reddit_dir
+from .resilience import log_phase_failure, sanitize_telemetry_metadata
 from ...models import utc_now
 
+logger = logging.getLogger(__name__)
 SUBSYSTEM = "reddit_acquisition"
 
 
 def _append_local(filename: str, record: Dict[str, Any], base: Optional[Path] = None) -> None:
     path = ensure_reddit_dir(base) / filename
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    try:
+        safe = dict(record)
+        if "metadata" in safe:
+            safe["metadata"] = sanitize_telemetry_metadata(safe.get("metadata"))
+        with path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(safe, ensure_ascii=False) + "\n")
+    except Exception as e:
+        log_phase_failure("telemetry", e, filename=filename)
 
 
 def emit(
@@ -26,7 +35,7 @@ def emit(
     metadata: Optional[Dict[str, Any]] = None,
     base: Optional[Path] = None,
 ) -> None:
-    meta = dict(metadata or {})
+    meta = sanitize_telemetry_metadata(metadata)
     if post_id:
         meta["post_id"] = post_id
     if subreddit:

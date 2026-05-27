@@ -128,9 +128,9 @@ def test_deny_records_learning(reddit_env):
 
 def test_discovery_search_mock(reddit_env, monkeypatch):
     fake = _reddit_listing()
-    with patch("services.acquisition.connectors.reddit.discovery._fetch_json", return_value=fake):
+    with patch("services.acquisition.connectors.reddit.discovery._fetch_json", return_value=(fake, None)):
         monkeypatch.setattr("services.acquisition.connectors.reddit.discovery.time.sleep", lambda _: None)
-        rows = search_reddit("CMMC", limit=5)
+        rows, _err = search_reddit("CMMC", limit=5)
     assert len(rows) == 1
     assert rows[0]["post_id"] == "abc123"
     assert rows[0]["subreddit"] == "smallbusiness"
@@ -138,7 +138,7 @@ def test_discovery_search_mock(reddit_env, monkeypatch):
 
 def test_run_cycle_creates_drafts_not_posts(reddit_env, monkeypatch):
     fake = _reddit_listing()
-    with patch("services.acquisition.connectors.reddit.discovery._fetch_json", return_value=fake):
+    with patch("services.acquisition.connectors.reddit.discovery._fetch_json", return_value=(fake, None)):
         monkeypatch.setattr("services.acquisition.connectors.reddit.discovery.time.sleep", lambda _: None)
         out = run_reddit_acquisition_cycle(
             queries=["CMMC"],
@@ -162,7 +162,7 @@ def test_run_cycle_creates_drafts_not_posts(reddit_env, monkeypatch):
 
 def test_approve_requires_manual_post(reddit_env, monkeypatch):
     fake = _reddit_listing(post_id="approve1")
-    with patch("services.acquisition.connectors.reddit.discovery._fetch_json", return_value=fake):
+    with patch("services.acquisition.connectors.reddit.discovery._fetch_json", return_value=(fake, None)):
         monkeypatch.setattr("services.acquisition.connectors.reddit.discovery.time.sleep", lambda _: None)
         run_reddit_acquisition_cycle(
             queries=["CMMC"],
@@ -197,7 +197,7 @@ def test_operator_dashboard_api(client, reddit_env):
 
 def test_reddit_run_api(client, reddit_env, monkeypatch):
     fake = _reddit_listing(post_id="api99")
-    with patch("services.acquisition.connectors.reddit.discovery._fetch_json", return_value=fake):
+    with patch("services.acquisition.connectors.reddit.discovery._fetch_json", return_value=(fake, None)):
         monkeypatch.setattr("services.acquisition.connectors.reddit.discovery.time.sleep", lambda _: None)
         monkeypatch.setattr(
             "services.acquisition.connectors.reddit.discovery.load_discovered_post_ids",
@@ -237,7 +237,7 @@ def test_upload_first_routing():
 
 def test_cycle_ingests_targets(reddit_env, monkeypatch):
     fake = _reddit_listing(post_id="tgt001")
-    with patch("services.acquisition.connectors.reddit.discovery._fetch_json", return_value=fake):
+    with patch("services.acquisition.connectors.reddit.discovery._fetch_json", return_value=(fake, None)):
         monkeypatch.setattr("services.acquisition.connectors.reddit.discovery.time.sleep", lambda _: None)
         out = run_reddit_acquisition_cycle(
             queries=["NIST 800-171"],
@@ -262,7 +262,7 @@ def test_get_operator_dashboard_structure(reddit_env):
 
 def test_deny_api(client, reddit_env, monkeypatch):
     fake = _reddit_listing(post_id="denyapi1")
-    with patch("services.acquisition.connectors.reddit.discovery._fetch_json", return_value=fake):
+    with patch("services.acquisition.connectors.reddit.discovery._fetch_json", return_value=(fake, None)):
         monkeypatch.setattr("services.acquisition.connectors.reddit.discovery.time.sleep", lambda _: None)
         monkeypatch.setattr(
             "services.acquisition.connectors.reddit.discovery.load_discovered_post_ids",

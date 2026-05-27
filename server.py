@@ -1232,20 +1232,40 @@ def operator_reddit_acquisition():
 
 @app.post("/api/operator/reddit-acquisition/run")
 async def operator_reddit_acquisition_run(body: dict = Body(default={})):
+    import logging
+
+    from fastapi.responses import JSONResponse
+
     from services.acquisition.connectors.reddit import run_reddit_acquisition_cycle
 
+    logger = logging.getLogger(__name__)
     broad = bool(body.get("founding_beta_broad") or body.get("founding_beta_discovery"))
-    return run_reddit_acquisition_cycle(
-        queries=body.get("queries"),
-        subreddits=body.get("subreddits"),
-        limit_per_query=int(body.get("limit_per_query") or 10),
-        max_posts=int(body.get("max_posts") or 50),
-        min_fit_score=int(body.get("min_fit_score") or 40),
-        campaign_id=str(body.get("campaign_id") or "reddit-upload-first"),
-        message_variant=str(body.get("message_variant") or "A"),
-        pause_seconds=float(body.get("pause_seconds") or 0),
-        founding_beta_broad=broad,
-    )
+    try:
+        result = run_reddit_acquisition_cycle(
+            queries=body.get("queries"),
+            subreddits=body.get("subreddits"),
+            limit_per_query=int(body.get("limit_per_query") or 10),
+            max_posts=int(body.get("max_posts") or 50),
+            min_fit_score=int(body.get("min_fit_score") or 40),
+            campaign_id=str(body.get("campaign_id") or "reddit-upload-first"),
+            message_variant=str(body.get("message_variant") or "A"),
+            pause_seconds=float(body.get("pause_seconds") or 0),
+            founding_beta_broad=broad,
+        )
+        if result.get("ok") is False:
+            return JSONResponse(status_code=200, content=result)
+        return result
+    except Exception as e:
+        logger.exception("reddit-acquisition/run failed")
+        return JSONResponse(
+            status_code=200,
+            content={
+                "ok": False,
+                "error_code": "acquisition_runtime_error",
+                "error_detail": str(e)[:500],
+                "operator_message": f"Acquisition runtime error: {str(e)[:200]}",
+            },
+        )
 
 
 @app.post("/api/operator/reddit-acquisition/approve")

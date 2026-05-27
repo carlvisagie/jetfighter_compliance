@@ -315,7 +315,34 @@
   <script>
   async function api(u, opts) {
     const r = await fetch(u, Object.assign({ credentials: 'same-origin' }, opts || {}));
-    return r.json();
+    let j = {};
+    try { j = await r.json(); } catch (e) { j = {}; }
+    if (!r.ok) {
+      const err = new Error(j.operator_message || j.error_detail || j.detail || ('HTTP ' + r.status));
+      err.payload = j;
+      err.status = r.status;
+      throw err;
+    }
+    if (j && j.ok === false) {
+      const err = new Error(j.operator_message || j.error_detail || 'Request failed');
+      err.payload = j;
+      err.status = r.status;
+      throw err;
+    }
+    return j;
+  }
+  function formatAcquisitionError(e, fallback) {
+    const p = (e && e.payload) || {};
+    const msg = p.operator_message || p.error_detail || (e && e.message) || fallback;
+    const code = p.error_code || p.warning_code || '';
+    const clusters = (p.cluster_errors || []).slice(0, 3).map(function (c) {
+      return (c.cluster || '?') + ': ' + (c.error_code || 'failed');
+    }).join('; ');
+    let html = '<p class="org-metric-foot"><strong>' + escapeHtml(msg) + '</strong></p>';
+    if (code) html += '<p class="org-metric-foot">Code: ' + escapeHtml(code) + '</p>';
+    if (clusters) html += '<p class="org-metric-foot">Clusters: ' + escapeHtml(clusters) + '</p>';
+    if (p.partial_success) html += '<p class="org-metric-foot">Partial results may be in the queue — refresh dashboard.</p>';
+    return html;
   }
   async function initProjects() {
     let projects = [];
@@ -664,7 +691,7 @@
       });
       await loadRedditAcquisitionIntelligence();
     } catch (e) {
-      if (el) el.innerHTML = '<p class="org-metric-foot">Reddit discovery failed.</p>';
+      if (el) el.innerHTML = formatAcquisitionError(e, 'Reddit discovery failed.');
     }
   }
   document.getElementById('redditIntelRunBtn')?.addEventListener('click', function () { runRedditDiscovery(false); });
@@ -680,7 +707,7 @@
       });
       await loadAcquisitionIntelligence();
     } catch (e) {
-      if (el) el.innerHTML = '<p class="org-metric-foot">Run failed.</p>';
+      if (el) el.innerHTML = formatAcquisitionError(e, 'Acquisition run failed.');
     }
   });
   document.getElementById('complianceIntelRunBtn')?.addEventListener('click', async function () {
