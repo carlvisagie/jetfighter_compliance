@@ -66,7 +66,7 @@
                 <div class="panel-header">
                     <div>
                         <div class="panel-title">System Health</div>
-                        <div class="panel-subtitle">Backend · Tunnel · Public Host</div>
+                        <div class="panel-subtitle">Backend · Public host (Render)</div>
                     </div>
                     <span class="pill" id="pill-health">Status: Unknown</span>
                 </div>
@@ -97,7 +97,7 @@
                         </div>
                     </div>
                     <div class="status-tile status-info" id="tile-host">
-                        <h4>Tunnel / Host</h4>
+                        <h4>Public host</h4>
                         <div class="small" id="tile-host-text">
                             Waiting for /status responseÃ¢â¬Â¦
                         </div>
@@ -271,7 +271,7 @@
             const hostTile = document.getElementById('tile-host');
             const hostText = document.getElementById('tile-host-text');
             hostTile.className = 'status-tile status-warn';
-            hostText.textContent = 'Failed to fetch /status. Tunnel or route may be down.';
+            hostText.textContent = 'Failed to fetch /status. Hosted route or DNS may be down.';
         }
 
         // /events/recent (just for approximate count)
