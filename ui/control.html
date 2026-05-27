@@ -387,7 +387,7 @@
         pending.forEach(function (o) {
           html +=
             '<article class="reddit-approval-card">' +
-            '<p class="reddit-approval-meta"><strong>r/' + escapeHtml(o.subreddit || '') + '</strong> · Prey: <strong>' + (o.prey_score || 0) + '</strong> · Intent: <strong>' + escapeHtml(o.author_intent || '') + '</strong> · Trust: ' + (o.trust_score || 0) + (o.predator_class ? ' · ' + escapeHtml(o.predator_class) : '') + '</p>' +
+            '<p class="reddit-approval-meta"><strong>r/' + escapeHtml(o.subreddit || '') + '</strong> · Prey: <strong>' + (o.prey_score || 0) + '</strong> · Discovery: <strong>' + escapeHtml(o.discovery_source_cluster || 'unknown') + '</strong> · Intent: <strong>' + escapeHtml(o.author_intent || '') + '</strong></p>' +
             '<p class="reddit-intent-badges">' + (o.intent_badges || []).map(function (b) { return '<span class="reddit-badge">' + escapeHtml(b) + '</span>'; }).join(' ') +
             (o.prey_reasons || []).map(function (r) { return '<span class="reddit-badge reddit-badge-prey">' + escapeHtml(r) + '</span>'; }).join(' ') +
             (o.soft_burden_badges || []).filter(function (b) { return (o.prey_reasons || []).indexOf(b) < 0; }).map(function (b) { return '<span class="reddit-badge reddit-badge-soft">' + escapeHtml(b) + '</span>'; }).join(' ') + '</p>' +

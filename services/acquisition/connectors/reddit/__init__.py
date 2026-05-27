@@ -111,8 +111,11 @@ def run_reddit_acquisition_cycle(
         subreddits=subreddits,
         limit_per_query=limit_per_query,
         pause_seconds=pause_seconds,
+        learning_state=state,
         base=base,
-    )[:max_posts]
+    )
+    posts = posts[:max_posts]
+    stats["discovery_clusters"] = list({p.get("discovery_source_cluster") for p in posts if p.get("discovery_source_cluster")})
 
     seen_targets = load_recent_target_keys(base)
     evaluated: List[Dict[str, Any]] = []
@@ -201,7 +204,18 @@ def run_reddit_acquisition_cycle(
                 base=base,
             )
 
-        if not cls.get("relevant") or qual["fit_score"] < min_fit_score:
+        if not cls.get("relevant"):
+            stats["organism_auto_skipped"] += 1
+            learning.record_outcome(
+                "organism_deferred",
+                post_id=post.get("post_id", ""),
+                subreddit=post.get("subreddit", ""),
+                metadata={"reason": "not_relevant", "cluster": post.get("discovery_source_cluster")},
+                base=base,
+            )
+            continue
+
+        if qual["fit_score"] < min_fit_score:
             stats["organism_auto_skipped"] += 1
             learning.record_outcome(
                 "organism_deferred",
@@ -305,6 +319,7 @@ def run_reddit_acquisition_cycle(
             "prey_reasons": qual.get("prey_reasons", []),
             "soft_burden_score": qual.get("soft_burden_score", 0),
             "soft_burden_badges": qual.get("soft_burden_badges", []),
+            "discovery_source_cluster": post.get("discovery_source_cluster", ""),
             "acquisition_probability": qual.get("acquisition_probability"),
             "social_intelligence": plan.get("social_intelligence"),
             "draft_reply": draft,
@@ -320,6 +335,15 @@ def run_reddit_acquisition_cycle(
         stats["drafts_created"] += 1
         stats["queued_for_operator"] += 1
         queued_this_cycle += 1
+        try:
+            from ...intelligence.discovery_expansion import record_cluster_outcome
+
+            cluster = post.get("discovery_source_cluster")
+            if cluster:
+                record_cluster_outcome(state, cluster, "queued")
+                learning.save_learning_state(state, base)
+        except Exception:
+            pass
 
         telemetry.emit(
             "reddit_post_discovered",
@@ -391,6 +415,7 @@ def approve_draft(
             "stage": (rec.get("organism_plan") or {}).get("engagement_stage"),
             "prey_reasons": rec.get("prey_reasons") or (rec.get("qualification") or {}).get("prey_reasons"),
             "prey_score": rec.get("prey_score"),
+            "discovery_source_cluster": rec.get("discovery_source_cluster"),
         },
         base=base,
     )
@@ -529,6 +554,7 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
                 "prey_reasons": o.get("prey_reasons", []),
                 "soft_burden_score": o.get("soft_burden_score", 0),
                 "soft_burden_badges": o.get("soft_burden_badges", []),
+                "discovery_source_cluster": o.get("discovery_source_cluster", ""),
                 "organism_rationale": (o.get("organism_plan") or {}).get("rationale", ""),
                 "engagement_stage": (o.get("organism_plan") or {}).get("engagement_stage", ""),
                 "organism_confidence": (o.get("organism_plan") or {}).get("organism_confidence", 0),
