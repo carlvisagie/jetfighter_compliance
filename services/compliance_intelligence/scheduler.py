@@ -6,6 +6,10 @@ from . import telemetry
 
 def daily_compliance_check() -> None:
     """Cron job: check daily-frequency sources."""
+    from services.runtime_boot import is_safe_mode
+
+    if is_safe_mode():
+        return
     try:
         from . import run_compliance_cycle
 
@@ -16,6 +20,10 @@ def daily_compliance_check() -> None:
 
 def weekly_compliance_check() -> None:
     """Cron job: check weekly sources + build digest."""
+    from services.runtime_boot import is_safe_mode
+
+    if is_safe_mode():
+        return
     try:
         from . import run_compliance_cycle, generate_weekly_digest
 

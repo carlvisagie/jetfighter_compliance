@@ -9,6 +9,10 @@ logger = logging.getLogger(__name__)
 
 
 def daily_acquisition_cycle() -> None:
+    from services.runtime_boot import is_safe_mode
+
+    if is_safe_mode():
+        return
     try:
         from .connectors.usaspending_live import run_usaspending_live_connector
 
@@ -19,6 +23,10 @@ def daily_acquisition_cycle() -> None:
 
 
 def daily_acquisition_learning() -> None:
+    from services.runtime_boot import is_safe_mode
+
+    if is_safe_mode():
+        return
     try:
         from .learning import run_learning_cycle
 

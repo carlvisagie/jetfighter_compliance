@@ -69,6 +69,7 @@ PUBLIC_API_EXACT: Set[str] = {
     "/api/ops/login",
     "/api/ops/logout",
     "/api/ops/session",
+    "/api/ops/boot-status",
 }
 
 # Operator / organism / intelligence APIs

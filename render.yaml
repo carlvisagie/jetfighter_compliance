@@ -9,6 +9,10 @@ services:
     envVars:
       - key: ENVIRONMENT
         value: production
+      - key: KYC_SAFE_MODE
+        value: "true"
+      - key: KYC_DEFER_SCHEDULER_SEC
+        value: "8"
       - key: OPS_PASSWORD
         sync: false
       - key: OPS_SECRET

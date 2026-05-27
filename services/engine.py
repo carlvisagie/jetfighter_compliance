@@ -180,37 +180,58 @@ def check_slas():
                 pass
 
 scheduler = None
-def start_worker():
+
+
+def start_worker(*, heavy: bool = True) -> None:
+    """Background scheduler. In safe mode this is a no-op (callers must check first)."""
     global scheduler
-    if scheduler: return
+    from services.runtime_boot import heavy_schedulers_enabled, is_safe_mode, log_boot
+
+    if is_safe_mode():
+        log_boot("scheduler", "skipped", "KYC_SAFE_MODE")
+        return
+    if scheduler:
+        return
+
     scheduler = BackgroundScheduler(timezone="UTC")
     scheduler.add_job(sweep_queue, "interval", seconds=10, id="queue")
     scheduler.add_job(check_slas, "interval", minutes=5, id="sla")
-    # --- Auto-jobs (idempotent) ---
-    try:
-        scheduler.add_job(nightly_exports, "cron", hour=2, minute=0, id="nightly_exports")
-    except Exception:
-        pass
-    try:
-        scheduler.add_job(weekly_digest, "cron", day_of_week="fri", hour=9, minute=0, id="weekly_digest")
-    except Exception:
-        pass
-    try:
-        from services.compliance_intelligence.scheduler import register_scheduler_jobs
 
-        register_scheduler_jobs(scheduler)
-        from services.acquisition.scheduler import register_scheduler_jobs as register_acquisition_jobs
+    if heavy and heavy_schedulers_enabled():
+        try:
+            scheduler.add_job(nightly_exports, "cron", hour=2, minute=0, id="nightly_exports")
+        except Exception:
+            pass
+        try:
+            scheduler.add_job(weekly_digest, "cron", day_of_week="fri", hour=9, minute=0, id="weekly_digest")
+        except Exception:
+            pass
+        try:
+            from services.compliance_intelligence.scheduler import register_scheduler_jobs
 
-        register_acquisition_jobs(scheduler)
-    except Exception:
-        pass
-    try:
-        from services.alerts.scheduler import register_scheduler_jobs as register_alert_jobs
+            register_scheduler_jobs(scheduler)
+            log_boot("compliance_scheduler", "registered", "cron jobs")
+        except Exception as e:
+            log_boot("compliance_scheduler", "failed", str(e)[:120])
+        try:
+            from services.acquisition.scheduler import register_scheduler_jobs as register_acquisition_jobs
 
-        register_alert_jobs(scheduler)
-    except Exception:
-        pass
+            register_acquisition_jobs(scheduler)
+            log_boot("acquisition_scheduler", "registered", "cron jobs")
+        except Exception as e:
+            log_boot("acquisition_scheduler", "failed", str(e)[:120])
+        try:
+            from services.alerts.scheduler import register_scheduler_jobs as register_alert_jobs
+
+            register_alert_jobs(scheduler)
+            log_boot("alerts_scheduler", "registered", "cron jobs")
+        except Exception as e:
+            log_boot("alerts_scheduler", "failed", str(e)[:120])
+    else:
+        log_boot("heavy_schedulers", "skipped", "minimal worker only")
+
     scheduler.start()
+    log_boot("scheduler", "started", f"heavy={heavy and heavy_schedulers_enabled()}")
 
 def nightly_exports():
     """Export binders for projects touched in last 24h."""

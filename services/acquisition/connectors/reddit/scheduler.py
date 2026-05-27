@@ -9,6 +9,10 @@ logger = logging.getLogger(__name__)
 
 
 def reddit_discovery_job() -> None:
+    from services.runtime_boot import is_safe_mode
+
+    if is_safe_mode():
+        return
     try:
         from . import run_reddit_acquisition_cycle
 
@@ -19,6 +23,10 @@ def reddit_discovery_job() -> None:
 
 
 def reddit_daily_learning_job() -> None:
+    from services.runtime_boot import is_safe_mode
+
+    if is_safe_mode():
+        return
     try:
         from .learning import run_daily_reddit_learning
 
