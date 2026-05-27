@@ -11,8 +11,8 @@ from typing import Any, Dict, List, Optional, Tuple
 DEFAULT_MIN_PREY_SCORE = 50
 MIN_PREY_FLOOR = 46
 MAX_PREY_CEILING = 60
-TARGET_QUEUE_MIN = 5
-TARGET_QUEUE_MAX = 15
+TARGET_QUEUE_MIN = 8
+TARGET_QUEUE_MAX = 20
 NEAR_MISS_MARGIN = 8
 BANNED_PREDATOR_CLASSES = frozenset({"consultant", "educator", "moderator", "promoter", "ama"})
 
@@ -339,9 +339,19 @@ def score_acquisition_probability(
     soft_score = int(min(100, soft["soft_burden_score"] * soft_mult))
     dimension_scores["soft_burden_score"] = soft_score
 
+    from .intelligence.operational_pressure import score_operational_pressure
+
+    op_pressure = score_operational_pressure(title, body)
+    op_ent = int(op_pressure.get("operational_pressure_score", 0))
+    op_paper = int(op_pressure.get("paperwork_likelihood_score", 0))
+    dimension_scores["operational_pressure_intelligence_score"] = op_ent
+    dimension_scores["operational_paperwork_likelihood_score"] = op_paper
+
     topical_relevance = min(100, (15 if cls.get("relevant") else 0) + burden // 3 + len(cls.get("pain_themes") or []) * 4)
 
-    has_personal_need = _has_operational_personal_need(blob, title, soft)
+    has_personal_need = _has_operational_personal_need(blob, title, soft) or bool(
+        op_pressure.get("has_operational_entanglement")
+    )
     topical_only = (
         (cls.get("relevant") or burden >= 15)
         and prey_raw < 16
@@ -389,21 +399,29 @@ def score_acquisition_probability(
         stacking_bonus += 6
     if dimension_scores.get("operational_entanglement_score", 0) >= 45:
         stacking_bonus += 8
+    if op_ent >= 40:
+        stacking_bonus += 10
+    elif op_ent >= 28:
+        stacking_bonus += 6
+    if op_pressure.get("has_pre_compliance_entanglement"):
+        stacking_bonus += 6
     if dimension_scores["financial_stress_score"] >= 45 and dimension_scores["small_business_stress_score"] >= 30:
         stacking_bonus += 6
 
-    # prey = topical + operational dimensions + soft burden - predator penalty
+    # prey = operational entanglement + soft burden — not distress or topic chatter
     positive = (
-        topical_relevance * 0.05
-        + dimension_scores["financial_stress_score"] * 0.09
-        + dimension_scores["operational_pressure_score"] * 0.22
+        topical_relevance * 0.04
+        + dimension_scores["financial_stress_score"] * 0.08
+        + dimension_scores["operational_pressure_score"] * 0.18
         + dimension_scores["operational_entanglement_score"] * 0.08
-        + dimension_scores["compliance_uncertainty_score"] * 0.12
-        + dimension_scores["paperwork_likelihood_score"] * 0.13
-        + soft_score * 0.26
-        + dimension_scores["confusion_density_score"] * 0.07
-        + dimension_scores["small_business_stress_score"] * 0.10
-        + dimension_scores["emotional_overwhelm_score"] * 0.03
+        + op_ent * 0.14
+        + op_paper * 0.10
+        + dimension_scores["compliance_uncertainty_score"] * 0.10
+        + dimension_scores["paperwork_likelihood_score"] * 0.10
+        + soft_score * 0.24
+        + dimension_scores["confusion_density_score"] * 0.06
+        + dimension_scores["small_business_stress_score"] * 0.08
+        + dimension_scores["emotional_overwhelm_score"] * 0.02
     )
     positive += min(12, seeker // 8)
 
@@ -411,6 +429,11 @@ def score_acquisition_probability(
 
     predator_class = _primary_predator_class(predator_dims, intent)
     prey_reasons = _build_prey_reasons(dimension_scores, prey_hits, soft.get("soft_burden_badges"))
+    for badge in op_pressure.get("ui_badges", [])[:4]:
+        if badge not in prey_reasons:
+            prey_reasons.append(badge)
+    if op_pressure.get("selection_rationale") and len(prey_reasons) < 8:
+        prey_reasons.append(op_pressure["selection_rationale"][:80])
 
     from .founding_beta_mode import deployable_intent
 
@@ -419,6 +442,7 @@ def score_acquisition_probability(
         soft_score=soft_score,
         has_personal_need=has_personal_need,
         predator_raw=predator_raw,
+        operational_pressure_score=op_ent,
     )
     queue_eligible = (
         prey_score >= min_prey_score
@@ -426,7 +450,13 @@ def score_acquisition_probability(
         and predator_penalty < 48
         and predator_class not in ("consultant", "educator", "moderator", "promoter", "ama")
         and not topical_only
-        and (has_personal_need or prey_raw >= 14 or soft_score >= 40)
+        and (
+            has_personal_need
+            or prey_raw >= 14
+            or soft_score >= 38
+            or op_ent >= 32
+            or op_pressure.get("has_pre_compliance_entanglement")
+        )
     )
 
     prey_tier = classify_prey_tier(
@@ -438,6 +468,7 @@ def score_acquisition_probability(
         dimension_scores=dimension_scores,
         soft_score=soft_score,
         has_operational_need=has_personal_need,
+        operational_pressure=op_pressure,
     )
 
     return {
@@ -464,6 +495,10 @@ def score_acquisition_probability(
         "likelihood_needing_guidance": dimension_scores["compliance_uncertainty_score"],
         "likelihood_small_contractor_confusion": dimension_scores["small_business_stress_score"],
         "likelihood_operational_entanglement": dimension_scores["operational_entanglement_score"],
+        "operational_pressure": op_pressure,
+        "operational_pressure_score": op_ent,
+        "operational_pressure_badges": op_pressure.get("ui_badges", []),
+        "why_organism_selected": op_pressure.get("selection_rationale", ""),
     }
 
 
@@ -477,33 +512,43 @@ def classify_prey_tier(
     dimension_scores: Dict[str, int],
     soft_score: int,
     has_operational_need: bool,
+    operational_pressure: Optional[Dict[str, Any]] = None,
 ) -> int:
     """
     Prey tiers for operator UI and queue prioritization.
 
-    1 — immediate operational burden (high-confidence uploads)
-    2 — quiet implementation confusion (likely uploads)
-    3 — emerging compliance realization (future uploads)
+    1 — immediate paperwork likelihood
+    2 — operational burden with likely future paperwork
+    3 — pre-compliance pressure (customer/vendor/security)
     4 — topic-only discussion (skip)
     5 — consultants / promoters / AMAs (block)
     """
+    op_pressure = operational_pressure or {}
+    op_ent = int(op_pressure.get("operational_pressure_score", 0))
+    op_paper = int(op_pressure.get("paperwork_likelihood_score", 0))
+    pre_compliance = bool(op_pressure.get("has_pre_compliance_entanglement"))
+
     if predator_class in BANNED_PREDATOR_CLASSES or predator_penalty >= 48:
         return 5
     op_strength = (
         dimension_scores.get("operational_pressure_score", 0)
         + dimension_scores.get("operational_entanglement_score", 0)
         + dimension_scores.get("paperwork_likelihood_score", 0)
+        + op_ent
+        + op_paper
         + soft_score
     )
-    if topical_only and prey_score < DEFAULT_MIN_PREY_SCORE:
+    if topical_only and prey_score < DEFAULT_MIN_PREY_SCORE and op_ent < 30:
         return 4
-    if queue_eligible and prey_score >= 55 and op_strength >= 75:
+    if queue_eligible and (op_paper >= 50 or prey_score >= 58) and op_strength >= 70:
         return 1
-    if queue_eligible or (prey_score >= MIN_PREY_FLOOR and has_operational_need and op_strength >= 50):
-        if soft_score >= 40 or dimension_scores.get("operational_entanglement_score", 0) >= 35:
+    if queue_eligible or (prey_score >= MIN_PREY_FLOOR and has_operational_need and op_strength >= 48):
+        if soft_score >= 38 or op_ent >= 35 or op_paper >= 40:
             return 2
         return 2 if prey_score >= MIN_PREY_FLOOR else 3
-    if prey_score >= MIN_PREY_FLOOR - 4 or (has_operational_need and soft_score >= 32):
+    if pre_compliance or (has_operational_need and op_ent >= 28):
+        return 3
+    if prey_score >= MIN_PREY_FLOOR - 4 or (has_operational_need and soft_score >= 30):
         return 3
     if topical_only or prey_score < MIN_PREY_FLOOR - 4:
         return 4

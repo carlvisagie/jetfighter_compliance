@@ -79,14 +79,29 @@ def _overlay_reddit(p: Dict[str, Any]) -> Dict[str, Any]:
     )
     prey = int(p.get("prey_score") or 0)
     intent = p.get("author_intent", "")
+    why_selected = p.get("why_organism_selected", "")
+    op_badges = p.get("operational_pressure_badges") or []
+    likely_fw = p.get("likely_frameworks") or []
+    future_burden = p.get("future_compliance_burden", "")
+    likely_paper = p.get("likely_paperwork") or ", ".join(p.get("likely_paperwork_indicators") or [])
     what = (
         f"Reddit acquisition opportunity: prey score {prey}, intent {intent or 'unknown'}. "
         f"{ctx.get('prospect_likely_means', '')}"
     )
+    if why_selected:
+        what += f" Selection: {why_selected}"
     why = (
-        "This person may be operationally burdened — a potential upload-first customer if they are "
-        "seeking help (not giving advice or promoting services)."
+        "The organism is not hunting compliance chatter — it is hunting companies becoming "
+        "operationally trapped by customer/vendor/security pressure that produces paperwork."
     )
+    if op_badges:
+        why += f" Pressure signals: {', '.join(op_badges[:5])}."
+    if likely_paper:
+        why += f" Likely paperwork: {likely_paper}."
+    if likely_fw:
+        why += " Frameworks that may emerge: " + "; ".join(likely_fw[:3]) + "."
+    if future_burden:
+        why += f" Future burden: {future_burden}"
     if prey < 52:
         why += " Prey score is below queue threshold — organism suggests caution."
     terms = []

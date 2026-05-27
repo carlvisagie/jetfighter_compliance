@@ -19,12 +19,17 @@ def deployable_intent(
     soft_score: int,
     has_personal_need: bool,
     predator_raw: int,
+    operational_pressure_score: int = 0,
 ) -> bool:
     if intent in ("SEEKING_HELP", "VENTING_OR_OVERWHELMED"):
         return True
     if soft_score >= 42 and has_personal_need and predator_raw < 12:
         return True
     if _beta() and intent == "UNKNOWN" and soft_score >= 35 and has_personal_need and predator_raw < 10:
+        return True
+    if operational_pressure_score >= 32 and has_personal_need and predator_raw < 15:
+        return True
+    if _beta() and operational_pressure_score >= 38 and predator_raw < 12:
         return True
     return False
 

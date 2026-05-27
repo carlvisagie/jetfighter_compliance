@@ -75,9 +75,11 @@ def test_consultant_ama_predator_reject():
     assert out["queue_eligible"] is False
 
 
-def test_ten_discovery_clusters_defined():
-    assert len(CLUSTER_ORDER) == 10
+def test_discovery_clusters_include_operational_pressure():
+    assert len(CLUSTER_ORDER) >= 15
     assert set(CLUSTER_ORDER) == set(DISCOVERY_CLUSTERS.keys())
+    assert "customer_pressure" in CLUSTER_ORDER
+    assert "ai_governance" in CLUSTER_ORDER
 
 
 def test_discovery_ecosystems_cover_mission_subreddits():
@@ -106,7 +108,7 @@ def test_build_cycle_discovery_plan_includes_subreddit_searches():
 
 
 def test_build_subreddit_search_plan_diversity():
-    plan = build_subreddit_search_plan(max_searches=12)
+    plan = build_subreddit_search_plan(max_searches=18, min_ecosystems=4)
     subs = {(p.get("subreddit") or "").lower() for p in plan}
     assert len(subs) >= 3
 

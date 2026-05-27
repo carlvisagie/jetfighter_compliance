@@ -9,10 +9,13 @@ from .discovery_expansion import (
     infer_burden_profile,
     record_ecosystem_outcome,
 )
+from .operational_pressure import SIGNAL_CATEGORIES, score_operational_pressure
 from .soft_burden import score_soft_burden
 
 __all__ = [
     "score_soft_burden",
+    "score_operational_pressure",
+    "SIGNAL_CATEGORIES",
     "build_cycle_queries",
     "build_cycle_discovery_plan",
     "classify_discovery_cluster",

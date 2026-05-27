@@ -532,6 +532,9 @@
             (o.operational_burden_reason ? '<p class="reddit-approval-meta"><strong>Operational burden:</strong> ' + escapeHtml(o.operational_burden_reason) + '</p>' : '') +
             (o.likely_paperwork ? '<p class="reddit-approval-meta"><strong>Likely paperwork:</strong> ' + escapeHtml(o.likely_paperwork) + '</p>' : '') +
             (o.recommended_next_action ? '<p class="org-metric-foot">' + escapeHtml(o.recommended_next_action) + '</p>' : '') +
+            (o.why_organism_selected ? '<p class="org-metric-foot"><strong>Why selected:</strong> ' + escapeHtml(o.why_organism_selected) + '</p>' : '') +
+            ((o.operational_pressure_badges || []).length ? '<p class="reddit-intent-badges">' + o.operational_pressure_badges.map(function (b) { return '<span class="reddit-badge reddit-badge-pressure">' + escapeHtml(b) + '</span>'; }).join(' ') + '</p>' : '') +
+            (o.future_compliance_burden ? '<p class="org-metric-foot">' + escapeHtml(o.future_compliance_burden) + '</p>' : '') +
             (o.burden_category ? '<p class="reddit-approval-meta">Burden: <strong>' + escapeHtml(o.burden_category) + '</strong>' +
             (o.operational_context ? ' · ' + escapeHtml(o.operational_context) : '') + '</p>' : '') +
             (o.likely_paperwork_indicators && o.likely_paperwork_indicators.length ? '<p class="reddit-approval-meta">Paperwork: ' + o.likely_paperwork_indicators.map(function (p) { return '<span class="reddit-badge reddit-badge-soft">' + escapeHtml(p) + '</span>'; }).join(' ') + '</p>' : '') +

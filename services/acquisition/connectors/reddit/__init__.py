@@ -292,6 +292,12 @@ def run_reddit_acquisition_cycle(
             "operator_actions": ["approve", "deny"],
             "discovered_utc": utc_now(),
             "founding_beta_fallback": fallback_used,
+            "operational_pressure_badges": (qual.get("acquisition_probability") or {}).get(
+                "operational_pressure_badges", []
+            ),
+            "why_organism_selected": (qual.get("acquisition_probability") or {}).get("why_organism_selected", ""),
+            "likely_frameworks": burden_profile.get("likely_frameworks", []),
+            "future_compliance_burden": burden_profile.get("future_compliance_burden", ""),
         }
         enrich_founding_beta_candidate_fields(
             record, post=post, qual=qual, cls=cls, plan=plan, fallback_used=fallback_used
@@ -395,9 +401,22 @@ def run_reddit_acquisition_cycle(
                 "quiet_confusion": prob.get("soft_burden_score"),
                 "discovery_cluster_used": post.get("discovery_source_cluster"),
                 "query_used": post.get("discovery_query"),
+                "operational_pressure_score": prob.get("operational_pressure_score"),
+                "operational_pressure_primary": (prob.get("operational_pressure") or {}).get("primary_pressure"),
+                "operational_candidate": bool(prob.get("operational_pressure_score", 0) >= 32),
             },
             base=base,
         )
+        if int(prob.get("operational_pressure_score", 0) or 0) >= 28:
+            try:
+                from services.founding_beta.telemetry import emit_beta_event
+
+                emit_beta_event(
+                    "operational_pressure_detected",
+                    metadata={"post_id": post.get("post_id"), "score": prob.get("operational_pressure_score")},
+                )
+            except Exception:
+                pass
         if not qual.get("queue_eligible"):
             telemetry.emit(
                 "low_prey_skipped",
@@ -624,6 +643,10 @@ def _pending_with_knowledge(o: Dict[str, Any]) -> Dict[str, Any]:
         "beta_fit": o.get("beta_fit", ""),
         "recommended_next_action": o.get("recommended_next_action", ""),
         "founding_beta_framing": o.get("founding_beta_framing", ""),
+        "why_organism_selected": o.get("why_organism_selected", ""),
+        "operational_pressure_badges": o.get("operational_pressure_badges", []),
+        "likely_frameworks": o.get("likely_frameworks", []),
+        "future_compliance_burden": o.get("future_compliance_burden", ""),
     }
     try:
         from services.knowledge_cockpit.acquisition_context import build_acquisition_context

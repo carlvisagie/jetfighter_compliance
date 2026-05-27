@@ -90,4 +90,7 @@ def qualify_post(
         "prey_tier": prob.get("prey_tier", 4),
         "soft_burden_score": prob.get("soft_burden_score", 0),
         "soft_burden_badges": prob.get("soft_burden_badges", []),
+        "operational_pressure_badges": prob.get("operational_pressure_badges", []),
+        "why_organism_selected": prob.get("why_organism_selected", ""),
+        "operational_pressure": prob.get("operational_pressure", {}),
     }

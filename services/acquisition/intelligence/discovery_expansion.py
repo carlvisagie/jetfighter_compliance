@@ -150,6 +150,51 @@ CLUSTER_SUBCONTRACTOR: Tuple[str, ...] = (
     "supplier onboarding security",
 )
 
+CLUSTER_CUSTOMER_PRESSURE: Tuple[str, ...] = (
+    "customer security questionnaire",
+    "customer cybersecurity requirements",
+    "customer audit request",
+    "customer asking for MFA",
+    "customer requiring cybersecurity controls",
+    "government customer asking for documentation",
+    "customer sent security questionnaire",
+    "client security requirements",
+)
+
+CLUSTER_VENDOR_ONBOARDING: Tuple[str, ...] = (
+    "supplier onboarding security",
+    "vendor onboarding compliance",
+    "supplier questionnaire",
+    "subcontractor security review",
+    "vendor security form",
+    "vendor onboarding security review",
+)
+
+CLUSTER_INSURANCE_PRESSURE: Tuple[str, ...] = (
+    "cyber insurance questionnaire",
+    "insurance security requirements",
+    "cyber insurance evidence",
+    "cyber insurance compliance",
+)
+
+CLUSTER_DOCUMENTATION_PRESSURE: Tuple[str, ...] = (
+    "security policies needed",
+    "compliance documentation",
+    "evidence request",
+    "audit documentation",
+    "what paperwork is needed",
+    "what documentation do we need",
+    "need evidence for contract",
+)
+
+CLUSTER_AI_GOVERNANCE: Tuple[str, ...] = (
+    "AI Act questionnaire",
+    "AI governance documentation",
+    "model card request",
+    "AI risk assessment",
+    "AI compliance section",
+)
+
 # Founding beta — broader operational surface (not CMMC-only)
 FOUNDING_BETA_EXTRA_QUERIES: Tuple[str, ...] = (
     "prime contractor security questionnaire",
@@ -177,6 +222,11 @@ DISCOVERY_CLUSTERS: Dict[str, Tuple[str, ...]] = {
     "cyber_insurance_pressure": CLUSTER_CYBER_INSURANCE,
     "mfa_security_requirements": CLUSTER_MFA_SECURITY,
     "subcontractor_compliance": CLUSTER_SUBCONTRACTOR,
+    "customer_pressure": CLUSTER_CUSTOMER_PRESSURE,
+    "vendor_onboarding": CLUSTER_VENDOR_ONBOARDING,
+    "insurance_pressure": CLUSTER_INSURANCE_PRESSURE,
+    "documentation_pressure": CLUSTER_DOCUMENTATION_PRESSURE,
+    "ai_governance": CLUSTER_AI_GOVERNANCE,
 }
 
 CLUSTER_ORDER = tuple(DISCOVERY_CLUSTERS.keys())
@@ -193,6 +243,11 @@ CLUSTER_ECOSYSTEM_HINTS: Dict[str, Tuple[str, ...]] = {
     "cyber_insurance_pressure": ("small_business", "security_burden"),
     "mfa_security_requirements": ("it_operations", "small_business"),
     "subcontractor_compliance": ("government_contracting",),
+    "customer_pressure": ("small_business", "government_contracting"),
+    "vendor_onboarding": ("small_business", "government_contracting"),
+    "insurance_pressure": ("small_business", "security_burden"),
+    "documentation_pressure": ("small_business", "it_operations"),
+    "ai_governance": ("it_operations", "small_business"),
 }
 
 CLUSTER_CONTENT_PATTERNS: List[Tuple[str, str]] = [
@@ -208,13 +263,19 @@ CLUSTER_CONTENT_PATTERNS: List[Tuple[str, str]] = [
     (r"\b(security requirements|it compliance|security assessment|security controls)\b", "operational_security"),
     (r"\b(we got asked|what do they need|not sure what applies|customer sent|vendor onboarding|sprs score)\b", "operational_security"),
     (r"\b(we store|store drawings|cui handl)\b", "documentation_burden"),
+    (r"\bcustomer (sent|asked).{0,25}\b(questionnaire|security|mfa)\b", "customer_pressure"),
+    (r"\bvendor onboarding\b", "vendor_onboarding"),
+    (r"\bcyber insurance\b", "insurance_pressure"),
+    (r"\b(ai act|ai governance|model card)\b", "ai_governance"),
+    (r"\bevidence request\b", "documentation_pressure"),
+    (r"\bprocurement.{0,20}\bsecurity\b", "customer_pressure"),
 ]
 
 MIN_CLUSTER_DIVERSITY = 6
 MIN_SUBREDDIT_DIVERSITY = 5
 MIN_ECOSYSTEM_DIVERSITY = 3
-DEFAULT_MAX_GLOBAL_QUERIES = 14
-DEFAULT_MAX_SUBREDDIT_SEARCHES = 12
+DEFAULT_MAX_GLOBAL_QUERIES = 18
+DEFAULT_MAX_SUBREDDIT_SEARCHES = 16
 QUERIES_PER_CLUSTER_CAP = 2
 SUBREDDITS_PER_ECOSYSTEM_CAP = 2
 
@@ -428,7 +489,14 @@ def infer_burden_profile(
     qual = qualification or {}
     prob = qual.get("acquisition_probability") or {}
     cluster = post.get("discovery_source_cluster") or "operational_security"
+    title = post.get("title", "")
+    body = post.get("selftext", "")
 
+    from .operational_pressure import score_operational_pressure
+
+    op = score_operational_pressure(title, body)
+    if prob.get("operational_pressure"):
+        op = prob.get("operational_pressure") or op
     category_map = {
         "direct_cmmc": "Compliance framework confusion",
         "operational_security": "Operational security burden",
@@ -440,11 +508,14 @@ def infer_burden_profile(
         "cyber_insurance_pressure": "Cyber insurance pressure",
         "mfa_security_requirements": "MFA / access requirements",
         "subcontractor_compliance": "Subcontractor compliance",
+        "customer_pressure": "Customer security pressure",
+        "vendor_onboarding": "Vendor onboarding pressure",
+        "insurance_pressure": "Insurance compliance pressure",
+        "documentation_pressure": "Documentation / evidence pressure",
+        "ai_governance": "AI governance pressure",
     }
     burden_category = category_map.get(cluster, "Operational burden")
 
-    title = post.get("title", "")
-    body = post.get("selftext", "")
     blob = f"{title}\n{body}".lower()
     context_bits: List[str] = []
     if re.search(r"prime contractor|vendor|supplier|questionnaire", blob):
@@ -479,8 +550,13 @@ def infer_burden_profile(
     return {
         "burden_category": burden_category,
         "operational_context": "; ".join(context_bits[:4]) or "Operational compliance pressure",
-        "likely_paperwork_indicators": paperwork[:4],
+        "likely_paperwork_indicators": paperwork[:4] or op.get("likely_evidence", [])[:4],
         "burden_badges": badges[:8],
+        "operational_pressure_badges": op.get("ui_badges", []),
+        "why_organism_selected": op.get("selection_rationale", ""),
+        "likely_frameworks": op.get("likely_frameworks", []),
+        "future_compliance_burden": op.get("future_compliance_burden", ""),
+        "operational_pressure": op,
         "discovery_source_cluster": cluster,
         "discovery_ecosystem": post.get("discovery_ecosystem", ""),
     }

@@ -142,8 +142,8 @@ def test_prey_beats_topical_fit_in_qualification():
 
 
 def test_queue_targets_updated():
-    assert TARGET_QUEUE_MIN == 5
-    assert TARGET_QUEUE_MAX == 15
+    assert TARGET_QUEUE_MIN == 8
+    assert TARGET_QUEUE_MAX == 20
 
 
 def test_quiet_operational_post_tier_one_or_two():
