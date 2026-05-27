@@ -119,6 +119,8 @@ def test_control_html_has_knowledge_cockpit(client):
     assert r.status_code == 200
     assert "Knowledge Cockpit" in r.text
     assert "knowledge-cockpit-panel" in r.text
+    assert "kyc-manual-knowledge" in r.text
+    assert "kcExplainInput" not in r.text
 
 
 def test_operator_api_protected(anon_client):
@@ -193,6 +195,33 @@ def test_control_html_has_contextual_overlay(client):
     assert "contextual-knowledge-overlay" in r.text
     assert "contextual-knowledge-overlay.js" in r.text
     assert "ckoToggleBtn" in r.text
+    assert "data-cko-panel=" in r.text
+    assert "initAuto" in r.text
+    assert "setPanelSnapshot" in r.text
+
+
+def test_acquisition_panel_overlay():
+    from services.knowledge_cockpit.contextual_overlay import build_overlay
+
+    out = build_overlay(
+        view="acquisition_panel",
+        payload={
+            "upload_conversion": {"rate": 0.2, "started": 5, "completed": 1},
+            "hottest_targets": [{"company_name": "Acme"}],
+        },
+    )
+    assert out["overlay"]["what_is_good_or_bad"]
+    assert "real paperwork" in out["overlay"]["what_am_i_looking_at"].lower()
+
+
+def test_alerts_panel_overlay():
+    from services.knowledge_cockpit.contextual_overlay import build_overlay
+
+    out = build_overlay(
+        view="alerts_panel",
+        payload={"config": {"telegram_configured": False, "email_enabled": False}, "unacknowledged_critical": []},
+    )
+    assert "Telegram" in out["overlay"]["what_am_i_looking_at"]
 
 
 def test_encyclopedia_seed_in_repo():

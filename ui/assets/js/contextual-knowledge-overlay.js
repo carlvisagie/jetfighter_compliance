@@ -1,5 +1,5 @@
 /**
- * Contextual Knowledge Overlay — Solo Operator Knowledge Cockpit (embedded in control.html)
+ * Contextual Knowledge Overlay — automatic cockpit-native mentor (control.html).
  */
 (function (global) {
   'use strict';
@@ -7,8 +7,31 @@
   var rootEl = null;
   var titleEl = null;
   var bodyEl = null;
-  var collapsed = true;
-  var autoEnabled = true;
+  var statusEl = null;
+  var collapsed = false;
+  var userPinned = false;
+  var panelSnapshots = {};
+  var activePanelId = null;
+  var selectedReddit = null;
+  var explainTimer = null;
+  var lastRequestKey = '';
+
+  var PANEL_VIEWS = {
+    priority: 'cockpit_guidance',
+    bottlenecks: 'cockpit_guidance',
+    attention: 'cockpit_guidance',
+    organism: 'cockpit_guidance',
+    learn: 'cockpit_guidance',
+    friction: 'friction_panel',
+    evidence: 'evidence_panel',
+    acquisition: 'acquisition_panel',
+    reddit: 'reddit_panel',
+    alerts: 'alerts_panel',
+    compliance: 'compliance_panel',
+    knowledge: 'generic',
+    telemetry: 'telemetry_panel',
+    'command-strip': 'cockpit_guidance',
+  };
 
   function api(path, opts) {
     opts = opts || {};
@@ -35,15 +58,30 @@
     if (!rootEl) return;
     titleEl = rootEl.querySelector('[data-cko-title]');
     bodyEl = rootEl.querySelector('[data-cko-body]');
-    rootEl.querySelector('[data-cko-close]')?.addEventListener('click', collapse);
-    rootEl.querySelector('[data-cko-collapse]')?.addEventListener('click', collapse);
+    statusEl = rootEl.querySelector('[data-cko-status]');
+    rootEl.querySelector('[data-cko-close]')?.addEventListener('click', function () {
+      userPinned = false;
+      collapse();
+    });
+    rootEl.querySelector('[data-cko-collapse]')?.addEventListener('click', function () {
+      userPinned = false;
+      collapse();
+    });
+    document.getElementById('ckoToggleBtn')?.addEventListener('click', function () {
+      userPinned = true;
+      if (collapsed) {
+        explainActive(true);
+      } else {
+        collapse();
+      }
+    });
   }
 
   function expand() {
     ensureDom();
     if (!rootEl) return;
     collapsed = false;
-    rootEl.classList.remove('cko-overlay--collapsed', 'cko-overlay--peek');
+    rootEl.classList.remove('cko-overlay--collapsed');
   }
 
   function collapse() {
@@ -51,14 +89,10 @@
     if (!rootEl) return;
     collapsed = true;
     rootEl.classList.add('cko-overlay--collapsed');
-    rootEl.classList.remove('cko-overlay--peek');
   }
 
-  function peek() {
-    ensureDom();
-    if (!rootEl) return;
-    collapsed = true;
-    rootEl.classList.add('cko-overlay--collapsed', 'cko-overlay--peek');
+  function setStatus(text) {
+    if (statusEl) statusEl.textContent = text || '';
   }
 
   function renderList(items) {
@@ -72,12 +106,17 @@
     ensureDom();
     if (!bodyEl) return;
     var ov = (data && data.overlay) || {};
-    if (titleEl) titleEl.textContent = data.title || 'Contextual Knowledge';
+    if (titleEl) titleEl.textContent = data.title || 'Contextual mentor';
+    setStatus(data.view ? data.view.replace(/_/g, ' ') : '');
     var html = '';
     html += '<div class="cko-overlay-section"><strong>What am I looking at?</strong><p>' +
       escapeHtml(ov.what_am_i_looking_at || '') + '</p></div>';
     html += '<div class="cko-overlay-section"><strong>Why it matters</strong><p>' +
       escapeHtml(ov.why_it_matters || '') + '</p></div>';
+    var goodBad = ov.what_is_good_or_bad || [];
+    if (goodBad.length) {
+      html += '<div class="cko-overlay-section"><strong>Good / bad here</strong>' + renderList(goodBad) + '</div>';
+    }
     var terms = ov.what_terms_mean || [];
     if (terms.length) {
       html += '<div class="cko-overlay-section"><strong>Terms</strong><div class="cko-overlay-terms">';
@@ -99,15 +138,6 @@
     }
     html += '<div class="cko-overlay-section"><strong>Watch for</strong>' + renderList(ov.what_to_watch_for) + '</div>';
     html += '<div class="cko-overlay-section"><strong>Do next</strong>' + renderList(ov.what_to_do_next) + '</div>';
-    var rel = data.related_concepts || [];
-    if (rel.length) {
-      html += '<div class="cko-overlay-section"><strong>Related concepts</strong><div class="cko-overlay-terms">';
-      rel.slice(0, 6).forEach(function (c) {
-        html += '<button type="button" class="cko-term-chip" data-concept-id="' + escapeHtml(c.id || '') + '">' +
-          escapeHtml(c.term || c.id) + '</button>';
-      });
-      html += '</div></div>';
-    }
     bodyEl.innerHTML = html;
     bodyEl.querySelectorAll('[data-concept-id]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -117,6 +147,7 @@
           if (!out.ok) return;
           renderOverlay({
             title: out.term || cid,
+            view: 'concept',
             overlay: {
               what_am_i_looking_at: out.term,
               why_it_matters: out.why_it_matters || '',
@@ -135,62 +166,159 @@
   }
 
   function show(view, payload) {
+    var key = view + ':' + JSON.stringify(payload || {}).slice(0, 200);
+    if (key === lastRequestKey && !userPinned) return Promise.resolve();
+    lastRequestKey = key;
+    setStatus('Updating…');
     return api('/api/operator/knowledge-cockpit/overlay', {
       method: 'POST',
       body: JSON.stringify({ view: view, payload: payload || {} }),
-    }).then(renderOverlay);
+    }).then(function (data) {
+      renderOverlay(data);
+      return data;
+    }).catch(function () {
+      setStatus('Explain unavailable');
+    });
   }
 
-  function showGeneric(text) {
-    return show('generic', { text: text || '' });
+  function buildPayload(panelId) {
+    var snap = panelSnapshots[panelId] || {};
+    if (panelId === 'reddit' && selectedReddit) {
+      return { view: 'reddit_opportunity', payload: selectedReddit };
+    }
+    if (panelId === 'reddit') {
+      return {
+        view: 'reddit_panel',
+        payload: Object.assign({}, snap, {
+          pending_count: (snap.pending_opportunities || []).length,
+          selected_opportunity: selectedReddit,
+        }),
+      };
+    }
+    var view = PANEL_VIEWS[panelId] || 'generic';
+    var payload = Object.assign({ panel: panelId }, snap);
+    if (panelId === 'priority' || panelId === 'bottlenecks' || panelId === 'attention' || panelId === 'organism' || panelId === 'learn') {
+      payload.panel = panelId;
+    }
+    return { view: view, payload: payload };
+  }
+
+  function explainActive(force) {
+    if (!activePanelId && !force) return;
+    if (explainTimer) clearTimeout(explainTimer);
+    explainTimer = setTimeout(function () {
+      var spec = buildPayload(activePanelId || 'priority');
+      show(spec.view, spec.payload);
+    }, force ? 0 : 350);
+  }
+
+  function setActivePanel(panelId, opts) {
+    opts = opts || {};
+    if (!panelId) return;
+    activePanelId = panelId;
+    document.querySelectorAll('[data-cko-panel]').forEach(function (el) {
+      el.classList.toggle('cko-panel-active', el.getAttribute('data-cko-panel') === panelId);
+    });
+    if (opts.immediate) explainActive(true);
+  }
+
+  function setPanelSnapshot(panelId, data) {
+    panelSnapshots[panelId] = data || {};
+    if (activePanelId === panelId) explainActive(true);
+  }
+
+  function selectRedditOpportunity(o, cardEl) {
+    selectedReddit = o || null;
+    document.querySelectorAll('.reddit-approval-card').forEach(function (c) {
+      c.classList.remove('reddit-approval-card--active');
+    });
+    if (cardEl) cardEl.classList.add('reddit-approval-card--active');
+    if (activePanelId === 'reddit' || !activePanelId) {
+      setActivePanel('reddit', { immediate: true });
+    } else {
+      explainActive(true);
+    }
   }
 
   function wireRedditQueue(container) {
     if (!container) return;
     var map = global.__redditPendingMap || {};
     container.querySelectorAll('.reddit-approval-card').forEach(function (card) {
-      var btn = card.querySelector('.reddit-btn-explain');
-      if (!btn) return;
-      btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        var pid = btn.getAttribute('data-post-id');
-        var o = map[pid];
-        if (!o) return;
-        container.querySelectorAll('.reddit-approval-card').forEach(function (c) {
-          c.classList.remove('reddit-approval-card--active');
-        });
-        card.classList.add('reddit-approval-card--active');
-        show('reddit_opportunity', o);
-      });
-      if (autoEnabled) {
-        card.addEventListener('mouseenter', function () {
-          if (!collapsed) return;
-          peek();
-        });
+      var pid = card.getAttribute('data-post-id');
+      var o = map[pid];
+      if (!o) return;
+      function activate() {
+        selectRedditOpportunity(o, card);
       }
+      card.setAttribute('tabindex', '0');
+      card.addEventListener('click', function (e) {
+        if (e.target.closest('button, a')) return;
+        activate();
+      });
+      card.addEventListener('focusin', activate);
     });
+    if (!selectedReddit && Object.keys(map).length) {
+      var first = container.querySelector('.reddit-approval-card');
+      if (first) selectRedditOpportunity(map[first.getAttribute('data-post-id')], first);
+    }
   }
 
-  function wirePanelExplain(panelId, view, payloadFn) {
-    var panel = document.getElementById(panelId);
-    if (!panel) return;
-    panel.addEventListener('click', function (e) {
-      var t = e.target;
-      if (t && t.classList && t.classList.contains('cko-panel-explain')) {
-        e.preventDefault();
-        show(view, payloadFn());
-      }
+  function initAuto(opts) {
+    ensureDom();
+    opts = opts || {};
+    var root = document.querySelector(opts.rootSelector || '#guidance-panels');
+    var observeRoot = document.querySelector(opts.observeRoot || 'main') || document.body;
+    if (!root) return;
+
+    var panels = document.querySelectorAll('[data-cko-panel]');
+    if (!panels.length) return;
+
+    var ratios = {};
+    var observer = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          var id = entry.target.getAttribute('data-cko-panel');
+          if (!id) return;
+          ratios[id] = entry.isIntersecting ? entry.intersectionRatio : 0;
+        });
+        var bestId = null;
+        var bestRatio = 0;
+        Object.keys(ratios).forEach(function (id) {
+          if (ratios[id] > bestRatio) {
+            bestRatio = ratios[id];
+            bestId = id;
+          }
+        });
+        if (bestId && bestRatio >= 0.2) {
+          setActivePanel(bestId);
+          if (!collapsed) explainActive();
+        }
+      },
+      { root: null, rootMargin: '-10% 0px -35% 0px', threshold: [0, 0.15, 0.35, 0.55, 0.75] }
+    );
+
+    panels.forEach(function (el) {
+      observer.observe(el);
     });
+
+    var health = document.getElementById('organism-health');
+    if (health) observer.observe(health);
+
+    setActivePanel('priority', { immediate: true });
+    expand();
   }
 
   global.KnowledgeOverlay = {
     show: show,
-    showGeneric: showGeneric,
     expand: expand,
     collapse: collapse,
-    wireRedditQueue: wireRedditQueue,
-    setAutoSurface: function (on) { autoEnabled = !!on; },
     render: renderOverlay,
+    setPanelSnapshot: setPanelSnapshot,
+    setActivePanel: setActivePanel,
+    selectRedditOpportunity: selectRedditOpportunity,
+    wireRedditQueue: wireRedditQueue,
+    initAuto: initAuto,
+    explainActive: explainActive,
   };
 
   document.addEventListener('DOMContentLoaded', ensureDom);

@@ -48,19 +48,19 @@
       </header>
 
       <div class="guidance-grid" id="guidance-panels">
-        <article class="guidance-panel guidance-panel--priority">
+        <article class="guidance-panel guidance-panel--priority" data-cko-panel="priority">
           <span class="kyc-label-overline">Priority command</span>
           <div data-guidance="priority"><p class="kyc-loading">Loading priority…</p></div>
         </article>
-        <article class="guidance-panel">
+        <article class="guidance-panel" data-cko-panel="bottlenecks">
           <span class="kyc-label-overline">Bottleneck detector</span>
           <div data-guidance="bottlenecks"><p class="kyc-loading">Scanning…</p></div>
         </article>
-        <article class="guidance-panel">
+        <article class="guidance-panel" data-cko-panel="attention">
           <span class="kyc-label-overline">Attention radar</span>
           <div data-guidance="attention"><p class="kyc-loading">Scanning…</p></div>
         </article>
-        <article class="guidance-panel">
+        <article class="guidance-panel" data-cko-panel="organism">
           <span class="kyc-label-overline">Organism state</span>
           <span class="kyc-pill" id="guidance-state-badge">—</span>
           <div data-guidance="organism-state"><p class="kyc-loading">…</p></div>
@@ -76,22 +76,22 @@
             <p class="org-metric-foot" id="smtpTestResult"></p>
           </div>
         </article>
-        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;">
+        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" data-cko-panel="learn">
           <span class="kyc-label-overline">Learn this now</span>
           <div data-guidance="learn"><p class="kyc-loading">Contextual learning…</p></div>
         </article>
-        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="customer-friction-panel">
+        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="customer-friction-panel" data-cko-panel="friction">
           <span class="kyc-label-overline">Customer friction</span>
           <h3 style="margin-top:0;">Onboarding &amp; upload experience</h3>
           <div id="customer-friction-insights"><p class="kyc-loading">Loading friction insights…</p></div>
         </article>
-        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="evidence-intelligence-panel">
+        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="evidence-intelligence-panel" data-cko-panel="evidence">
           <span class="kyc-label-overline">Evidence intelligence</span>
           <h3 style="margin-top:0;">Upload analysis</h3>
           <p class="org-metric-foot">Select a project in the command strip, then refresh.</p>
           <div id="evidence-intelligence-insights"><p class="kyc-loading">Loading evidence intelligence…</p></div>
         </article>
-        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="acquisition-intelligence-panel">
+        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="acquisition-intelligence-panel" data-cko-panel="acquisition">
           <span class="kyc-label-overline">Acquisition intelligence</span>
           <h3 style="margin-top:0;">Acquisition Intelligence</h3>
           <p class="org-metric-foot">Finds compliance burden, routes to upload-first onboarding. Success = real paperwork submitted. No auto-spam.</p>
@@ -100,7 +100,7 @@
           </div>
           <div id="acquisition-intelligence-insights"><p class="kyc-loading">Loading acquisition intelligence…</p></div>
         </article>
-        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="reddit-acquisition-panel">
+        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="reddit-acquisition-panel" data-cko-panel="reddit">
           <span class="kyc-label-overline">Reddit acquisition intelligence</span>
           <h3 style="margin-top:0;">Reddit — Approve or Deny</h3>
           <p class="org-metric-foot">The organism decides pacing, safety, wording, and links. You only approve or deny. Never auto-posted.</p>
@@ -109,7 +109,7 @@
           </div>
           <div id="reddit-acquisition-insights"><p class="kyc-loading">Loading…</p></div>
         </article>
-        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="operational-alerts-panel">
+        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="operational-alerts-panel" data-cko-panel="alerts">
           <span class="kyc-label-overline">Operational alerts</span>
           <h3 style="margin-top:0;">Operational Alerts</h3>
           <p class="org-metric-foot">Organism nervous system — Telegram (realtime) and email for conversions, paperwork, failures. No customer documents in alerts.</p>
@@ -118,23 +118,19 @@
           </div>
           <div id="operational-alerts-insights"><p class="kyc-loading">Loading operational alerts…</p></div>
         </article>
-        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="knowledge-cockpit-panel">
-          <span class="kyc-label-overline">Knowledge Cockpit</span>
-          <h3 style="margin-top:0;">Operational mentor</h3>
-          <p class="org-metric-foot">Use <strong>Explain view</strong> (top right) or <strong>Explain</strong> on any queue item. The Contextual Knowledge Overlay teaches in place — no separate app.</p>
-          <div class="cockpit-knowledge-search">
-            <input type="search" id="kcSearchInput" placeholder="Search CMMC, SSP, questionnaire…" aria-label="Search concepts">
-            <button type="button" class="btn secondary" id="kcSearchBtn">Search</button>
-          </div>
-          <div class="kyc-field" style="margin-top:0.5rem;">
-            <label for="kcExplainInput">Explain this</label>
-            <textarea id="kcExplainInput" rows="2" placeholder="Paste prospect text, control name, or customer ask…"></textarea>
-          </div>
-          <button type="button" class="btn" id="kcExplainBtn">Explain</button>
-          <div id="knowledge-cockpit-results" style="margin-top:1rem;"><p class="kyc-loading">Loading knowledge cockpit…</p></div>
-          <p style="margin-top:0.75rem;"><a class="btn secondary" href="/ui/knowledge.html">Open full knowledge cockpit</a></p>
+        <article class="guidance-panel org-card--wide guidance-panel--secondary" style="grid-column:1/-1;" id="knowledge-cockpit-panel" data-cko-panel="knowledge">
+          <details class="kyc-manual-knowledge">
+            <summary>Manual concept lookup (optional)</summary>
+            <p class="org-metric-foot">The floating mentor explains each panel automatically. Use this only for deep concept search.</p>
+            <div class="cockpit-knowledge-search">
+              <input type="search" id="kcSearchInput" placeholder="Search CMMC, SSP…" aria-label="Search concepts">
+              <button type="button" class="btn secondary" id="kcSearchBtn">Search</button>
+            </div>
+            <div id="knowledge-cockpit-results"><p class="org-metric-foot"><a href="/ui/knowledge.html">Full knowledge base</a></p></div>
+            <div id="kc-detail" class="card" style="margin-top:0.5rem;padding:0.75rem;display:none;"></div>
+          </details>
         </article>
-        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="compliance-intelligence-panel">
+        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="compliance-intelligence-panel" data-cko-panel="compliance">
           <span class="kyc-label-overline">Compliance intelligence</span>
           <h3 style="margin-top:0;">Compliance Intelligence Watch</h3>
           <p class="org-metric-foot">Monitors authoritative public sources — operator review required. Not legal advice.</p>
@@ -187,7 +183,7 @@
       </article>
     </section>
 
-    <section class="kyc-section" id="organism-health" aria-labelledby="org-health-heading">
+    <section class="kyc-section" id="organism-health" data-cko-panel="telemetry" aria-labelledby="org-health-heading">
       <header class="kyc-section-head">
         <span class="kyc-label-overline">Organism</span>
         <h2 id="org-health-heading">Organism health</h2>
@@ -288,19 +284,20 @@
   </main>
 
   <footer class="kyc-footer">KeepYourContracts.com · Organism operations</footer>
-  <aside id="contextual-knowledge-overlay" class="cko-overlay cko-overlay--collapsed" aria-label="Contextual Knowledge Overlay" role="complementary">
+  <aside id="contextual-knowledge-overlay" class="cko-overlay" aria-label="Contextual Knowledge Overlay" role="complementary">
     <header class="cko-overlay-head">
       <div>
         <span class="kyc-label-overline">Knowledge Cockpit</span>
         <h3 data-cko-title>Contextual mentor</h3>
+        <p class="cko-overlay-status" data-cko-status>Watching cockpit…</p>
       </div>
       <div class="cko-overlay-actions">
         <button type="button" class="btn secondary" data-cko-collapse title="Collapse">−</button>
-        <button type="button" class="btn secondary" data-cko-close title="Close">×</button>
+        <button type="button" class="btn secondary" data-cko-close title="Hide">×</button>
       </div>
     </header>
     <div class="cko-overlay-body" data-cko-body>
-      <p class="org-metric-foot">Select a Reddit prospect, compliance change, or evidence item — or click Explain view.</p>
+      <p class="org-metric-foot">Scroll or click a panel — the organism explains what you are looking at.</p>
     </div>
   </aside>
 
@@ -338,7 +335,19 @@
   async function refreshOrganism() {
     const root = document.getElementById('org-control-root');
     try {
-      await OrgIntel.refreshControl(root);
+      const snap = await OrgIntel.refreshControl(root);
+      if (window.KnowledgeOverlay && snap) {
+        const tel = (snap.telemetry && snap.telemetry.telemetry) || [];
+        KnowledgeOverlay.setPanelSnapshot('telemetry', {
+          verdict: snap.obs && snap.obs.verdict,
+          observability_verdict: snap.obs && snap.obs.verdict,
+          telemetry_count: tel.length,
+          orphan_count: (snap.heal && snap.heal.orphan_projects || []).length,
+          recent_events: tel.slice(0, 5).map(function (t) {
+            return { subsystem: t.subsystem, event_type: t.event_type, message: t.message };
+          }),
+        });
+      }
     } catch (e) {
       document.getElementById('health').textContent = 'Organism offline';
       document.getElementById('health').className = 'kyc-pill kyc-pill--bad';
@@ -358,30 +367,7 @@
       loadRedditAcquisitionIntelligence(),
       loadOperationalAlerts(),
       loadComplianceIntelligence(),
-      loadKnowledgeCockpit(),
     ]);
-  }
-  async function loadKnowledgeCockpit() {
-    const el = document.getElementById('knowledge-cockpit-results');
-    if (!el) return;
-    try {
-      const dash = await api('/api/operator/knowledge-cockpit');
-      let html = '<p class="org-metric-foot"><strong>Concepts loaded:</strong> ' + (dash.concept_count || 0) +
-        ' · <strong>Source:</strong> ' + escapeHtml(dash.source || 'repo') + '</p>';
-      const next = dash.suggested_next_learning || [];
-      if (next.length) {
-        html += '<p class="org-metric-foot"><strong>Suggested next:</strong> ' +
-          next.map(function (c) { return '<button type="button" class="btn secondary kc-concept-btn" data-id="' + escapeHtml(c.id) + '">' + escapeHtml(c.term) + '</button>'; }).join(' ') +
-          '</p>';
-      }
-      html += '<div id="kc-detail" class="card" style="margin-top:0.75rem;padding:1rem;"><p class="org-metric-foot">Search or explain to see operational meaning, evidence, and related concepts.</p></div>';
-      el.innerHTML = html;
-      el.querySelectorAll('.kc-concept-btn').forEach(function (btn) {
-        btn.addEventListener('click', function () { explainKnowledgeConcept(btn.getAttribute('data-id')); });
-      });
-    } catch (e) {
-      el.innerHTML = '<p class="org-metric-foot">Knowledge cockpit unavailable.</p>';
-    }
   }
   function renderKnowledgeExplain(out) {
     const box = document.getElementById('kc-detail');
@@ -422,16 +408,16 @@
     renderKnowledgeExplain(out);
   }
   async function explainKnowledgeText() {
-    const text = (document.getElementById('kcExplainInput') || {}).value || '';
+    const text = (document.getElementById('kcSearchInput') || {}).value || '';
+    if (!text) return;
     const out = await api('/api/operator/knowledge-cockpit/explain', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: text }),
     });
-    renderKnowledgeExplain(out);
-    if (window.KnowledgeOverlay && text) {
-      window.KnowledgeOverlay.showGeneric(text);
-    }
+    var box = document.getElementById('kc-detail');
+    if (box) { box.style.display = 'block'; renderKnowledgeExplain(out); }
+    if (window.KnowledgeOverlay) window.KnowledgeOverlay.show('generic', { text: text });
   }
   async function searchKnowledgeCockpit() {
     const q = (document.getElementById('kcSearchInput') || {}).value || '';
@@ -484,6 +470,7 @@
         html += '<p class="org-metric-foot"><strong>Channels:</strong> ' + ch.map(function (c) { return escapeHtml(c.channel) + '(' + c.targets + ')'; }).join(', ') + '</p>';
       }
       el.innerHTML = html;
+      if (window.KnowledgeOverlay) KnowledgeOverlay.setPanelSnapshot('acquisition', j);
     } catch (e) {
       el.innerHTML = '<p class="org-metric-foot">Acquisition intelligence unavailable.</p>';
     }
@@ -513,7 +500,7 @@
         pending.forEach(function (o) {
           if (o.post_id) window.__redditPendingMap[o.post_id] = o;
           html +=
-            '<article class="reddit-approval-card">' +
+            '<article class="reddit-approval-card" data-post-id="' + escapeHtml(o.post_id || '') + '">' +
             '<p class="reddit-approval-meta"><strong>r/' + escapeHtml(o.subreddit || '') + '</strong> · Prey: <strong>' + (o.prey_score || 0) + '</strong> · Cluster: <strong>' + escapeHtml(o.discovery_source_cluster || 'unknown') + '</strong>' +
             (o.discovery_ecosystem ? ' · Ecosystem: <strong>' + escapeHtml(o.discovery_ecosystem) + '</strong>' : '') +
             ' · Intent: <strong>' + escapeHtml(o.author_intent || '') + '</strong></p>' +
@@ -528,7 +515,6 @@
             '<p class="org-metric-foot">' + escapeHtml(o.organism_rationale || '') + '</p>' +
             '<pre class="reddit-paste-preview">' + escapeHtml(o.paste_text || '') + '</pre>' +
             '<div class="kyc-btn-row">' +
-            '<button type="button" class="btn secondary reddit-btn-explain cko-btn-explain" data-post-id="' + escapeHtml(o.post_id || '') + '">Explain</button>' +
             '<button type="button" class="btn reddit-btn-approve" data-post-id="' + escapeHtml(o.post_id || '') + '">APPROVE</button>' +
             '<button type="button" class="btn secondary reddit-btn-deny" data-post-id="' + escapeHtml(o.post_id || '') + '">DENY</button>' +
             (o.url ? '<a class="btn secondary" href="' + escapeHtml(o.url) + '" target="_blank" rel="noopener">View post</a>' : '') +
@@ -537,7 +523,10 @@
         html += '</div>';
       }
       el.innerHTML = html;
-      if (window.KnowledgeOverlay) window.KnowledgeOverlay.wireRedditQueue(el);
+      if (window.KnowledgeOverlay) {
+        KnowledgeOverlay.setPanelSnapshot('reddit', Object.assign({}, j, { pending_count: pending.length }));
+        KnowledgeOverlay.wireRedditQueue(el);
+      }
       el.querySelectorAll('.reddit-btn-approve').forEach(function (btn) {
         btn.addEventListener('click', async function () {
           const pid = btn.getAttribute('data-post-id');
@@ -600,6 +589,7 @@
         html += '<p class="org-metric-foot">No alerts yet — organism is quiet.</p>';
       }
       el.innerHTML = html;
+      if (window.KnowledgeOverlay) KnowledgeOverlay.setPanelSnapshot('alerts', j);
       el.querySelectorAll('[data-ack]').forEach(function (btn) {
         btn.addEventListener('click', async function () {
           const id = btn.getAttribute('data-ack');
@@ -694,10 +684,12 @@
         html += '<p class="org-metric-foot"><strong>Weekly digest:</strong> ' + escapeHtml(j.latest_digest.week || '') + '</p>';
       }
       el.innerHTML = html;
+      if (window.KnowledgeOverlay) KnowledgeOverlay.setPanelSnapshot('compliance', j);
       el.querySelectorAll('.cko-compliance-explain').forEach(function (btn) {
-        btn.addEventListener('click', function () {
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
           if (!window.KnowledgeOverlay) return;
-          window.KnowledgeOverlay.show('compliance_update', {
+          KnowledgeOverlay.show('compliance_update', {
             source_id: btn.getAttribute('data-source'),
             diff_summary: btn.getAttribute('data-summary'),
           });
@@ -731,17 +723,11 @@
         '<p class="org-metric-foot"><strong>Profile:</strong> ' +
         escapeHtml(JSON.stringify(j.profile || {})) + '</p>' +
         '<p class="org-metric-foot"><strong>Next:</strong> ' +
-        ((j.next_actions || []).map(function (a) { return escapeHtml(a); }).join(' ') || '—') + '</p>' +
-        '<button type="button" class="btn secondary" id="evidenceExplainBtn">Explain evidence context</button>';
+        ((j.next_actions || []).map(function (a) { return escapeHtml(a); }).join(' ') || '—') + '</p>';
       el.innerHTML = html;
-      document.getElementById('evidenceExplainBtn')?.addEventListener('click', function () {
-        if (!window.KnowledgeOverlay) return;
-        window.KnowledgeOverlay.show('evidence_upload', {
-          filename: 'project_' + projectId + '_bundle',
-          document_type: (j.profile && j.profile.primary_type) || 'mixed',
-          text_preview: JSON.stringify(j.profile || {}).slice(0, 500),
-        });
-      });
+      if (window.KnowledgeOverlay) {
+        KnowledgeOverlay.setPanelSnapshot('evidence', Object.assign({}, j, { project_id: projectId }));
+      }
     } catch (e) {
       el.innerHTML = '<p class="org-metric-foot">Evidence intelligence unavailable.</p>';
     }
@@ -773,6 +759,7 @@
         '<p class="org-metric-foot"><strong>Abandonment by step:</strong></p><ul class="guidance-list">' + abRows + '</ul>' +
         '<p class="org-metric-foot"><strong>Top examples viewed:</strong> ' + ex + '</p>' +
         '<p class="org-metric-foot"><strong>Top retrieval help:</strong> ' + help + '</p>';
+      if (window.KnowledgeOverlay) KnowledgeOverlay.setPanelSnapshot('friction', j);
     } catch (e) {
       el.innerHTML = '<p class="org-metric-foot">Friction insights unavailable.</p>';
     }
@@ -818,18 +805,11 @@
     await OperatorCockpit.init(root);
     await loadSmtpStatus();
     await refreshAll();
+    if (window.KnowledgeOverlay) KnowledgeOverlay.initAuto({ rootSelector: '#guidance-panels' });
     const sync = function () { refreshAll(); loadSmtpStatus(); };
-    document.getElementById('kcExplainBtn')?.addEventListener('click', explainKnowledgeText);
     document.getElementById('kcSearchBtn')?.addEventListener('click', searchKnowledgeCockpit);
-    document.getElementById('ckoToggleBtn')?.addEventListener('click', function () {
-      if (!window.KnowledgeOverlay) return;
-      const active = document.querySelector('.reddit-approval-card--active');
-      if (active) {
-        const pid = active.querySelector('.reddit-btn-explain')?.getAttribute('data-post-id');
-        const o = (window.__redditPendingMap || {})[pid];
-        if (o) { window.KnowledgeOverlay.show('reddit_opportunity', o); return; }
-      }
-      window.KnowledgeOverlay.showGeneric('Operator cockpit — mission control for burden relief and upload-first onboarding.');
+    document.getElementById('kcSearchInput')?.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') searchKnowledgeCockpit();
     });
     root.querySelector('#cockpitProject')?.addEventListener('change', sync);
     root.querySelector('#cockpitMode')?.addEventListener('change', sync);
