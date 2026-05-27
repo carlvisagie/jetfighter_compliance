@@ -116,6 +116,8 @@ def run_reddit_acquisition_cycle(
     )
     posts = posts[:max_posts]
     stats["discovery_clusters"] = list({p.get("discovery_source_cluster") for p in posts if p.get("discovery_source_cluster")})
+    stats["discovery_subreddits"] = list({(p.get("subreddit") or "").lower() for p in posts if p.get("subreddit")})
+    stats["discovery_ecosystems"] = list({p.get("discovery_ecosystem") for p in posts if p.get("discovery_ecosystem")})
 
     seen_targets = load_recent_target_keys(base)
     evaluated: List[Dict[str, Any]] = []
@@ -288,6 +290,18 @@ def run_reddit_acquisition_cycle(
         except Exception:
             pass
 
+        from ...intelligence.discovery_expansion import infer_burden_profile, record_cluster_outcome
+
+        burden_profile = infer_burden_profile(post, cls, qual)
+        cluster = post.get("discovery_source_cluster", "")
+        if cluster:
+            record_cluster_outcome(state, cluster, "queued")
+            eco = post.get("discovery_ecosystem") or burden_profile.get("discovery_ecosystem")
+            if eco:
+                from ...intelligence.discovery_expansion import record_ecosystem_outcome
+
+                record_ecosystem_outcome(state, eco, "queued")
+
         opportunity_id = f"RDT-{uuid.uuid4().hex[:10]}"
         record = {
             "opportunity_id": opportunity_id,
@@ -320,6 +334,11 @@ def run_reddit_acquisition_cycle(
             "soft_burden_score": qual.get("soft_burden_score", 0),
             "soft_burden_badges": qual.get("soft_burden_badges", []),
             "discovery_source_cluster": post.get("discovery_source_cluster", ""),
+            "discovery_ecosystem": post.get("discovery_ecosystem", "") or burden_profile.get("discovery_ecosystem", ""),
+            "burden_category": burden_profile.get("burden_category", ""),
+            "operational_context": burden_profile.get("operational_context", ""),
+            "likely_paperwork_indicators": burden_profile.get("likely_paperwork_indicators", []),
+            "burden_badges": burden_profile.get("burden_badges", []),
             "acquisition_probability": qual.get("acquisition_probability"),
             "social_intelligence": plan.get("social_intelligence"),
             "draft_reply": draft,
@@ -416,6 +435,7 @@ def approve_draft(
             "prey_reasons": rec.get("prey_reasons") or (rec.get("qualification") or {}).get("prey_reasons"),
             "prey_score": rec.get("prey_score"),
             "discovery_source_cluster": rec.get("discovery_source_cluster"),
+            "discovery_ecosystem": rec.get("discovery_ecosystem"),
         },
         base=base,
     )
@@ -555,6 +575,11 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
                 "soft_burden_score": o.get("soft_burden_score", 0),
                 "soft_burden_badges": o.get("soft_burden_badges", []),
                 "discovery_source_cluster": o.get("discovery_source_cluster", ""),
+                "discovery_ecosystem": o.get("discovery_ecosystem", ""),
+                "burden_category": o.get("burden_category", ""),
+                "operational_context": o.get("operational_context", ""),
+                "likely_paperwork_indicators": o.get("likely_paperwork_indicators", []),
+                "burden_badges": o.get("burden_badges", []),
                 "organism_rationale": (o.get("organism_plan") or {}).get("rationale", ""),
                 "engagement_stage": (o.get("organism_plan") or {}).get("engagement_stage", ""),
                 "organism_confidence": (o.get("organism_plan") or {}).get("organism_confidence", 0),

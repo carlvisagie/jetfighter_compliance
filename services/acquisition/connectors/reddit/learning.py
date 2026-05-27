@@ -45,6 +45,8 @@ def load_learning_state(base: Optional[Path] = None) -> Dict[str, Any]:
         },
         "discovery_cluster_weights": {},
         "discovery_cluster_stats": {},
+        "discovery_ecosystem_weights": {},
+        "discovery_ecosystem_stats": {},
         "prey_learning": {
             "financial_stress": 1.0,
             "operational_pressure": 1.0,
@@ -126,7 +128,7 @@ def record_outcome(
     if event_type == "operator_approved":
         try:
             from ...acquisition_probability import apply_operator_prey_feedback
-            from ...intelligence.discovery_expansion import record_cluster_outcome
+            from ...intelligence.discovery_expansion import record_cluster_outcome, record_ecosystem_outcome
 
             apply_operator_prey_feedback(
                 state,
@@ -136,6 +138,9 @@ def record_outcome(
             cluster = (metadata or {}).get("discovery_source_cluster")
             if cluster:
                 record_cluster_outcome(state, cluster, "operator_approved")
+            ecosystem = (metadata or {}).get("discovery_ecosystem")
+            if ecosystem:
+                record_ecosystem_outcome(state, ecosystem, "operator_approved")
         except Exception:
             pass
     elif event_type == "operator_denied":
