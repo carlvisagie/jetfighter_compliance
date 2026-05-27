@@ -31,18 +31,13 @@ def _append_intel(filename: str, record: Dict[str, Any], base: Optional[Path] = 
 
 
 def _load_intel(filename: str, base: Optional[Path] = None, limit: int = 300) -> List[Dict[str, Any]]:
+    from ..lazy_io import load_jsonl
+
     root = ensure_intel_dirs(base)
     path = root / filename
     if not path.is_file():
         return []
-    rows = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            try:
-                rows.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
-    return rows[-limit:]
+    return load_jsonl(path, limit=limit)
 
 
 def load_recent_target_keys(base: Optional[Path] = None) -> set:

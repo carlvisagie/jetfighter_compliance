@@ -309,23 +309,31 @@
   </aside>
 
   <script src="/ui/assets/js/cockpit-safe-boot.js"></script>
+  <script src="/ui/assets/js/cockpit-stabilization.js"></script>
   <script src="/ui/assets/js/contextual-knowledge-overlay.js" onerror="reportCockpitScriptError('contextual-knowledge-overlay.js')"></script>
   <script src="/ui/assets/js/organism-intel.js" onerror="reportCockpitScriptError('organism-intel.js')"></script>
   <script src="/ui/assets/js/operator-cockpit.js" onerror="reportCockpitScriptError('operator-cockpit.js')"></script>
   <script src="/ui/assets/js/operator-guidance.js" onerror="reportCockpitScriptError('operator-guidance.js')"></script>
   <script>
   async function api(u, opts) {
+    if (window.CockpitStable && CockpitStable.shouldSkip(u)) {
+      return CockpitStable.pausedPayload();
+    }
+    if (window.CockpitStable && CockpitStable.isHeavyUrl(u)) {
+      return CockpitStable.operatorFetch(u, opts);
+    }
     const r = await fetch(u, Object.assign({ credentials: 'same-origin' }, opts || {}));
     let j = {};
     try { j = await r.json(); } catch (e) { j = {}; }
+    if (j && j.paused) return j;
     if (!r.ok) {
-      const err = new Error(j.operator_message || j.error_detail || j.detail || ('HTTP ' + r.status));
+      const err = new Error(j.operator_message || j.error_detail || j.detail || j.message || ('HTTP ' + r.status));
       err.payload = j;
       err.status = r.status;
       throw err;
     }
     if (j && j.ok === false) {
-      const err = new Error(j.operator_message || j.error_detail || 'Request failed');
+      const err = new Error(j.operator_message || j.error_detail || j.message || 'Request failed');
       err.payload = j;
       err.status = r.status;
       throw err;
@@ -484,8 +492,16 @@
   async function loadAcquisitionIntelligence() {
     const el = document.getElementById('acquisition-intelligence-insights');
     if (!el) return;
+    if (window.COCKPIT_SAFE_MODE) {
+      el.innerHTML = '<p class="org-metric-foot"><strong>Paused</strong> — acquisition intelligence disabled during stabilization.</p>';
+      return;
+    }
     try {
       const j = await api('/api/operator/acquisition-intelligence');
+      if (j && j.paused) {
+        el.innerHTML = '<p class="org-metric-foot">' + escapeHtml(j.message || 'Paused') + '</p>';
+        return;
+      }
       const conv = j.upload_conversion || {};
       const hottest = (j.hottest_targets || []).slice(0, 6);
       let html = renderFoundingBeta(j.founding_beta) +
@@ -533,8 +549,16 @@
   async function loadRedditAcquisitionIntelligence() {
     const el = document.getElementById('reddit-acquisition-insights');
     if (!el) return;
+    if (window.COCKPIT_SAFE_MODE) {
+      el.innerHTML = '<p class="org-metric-foot"><strong>Paused</strong> — Reddit acquisition disabled during stabilization.</p>';
+      return;
+    }
     try {
       const j = await api('/api/operator/reddit-acquisition');
+      if (j && j.paused) {
+        el.innerHTML = '<p class="org-metric-foot">' + escapeHtml(j.message || 'Paused') + '</p>';
+        return;
+      }
       const conv = j.upload_conversion || {};
       const pending = j.pending_opportunities || [];
       window.__redditPendingMap = {};
@@ -833,8 +857,16 @@
   async function loadOrganismObservability() {
     const el = document.getElementById('organism-observability-insights');
     if (!el) return;
+    if (window.COCKPIT_SAFE_MODE) {
+      el.innerHTML = '<p class="org-metric-foot"><strong>Paused</strong> — organism observability disabled during stabilization.</p>';
+      return;
+    }
     try {
       const j = await api('/api/operator/organism-observability');
+      if (j && j.paused) {
+        el.innerHTML = '<p class="org-metric-foot">' + escapeHtml(j.message || 'Paused') + '</p>';
+        return;
+      }
       const uf = j.upload_funnel || {};
       const af = j.acquisition_funnel || {};
       const ov = j.overlay_usefulness || {};
@@ -940,16 +972,30 @@
   (async function boot() {
     const root = document.getElementById('org-control-root');
     try {
+      if (window.CockpitStable && CockpitStable.init) {
+        await CockpitStable.init();
+      }
       initProjects();
       if (window.OperatorCockpit && OperatorCockpit.init) {
         await OperatorCockpit.init(root);
       }
       await loadSmtpStatus();
-      await refreshAll();
-      if (window.KnowledgeOverlay && KnowledgeOverlay.initAuto) {
-        KnowledgeOverlay.initAuto({ rootSelector: '#guidance-panels' });
+      if (window.COCKPIT_SAFE_MODE) {
+        if (window.CockpitStable && CockpitStable.renderSafeShell) {
+          CockpitStable.renderSafeShell(root);
+        }
+        await refreshAllSafeMode();
+      } else {
+        await refreshAll();
+        if (window.KnowledgeOverlay && KnowledgeOverlay.initAuto) {
+          KnowledgeOverlay.initAuto({ rootSelector: '#guidance-panels' });
+        }
       }
-      const sync = function () { refreshAll(); loadSmtpStatus(); };
+      const sync = function () {
+        if (window.COCKPIT_SAFE_MODE) refreshAllSafeMode();
+        else refreshAll();
+        loadSmtpStatus();
+      };
       document.getElementById('kcSearchBtn')?.addEventListener('click', searchKnowledgeCockpit);
       document.getElementById('kcSearchInput')?.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') searchKnowledgeCockpit();

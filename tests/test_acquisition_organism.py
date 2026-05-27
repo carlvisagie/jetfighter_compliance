@@ -20,7 +20,8 @@ from services.acquisition.orchestration import (
 from services.acquisition.qualification import qualify_lead
 from services.acquisition.routing import build_upload_route
 from services.acquisition.signals import detect_signals
-from services.acquisition import learning, telemetry
+from services.acquisition import learning
+from services.acquisition import telemetry
 from services.acquisition.intelligence_paths import (
     TARGETS_JSONL,
     WINNERS_JSONL,

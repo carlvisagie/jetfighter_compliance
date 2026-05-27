@@ -171,19 +171,13 @@ async def _boot_worker():
     log_boot("heavy_subsystems", "skipped", "inquiry/upload/static only")
 
 
-def _safe_mode_block(feature: str) -> Optional[JSONResponse]:
-    from services.runtime_boot import is_safe_mode, safe_mode_blocked_detail
+def _safe_mode_block(module: str = "acquisition") -> Optional[JSONResponse]:
+    """POST run endpoints — 503 with paused payload, no heavy imports before guard."""
+    from services.runtime_boot import module_pause_payload, should_pause_module
 
-    if not is_safe_mode():
+    if not should_pause_module(module):
         return None
-    return JSONResponse(
-        status_code=503,
-        content={
-            "ok": False,
-            "error_code": "safe_mode",
-            "operator_message": safe_mode_blocked_detail(feature),
-        },
-    )
+    return JSONResponse(status_code=503, content=module_pause_payload(module))
 
 
 # ---------- Health ----------
@@ -1152,6 +1146,11 @@ def operator_customer_friction(days: int = 14):
 
 @app.get("/api/operator/organism-observability")
 def operator_organism_observability(request: Request, limit: int = 500):
+    from services.runtime_boot import module_pause_response
+
+    paused = module_pause_response("observability")
+    if paused is not None:
+        return paused
     from services.organism_observability import get_operator_cockpit_observability
     from services.production import require_ops_access
 
@@ -1171,6 +1170,11 @@ def operator_evidence_intelligence(project_id: str = ""):
 
 @app.get("/api/operator/acquisition-intelligence")
 def operator_acquisition_intelligence():
+    from services.runtime_boot import module_pause_response
+
+    paused = module_pause_response("acquisition")
+    if paused is not None:
+        return paused
     from services.acquisition.orchestration import get_operator_dashboard
 
     return get_operator_dashboard()
@@ -1180,13 +1184,13 @@ def operator_acquisition_intelligence():
 async def operator_acquisition_intelligence_run(body: dict = Body(default={})):
     import logging
 
-    from services.acquisition.orchestration import ingest_public_signal, run_acquisition_cycle
     from services.runtime_blocking import run_blocking
 
     logger = logging.getLogger(__name__)
-    blocked = _safe_mode_block("acquisition intelligence run")
+    blocked = _safe_mode_block("acquisition")
     if blocked is not None:
         return blocked
+    from services.acquisition.orchestration import ingest_public_signal, run_acquisition_cycle
 
     try:
         if body.get("public_text"):
@@ -1299,6 +1303,11 @@ async def operator_operational_alerts_digest(body: dict = Body(default={})):
 
 @app.get("/api/operator/reddit-acquisition")
 def operator_reddit_acquisition():
+    from services.runtime_boot import module_pause_response
+
+    paused = module_pause_response("acquisition")
+    if paused is not None:
+        return paused
     from services.acquisition.connectors.reddit import get_operator_dashboard
 
     return get_operator_dashboard()
@@ -1310,13 +1319,13 @@ async def operator_reddit_acquisition_run(body: dict = Body(default={})):
 
     from fastapi.responses import JSONResponse
 
-    from services.acquisition.connectors.reddit import run_reddit_acquisition_cycle
     from services.runtime_blocking import run_blocking
 
     logger = logging.getLogger(__name__)
-    blocked = _safe_mode_block("Reddit acquisition run")
+    blocked = _safe_mode_block("acquisition")
     if blocked is not None:
         return blocked
+    from services.acquisition.connectors.reddit import run_reddit_acquisition_cycle
     broad = bool(body.get("founding_beta_broad") or body.get("founding_beta_discovery"))
     try:
         result = await run_blocking(
@@ -1491,6 +1500,11 @@ async def operator_knowledge_cockpit_context(body: dict = Body(default={})):
 
 @app.post("/api/operator/knowledge-cockpit/overlay")
 async def operator_knowledge_cockpit_overlay(body: dict = Body(default={})):
+    from services.runtime_boot import module_pause_response
+
+    paused = module_pause_response("knowledge")
+    if paused is not None:
+        return paused
     from services.knowledge_cockpit.contextual_overlay import build_overlay
     from services.knowledge_cockpit.telemetry import emit_knowledge_event
 
@@ -1514,6 +1528,11 @@ async def operator_knowledge_cockpit_overlay(body: dict = Body(default={})):
 
 @app.post("/api/operator/knowledge-cockpit/telemetry")
 async def operator_knowledge_cockpit_telemetry(request: Request, body: dict = Body(default={})):
+    from services.runtime_boot import module_pause_response
+
+    paused = module_pause_response("knowledge")
+    if paused is not None:
+        return paused
     from services.knowledge_cockpit.telemetry import emit_knowledge_event
     from services.production import require_ops_access
 

@@ -48,17 +48,12 @@ def _append_jsonl(filename: str, record: Dict[str, Any], base: Optional[Path] = 
 
 
 def _load_jsonl(filename: str, base: Optional[Path] = None, limit: int = 300) -> List[Dict[str, Any]]:
+    from ....lazy_io import load_jsonl
+
     path = ensure_reddit_dir(base) / filename
     if not path.is_file():
         return []
-    rows = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            try:
-                rows.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
-    return rows[-limit:]
+    return load_jsonl(path, limit=limit)
 
 
 def _update_draft_status(post_id: str, status: str, base: Optional[Path] = None, **extra: Any) -> None:

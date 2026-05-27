@@ -84,4 +84,6 @@ def test_reddit_run_blocked_in_safe_mode(client, monkeypatch):
         json={"queries": ["test"], "max_posts": 1},
     )
     assert r.status_code == 503
-    assert r.json().get("error_code") == "safe_mode"
+    body = r.json()
+    assert body.get("paused") is True
+    assert body.get("safe_mode") is True

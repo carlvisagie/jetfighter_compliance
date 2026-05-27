@@ -37,15 +37,13 @@ def _entities_path(base: Optional[Path] = None) -> Path:
     return memory_dir(base) / ENTITIES_FILE
 
 
-def load_entities(base: Optional[Path] = None) -> List[Dict[str, Any]]:
+def load_entities(base: Optional[Path] = None, *, limit: int = 5000) -> List[Dict[str, Any]]:
+    from ..lazy_io import load_jsonl
+
     path = _entities_path(base)
     if not path.exists():
         return []
-    out = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            out.append(json.loads(line))
-    return out
+    return load_jsonl(path, limit=limit)
 
 
 def build_indexes(entities: List[Dict[str, Any]]) -> Dict[str, Any]:

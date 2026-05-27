@@ -1,10 +1,12 @@
-"""Production boot control — safe mode, scheduler kill-switch, startup env audit."""
+"""Production boot control — safe mode, module flags, scheduler kill-switch."""
 from __future__ import annotations
 
 import logging
 import os
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+
+from fastapi.responses import JSONResponse
 
 from .production import is_production
 
@@ -18,12 +20,14 @@ def _env_raw(name: str) -> str | None:
     return os.getenv(name)
 
 
+def _env_truthy(name: str, *, default: bool) -> bool:
+    raw = _env_raw(name)
+    if raw is None:
+        return default
+    return str(raw).strip().lower() in ("1", "true", "yes", "on")
+
+
 def is_safe_mode() -> bool:
-    """
-    Safe/minimal boot. Production defaults to safe when KYC_SAFE_MODE is unset
-    (Render Dashboard often lacks vars that exist only in render.yaml).
-  Explicit opt-out: KYC_SAFE_MODE=false
-    """
     raw = _env_raw("KYC_SAFE_MODE")
     norm = str(raw if raw is not None else "").strip().lower()
     if norm in ("0", "false", "no", "off"):
@@ -35,14 +39,20 @@ def is_safe_mode() -> bool:
     return False
 
 
+def manual_acquisition_enabled() -> bool:
+    return _env_truthy("KYC_ENABLE_MANUAL_ACQUISITION", default=not is_production())
+
+
+def knowledge_overlay_enabled() -> bool:
+    return _env_truthy("KYC_ENABLE_KNOWLEDGE_OVERLAY", default=not is_production())
+
+
+def observability_enabled() -> bool:
+    return _env_truthy("KYC_ENABLE_OBSERVABILITY", default=not is_production())
+
+
 def schedulers_enabled() -> bool:
-    """Stabilization: schedulers OFF unless explicitly KYC_SCHEDULERS_ENABLED=true."""
-    return str(_env_raw("KYC_SCHEDULERS_ENABLED") or "").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
+    return _env_truthy("KYC_SCHEDULERS_ENABLED", default=False)
 
 
 def defer_scheduler_seconds() -> float:
@@ -53,13 +63,44 @@ def heavy_schedulers_enabled() -> bool:
     return schedulers_enabled() and not is_safe_mode()
 
 
+def should_pause_module(module: str) -> bool:
+    """True when module must not run (safe mode or feature flag off)."""
+    if is_safe_mode():
+        return True
+    if module == "acquisition":
+        return not manual_acquisition_enabled()
+    if module == "knowledge":
+        return not knowledge_overlay_enabled()
+    if module == "observability":
+        return not observability_enabled()
+    return False
+
+
+def module_pause_payload(module: str) -> Dict[str, Any]:
+    return {
+        "ok": False,
+        "safe_mode": is_safe_mode(),
+        "paused": True,
+        "message": "Module paused during stabilization",
+        "module": module,
+    }
+
+
+def module_pause_response(module: str) -> Optional[JSONResponse]:
+    if not should_pause_module(module):
+        return None
+    return JSONResponse(status_code=200, content=module_pause_payload(module))
+
+
 def audit_boot_env() -> Dict[str, str]:
-    """Log critical env vars at boot (stdout + logger + boot log)."""
     global _ENV_SNAPSHOT
     keys = (
         "KYC_SAFE_MODE",
         "KYC_REQUIRE_SAFE_MODE",
         "KYC_SCHEDULERS_ENABLED",
+        "KYC_ENABLE_MANUAL_ACQUISITION",
+        "KYC_ENABLE_KNOWLEDGE_OVERLAY",
+        "KYC_ENABLE_OBSERVABILITY",
         "ENVIRONMENT",
         "RENDER_EXTERNAL_URL",
     )
@@ -80,13 +121,7 @@ def audit_boot_env() -> Dict[str, str]:
 
 
 def enforce_safe_mode_required() -> None:
-    """Crash fast if production expects safe mode but env disables it."""
-    if str(_env_raw("KYC_REQUIRE_SAFE_MODE") or "").strip().lower() not in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    ):
+    if not _env_truthy("KYC_REQUIRE_SAFE_MODE", default=False):
         return
     if is_safe_mode():
         log_boot("safe_mode", "enforced", "ok")
@@ -114,10 +149,13 @@ def boot_log_snapshot() -> Dict[str, Any]:
     return {
         "safe_mode": is_safe_mode(),
         "schedulers_enabled": schedulers_enabled(),
+        "manual_acquisition": manual_acquisition_enabled(),
+        "knowledge_overlay": knowledge_overlay_enabled(),
+        "observability": observability_enabled(),
         "env": dict(_ENV_SNAPSHOT),
         "entries": list(_BOOT_LOG),
     }
 
 
 def safe_mode_blocked_detail(feature: str) -> str:
-    return f"KYC_SAFE_MODE is enabled — {feature} is disabled during stabilization."
+    return f"Module paused during stabilization ({feature})."
