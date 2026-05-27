@@ -10,7 +10,8 @@ from fastapi.testclient import TestClient
 @pytest.fixture
 def safe_client(monkeypatch):
     monkeypatch.setenv("KYC_SAFE_MODE", "true")
-    monkeypatch.setenv("KYC_DEFER_SCHEDULER_SEC", "0")
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.delenv("KYC_SCHEDULERS_ENABLED", raising=False)
     import services.engine as engine_mod
     import services.runtime_boot as boot_mod
     import server as server_mod
@@ -27,7 +28,10 @@ def test_healthz_twenty_times(safe_client):
     for _ in range(20):
         r = safe_client.get("/healthz")
         assert r.status_code == 200
-        assert r.json().get("ok") is True
+        body = r.json()
+        assert body.get("ok") is True
+        assert body.get("safe_mode") is True
+        assert body.get("schedulers_enabled") is False
 
 
 def test_control_html_twenty_times(client):
@@ -40,7 +44,26 @@ def test_control_html_twenty_times(client):
 def test_no_scheduler_in_safe_mode(safe_client):
     import services.engine as engine_mod
 
+    engine_mod.start_worker()
     assert engine_mod.scheduler is None
+
+
+def test_production_defaults_safe_when_env_unset(monkeypatch):
+    monkeypatch.delenv("KYC_SAFE_MODE", raising=False)
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    from services.runtime_boot import is_safe_mode
+
+    assert is_safe_mode() is True
+
+
+def test_require_safe_mode_raises_when_forced_false(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("KYC_SAFE_MODE", "false")
+    monkeypatch.setenv("KYC_REQUIRE_SAFE_MODE", "true")
+    from services.runtime_boot import enforce_safe_mode_required
+
+    with pytest.raises(RuntimeError):
+        enforce_safe_mode_required()
 
 
 def test_boot_status_reports_safe_mode(safe_client):

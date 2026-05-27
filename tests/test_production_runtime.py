@@ -28,7 +28,9 @@ def test_run_blocking_delegates_to_thread():
     assert out == 5
 
 
-def test_reddit_run_endpoint_uses_thread_pool(client):
+def test_reddit_run_endpoint_uses_thread_pool(client, monkeypatch):
+    monkeypatch.setenv("KYC_SAFE_MODE", "false")
+    monkeypatch.setenv("ENVIRONMENT", "development")
     called = {"ok": False}
 
     def fake_cycle(**kwargs):
@@ -61,7 +63,9 @@ def test_static_cockpit_assets_exist(client):
         assert r.status_code == 200, path
 
 
-def test_healthz_responsive_during_blocking_work(client):
+def test_healthz_responsive_during_blocking_work(client, monkeypatch):
+    monkeypatch.setenv("KYC_SAFE_MODE", "false")
+    monkeypatch.setenv("ENVIRONMENT", "development")
     """healthz must stay 200 while a blocking job runs in the thread pool."""
 
     def slow_cycle(**kwargs):

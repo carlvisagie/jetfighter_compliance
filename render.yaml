@@ -11,8 +11,11 @@ services:
         value: production
       - key: KYC_SAFE_MODE
         value: "true"
-      - key: KYC_DEFER_SCHEDULER_SEC
-        value: "8"
+      - key: KYC_REQUIRE_SAFE_MODE
+        value: "true"
+      # Schedulers OFF until uptime proven. Set to "true" to re-enable APScheduler (one subsystem at a time).
+      # - key: KYC_SCHEDULERS_ENABLED
+      #   value: "true"
       - key: OPS_PASSWORD
         sync: false
       - key: OPS_SECRET

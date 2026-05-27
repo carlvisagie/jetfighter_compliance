@@ -183,55 +183,37 @@ scheduler = None
 
 
 def start_worker(*, heavy: bool = True) -> None:
-    """Background scheduler. In safe mode this is a no-op (callers must check first)."""
+    """
+    STABILIZATION: APScheduler fully disabled unless KYC_SCHEDULERS_ENABLED=true.
+    Re-enable one subsystem at a time after uptime is proven.
+    """
     global scheduler
-    from services.runtime_boot import heavy_schedulers_enabled, is_safe_mode, log_boot
+    from services.runtime_boot import is_safe_mode, log_boot, schedulers_enabled
 
-    if is_safe_mode():
-        log_boot("scheduler", "skipped", "KYC_SAFE_MODE")
+    if is_safe_mode() or not schedulers_enabled():
+        log_boot(
+            "scheduler",
+            "hard_disabled",
+            f"safe_mode={is_safe_mode()} schedulers_enabled={schedulers_enabled()}",
+        )
         return
     if scheduler:
         return
 
-    scheduler = BackgroundScheduler(timezone="UTC")
-    scheduler.add_job(sweep_queue, "interval", seconds=10, id="queue")
-    scheduler.add_job(check_slas, "interval", minutes=5, id="sla")
-
-    if heavy and heavy_schedulers_enabled():
-        try:
-            scheduler.add_job(nightly_exports, "cron", hour=2, minute=0, id="nightly_exports")
-        except Exception:
-            pass
-        try:
-            scheduler.add_job(weekly_digest, "cron", day_of_week="fri", hour=9, minute=0, id="weekly_digest")
-        except Exception:
-            pass
-        try:
-            from services.compliance_intelligence.scheduler import register_scheduler_jobs
-
-            register_scheduler_jobs(scheduler)
-            log_boot("compliance_scheduler", "registered", "cron jobs")
-        except Exception as e:
-            log_boot("compliance_scheduler", "failed", str(e)[:120])
-        try:
-            from services.acquisition.scheduler import register_scheduler_jobs as register_acquisition_jobs
-
-            register_acquisition_jobs(scheduler)
-            log_boot("acquisition_scheduler", "registered", "cron jobs")
-        except Exception as e:
-            log_boot("acquisition_scheduler", "failed", str(e)[:120])
-        try:
-            from services.alerts.scheduler import register_scheduler_jobs as register_alert_jobs
-
-            register_alert_jobs(scheduler)
-            log_boot("alerts_scheduler", "registered", "cron jobs")
-        except Exception as e:
-            log_boot("alerts_scheduler", "failed", str(e)[:120])
-    else:
-        log_boot("heavy_schedulers", "skipped", "minimal worker only")
-
-    scheduler.start()
-    log_boot("scheduler", "started", f"heavy={heavy and heavy_schedulers_enabled()}")
+    # --- DISABLED FOR PRODUCTION STABILIZATION (re-enable incrementally) ---
+    # scheduler = BackgroundScheduler(timezone="UTC")
+    # scheduler.add_job(sweep_queue, "interval", seconds=10, id="queue")
+    # scheduler.add_job(check_slas, "interval", minutes=5, id="sla")
+    # scheduler.add_job(nightly_exports, "cron", hour=2, minute=0, id="nightly_exports")
+    # scheduler.add_job(weekly_digest, "cron", day_of_week="fri", hour=9, minute=0, id="weekly_digest")
+    # from services.compliance_intelligence.scheduler import register_scheduler_jobs
+    # register_scheduler_jobs(scheduler)
+    # from services.acquisition.scheduler import register_scheduler_jobs as register_acquisition_jobs
+    # register_acquisition_jobs(scheduler)  # usaspending + reddit cron
+    # from services.alerts.scheduler import register_scheduler_jobs as register_alert_jobs
+    # register_alert_jobs(scheduler)
+    # scheduler.start()
+    log_boot("scheduler", "not_started", "code disabled — set KYC_SCHEDULERS_ENABLED=true to re-enable")
 
 def nightly_exports():
     """Export binders for projects touched in last 24h."""

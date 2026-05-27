@@ -149,57 +149,26 @@ cfg = {}
 
 
 # ---------- Startup ----------
-async def _start_worker_deferred(delay_sec: float) -> None:
-    import asyncio
-
-    await asyncio.sleep(delay_sec)
-    try:
-        from services.runtime_boot import is_safe_mode, log_boot
-
-        if is_safe_mode():
-            log_boot("worker", "skipped", "safe mode after defer")
-            return
-        start_worker()
-        log_boot("worker", "started", f"deferred {delay_sec}s")
-    except Exception as e:
-        logging.exception("Deferred worker failed to start: %s", e)
-
-
 @app.on_event("startup")
 async def _boot_worker():
-    import asyncio
+    from services.runtime_boot import (
+        audit_boot_env,
+        enforce_safe_mode_required,
+        is_safe_mode,
+        log_boot,
+        schedulers_enabled,
+    )
 
-    from services.runtime_boot import defer_scheduler_seconds, is_safe_mode, log_boot
+    log_boot("application", "starting", "stabilization boot")
+    audit_boot_env()
+    enforce_safe_mode_required()
 
-    log_boot("application", "starting", f"safe_mode={is_safe_mode()}")
     for w in startup_warnings():
         logging.warning("[startup] %s", w)
         log_boot("startup_warning", "warn", w[:200])
 
-    if is_safe_mode():
-        log_boot("worker", "skipped", "KYC_SAFE_MODE — no schedulers")
-        log_boot("heavy_subsystems", "skipped", "lazy-load on request only")
-        log_boot("readiness", "skipped", "safe mode")
-        return
-
-    delay = defer_scheduler_seconds()
-    if delay > 0:
-        log_boot("worker", "deferred", f"{delay}s for healthz")
-        asyncio.create_task(_start_worker_deferred(delay))
-    else:
-        try:
-            start_worker()
-            log_boot("worker", "started", "immediate")
-        except Exception as e:
-            logging.exception("Worker failed to start: %s", e)
-            log_boot("worker", "failed", str(e)[:200])
-
-    try:
-        checks = readiness_checks()
-        logging.info("[startup] readiness=%s public_base=%s", checks.get("data_writable"), checks.get("public_base_url"))
-        log_boot("readiness", "checked", f"data_writable={checks.get('data_writable')}")
-    except Exception as e:
-        log_boot("readiness", "failed", str(e)[:120])
+    log_boot("worker", "skipped", f"safe_mode={is_safe_mode()} schedulers={schedulers_enabled()}")
+    log_boot("heavy_subsystems", "skipped", "inquiry/upload/static only")
 
 
 def _safe_mode_block(feature: str) -> Optional[JSONResponse]:
@@ -220,16 +189,31 @@ def _safe_mode_block(feature: str) -> Optional[JSONResponse]:
 # ---------- Health ----------
 @app.get("/healthz")
 def health():
-    """Liveness — no I/O, no schedulers, no subsystem imports (Render healthCheckPath)."""
-    return {"ok": True, "service": "kyc-backend"}
+    """Liveness — no I/O, no schedulers (Render healthCheckPath)."""
+    from services.runtime_boot import is_safe_mode, schedulers_enabled
+
+    return {
+        "ok": True,
+        "service": "kyc-backend",
+        "safe_mode": is_safe_mode(),
+        "schedulers_enabled": schedulers_enabled(),
+    }
 
 
 @app.get("/api/ops/boot-status")
 def ops_boot_status():
-    """Operator-visible startup log (safe mode, deferred worker, skipped subsystems)."""
-    from services.runtime_boot import boot_log_snapshot
+    """Operator-visible startup log (env audit, safe mode, scheduler kill-switch)."""
+    import os
 
-    return {"ok": True, **boot_log_snapshot()}
+    from services.runtime_boot import boot_log_snapshot, is_safe_mode, schedulers_enabled
+
+    return {
+        "ok": True,
+        "KYC_SAFE_MODE_raw": os.getenv("KYC_SAFE_MODE"),
+        "safe_mode_effective": is_safe_mode(),
+        "schedulers_enabled": schedulers_enabled(),
+        **boot_log_snapshot(),
+    }
 
 
 @app.get("/health/ready")
