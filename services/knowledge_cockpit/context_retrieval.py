@@ -51,6 +51,18 @@ def get_dashboard() -> Dict[str, Any]:
         "concept_count": len(search_concepts("", limit=100)),
         "authoritative_sources": load_authoritative_sources(),
         "suggested_next_learning": suggest_next_learning(),
+        "doctrine_doc": "docs/KYC_ORGANISM_DOCTRINE.md",
+        "overlay": {
+            "name": "Contextual Knowledge Overlay",
+            "embedded_in": "ui/control.html",
+            "questions": [
+                "what_am_i_looking_at",
+                "why_it_matters",
+                "what_terms_mean",
+                "what_to_watch_for",
+                "what_to_do_next",
+            ],
+        },
         "deprecated_import_note": (
             "Legacy desktop encyclopedia folders are import-only; production reads data/knowledge_cockpit in this repo."
         ),

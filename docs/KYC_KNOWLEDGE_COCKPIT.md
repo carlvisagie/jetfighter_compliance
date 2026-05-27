@@ -2,6 +2,12 @@
 
 Canonical operator mentor layer inside the KYC platform (`data/knowledge_cockpit/` + `services/knowledge_cockpit/`).
 
+Doctrine: `docs/KYC_ORGANISM_DOCTRINE.md`
+
+## Contextual Knowledge Overlay
+
+Embedded in `ui/control.html` — collapsible panel via **Explain view** and per-item **Explain** on Reddit, compliance, and evidence. Not a separate app.
+
 ## APIs (ops-protected)
 
 | Method | Path |
@@ -9,8 +15,12 @@ Canonical operator mentor layer inside the KYC platform (`data/knowledge_cockpit
 | GET | `/api/operator/knowledge-cockpit` |
 | GET | `/api/operator/knowledge-cockpit/search?q=` |
 | GET | `/api/operator/knowledge-cockpit/concept/{id}` |
+| GET | `/api/operator/knowledge-cockpit/graph/{id}` |
+| GET | `/api/operator/knowledge-cockpit/recent` |
+| GET | `/api/operator/knowledge-cockpit/audit` |
 | POST | `/api/operator/knowledge-cockpit/explain` |
 | POST | `/api/operator/knowledge-cockpit/context` |
+| POST | `/api/operator/knowledge-cockpit/overlay` |
 
 Workflow runbooks remain at `/api/knowledge/*` via `services/knowledge_index.py`.
 

@@ -140,3 +140,61 @@ def test_standalone_data_paths_only():
 
     assert "knowledge_cockpit" in str(KNOWLEDGE_DIR).replace("\\", "/")
     assert CONCEPTS_FILE.is_file()
+
+
+def test_contextual_overlay_reddit_five_questions():
+    from services.knowledge_cockpit.contextual_overlay import build_overlay
+
+    out = build_overlay(
+        view="reddit_opportunity",
+        payload={
+            "title": "CMMC level 2 questionnaire help",
+            "body": "Customer sent security questionnaire — overwhelmed",
+            "prey_score": 72,
+            "author_intent": "seeker",
+            "discovery_source_cluster": "direct_cmmc",
+        },
+    )
+    ov = out["overlay"]
+    assert ov["what_am_i_looking_at"]
+    assert ov["why_it_matters"]
+    assert isinstance(ov["what_to_do_next"], list)
+
+
+def test_migration_audit_standalone():
+    from services.knowledge_cockpit.migration_audit import run_migration_audit
+
+    report = run_migration_audit()
+    assert report["standalone"] is True
+    assert report["runtime_external_dependencies"] is False
+    assert report["files"]["concepts"]["exists"] is True
+
+
+def test_import_pipeline_requires_explicit_source():
+    from services.knowledge_cockpit.import_pipeline import run_import
+
+    out = run_import()
+    assert out["ok"] is False
+    assert "source_path" in out.get("error", "")
+
+
+def test_overlay_api(client):
+    r = client.post(
+        "/api/operator/knowledge-cockpit/overlay",
+        json={"view": "telemetry_signal", "payload": {"event_type": "fetch_failed", "subsystem": "reddit"}},
+    )
+    assert r.status_code == 200
+    assert r.json()["overlay"]["what_am_i_looking_at"]
+
+
+def test_control_html_has_contextual_overlay(client):
+    r = client.get("/ui/control.html")
+    assert r.status_code == 200
+    assert "contextual-knowledge-overlay" in r.text
+    assert "contextual-knowledge-overlay.js" in r.text
+    assert "ckoToggleBtn" in r.text
+
+
+def test_encyclopedia_seed_in_repo():
+    seed = ROOT / "data" / "knowledge_cockpit" / "encyclopedia_seed.json"
+    assert seed.is_file()

@@ -63,3 +63,22 @@ def emit_knowledge_event(
         link_operator_learning(event_type, concept_id=concept_id, metadata=meta)
     except Exception:
         pass
+
+
+def get_recent_lookups(*, limit: int = 20) -> list:
+    """Recent operator knowledge events from in-repo jsonl."""
+    if not RECENT_LOOKUPS_FILE.is_file():
+        return []
+    lines = RECENT_LOOKUPS_FILE.read_text(encoding="utf-8").splitlines()
+    rows = []
+    for line in reversed(lines[-500:]):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rows.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+        if len(rows) >= limit:
+            break
+    return rows

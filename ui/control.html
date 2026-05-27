@@ -34,6 +34,7 @@
     <div class="kyc-ops-badges">
       <span class="org-pulse"><span class="org-pulse-dot" aria-hidden="true"></span><span id="org-pulse-label">Loading…</span></span>
       <span class="kyc-pill" id="health">checking</span>
+      <button type="button" class="kyc-btn kyc-btn--secondary" id="ckoToggleBtn" title="Contextual Knowledge Overlay">Explain view</button>
       <button type="button" class="kyc-btn kyc-btn--secondary" id="orgRefresh">Refresh organism</button>
     </div>
   </div>
@@ -120,7 +121,7 @@
         <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="knowledge-cockpit-panel">
           <span class="kyc-label-overline">Knowledge Cockpit</span>
           <h3 style="margin-top:0;">Operational mentor</h3>
-          <p class="org-metric-foot">Compliance concepts, evidence discipline, and runbooks — all from platform data. No external folders required.</p>
+          <p class="org-metric-foot">Use <strong>Explain view</strong> (top right) or <strong>Explain</strong> on any queue item. The Contextual Knowledge Overlay teaches in place — no separate app.</p>
           <div class="cockpit-knowledge-search">
             <input type="search" id="kcSearchInput" placeholder="Search CMMC, SSP, questionnaire…" aria-label="Search concepts">
             <button type="button" class="btn secondary" id="kcSearchBtn">Search</button>
@@ -287,6 +288,23 @@
   </main>
 
   <footer class="kyc-footer">KeepYourContracts.com · Organism operations</footer>
+  <aside id="contextual-knowledge-overlay" class="cko-overlay cko-overlay--collapsed" aria-label="Contextual Knowledge Overlay" role="complementary">
+    <header class="cko-overlay-head">
+      <div>
+        <span class="kyc-label-overline">Knowledge Cockpit</span>
+        <h3 data-cko-title>Contextual mentor</h3>
+      </div>
+      <div class="cko-overlay-actions">
+        <button type="button" class="btn secondary" data-cko-collapse title="Collapse">−</button>
+        <button type="button" class="btn secondary" data-cko-close title="Close">×</button>
+      </div>
+    </header>
+    <div class="cko-overlay-body" data-cko-body>
+      <p class="org-metric-foot">Select a Reddit prospect, compliance change, or evidence item — or click Explain view.</p>
+    </div>
+  </aside>
+
+  <script src="/ui/assets/js/contextual-knowledge-overlay.js"></script>
   <script src="/ui/assets/js/organism-intel.js"></script>
   <script src="/ui/assets/js/operator-cockpit.js"></script>
   <script src="/ui/assets/js/operator-guidance.js"></script>
@@ -411,6 +429,9 @@
       body: JSON.stringify({ text: text }),
     });
     renderKnowledgeExplain(out);
+    if (window.KnowledgeOverlay && text) {
+      window.KnowledgeOverlay.showGeneric(text);
+    }
   }
   async function searchKnowledgeCockpit() {
     const q = (document.getElementById('kcSearchInput') || {}).value || '';
@@ -482,6 +503,7 @@
       const j = await api('/api/operator/reddit-acquisition');
       const conv = j.upload_conversion || {};
       const pending = j.pending_opportunities || [];
+      window.__redditPendingMap = {};
       let html =
         '<p class="org-metric-foot">Upload conversion: ' + ((conv.rate || 0) * 100).toFixed(1) + '% · Organism handles safety, pacing, and wording.</p>';
       if (!pending.length) {
@@ -489,6 +511,7 @@
       } else {
         html += '<div class="reddit-approval-queue">';
         pending.forEach(function (o) {
+          if (o.post_id) window.__redditPendingMap[o.post_id] = o;
           html +=
             '<article class="reddit-approval-card">' +
             '<p class="reddit-approval-meta"><strong>r/' + escapeHtml(o.subreddit || '') + '</strong> · Prey: <strong>' + (o.prey_score || 0) + '</strong> · Cluster: <strong>' + escapeHtml(o.discovery_source_cluster || 'unknown') + '</strong>' +
@@ -505,6 +528,7 @@
             '<p class="org-metric-foot">' + escapeHtml(o.organism_rationale || '') + '</p>' +
             '<pre class="reddit-paste-preview">' + escapeHtml(o.paste_text || '') + '</pre>' +
             '<div class="kyc-btn-row">' +
+            '<button type="button" class="btn secondary reddit-btn-explain cko-btn-explain" data-post-id="' + escapeHtml(o.post_id || '') + '">Explain</button>' +
             '<button type="button" class="btn reddit-btn-approve" data-post-id="' + escapeHtml(o.post_id || '') + '">APPROVE</button>' +
             '<button type="button" class="btn secondary reddit-btn-deny" data-post-id="' + escapeHtml(o.post_id || '') + '">DENY</button>' +
             (o.url ? '<a class="btn secondary" href="' + escapeHtml(o.url) + '" target="_blank" rel="noopener">View post</a>' : '') +
@@ -513,6 +537,7 @@
         html += '</div>';
       }
       el.innerHTML = html;
+      if (window.KnowledgeOverlay) window.KnowledgeOverlay.wireRedditQueue(el);
       el.querySelectorAll('.reddit-btn-approve').forEach(function (btn) {
         btn.addEventListener('click', async function () {
           const pid = btn.getAttribute('data-post-id');
@@ -660,7 +685,8 @@
       if (changes.length) {
         html += '<p class="org-metric-foot"><strong>Recent changes:</strong></p><ul class="guidance-list">';
         changes.forEach(function (c) {
-          html += '<li>' + escapeHtml(c.source_id || '') + ': ' + escapeHtml((c.diff_summary || '').slice(0, 120)) + '</li>';
+          html += '<li><button type="button" class="btn secondary cko-compliance-explain" data-source="' + escapeHtml(c.source_id || '') + '" data-summary="' + escapeHtml((c.diff_summary || '').slice(0, 400)) + '">Explain</button> ' +
+            escapeHtml(c.source_id || '') + ': ' + escapeHtml((c.diff_summary || '').slice(0, 120)) + '</li>';
         });
         html += '</ul>';
       }
@@ -668,6 +694,15 @@
         html += '<p class="org-metric-foot"><strong>Weekly digest:</strong> ' + escapeHtml(j.latest_digest.week || '') + '</p>';
       }
       el.innerHTML = html;
+      el.querySelectorAll('.cko-compliance-explain').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          if (!window.KnowledgeOverlay) return;
+          window.KnowledgeOverlay.show('compliance_update', {
+            source_id: btn.getAttribute('data-source'),
+            diff_summary: btn.getAttribute('data-summary'),
+          });
+        });
+      });
     } catch (e) {
       el.innerHTML = '<p class="org-metric-foot">Compliance intelligence unavailable.</p>';
     }
@@ -683,7 +718,7 @@
     try {
       const j = await api('/api/operator/evidence-intelligence?project_id=' + encodeURIComponent(projectId));
       const cs = j.confidence_summary || {};
-      el.innerHTML =
+      let html =
         '<ul class="guidance-list">' +
         '<li><strong>Files uploaded:</strong> ' + (j.files_uploaded || 0) + '</li>' +
         '<li><strong>Files analyzed:</strong> ' + (j.files_analyzed || 0) + '</li>' +
@@ -696,7 +731,17 @@
         '<p class="org-metric-foot"><strong>Profile:</strong> ' +
         escapeHtml(JSON.stringify(j.profile || {})) + '</p>' +
         '<p class="org-metric-foot"><strong>Next:</strong> ' +
-        ((j.next_actions || []).map(function (a) { return escapeHtml(a); }).join(' ') || '—') + '</p>';
+        ((j.next_actions || []).map(function (a) { return escapeHtml(a); }).join(' ') || '—') + '</p>' +
+        '<button type="button" class="btn secondary" id="evidenceExplainBtn">Explain evidence context</button>';
+      el.innerHTML = html;
+      document.getElementById('evidenceExplainBtn')?.addEventListener('click', function () {
+        if (!window.KnowledgeOverlay) return;
+        window.KnowledgeOverlay.show('evidence_upload', {
+          filename: 'project_' + projectId + '_bundle',
+          document_type: (j.profile && j.profile.primary_type) || 'mixed',
+          text_preview: JSON.stringify(j.profile || {}).slice(0, 500),
+        });
+      });
     } catch (e) {
       el.innerHTML = '<p class="org-metric-foot">Evidence intelligence unavailable.</p>';
     }
@@ -776,6 +821,16 @@
     const sync = function () { refreshAll(); loadSmtpStatus(); };
     document.getElementById('kcExplainBtn')?.addEventListener('click', explainKnowledgeText);
     document.getElementById('kcSearchBtn')?.addEventListener('click', searchKnowledgeCockpit);
+    document.getElementById('ckoToggleBtn')?.addEventListener('click', function () {
+      if (!window.KnowledgeOverlay) return;
+      const active = document.querySelector('.reddit-approval-card--active');
+      if (active) {
+        const pid = active.querySelector('.reddit-btn-explain')?.getAttribute('data-post-id');
+        const o = (window.__redditPendingMap || {})[pid];
+        if (o) { window.KnowledgeOverlay.show('reddit_opportunity', o); return; }
+      }
+      window.KnowledgeOverlay.showGeneric('Operator cockpit — mission control for burden relief and upload-first onboarding.');
+    });
     root.querySelector('#cockpitProject')?.addEventListener('change', sync);
     root.querySelector('#cockpitMode')?.addEventListener('change', sync);
   })();

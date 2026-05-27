@@ -51,6 +51,25 @@ def related_concepts(concept_id: str, *, limit: int = 10) -> List[Dict[str, Any]
     return out[:limit]
 
 
+def relationship_graph(concept_id: str = "", *, limit: int = 12) -> Dict[str, Any]:
+    """Nodes and edges for overlay relationship visualization."""
+    nodes: List[Dict[str, Any]] = []
+    edges_out: List[Dict[str, str]] = []
+    if concept_id:
+        center = get_concept(concept_id)
+        if center:
+            nodes.append({"id": center["id"], "term": center.get("term"), "role": "center"})
+        for rel in related_concepts(concept_id, limit=limit):
+            nodes.append({"id": rel["id"], "term": rel.get("term"), "role": "related"})
+            edges_out.append(
+                {"from": concept_id, "to": rel["id"], "relation": rel.get("relation", "related")}
+            )
+    else:
+        for c in list_concepts()[: min(limit, 8)]:
+            nodes.append({"id": c["id"], "term": c.get("term"), "role": "seed"})
+    return {"ok": True, "nodes": nodes, "edges": edges_out}
+
+
 def suggest_next_learning(concept_id: str = "", *, limit: int = 3) -> List[Dict[str, Any]]:
     if concept_id:
         rel = related_concepts(concept_id, limit=limit)

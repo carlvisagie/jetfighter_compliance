@@ -1365,6 +1365,41 @@ async def operator_knowledge_cockpit_context(body: dict = Body(default={})):
     )
 
 
+@app.post("/api/operator/knowledge-cockpit/overlay")
+async def operator_knowledge_cockpit_overlay(body: dict = Body(default={})):
+    from services.knowledge_cockpit.contextual_overlay import build_overlay
+    from services.knowledge_cockpit.telemetry import emit_knowledge_event
+
+    view = str(body.get("view") or "generic")
+    payload = body.get("payload")
+    if not isinstance(payload, dict):
+        payload = {k: v for k, v in body.items() if k != "view"}
+    out = build_overlay(view=view, payload=payload)
+    emit_knowledge_event("overlay_opened", query=view, metadata={"view": view})
+    return out
+
+
+@app.get("/api/operator/knowledge-cockpit/recent")
+def operator_knowledge_cockpit_recent(limit: int = 15):
+    from services.knowledge_cockpit.telemetry import get_recent_lookups
+
+    return {"ok": True, "recent": get_recent_lookups(limit=limit)}
+
+
+@app.get("/api/operator/knowledge-cockpit/graph/{concept_id}")
+def operator_knowledge_cockpit_graph(concept_id: str, limit: int = 12):
+    from services.knowledge_cockpit.concept_graph import relationship_graph
+
+    return relationship_graph(concept_id, limit=limit)
+
+
+@app.get("/api/operator/knowledge-cockpit/audit")
+def operator_knowledge_cockpit_audit():
+    from services.knowledge_cockpit.migration_audit import run_migration_audit
+
+    return run_migration_audit()
+
+
 # ---------- Ping Host + Test Webhook ----------
 from fastapi import Query
 import httpx
