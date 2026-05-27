@@ -111,7 +111,38 @@ def test_secondary_help_cta_and_panel(name: str):
     html = (UI / name).read_text(encoding="utf-8", errors="replace").lower()
     assert SECONDARY_HELP_CTA in html
     assert "kyc-upload-help-panel" in html
-    assert "upload whatever you already have" in html or "whatever you already have" in html
+    if name == "inquiry.html":
+        assert "we organize the rest" in html
+        assert "kyc-upload-help-panel--compact" in html
+    else:
+        assert "upload whatever you already have" in html or "whatever you already have" in html
+
+
+def test_inquiry_single_dominant_upload_cta():
+    html = (UI / "inquiry.html").read_text(encoding="utf-8", errors="replace")
+    body = html.split("</head>", 1)[-1]
+    assert body.count("Upload my paperwork") == 1
+    assert "data-kyc-focus-upload" not in html
+    help_start = html.index("kyc-upload-help-panel")
+    help_end = html.index("</details>", help_start)
+    help_block = html[help_start:help_end]
+    assert "kyc-upload-cta-primary" not in help_block
+    assert "kyc-upload-help-list" not in help_block
+
+
+def test_inquiry_uploader_follows_compact_helper():
+    html = (UI / "inquiry.html").read_text(encoding="utf-8", errors="replace")
+    assert html.index("upload-help") < html.index("dropZone")
+    assert "kyc-upload-card--primary" in html
+
+
+def test_inquiry_upload_momentum_copy():
+    lower = (UI / "inquiry.html").read_text(encoding="utf-8", errors="replace").lower()
+    assert "you do not need perfect paperwork" in lower
+    assert "messy is fine" in lower
+    assert "partial is fine" in lower
+    assert "we organize the rest" in lower
+    assert "for example:" not in lower
 
 
 def test_primary_upload_cta_dominant_on_shop():
