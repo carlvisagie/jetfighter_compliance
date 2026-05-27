@@ -77,7 +77,7 @@ def format_target_for_panel(
     headline = preview.get("headline") or messaging.CORE_HEADLINE
     body = preview.get("body") or ""
     route = lead.inquiry_routed_link or ""
-    return {
+    panel = {
         "target_id": target_id or f"TGT-{lead.lead_id}",
         "lead_id": lead.lead_id,
         "company_name": lead.company_name,
@@ -99,6 +99,42 @@ def format_target_for_panel(
         "status": lead.status,
         "when_utc": utc_now(),
     }
+    return panel
+
+
+def enrich_target_with_founding_beta(
+    panel: Dict[str, Any],
+    row: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Attach paperwork prediction fields for operator Acquisition panel."""
+    row = row or {}
+    fb = row.get("founding_beta_enrichment")
+    if not fb and "usaspending" in (panel.get("source") or ""):
+        try:
+            from services.founding_beta.paperwork_prediction import predict_federal_supplier_paperwork
+
+            fb = predict_federal_supplier_paperwork(
+                panel.get("company_name", ""),
+                notes=row.get("notes", ""),
+                segment=row.get("segment", ""),
+            )
+        except Exception:
+            fb = {}
+    if fb:
+        panel.update(
+            {
+                "likely_paperwork_prediction": fb.get("likely_paperwork_prediction"),
+                "likely_paperwork_indicators": fb.get("likely_paperwork_indicators"),
+                "likely_compliance_burden": fb.get("likely_compliance_burden"),
+                "likely_outreach_angle": fb.get("likely_outreach_angle"),
+                "likely_evidence_request": fb.get("likely_evidence_request"),
+                "recommended_founding_beta_pitch": fb.get("recommended_founding_beta_pitch"),
+                "why_might_upload_paperwork": fb.get("why_might_upload_paperwork"),
+                "beta_fit": fb.get("beta_fit"),
+                "recommended_next_action": fb.get("recommended_next_action"),
+            }
+        )
+    return panel
 
 
 def ingest_discovery_candidate(
@@ -181,6 +217,7 @@ def ingest_discovery_candidate(
         source=cleaned["source"],
         source_url=cleaned["source_url"],
     )
+    target = enrich_target_with_founding_beta(target, row=row)
     _append_intel(TARGETS_JSONL, target, base)
     _append_intel(
         SIGNALS_JSONL,

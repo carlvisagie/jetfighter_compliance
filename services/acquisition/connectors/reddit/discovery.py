@@ -125,6 +125,7 @@ def discover_posts(
     pause_seconds: float = MIN_SECONDS_BETWEEN_REQUESTS,
     learning_state: Optional[Dict[str, Any]] = None,
     max_queries: Optional[int] = None,
+    founding_beta_broad: bool = False,
     base: Optional[Any] = None,
 ) -> List[Dict[str, Any]]:
     """
@@ -147,7 +148,13 @@ def discover_posts(
                     }
                 )
     else:
-        plan = build_cycle_discovery_plan(learning_state=learning_state)
+        if founding_beta_broad:
+            from ...intelligence.discovery_expansion import build_founding_beta_discovery_plan
+
+            plan = build_founding_beta_discovery_plan(learning_state=learning_state)
+            limit_per_query = max(limit_per_query, 10)
+        else:
+            plan = build_cycle_discovery_plan(learning_state=learning_state)
         if max_queries:
             plan["global_queries"] = plan["global_queries"][:max_queries]
 

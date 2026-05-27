@@ -92,6 +92,19 @@ def run_usaspending_live_connector(
             notes = (row.get("notes") or "") + " " + BURDEN_CONTEXT
             row = dict(row)
             row["notes"] = notes.strip()
+            try:
+                from services.founding_beta.paperwork_prediction import predict_federal_supplier_paperwork
+
+                fb = predict_federal_supplier_paperwork(
+                    row.get("company_name", ""),
+                    notes=row.get("notes", ""),
+                    segment=row.get("segment", ""),
+                    industry=row.get("industry", ""),
+                )
+                row["founding_beta_enrichment"] = fb
+                row["notes"] = (row["notes"] + "\n\n" + fb.get("likely_paperwork_prediction", "")).strip()
+            except Exception:
+                pass
 
             try:
                 out = ingest_discovery_candidate(

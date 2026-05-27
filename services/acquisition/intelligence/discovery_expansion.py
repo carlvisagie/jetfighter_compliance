@@ -146,6 +146,24 @@ CLUSTER_SUBCONTRACTOR: Tuple[str, ...] = (
     "subcontractor security requirements",
     "flowdown requirements security",
     "prime contractor requirements small business",
+    "subcontractor cybersecurity requirements",
+    "supplier onboarding security",
+)
+
+# Founding beta — broader operational surface (not CMMC-only)
+FOUNDING_BETA_EXTRA_QUERIES: Tuple[str, ...] = (
+    "prime contractor security questionnaire",
+    "customer security questionnaire small business",
+    "vendor security requirements",
+    "cybersecurity insurance questionnaire",
+    "MFA requirement customer contract",
+    "security policy template compliance",
+    "compliance paperwork overwhelmed",
+    "evidence request audit customer",
+    "government contract cybersecurity requirements",
+    "DFARS flowdown requirements",
+    "NIST 800-171 small business",
+    "security audit customer asked",
 )
 
 DISCOVERY_CLUSTERS: Dict[str, Tuple[str, ...]] = {
@@ -324,6 +342,33 @@ def build_cycle_discovery_plan(
         "global_queries": build_cycle_queries(learning_state=learning_state),
         "subreddit_searches": build_subreddit_search_plan(learning_state=learning_state),
     }
+
+
+def build_founding_beta_discovery_plan(
+    learning_state: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Wider discovery for founding beta validation — still filtered downstream."""
+    plan = build_cycle_discovery_plan(learning_state=learning_state)
+    extra_globals: List[Dict[str, str]] = []
+    used = {g["query"].lower() for g in plan.get("global_queries", [])}
+    for q in FOUNDING_BETA_EXTRA_QUERIES:
+        if q.lower() in used:
+            continue
+        extra_globals.append(
+            {
+                "query": q,
+                "discovery_source_cluster": classify_discovery_cluster(q, ""),
+            }
+        )
+        used.add(q.lower())
+    globals_merged = (plan.get("global_queries") or []) + extra_globals
+    plan["global_queries"] = globals_merged[:22]
+    plan["subreddit_searches"] = build_subreddit_search_plan(
+        learning_state=learning_state,
+        max_searches=18,
+        min_ecosystems=4,
+    )
+    return plan
 
 
 def all_expanded_queries() -> List[str]:

@@ -14,8 +14,8 @@ from ...models import utc_now
 from ...acquisition_probability import (
     DEFAULT_MIN_PREY_SCORE,
     TARGET_QUEUE_MAX,
+    TARGET_QUEUE_MIN,
     compute_adaptive_prey_threshold,
-    passes_prey_gate,
 )
 from ...routing import build_upload_route
 from . import autonomy, author_intent, classifier, draft_generation, discovery, learning, qualification, telemetry
@@ -82,18 +82,39 @@ def run_reddit_acquisition_cycle(
     campaign_id: str = "reddit-upload-first",
     message_variant: str = "A",
     pause_seconds: float = discovery.MIN_SECONDS_BETWEEN_REQUESTS,
+    founding_beta_broad: bool = False,
     base: Optional[Path] = None,
 ) -> Dict[str, Any]:
     """Discover → classify → organism plan → draft → operator queue (approve/deny only)."""
     from ...orchestration import ingest_discovery_candidate, load_recent_target_keys
 
+    from services.founding_beta.reddit_discovery import (
+        FALLBACK_MIN_FIT,
+        CycleDiagnostics,
+        classify_queue_block,
+        emit_cycle_telemetry,
+        enrich_founding_beta_candidate_fields,
+        is_founding_beta_discovery_mode,
+        passes_founding_beta_fallback_gate,
+        plan_for_founding_beta_fallback,
+    )
+    from services.acquisition.founding_beta_mode import passes_founding_beta_prey_gate
+
     state = learning.load_learning_state(base)
+    beta_discovery = founding_beta_broad or is_founding_beta_discovery_mode()
     if min_fit_score is None:
-        min_fit_score = int(state.get("min_fit_threshold", 50))
+        min_fit_score = 40 if beta_discovery else int(state.get("min_fit_threshold", 50))
     if min_prey_score is None:
         min_prey_score = int(state.get("min_prey_threshold", DEFAULT_MIN_PREY_SCORE))
+    if beta_discovery:
+        max_posts = max(max_posts, 50)
 
-    telemetry.emit("reddit_discovery_started", metadata={"connector": CONNECTOR_ID}, base=base)
+    diag = CycleDiagnostics()
+    telemetry.emit(
+        "reddit_discovery_started",
+        metadata={"connector": CONNECTOR_ID, "founding_beta_discovery": beta_discovery},
+        base=base,
+    )
     stats: Dict[str, Any] = {
         "ok": True,
         "connector": CONNECTOR_ID,
@@ -112,6 +133,7 @@ def run_reddit_acquisition_cycle(
         limit_per_query=limit_per_query,
         pause_seconds=pause_seconds,
         learning_state=state,
+        founding_beta_broad=beta_discovery,
         base=base,
     )
     posts = posts[:max_posts]
@@ -169,125 +191,17 @@ def run_reddit_acquisition_cycle(
         )
 
     queued_this_cycle = 0
-    for item in evaluated:
+    queued_post_ids: set = set()
+
+    def _queue_item(item: Dict[str, Any], *, fallback_used: bool = False) -> bool:
+        nonlocal queued_this_cycle
         post = item["post"]
         cls = item["cls"]
         qual = item["qual"]
         plan = item["plan"]
-        if plan.get("social_intelligence"):
-            telemetry.emit(
-                "trust_progression",
-                post_id=post.get("post_id", ""),
-                subreddit=post.get("subreddit", ""),
-                metadata={
-                    "relationship_state": plan.get("relationship_state"),
-                    "trust_score": plan.get("trust_score"),
-                    "engagement_strategy": plan.get("engagement_strategy"),
-                    "link_allowed": (plan.get("social_intelligence") or {}).get("link_allowed"),
-                },
-                base=base,
-            )
-
-        telemetry.emit(
-            "intent_classified",
-            post_id=post.get("post_id", ""),
-            subreddit=post.get("subreddit", ""),
-            metadata={
-                "author_intent": cls.get("author_intent"),
-                "advice_seeker_score": cls.get("advice_seeker_score"),
-                "advice_giver_score": cls.get("advice_giver_score"),
-                "recommended_action": cls.get("recommended_action"),
-            },
-            base=base,
-        )
-        if cls.get("author_intent") in author_intent.DEPLOYABLE_INTENTS:
-            telemetry.emit("advice_seeker_detected", post_id=post.get("post_id", ""), base=base)
-        if cls.get("author_intent") in ("GIVING_ADVICE", "PROMOTING_SERVICE"):
-            telemetry.emit("advice_giver_detected", post_id=post.get("post_id", ""), base=base)
-
-        prob = qual.get("acquisition_probability") or {}
-        dims = prob.get("dimension_scores") or {}
-        telemetry.emit(
-            "prey_scored",
-            post_id=post.get("post_id", ""),
-            subreddit=post.get("subreddit", ""),
-            metadata={
-                "prey_score": qual.get("prey_score"),
-                "prey_tier": qual.get("prey_tier"),
-                "predator_class": qual.get("predator_class"),
-                "predator_penalty": prob.get("predator_penalty"),
-                "queue_eligible": qual.get("queue_eligible"),
-                "burden_signals": qual.get("prey_reasons") or prob.get("prey_reasons"),
-                "operational_uncertainty": dims.get("operational_uncertainty_score"),
-                "financial_stress": dims.get("financial_stress_score"),
-                "quiet_confusion": prob.get("soft_burden_score"),
-                "discovery_cluster_used": post.get("discovery_source_cluster"),
-                "query_used": post.get("discovery_query"),
-            },
-            base=base,
-        )
-        if not qual.get("queue_eligible"):
-            telemetry.emit(
-                "low_prey_skipped",
-                post_id=post.get("post_id", ""),
-                metadata={"prey_score": qual.get("prey_score"), "predator_class": qual.get("predator_class")},
-                base=base,
-            )
-
-        if not cls.get("relevant"):
-            stats["organism_auto_skipped"] += 1
-            learning.record_outcome(
-                "organism_deferred",
-                post_id=post.get("post_id", ""),
-                subreddit=post.get("subreddit", ""),
-                metadata={"reason": "not_relevant", "cluster": post.get("discovery_source_cluster")},
-                base=base,
-            )
-            continue
-
-        if qual["fit_score"] < min_fit_score:
-            stats["organism_auto_skipped"] += 1
-            learning.record_outcome(
-                "organism_deferred",
-                post_id=post.get("post_id", ""),
-                subreddit=post.get("subreddit", ""),
-                metadata={"reason": "low_fit"},
-                base=base,
-            )
-            continue
-
-        if not passes_prey_gate(qual, cls, min_prey_score=effective_prey):
-            stats["organism_auto_skipped"] += 1
-            learning.record_outcome(
-                "low_prey_deferred",
-                post_id=post.get("post_id", ""),
-                subreddit=post.get("subreddit", ""),
-                metadata={
-                    "prey_score": qual.get("prey_score"),
-                    "predator_class": qual.get("predator_class"),
-                    "effective_prey_threshold": effective_prey,
-                },
-                base=base,
-            )
-            continue
-
-        if queued_this_cycle >= TARGET_QUEUE_MAX:
-            stats["organism_auto_skipped"] += 1
-            continue
-
-        if not plan.get("show_operator_queue"):
-            stats["organism_auto_skipped"] += 1
-            _append_jsonl(
-                IGNORED_POSTS_JSONL,
-                {
-                    "post_id": post["post_id"],
-                    "reason": plan.get("engagement_stage"),
-                    "organism_rationale": plan.get("rationale"),
-                    "when_utc": utc_now(),
-                },
-                base,
-            )
-            continue
+        if fallback_used:
+            plan = plan_for_founding_beta_fallback(plan)
+            item["plan"] = plan
 
         lead_id = f"LD-RDT-{post['post_id'][:8]}"
         variant = plan.get("wording_variant") or message_variant
@@ -377,31 +291,31 @@ def run_reddit_acquisition_cycle(
             "auto_post": False,
             "operator_actions": ["approve", "deny"],
             "discovered_utc": utc_now(),
+            "founding_beta_fallback": fallback_used,
         }
+        enrich_founding_beta_candidate_fields(
+            record, post=post, qual=qual, cls=cls, plan=plan, fallback_used=fallback_used
+        )
         discovery.append_discovered_post(record, base)
         _append_jsonl(DRAFT_REPLIES_JSONL, record, base)
         stats["drafts_created"] += 1
         stats["queued_for_operator"] += 1
         queued_this_cycle += 1
+        queued_post_ids.add(post["post_id"])
         try:
-            from ...intelligence.discovery_expansion import record_cluster_outcome
+            from services.founding_beta.telemetry import emit_beta_event
 
-            cluster = post.get("discovery_source_cluster")
-            if cluster:
-                record_cluster_outcome(state, cluster, "queued")
-                learning.save_learning_state(state, base)
+            emit_beta_event("beta_candidate_queued", metadata={"post_id": post["post_id"], "fallback": fallback_used})
         except Exception:
             pass
-
         telemetry.emit(
             "reddit_post_discovered",
             post_id=post["post_id"],
             subreddit=post.get("subreddit", ""),
-            metadata={"plan": plan, "auto_post": False},
+            metadata={"plan": plan, "auto_post": False, "founding_beta_fallback": fallback_used},
             base=base,
         )
         telemetry.emit("reddit_draft_generated", post_id=post["post_id"], metadata={"auto_post": False}, base=base)
-
         company_key = f"reddit:{post['post_id']}"
         if company_key not in seen_targets:
             seen_targets.add(company_key)
@@ -425,6 +339,130 @@ def run_reddit_acquisition_cycle(
                     stats["targets_created"] += 1
             except Exception:
                 pass
+        return True
+
+    for item in evaluated:
+        post = item["post"]
+        cls = item["cls"]
+        qual = item["qual"]
+        plan = item["plan"]
+        if plan.get("social_intelligence"):
+            telemetry.emit(
+                "trust_progression",
+                post_id=post.get("post_id", ""),
+                subreddit=post.get("subreddit", ""),
+                metadata={
+                    "relationship_state": plan.get("relationship_state"),
+                    "trust_score": plan.get("trust_score"),
+                    "engagement_strategy": plan.get("engagement_strategy"),
+                    "link_allowed": (plan.get("social_intelligence") or {}).get("link_allowed"),
+                },
+                base=base,
+            )
+
+        telemetry.emit(
+            "intent_classified",
+            post_id=post.get("post_id", ""),
+            subreddit=post.get("subreddit", ""),
+            metadata={
+                "author_intent": cls.get("author_intent"),
+                "advice_seeker_score": cls.get("advice_seeker_score"),
+                "advice_giver_score": cls.get("advice_giver_score"),
+                "recommended_action": cls.get("recommended_action"),
+            },
+            base=base,
+        )
+        if cls.get("author_intent") in author_intent.DEPLOYABLE_INTENTS:
+            telemetry.emit("advice_seeker_detected", post_id=post.get("post_id", ""), base=base)
+        if cls.get("author_intent") in ("GIVING_ADVICE", "PROMOTING_SERVICE"):
+            telemetry.emit("advice_giver_detected", post_id=post.get("post_id", ""), base=base)
+
+        prob = qual.get("acquisition_probability") or {}
+        dims = prob.get("dimension_scores") or {}
+        telemetry.emit(
+            "prey_scored",
+            post_id=post.get("post_id", ""),
+            subreddit=post.get("subreddit", ""),
+            metadata={
+                "prey_score": qual.get("prey_score"),
+                "prey_tier": qual.get("prey_tier"),
+                "predator_class": qual.get("predator_class"),
+                "predator_penalty": prob.get("predator_penalty"),
+                "queue_eligible": qual.get("queue_eligible"),
+                "burden_signals": qual.get("prey_reasons") or prob.get("prey_reasons"),
+                "operational_uncertainty": dims.get("operational_uncertainty_score"),
+                "financial_stress": dims.get("financial_stress_score"),
+                "quiet_confusion": prob.get("soft_burden_score"),
+                "discovery_cluster_used": post.get("discovery_source_cluster"),
+                "query_used": post.get("discovery_query"),
+            },
+            base=base,
+        )
+        if not qual.get("queue_eligible"):
+            telemetry.emit(
+                "low_prey_skipped",
+                post_id=post.get("post_id", ""),
+                metadata={"prey_score": qual.get("prey_score"), "predator_class": qual.get("predator_class")},
+                base=base,
+            )
+
+        block = classify_queue_block(
+            post=post,
+            cls=cls,
+            qual=qual,
+            plan=plan,
+            effective_prey=effective_prey,
+            min_fit_score=min_fit_score,
+            queued_this_cycle=queued_this_cycle,
+            target_queue_max=TARGET_QUEUE_MAX,
+        )
+        if block:
+            diag.record_block(block, post=post, qual=qual, cls=cls)
+            stats["organism_auto_skipped"] += 1
+            if block == "autonomy_defer":
+                _append_jsonl(
+                    IGNORED_POSTS_JSONL,
+                    {
+                        "post_id": post["post_id"],
+                        "reason": plan.get("engagement_stage"),
+                        "organism_rationale": plan.get("rationale"),
+                        "when_utc": utc_now(),
+                    },
+                    base,
+                )
+            continue
+
+        _queue_item(item, fallback_used=False)
+
+    if beta_discovery and queued_this_cycle < TARGET_QUEUE_MIN:
+        diag.fallback_discovery_used = True
+        fallback_fit = min(min_fit_score, FALLBACK_MIN_FIT)
+
+        for item in evaluated:
+            if queued_this_cycle >= TARGET_QUEUE_MAX:
+                break
+            post = item["post"]
+            if post["post_id"] in queued_post_ids:
+                continue
+            cls = item["cls"]
+            qual = item["qual"]
+            plan = item["plan"]
+            if not passes_founding_beta_fallback_gate(qual, cls):
+                continue
+            if qual.get("fit_score", 0) < fallback_fit and not cls.get("relevant"):
+                continue
+            if _queue_item(item, fallback_used=True):
+                diag.record_block("fallback_queued", post=post, qual=qual, cls=cls)
+
+    state["last_cycle_diagnostics"] = diag.to_dict(
+        effective_threshold=effective_prey,
+        queued=stats["queued_for_operator"],
+        discovered=stats["discovered"],
+    )
+    stats["queue_diagnostics"] = state["last_cycle_diagnostics"]
+    stats["founding_beta_discovery"] = beta_discovery
+    learning.save_learning_state(state, base)
+    emit_cycle_telemetry(stats, diag)
 
     learning.run_daily_reddit_learning(base)
     telemetry.emit("reddit_discovery_completed", metadata=stats, base=base)
@@ -580,6 +618,12 @@ def _pending_with_knowledge(o: Dict[str, Any]) -> Dict[str, Any]:
         "paste_text": (o.get("draft_reply") or {}).get("public_reply_text")
         or (o.get("draft_reply") or {}).get("body", ""),
         "link_in_reply": (o.get("draft_reply") or {}).get("link_in_public_reply", False),
+        "source": o.get("source", "reddit"),
+        "operational_burden_reason": o.get("operational_burden_reason", ""),
+        "likely_paperwork": o.get("likely_paperwork", ""),
+        "beta_fit": o.get("beta_fit", ""),
+        "recommended_next_action": o.get("recommended_next_action", ""),
+        "founding_beta_framing": o.get("founding_beta_framing", ""),
     }
     try:
         from services.knowledge_cockpit.acquisition_context import build_acquisition_context
@@ -653,6 +697,8 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
             "outcome_totals": state.get("outcome_totals"),
         },
         "upload_conversion": acq.get("upload_conversion", {}),
+        "queue_diagnostics": state.get("last_cycle_diagnostics", {}),
+        "founding_beta_discovery_mode": True,
         "ignored_count": len(_load_jsonl(IGNORED_POSTS_JSONL, base, limit=100)),
         "safety": {
             "auto_post": False,

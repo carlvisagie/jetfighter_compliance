@@ -1234,15 +1234,17 @@ def operator_reddit_acquisition():
 async def operator_reddit_acquisition_run(body: dict = Body(default={})):
     from services.acquisition.connectors.reddit import run_reddit_acquisition_cycle
 
+    broad = bool(body.get("founding_beta_broad") or body.get("founding_beta_discovery"))
     return run_reddit_acquisition_cycle(
         queries=body.get("queries"),
         subreddits=body.get("subreddits"),
-        limit_per_query=int(body.get("limit_per_query") or 8),
-        max_posts=int(body.get("max_posts") or 25),
-        min_fit_score=int(body.get("min_fit_score") or 50),
+        limit_per_query=int(body.get("limit_per_query") or 10),
+        max_posts=int(body.get("max_posts") or 50),
+        min_fit_score=int(body.get("min_fit_score") or 40),
         campaign_id=str(body.get("campaign_id") or "reddit-upload-first"),
         message_variant=str(body.get("message_variant") or "A"),
         pause_seconds=float(body.get("pause_seconds") or 0),
+        founding_beta_broad=broad,
     )
 
 

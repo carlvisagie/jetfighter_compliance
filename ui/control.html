@@ -112,6 +112,7 @@
           <p class="org-metric-foot">The organism decides pacing, safety, wording, and links. You only approve or deny. Never auto-posted.</p>
           <div class="kyc-btn-row" style="margin-bottom:0.75rem;">
             <button type="button" class="btn secondary" id="redditIntelRunBtn">Run discovery</button>
+            <button type="button" class="btn secondary" id="redditBetaBroadBtn">Run broader founding beta discovery</button>
           </div>
           <div id="reddit-acquisition-insights"><p class="kyc-loading">Loading…</p></div>
         </article>
@@ -466,6 +467,9 @@
           html += '<li style="margin-bottom:0.75rem;"><strong>' + escapeHtml(t.company_name || '') + '</strong><br>' +
             'Source: ' + escapeHtml(t.source || '') + ' · Pain: ' + escapeHtml(t.pain_signal || t.signal_level || '') + '<br>' +
             'Qualification: ' + (t.qualification_score || 0) + '% · Fit: ' + (t.fit_score || 0) + '<br>' +
+            (t.likely_paperwork_prediction ? '<span class="org-metric-foot">' + escapeHtml(t.likely_paperwork_prediction) + '</span><br>' : '') +
+            (t.likely_outreach_angle ? '<span class="org-metric-foot">' + escapeHtml(t.likely_outreach_angle) + '</span><br>' : '') +
+            (t.why_might_upload_paperwork ? '<span class="org-metric-foot">' + escapeHtml(t.why_might_upload_paperwork) + '</span><br>' : '') +
             'Draft: <em>' + escapeHtml(draft) + '</em> (' + escapeHtml(t.outreach_status || 'draft_only') + ')<br>' +
             (t.route_url ? '<a href="' + escapeHtml(t.route_url) + '" target="_blank" rel="noopener">Upload-first route</a>' : '') +
             '</li>';
@@ -500,17 +504,34 @@
       window.__redditPendingMap = {};
       let html = renderFoundingBeta(j.founding_beta) +
         '<p class="org-metric-foot">Upload conversion: ' + ((conv.rate || 0) * 100).toFixed(1) + '% · Organism handles safety, pacing, and wording.</p>';
+      const qd = j.queue_diagnostics || {};
       if (!pending.length) {
         html += '<p class="org-metric-foot">No opportunities awaiting decision.</p>';
+        if (qd.empty_queue_summary) {
+          html += '<p class="org-metric-foot"><strong>Why empty:</strong> ' + escapeHtml(qd.empty_queue_summary) + '</p>';
+        }
+        if (qd.blocked_by_reason) {
+          html += '<p class="org-metric-foot"><strong>Blocked:</strong> ' + escapeHtml(JSON.stringify(qd.blocked_by_reason)) + '</p>';
+        }
+        if (qd.near_miss_count) {
+          html += '<p class="org-metric-foot"><strong>Near misses:</strong> ' + qd.near_miss_count + ' (threshold ' + escapeHtml(String(qd.effective_prey_threshold || '')) + ')</p>';
+        }
+        if (qd.predator_block_count) {
+          html += '<p class="org-metric-foot"><strong>Predator blocks:</strong> ' + qd.predator_block_count + '</p>';
+        }
       } else {
         html += '<div class="reddit-approval-queue">';
         pending.forEach(function (o) {
           if (o.post_id) window.__redditPendingMap[o.post_id] = o;
           html +=
             '<article class="reddit-approval-card" data-post-id="' + escapeHtml(o.post_id || '') + '">' +
-            '<p class="reddit-approval-meta"><strong>r/' + escapeHtml(o.subreddit || '') + '</strong> · Prey: <strong>' + (o.prey_score || 0) + '</strong> · Cluster: <strong>' + escapeHtml(o.discovery_source_cluster || 'unknown') + '</strong>' +
+            '<p class="reddit-approval-meta"><strong>Source:</strong> ' + escapeHtml(o.source || 'reddit') + ' · <strong>r/' + escapeHtml(o.subreddit || '') + '</strong> · Prey: <strong>' + (o.prey_score || 0) + '</strong> · Cluster: <strong>' + escapeHtml(o.discovery_source_cluster || 'unknown') + '</strong>' +
             (o.discovery_ecosystem ? ' · Ecosystem: <strong>' + escapeHtml(o.discovery_ecosystem) + '</strong>' : '') +
-            ' · Intent: <strong>' + escapeHtml(o.author_intent || '') + '</strong></p>' +
+            ' · Intent: <strong>' + escapeHtml(o.author_intent || '') + '</strong>' +
+            (o.beta_fit ? ' · Beta fit: <strong>' + escapeHtml(o.beta_fit) + '</strong>' : '') + '</p>' +
+            (o.operational_burden_reason ? '<p class="reddit-approval-meta"><strong>Operational burden:</strong> ' + escapeHtml(o.operational_burden_reason) + '</p>' : '') +
+            (o.likely_paperwork ? '<p class="reddit-approval-meta"><strong>Likely paperwork:</strong> ' + escapeHtml(o.likely_paperwork) + '</p>' : '') +
+            (o.recommended_next_action ? '<p class="org-metric-foot">' + escapeHtml(o.recommended_next_action) + '</p>' : '') +
             (o.burden_category ? '<p class="reddit-approval-meta">Burden: <strong>' + escapeHtml(o.burden_category) + '</strong>' +
             (o.operational_context ? ' · ' + escapeHtml(o.operational_context) : '') + '</p>' : '') +
             (o.likely_paperwork_indicators && o.likely_paperwork_indicators.length ? '<p class="reddit-approval-meta">Paperwork: ' + o.likely_paperwork_indicators.map(function (p) { return '<span class="reddit-badge reddit-badge-soft">' + escapeHtml(p) + '</span>'; }).join(' ') + '</p>' : '') +
@@ -623,20 +644,28 @@
       if (el) el.innerHTML = '<p class="org-metric-foot">Digest failed.</p>';
     }
   });
-  document.getElementById('redditIntelRunBtn')?.addEventListener('click', async function () {
+  async function runRedditDiscovery(broad) {
     const el = document.getElementById('reddit-acquisition-insights');
     if (el) el.innerHTML = '<p class="kyc-loading">Running Reddit discovery…</p>';
     try {
       await api('/api/operator/reddit-acquisition/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ max_posts: 15, min_fit_score: 40, pause_seconds: 0, campaign_id: 'reddit-upload-first' }),
+        body: JSON.stringify({
+          max_posts: broad ? 50 : 25,
+          min_fit_score: 40,
+          pause_seconds: 0,
+          campaign_id: 'reddit-upload-first',
+          founding_beta_broad: !!broad,
+        }),
       });
       await loadRedditAcquisitionIntelligence();
     } catch (e) {
       if (el) el.innerHTML = '<p class="org-metric-foot">Reddit discovery failed.</p>';
     }
-  });
+  }
+  document.getElementById('redditIntelRunBtn')?.addEventListener('click', function () { runRedditDiscovery(false); });
+  document.getElementById('redditBetaBroadBtn')?.addEventListener('click', function () { runRedditDiscovery(true); });
   document.getElementById('acquisitionIntelRunBtn')?.addEventListener('click', async function () {
     const el = document.getElementById('acquisition-intelligence-insights');
     if (el) el.innerHTML = '<p class="kyc-loading">Running acquisition cycle…</p>';
