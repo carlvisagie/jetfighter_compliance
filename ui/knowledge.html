@@ -27,8 +27,8 @@
 
   <div class="kyc-ops-header">
     <div>
-      <h1>Operator knowledge base</h1>
-      <p class="kyc-ops-subtitle">Real docs from the repo — curated index, no invented articles</p>
+      <h1>Knowledge Cockpit</h1>
+      <p class="kyc-ops-subtitle">Operational concepts + workflow runbooks — all from platform data in this repo</p>
     </div>
     <a class="kyc-btn kyc-btn--secondary" href="/ui/control.html">← Cockpit</a>
   </div>
@@ -62,7 +62,11 @@
       </div>
     </section>
     <section class="kyc-section">
-      <header class="kyc-section-head"><h2>Compliance glossary</h2></header>
+      <header class="kyc-section-head"><h2>Compliance concepts</h2></header>
+      <article class="card" id="kc-concepts-panel"><p class="kyc-loading">Loading concepts…</p></article>
+    </section>
+    <section class="kyc-section">
+      <header class="kyc-section-head"><h2>Workflow glossary</h2></header>
       <article class="card" data-cockpit="glossary-full"></article>
     </section>
   </main>
@@ -103,6 +107,26 @@
       });
     };
     root.querySelector('#knowledgeSearchBtn').addEventListener('click', runSearch);
+    const kcPanel = root.querySelector('#kc-concepts-panel');
+    async function loadConcepts(q) {
+      const data = await OperatorCockpit.api('/api/operator/knowledge-cockpit/search?q=' + encodeURIComponent(q || ''));
+      const concepts = data.concepts || [];
+      kcPanel.innerHTML = concepts.length
+        ? '<ul class="cockpit-topic-list">' + concepts.map(function (c) {
+            return '<li><a href="#" data-kc-id="' + c.id + '">' + c.term.replace(/</g,'&lt;') + '</a> — ' + (c.category || '') + '</li>';
+          }).join('') + '</ul><div id="kc-concept-detail" style="margin-top:1rem;"></div>'
+        : '<p class="org-metric-foot">No concepts matched.</p>';
+      kcPanel.querySelectorAll('[data-kc-id]').forEach(function (a) {
+        a.addEventListener('click', async function (ev) {
+          ev.preventDefault();
+          const detail = await OperatorCockpit.api('/api/operator/knowledge-cockpit/concept/' + encodeURIComponent(a.getAttribute('data-kc-id')));
+          const box = kcPanel.querySelector('#kc-concept-detail');
+          if (!box) return;
+          box.innerHTML = '<h3>' + (detail.term || '').replace(/</g,'&lt;') + '</h3><p>' + (detail.operational_meaning || '').replace(/</g,'&lt;') + '</p>';
+        });
+      });
+    }
+    loadConcepts('');
   })();
   </script>
 </body>

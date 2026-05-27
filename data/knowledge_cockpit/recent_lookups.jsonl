@@ -1,0 +1,6 @@
+{"event_id": "KL-93cf5e94", "event_type": "concept_explained", "concept_id": "ssp", "query": "", "when_utc": "2026-05-27T06:03:54Z", "metadata": {}}
+{"event_id": "KL-61487680", "event_type": "knowledge_lookup", "concept_id": "ssp", "query": "ssp test", "when_utc": "2026-05-27T06:03:55Z", "metadata": {}}
+{"event_id": "KL-d3db9af4", "event_type": "concept_explained", "concept_id": "cmmc", "query": "Which CMMC level?", "when_utc": "2026-05-27T06:04:01Z", "metadata": {}}
+{"event_id": "KL-afedc894", "event_type": "concept_explained", "concept_id": "ssp", "query": "", "when_utc": "2026-05-27T06:06:41Z", "metadata": {}}
+{"event_id": "KL-9377e6d2", "event_type": "knowledge_lookup", "concept_id": "ssp", "query": "ssp test", "when_utc": "2026-05-27T06:06:42Z", "metadata": {}}
+{"event_id": "KL-61a947c8", "event_type": "concept_explained", "concept_id": "cmmc", "query": "Which CMMC level?", "when_utc": "2026-05-27T06:06:48Z", "metadata": {}}

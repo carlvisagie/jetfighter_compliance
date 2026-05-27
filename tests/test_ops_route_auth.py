@@ -29,6 +29,7 @@ PROTECTED_API = [
     "/api/memory/learning",
     "/api/operator/cockpit",
     "/api/operator/guidance",
+    "/api/operator/knowledge-cockpit",
     "/api/operator/bottlenecks",
     "/api/knowledge/catalog",
     "/api/projects",

@@ -514,6 +514,57 @@ def ignore_post(post_id: str, reason: str = "operator_denied", base: Optional[Pa
     return deny_draft(post_id, reason=reason, base=base)
 
 
+def _pending_with_knowledge(o: Dict[str, Any]) -> Dict[str, Any]:
+    row = {
+        "post_id": o.get("post_id"),
+        "subreddit": o.get("subreddit"),
+        "title": o.get("title"),
+        "url": o.get("url"),
+        "burden_score": o.get("burden_score"),
+        "fit_score": o.get("fit_score"),
+        "urgency_score": o.get("urgency_score", 0),
+        "author_intent": o.get("author_intent"),
+        "intent_confidence": o.get("intent_confidence"),
+        "advice_seeker_score": o.get("advice_seeker_score"),
+        "advice_giver_score": o.get("advice_giver_score"),
+        "recommended_action": o.get("recommended_action"),
+        "intent_badges": o.get("intent_badges", []),
+        "relationship_state": o.get("relationship_state"),
+        "trust_score": o.get("trust_score"),
+        "engagement_strategy": o.get("engagement_strategy"),
+        "prey_score": o.get("prey_score"),
+        "predator_class": o.get("predator_class"),
+        "prey_reasons": o.get("prey_reasons", []),
+        "soft_burden_score": o.get("soft_burden_score", 0),
+        "soft_burden_badges": o.get("soft_burden_badges", []),
+        "discovery_source_cluster": o.get("discovery_source_cluster", ""),
+        "discovery_ecosystem": o.get("discovery_ecosystem", ""),
+        "burden_category": o.get("burden_category", ""),
+        "operational_context": o.get("operational_context", ""),
+        "likely_paperwork_indicators": o.get("likely_paperwork_indicators", []),
+        "burden_badges": o.get("burden_badges", []),
+        "organism_rationale": (o.get("organism_plan") or {}).get("rationale", ""),
+        "engagement_stage": (o.get("organism_plan") or {}).get("engagement_stage", ""),
+        "organism_confidence": (o.get("organism_plan") or {}).get("organism_confidence", 0),
+        "paste_text": (o.get("draft_reply") or {}).get("public_reply_text")
+        or (o.get("draft_reply") or {}).get("body", ""),
+        "link_in_reply": (o.get("draft_reply") or {}).get("link_in_public_reply", False),
+    }
+    try:
+        from services.knowledge_cockpit.acquisition_context import build_acquisition_context
+
+        row["knowledge_context"] = build_acquisition_context(
+            title=o.get("title", ""),
+            body=" ".join((o.get("classification") or {}).get("pain_themes", []) or []),
+            discovery_cluster=o.get("discovery_source_cluster", ""),
+            burden_category=o.get("burden_category", ""),
+            prey_reasons=o.get("prey_reasons", []),
+        )
+    except Exception:
+        row["knowledge_context"] = None
+    return row
+
+
 def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
     """Lightweight approve/deny queue — organism handles everything else."""
     drafts = _load_jsonl(DRAFT_REPLIES_JSONL, base, limit=200)
@@ -552,41 +603,7 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
             ],
         },
         "pending_opportunities": [
-            {
-                "post_id": o.get("post_id"),
-                "subreddit": o.get("subreddit"),
-                "title": o.get("title"),
-                "url": o.get("url"),
-                "burden_score": o.get("burden_score"),
-                "fit_score": o.get("fit_score"),
-                "urgency_score": o.get("urgency_score", 0),
-                "author_intent": o.get("author_intent"),
-                "intent_confidence": o.get("intent_confidence"),
-                "advice_seeker_score": o.get("advice_seeker_score"),
-                "advice_giver_score": o.get("advice_giver_score"),
-                "recommended_action": o.get("recommended_action"),
-                "intent_badges": o.get("intent_badges", []),
-                "relationship_state": o.get("relationship_state"),
-                "trust_score": o.get("trust_score"),
-                "engagement_strategy": o.get("engagement_strategy"),
-                "prey_score": o.get("prey_score"),
-                "predator_class": o.get("predator_class"),
-                "prey_reasons": o.get("prey_reasons", []),
-                "soft_burden_score": o.get("soft_burden_score", 0),
-                "soft_burden_badges": o.get("soft_burden_badges", []),
-                "discovery_source_cluster": o.get("discovery_source_cluster", ""),
-                "discovery_ecosystem": o.get("discovery_ecosystem", ""),
-                "burden_category": o.get("burden_category", ""),
-                "operational_context": o.get("operational_context", ""),
-                "likely_paperwork_indicators": o.get("likely_paperwork_indicators", []),
-                "burden_badges": o.get("burden_badges", []),
-                "organism_rationale": (o.get("organism_plan") or {}).get("rationale", ""),
-                "engagement_stage": (o.get("organism_plan") or {}).get("engagement_stage", ""),
-                "organism_confidence": (o.get("organism_plan") or {}).get("organism_confidence", 0),
-                "paste_text": (o.get("draft_reply") or {}).get("public_reply_text")
-                or (o.get("draft_reply") or {}).get("body", ""),
-                "link_in_reply": (o.get("draft_reply") or {}).get("link_in_public_reply", False),
-            }
+            _pending_with_knowledge(o)
             for o in pending[:15]
         ],
         "learning": {

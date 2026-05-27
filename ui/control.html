@@ -117,6 +117,22 @@
           </div>
           <div id="operational-alerts-insights"><p class="kyc-loading">Loading operational alerts…</p></div>
         </article>
+        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="knowledge-cockpit-panel">
+          <span class="kyc-label-overline">Knowledge Cockpit</span>
+          <h3 style="margin-top:0;">Operational mentor</h3>
+          <p class="org-metric-foot">Compliance concepts, evidence discipline, and runbooks — all from platform data. No external folders required.</p>
+          <div class="cockpit-knowledge-search">
+            <input type="search" id="kcSearchInput" placeholder="Search CMMC, SSP, questionnaire…" aria-label="Search concepts">
+            <button type="button" class="btn secondary" id="kcSearchBtn">Search</button>
+          </div>
+          <div class="kyc-field" style="margin-top:0.5rem;">
+            <label for="kcExplainInput">Explain this</label>
+            <textarea id="kcExplainInput" rows="2" placeholder="Paste prospect text, control name, or customer ask…"></textarea>
+          </div>
+          <button type="button" class="btn" id="kcExplainBtn">Explain</button>
+          <div id="knowledge-cockpit-results" style="margin-top:1rem;"><p class="kyc-loading">Loading knowledge cockpit…</p></div>
+          <p style="margin-top:0.75rem;"><a class="btn secondary" href="/ui/knowledge.html">Open full knowledge cockpit</a></p>
+        </article>
         <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="compliance-intelligence-panel">
           <span class="kyc-label-overline">Compliance intelligence</span>
           <h3 style="margin-top:0;">Compliance Intelligence Watch</h3>
@@ -141,8 +157,8 @@
           </article>
         </div>
         <aside class="cockpit-knowledge-panel">
-          <span class="kyc-label-overline">Encyclopedia</span>
-          <h3 style="margin-top:0;">Knowledge for this phase</h3>
+          <span class="kyc-label-overline">Runbooks</span>
+          <h3 style="margin-top:0;">Workflow knowledge for this phase</h3>
           <p class="org-metric-foot" data-cockpit="catalog-note"></p>
           <div class="cockpit-knowledge-search">
             <input type="search" id="knowledgeSearchInput" placeholder="Search knowledge…" aria-label="Search knowledge">
@@ -324,7 +340,95 @@
       loadRedditAcquisitionIntelligence(),
       loadOperationalAlerts(),
       loadComplianceIntelligence(),
+      loadKnowledgeCockpit(),
     ]);
+  }
+  async function loadKnowledgeCockpit() {
+    const el = document.getElementById('knowledge-cockpit-results');
+    if (!el) return;
+    try {
+      const dash = await api('/api/operator/knowledge-cockpit');
+      let html = '<p class="org-metric-foot"><strong>Concepts loaded:</strong> ' + (dash.concept_count || 0) +
+        ' · <strong>Source:</strong> ' + escapeHtml(dash.source || 'repo') + '</p>';
+      const next = dash.suggested_next_learning || [];
+      if (next.length) {
+        html += '<p class="org-metric-foot"><strong>Suggested next:</strong> ' +
+          next.map(function (c) { return '<button type="button" class="btn secondary kc-concept-btn" data-id="' + escapeHtml(c.id) + '">' + escapeHtml(c.term) + '</button>'; }).join(' ') +
+          '</p>';
+      }
+      html += '<div id="kc-detail" class="card" style="margin-top:0.75rem;padding:1rem;"><p class="org-metric-foot">Search or explain to see operational meaning, evidence, and related concepts.</p></div>';
+      el.innerHTML = html;
+      el.querySelectorAll('.kc-concept-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () { explainKnowledgeConcept(btn.getAttribute('data-id')); });
+      });
+    } catch (e) {
+      el.innerHTML = '<p class="org-metric-foot">Knowledge cockpit unavailable.</p>';
+    }
+  }
+  function renderKnowledgeExplain(out) {
+    const box = document.getElementById('kc-detail');
+    if (!box) return;
+    if (!out || !out.ok) {
+      box.innerHTML = '<p class="org-metric-foot">' + escapeHtml((out && out.detail) || 'No match') + '</p>';
+      return;
+    }
+    const p = out.primary || out;
+    let html = '<h4 style="margin-top:0;">' + escapeHtml(p.term || out.query || '') + '</h4>';
+    if (p.burden_category || out.burden_category) {
+      html += '<p class="org-metric-foot"><strong>Burden:</strong> ' + escapeHtml(p.burden_category || out.burden_category) + '</p>';
+    }
+    html += '<p><strong>Operational meaning</strong><br>' + escapeHtml(p.operational_meaning || out.operational_context || '') + '</p>';
+    html += '<p><strong>Why it matters</strong><br>' + escapeHtml(p.why_it_matters || out.why_it_matters || '') + '</p>';
+    const ev = p.evidence_examples || out.likely_paperwork_indicators || [];
+    if (ev.length) {
+      html += '<p><strong>Evidence examples</strong></p><ul class="guidance-list">' + ev.map(function (x) { return '<li>' + escapeHtml(x) + '</li>'; }).join('') + '</ul>';
+    }
+    const mistakes = p.common_mistakes || [];
+    if (mistakes.length) {
+      html += '<p><strong>Common mistakes</strong></p><ul class="guidance-list">' + mistakes.map(function (x) { return '<li>' + escapeHtml(x) + '</li>'; }).join('') + '</ul>';
+    }
+    const rel = p.related_concepts || out.related_concepts || [];
+    if (rel.length) {
+      html += '<p class="org-metric-foot"><strong>Related:</strong> ' + rel.map(function (r) {
+        return '<button type="button" class="btn secondary kc-concept-btn" data-id="' + escapeHtml(r.id || '') + '">' + escapeHtml(r.term || r.id) + '</button>';
+      }).join(' ') + '</p>';
+    }
+    box.innerHTML = html;
+    box.querySelectorAll('.kc-concept-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { explainKnowledgeConcept(btn.getAttribute('data-id')); });
+    });
+  }
+  async function explainKnowledgeConcept(conceptId) {
+    if (!conceptId) return;
+    const out = await api('/api/operator/knowledge-cockpit/concept/' + encodeURIComponent(conceptId));
+    renderKnowledgeExplain(out);
+  }
+  async function explainKnowledgeText() {
+    const text = (document.getElementById('kcExplainInput') || {}).value || '';
+    const out = await api('/api/operator/knowledge-cockpit/explain', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text }),
+    });
+    renderKnowledgeExplain(out);
+  }
+  async function searchKnowledgeCockpit() {
+    const q = (document.getElementById('kcSearchInput') || {}).value || '';
+    const j = await api('/api/operator/knowledge-cockpit/search?q=' + encodeURIComponent(q));
+    const box = document.getElementById('kc-detail');
+    if (!box) return;
+    const concepts = j.concepts || [];
+    if (!concepts.length) {
+      box.innerHTML = '<p class="org-metric-foot">No concepts matched.</p>';
+      return;
+    }
+    box.innerHTML = '<p class="org-metric-foot"><strong>Matches</strong></p><ul class="guidance-list">' +
+      concepts.map(function (c) {
+        return '<li><button type="button" class="btn secondary kc-concept-btn" data-id="' + escapeHtml(c.id) + '">' + escapeHtml(c.term) + '</button></li>';
+      }).join('') + '</ul>';
+    box.querySelectorAll('.kc-concept-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { explainKnowledgeConcept(btn.getAttribute('data-id')); });
+    });
   }
   async function loadAcquisitionIntelligence() {
     const el = document.getElementById('acquisition-intelligence-insights');
@@ -670,6 +774,8 @@
     await loadSmtpStatus();
     await refreshAll();
     const sync = function () { refreshAll(); loadSmtpStatus(); };
+    document.getElementById('kcExplainBtn')?.addEventListener('click', explainKnowledgeText);
+    document.getElementById('kcSearchBtn')?.addEventListener('click', searchKnowledgeCockpit);
     root.querySelector('#cockpitProject')?.addEventListener('change', sync);
     root.querySelector('#cockpitMode')?.addEventListener('change', sync);
   })();

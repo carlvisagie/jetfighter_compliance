@@ -1321,6 +1321,50 @@ def knowledge_catalog():
     return {"ok": True, **catalog()}
 
 
+@app.get("/api/operator/knowledge-cockpit")
+def operator_knowledge_cockpit_dashboard():
+    from services.knowledge_cockpit import get_dashboard
+
+    return get_dashboard()
+
+
+@app.get("/api/operator/knowledge-cockpit/search")
+def operator_knowledge_cockpit_search(q: str = "", limit: int = 12):
+    from services.knowledge_cockpit import search_all
+
+    return search_all(q, limit=limit)
+
+
+@app.get("/api/operator/knowledge-cockpit/concept/{concept_id}")
+def operator_knowledge_cockpit_concept(concept_id: str):
+    from services.knowledge_cockpit import explain
+
+    out = explain(concept_id=concept_id)
+    if not out.get("ok"):
+        raise HTTPException(status_code=404, detail=out.get("detail", "not found"))
+    return out
+
+
+@app.post("/api/operator/knowledge-cockpit/explain")
+async def operator_knowledge_cockpit_explain(body: dict = Body(default={})):
+    from services.knowledge_cockpit import explain
+
+    text = str(body.get("text") or body.get("query") or "")
+    concept_id = str(body.get("concept_id") or "")
+    return explain(text=text, concept_id=concept_id)
+
+
+@app.post("/api/operator/knowledge-cockpit/context")
+async def operator_knowledge_cockpit_context(body: dict = Body(default={})):
+    from services.knowledge_cockpit.context_retrieval import context_bundle
+
+    return context_bundle(
+        acquisition=body.get("acquisition"),
+        compliance=body.get("compliance"),
+        evidence=body.get("evidence"),
+    )
+
+
 # ---------- Ping Host + Test Webhook ----------
 from fastapi import Query
 import httpx

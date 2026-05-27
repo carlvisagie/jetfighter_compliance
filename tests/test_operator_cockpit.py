@@ -55,4 +55,4 @@ def test_control_html_has_cockpit(client):
 def test_knowledge_html_served(client):
     r = client.get("/ui/knowledge.html")
     assert r.status_code == 200
-    assert "Operator knowledge base" in r.text
+    assert "Knowledge Cockpit" in r.text

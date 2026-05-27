@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "generated_utc": "2026-05-27T05:57:37Z",
+  "edges": [
+    {
+      "from": "cmmc-level-2",
+      "to": "nist-800-171",
+      "relation": "implements"
+    },
+    {
+      "from": "cmmc-level-2",
+      "to": "cui",
+      "relation": "protects"
+    },
+    {
+      "from": "cmmc-level-1",
+      "to": "fci",
+      "relation": "protects"
+    },
+    {
+      "from": "cmmc",
+      "to": "cmmc-level-1",
+      "relation": "includes"
+    },
+    {
+      "from": "cmmc",
+      "to": "cmmc-level-2",
+      "relation": "includes"
+    },
+    {
+      "from": "dfars-7012",
+      "to": "nist-800-171",
+      "relation": "requires"
+    },
+    {
+      "from": "dfars-7021",
+      "to": "sprs-score",
+      "relation": "requires"
+    },
+    {
+      "from": "ssp",
+      "to": "nist-800-171",
+      "relation": "documents"
+    },
+    {
+      "from": "poam",
+      "to": "ssp",
+      "relation": "remediates_gaps_in"
+    },
+    {
+      "from": "vendor-questionnaire",
+      "to": "evidence",
+      "relation": "requests"
+    },
+    {
+      "from": "vendor-questionnaire",
+      "to": "mfa",
+      "relation": "often_requires"
+    },
+    {
+      "from": "vendor-questionnaire",
+      "to": "policy",
+      "relation": "often_requires"
+    },
+    {
+      "from": "prime-contractor",
+      "to": "vendor-questionnaire",
+      "relation": "sends"
+    },
+    {
+      "from": "flowdown",
+      "to": "dfars-7012",
+      "relation": "may_include"
+    },
+    {
+      "from": "c3pao",
+      "to": "cmmc-level-2",
+      "relation": "assesses"
+    },
+    {
+      "from": "sprs-score",
+      "to": "nist-800-171",
+      "relation": "declares_posture_for"
+    }
+  ]
+}
