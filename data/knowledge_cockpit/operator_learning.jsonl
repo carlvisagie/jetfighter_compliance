@@ -4,3 +4,52 @@
 {"event_id": "KOL-e3547f1c", "event_type": "concept_explained", "concept_id": "ssp", "when_utc": "2026-05-27T06:06:41Z", "metadata": {}}
 {"event_id": "KOL-7881c5e8", "event_type": "knowledge_lookup", "concept_id": "ssp", "when_utc": "2026-05-27T06:06:42Z", "metadata": {}}
 {"event_id": "KOL-db61ff8e", "event_type": "concept_explained", "concept_id": "cmmc", "when_utc": "2026-05-27T06:06:48Z", "metadata": {}}
+{"event_id": "KOL-9ddefae2", "event_type": "concept_explained", "concept_id": "ssp", "when_utc": "2026-05-27T06:17:05Z", "metadata": {}}
+{"event_id": "KOL-e6c03c5c", "event_type": "knowledge_lookup", "concept_id": "ssp", "when_utc": "2026-05-27T06:17:07Z", "metadata": {}}
+{"event_id": "KOL-91e98713", "event_type": "concept_explained", "concept_id": "cmmc", "when_utc": "2026-05-27T06:17:14Z", "metadata": {}}
+{"event_id": "KOL-ed47024b", "event_type": "concept_explained", "concept_id": "ssp", "when_utc": "2026-05-27T06:18:15Z", "metadata": {}}
+{"event_id": "KOL-dfcfda35", "event_type": "knowledge_lookup", "concept_id": "ssp", "when_utc": "2026-05-27T06:18:17Z", "metadata": {}}
+{"event_id": "KOL-8de8dbd9", "event_type": "concept_explained", "concept_id": "cmmc", "when_utc": "2026-05-27T06:18:23Z", "metadata": {}}
+{"event_id": "KOL-3816310b", "event_type": "concept_explained", "concept_id": "ssp", "when_utc": "2026-05-27T06:26:30Z", "metadata": {}}
+{"event_id": "KOL-d330dbbf", "event_type": "knowledge_lookup", "concept_id": "ssp", "when_utc": "2026-05-27T06:26:32Z", "metadata": {}}
+{"event_id": "KOL-69b970ea", "event_type": "concept_explained", "concept_id": "cmmc", "when_utc": "2026-05-27T06:26:38Z", "metadata": {}}
+{"event_id": "KOL-8dff0ef5", "event_type": "concept_explained", "concept_id": "ssp", "when_utc": "2026-05-27T06:36:22Z", "metadata": {}}
+{"event_id": "KOL-12bcba84", "event_type": "knowledge_lookup", "concept_id": "ssp", "when_utc": "2026-05-27T06:36:24Z", "metadata": {}}
+{"event_id": "KOL-a469b4c2", "event_type": "concept_explained", "concept_id": "cmmc", "when_utc": "2026-05-27T06:36:30Z", "metadata": {}}
+{"event_id": "KOL-af1a4b09", "event_type": "concept_explained", "concept_id": "ssp", "when_utc": "2026-05-27T06:37:31Z", "metadata": {}}
+{"event_id": "KOL-1e5c87a8", "event_type": "knowledge_lookup", "concept_id": "ssp", "when_utc": "2026-05-27T06:37:33Z", "metadata": {}}
+{"event_id": "KOL-a4f0b7ce", "event_type": "concept_explained", "concept_id": "cmmc", "when_utc": "2026-05-27T06:37:39Z", "metadata": {}}
+{"event_id": "KOL-7e543dd0", "event_type": "concept_explained", "concept_id": "ssp", "when_utc": "2026-05-27T06:48:50Z", "metadata": {}}
+{"event_id": "KOL-31e3a901", "event_type": "knowledge_lookup", "concept_id": "ssp", "when_utc": "2026-05-27T06:48:52Z", "metadata": {}}
+{"event_id": "KOL-4d8dec21", "event_type": "concept_explained", "concept_id": "cmmc", "when_utc": "2026-05-27T06:48:58Z", "metadata": {}}
+{"event_id": "KOL-e4086a20", "event_type": "concept_explained", "concept_id": "ssp", "when_utc": "2026-05-27T06:52:12Z", "metadata": {}}
+{"event_id": "KOL-6902dd70", "event_type": "knowledge_lookup", "concept_id": "ssp", "when_utc": "2026-05-27T06:52:14Z", "metadata": {}}
+{"event_id": "KOL-76fb5887", "event_type": "concept_explained", "concept_id": "cmmc", "when_utc": "2026-05-27T06:52:20Z", "metadata": {}}
+{"event_id": "KOL-37e22ec2", "event_type": "concept_explained", "concept_id": "ssp", "when_utc": "2026-05-27T07:04:41Z", "metadata": {}}
+{"event_id": "KOL-f4aab8f5", "event_type": "knowledge_lookup", "concept_id": "ssp", "when_utc": "2026-05-27T07:04:43Z", "metadata": {}}
+{"event_id": "KOL-bd245082", "event_type": "concept_explained", "concept_id": "cmmc", "when_utc": "2026-05-27T07:04:50Z", "metadata": {}}
+{"event_id": "KOL-44987631", "event_type": "explanation_generated", "concept_id": "ssp", "when_utc": "2026-05-27T07:08:45Z", "metadata": {}}
+{"event_id": "KOL-d97d252d", "event_type": "concept_lookup", "concept_id": "ssp", "when_utc": "2026-05-27T07:08:48Z", "metadata": {}}
+{"event_id": "KOL-870013e4", "event_type": "explanation_generated", "concept_id": "cmmc", "when_utc": "2026-05-27T07:08:56Z", "metadata": {}}
+{"event_id": "KOL-0136d255", "event_type": "overlay_opened", "concept_id": "", "when_utc": "2026-05-27T07:08:59Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KOL-7d8f76ab", "event_type": "explanation_generated", "concept_id": "", "when_utc": "2026-05-27T07:09:01Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}
+{"event_id": "KOL-7bd747c5", "event_type": "explanation_generated", "concept_id": "ssp", "when_utc": "2026-05-27T07:09:26Z", "metadata": {}}
+{"event_id": "KOL-c527fe7f", "event_type": "concept_lookup", "concept_id": "ssp", "when_utc": "2026-05-27T07:09:29Z", "metadata": {}}
+{"event_id": "KOL-902d1c72", "event_type": "explanation_generated", "concept_id": "cmmc", "when_utc": "2026-05-27T07:09:36Z", "metadata": {}}
+{"event_id": "KOL-3955490e", "event_type": "overlay_opened", "concept_id": "", "when_utc": "2026-05-27T07:09:39Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KOL-4252d277", "event_type": "explanation_generated", "concept_id": "", "when_utc": "2026-05-27T07:09:41Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}
+{"event_id": "KOL-57eac4f0", "event_type": "explanation_generated", "concept_id": "ssp", "when_utc": "2026-05-27T07:14:19Z", "metadata": {}}
+{"event_id": "KOL-dfc440b7", "event_type": "concept_lookup", "concept_id": "ssp", "when_utc": "2026-05-27T07:14:22Z", "metadata": {}}
+{"event_id": "KOL-72cf995c", "event_type": "explanation_generated", "concept_id": "cmmc", "when_utc": "2026-05-27T07:14:29Z", "metadata": {}}
+{"event_id": "KOL-1db2bccd", "event_type": "overlay_opened", "concept_id": "", "when_utc": "2026-05-27T07:14:31Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KOL-b17f5a0a", "event_type": "explanation_generated", "concept_id": "", "when_utc": "2026-05-27T07:14:33Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}
+{"event_id": "KOL-e4fde889", "event_type": "explanation_generated", "concept_id": "ssp", "when_utc": "2026-05-27T10:37:48Z", "metadata": {}}
+{"event_id": "KOL-908c0b11", "event_type": "concept_lookup", "concept_id": "ssp", "when_utc": "2026-05-27T10:37:50Z", "metadata": {}}
+{"event_id": "KOL-53fb88d2", "event_type": "explanation_generated", "concept_id": "cmmc", "when_utc": "2026-05-27T10:37:58Z", "metadata": {}}
+{"event_id": "KOL-9dcae843", "event_type": "overlay_opened", "concept_id": "", "when_utc": "2026-05-27T10:38:00Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KOL-47ec885f", "event_type": "explanation_generated", "concept_id": "", "when_utc": "2026-05-27T10:38:02Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}
+{"event_id": "KOL-e4c3ec47", "event_type": "explanation_generated", "concept_id": "ssp", "when_utc": "2026-05-27T10:50:41Z", "metadata": {}}
+{"event_id": "KOL-74e8e0e8", "event_type": "concept_lookup", "concept_id": "ssp", "when_utc": "2026-05-27T10:50:44Z", "metadata": {}}
+{"event_id": "KOL-9ba51737", "event_type": "explanation_generated", "concept_id": "cmmc", "when_utc": "2026-05-27T10:50:51Z", "metadata": {}}
+{"event_id": "KOL-1f571cde", "event_type": "overlay_opened", "concept_id": "", "when_utc": "2026-05-27T10:50:53Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KOL-3498dec0", "event_type": "explanation_generated", "concept_id": "", "when_utc": "2026-05-27T10:50:55Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}
