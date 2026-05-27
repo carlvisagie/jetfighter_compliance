@@ -15,6 +15,10 @@ PAIN_THEMES: List[tuple[str, str]] = [
     (r"\bsprs\b", "cmmc_confusion"),
     (r"supplier onboarding", "supplier_onboarding_burden"),
     (r"vendor onboarding", "supplier_onboarding_burden"),
+    (r"\bwe store (drawings|cui)\b", "documentation_stress"),
+    (r"\b(cui|controlled unclassified)\b", "operational_security_burden"),
+    (r"\bflowdown\b", "prime_contractor_requirements"),
+    (r"\b(evidence|policies?)\b.*\b(gap|need|required)\b", "documentation_stress"),
     (r"security questionnaire", "security_questionnaire_overwhelm"),
     (r"customer security questionnaire", "customer_security_questionnaire"),
     (r"customer security requirements", "customer_security_questionnaire"),
@@ -81,8 +85,8 @@ def classify_post(title: str, body: str = "") -> Dict[str, Any]:
         100,
         base.get("signal_score", 0) * 8
         + len(themes) * 6
-        + (15 if "overwhelm" in emotional else 0)
-        + (10 if "fear" in emotional else 0),
+        + (8 if "overwhelm" in emotional else 0)
+        + (5 if "fear" in emotional else 0),
     )
     urgency_score = min(100, burden_score // 2 + (20 if re.search(r"deadline|due|asap|urgent", blob) else 0))
     emotional_burden_score = min(100, burden_score + len(emotional) * 5)
@@ -111,6 +115,17 @@ def classify_post(title: str, body: str = "") -> Dict[str, Any]:
         emotional_burden_score = min(100, emotional_burden_score + 8)
     elif intent["author_intent"] in ("GIVING_ADVICE", "PROMOTING_SERVICE"):
         burden_score = max(0, burden_score - 25)
+    elif intent["author_intent"] == "UNKNOWN" and any(
+        t in themes
+        for t in (
+            "operational_trigger",
+            "operational_security_burden",
+            "prime_contractor_requirements",
+            "paperwork_uncertainty",
+            "documentation_stress",
+        )
+    ):
+        burden_score = min(100, burden_score + 6)
 
     relevant = burden_score >= 20 or bool(themes)
     if intent["author_intent"] in ("GIVING_ADVICE", "PROMOTING_SERVICE") and intent["advice_giver_score"] > intent["advice_seeker_score"] + 10:

@@ -32,7 +32,10 @@ def _post(**kw):
         "post_id": "p1",
         "subreddit": "smallbusiness",
         "title": "Where do I start with CMMC?",
-        "selftext": "I'm overwhelmed and lost.",
+        "selftext": (
+            "Small business subcontractor. Prime contractor sent a security questionnaire. "
+            "What documentation do we need?"
+        ),
         "author": "user_a",
         "num_comments": 2,
     }

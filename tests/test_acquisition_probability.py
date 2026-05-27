@@ -6,6 +6,9 @@ import pytest
 from services.acquisition.acquisition_probability import (
     DEFAULT_MIN_PREY_SCORE,
     MIN_PREY_FLOOR,
+    TARGET_QUEUE_MAX,
+    TARGET_QUEUE_MIN,
+    classify_prey_tier,
     compute_adaptive_prey_threshold,
     passes_prey_gate,
     score_acquisition_probability,
@@ -136,3 +139,50 @@ def test_prey_beats_topical_fit_in_qualification():
     pcls = classify_post(predator_post["title"], predator_post["selftext"])
     pqual = qualify_post(predator_post, pcls)
     assert pqual["prey_score"] < qual["prey_score"]
+
+
+def test_queue_targets_updated():
+    assert TARGET_QUEUE_MIN == 5
+    assert TARGET_QUEUE_MAX == 15
+
+
+def test_quiet_operational_post_tier_one_or_two():
+    title = "Which level applies to us?"
+    body = "Prime contractor asked for SPRS score and security questionnaire. We store drawings with CUI."
+    cls = classify_post(title, body)
+    out = score_acquisition_probability(title, body, classification=cls)
+    assert out["prey_tier"] in (1, 2)
+    assert out["operational_entanglement_score"] >= 35
+    assert out["queue_eligible"] is True
+
+
+def test_emotional_only_post_lower_tier_than_operational():
+    emotional = score_acquisition_probability(
+        "Help",
+        "I'm overwhelmed and lost and panicking.",
+        classification=classify_post("Help", "I'm overwhelmed and lost and panicking."),
+    )
+    operational = score_acquisition_probability(
+        "Customer asked for MFA",
+        "Small business subcontractor — vendor onboarding security questionnaire. What documentation is needed?",
+        classification=classify_post(
+            "Customer asked for MFA",
+            "Small business subcontractor — vendor onboarding security questionnaire. What documentation is needed?",
+        ),
+    )
+    assert operational["prey_score"] > emotional["prey_score"]
+    assert operational["prey_tier"] <= emotional["prey_tier"]
+
+
+def test_prey_tier_blocks_consultants():
+    tier = classify_prey_tier(
+        70,
+        predator_class="consultant",
+        predator_penalty=55,
+        queue_eligible=False,
+        topical_only=False,
+        dimension_scores={},
+        soft_score=50,
+        has_operational_need=True,
+    )
+    assert tier == 5

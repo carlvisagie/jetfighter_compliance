@@ -11,9 +11,10 @@ from typing import Any, Dict, List, Optional, Tuple
 DEFAULT_MIN_PREY_SCORE = 50
 MIN_PREY_FLOOR = 46
 MAX_PREY_CEILING = 60
-TARGET_QUEUE_MIN = 3
-TARGET_QUEUE_MAX = 10
+TARGET_QUEUE_MIN = 5
+TARGET_QUEUE_MAX = 15
 NEAR_MISS_MARGIN = 8
+BANNED_PREDATOR_CLASSES = frozenset({"consultant", "educator", "moderator", "promoter", "ama"})
 
 # --- High-value prey signals (operational burden, not topic intensity) ---
 PREY_PATTERNS: List[Tuple[str, int, str]] = [
@@ -68,6 +69,24 @@ PREY_PATTERNS: List[Tuple[str, int, str]] = [
     (r"\bquestionnaire burden\b", 12, "paperwork_need"),
     (r"\bvendor (pressure|requirements)\b", 10, "operational_trigger"),
     (r"\bquiet\b.*\b(confus|uncertain)\b", 10, "guidance_need"),
+    (r"\bwhich level applies\b", 16, "level_uncertainty"),
+    (r"\bwhat level applies\b", 16, "level_uncertainty"),
+    (r"\bprime contractor asked\b", 16, "operational_trigger"),
+    (r"\b(customer|client) asked (for|us)\b.*\b(mfa|questionnaire|documentation|security)\b", 16, "operational_trigger"),
+    (r"\b(customer|client) asked for\b", 14, "operational_trigger"),
+    (r"\bwe store (drawings|cui|data)\b", 14, "operational_trigger"),
+    (r"\b(cui|controlled unclassified)\b.*\b(handl|stor|process)\b", 14, "operational_trigger"),
+    (r"\bwhat documentation (is )?(needed|required)\b", 16, "paperwork_need"),
+    (r"\bwhat (evidence|policies) (do we|are)\b", 14, "paperwork_need"),
+    (r"\b(sprs|supplier performance risk system)\b", 14, "operational_trigger"),
+    (r"\bvendor onboarding\b", 14, "operational_trigger"),
+    (r"\b(mfa|multi.?factor).{0,40}\b(require|required|asked|need)\b", 14, "operational_trigger"),
+    (r"\bsecurity questionnaire\b", 14, "paperwork_need"),
+    (r"\b(flowdown|flow.?down)\b.*\b(security|requirements)\b", 12, "operational_trigger"),
+    (r"\b(audit|assessment)\b.*\b(prepar|evidence|document)\b", 12, "paperwork_need"),
+    (r"\b(spreadsheet|screenshot|policy draft)\b", 10, "paperwork_need"),
+    (r"\bimplementation (uncertain|gap|unclear)\b", 12, "operational_trigger"),
+    (r"\bdo we (actually )?need level\b", 14, "level_uncertainty"),
 ]
 
 PREDATOR_PATTERNS: List[Tuple[str, int, str]] = [
@@ -114,13 +133,34 @@ GENERIC_DISCUSSION_PATTERNS: List[Tuple[str, int]] = [
 CONFUSION_TERMS = (
     "confus",
     "lost",
-    "overwhelm",
     "no idea",
     "don't know",
     "unclear",
     "not sure",
     "basic question",
-    "help",
+    "trying to understand",
+    "what applies",
+    "which level",
+    "do we need",
+    "documentation",
+    "questionnaire",
+)
+
+OPERATIONAL_ENTANGLEMENT_TERMS = (
+    "prime contractor",
+    "subcontractor",
+    "vendor onboarding",
+    "questionnaire",
+    "sprs",
+    "mfa",
+    "cui",
+    "drawings",
+    "customer asked",
+    "documentation",
+    "evidence",
+    "policy",
+    "audit",
+    "flowdown",
 )
 
 
@@ -142,25 +182,34 @@ def _score_simple(blob: str, patterns: List[Tuple[str, int]]) -> int:
 
 def _confusion_density(blob: str) -> int:
     hits = sum(1 for t in CONFUSION_TERMS if t in blob)
+    op_hits = sum(1 for t in OPERATIONAL_ENTANGLEMENT_TERMS if t in blob)
     words = max(1, len(blob.split()))
-    density = min(100, hits * 18 + (hits * 40 // max(1, words // 30)))
+    density = min(100, hits * 14 + op_hits * 10 + (hits * 35 // max(1, words // 30)))
     return density
+
+
+def _operational_entanglement(blob: str, prey_dims: Dict[str, int]) -> int:
+    op_hits = sum(1 for t in OPERATIONAL_ENTANGLEMENT_TERMS if t in blob)
+    base = prey_dims.get("operational_trigger", 0) * 4 + prey_dims.get("paperwork_need", 0) * 3
+    return min(100, base + op_hits * 12)
 
 
 def _has_operational_personal_need(blob: str, title: str, soft: Optional[Dict[str, Any]] = None) -> bool:
     soft = soft or {}
     if soft.get("has_quiet_operational_need"):
         return True
+    if any(t in blob for t in OPERATIONAL_ENTANGLEMENT_TERMS):
+        return bool(re.search(r"\b(we|our|my|i|us)\b", blob) or "?" in (title or ""))
     return bool(
         re.search(
-            r"\b(i|we|my|our)\b.*\b(was|were|got|told|need|can't|cannot|don't|tasked|lost|confused|afford|provide|receive|store|house)\b",
+            r"\b(i|we|my|our)\b.*\b(was|were|got|told|need|tasked|store|house|receive|quoted|asked)\b",
             blob,
         )
         or re.search(
-            r"\b(where do i|what (documents|level|paperwork)|any advice|small business|can't afford|more confused|trying to understand|what applies)\b",
+            r"\b(where do i|what (documents|level|paperwork|documentation|evidence)|any advice|small business|trying to understand|what applies|which level|do we actually need|sprs|vendor onboarding|security questionnaire)\b",
             blob,
         )
-        or re.search(r"\b(which|what) cmmc level\b", blob, re.I)
+        or re.search(r"\b(which|what) (cmmc )?level\b", blob, re.I)
         or ("?" in (title or "") and re.search(r"\b(we|our|my|i)\b", blob))
     )
 
@@ -185,9 +234,10 @@ def _compute_dimension_scores(
     )
     operational = min(
         100,
-        prey_dims.get("operational_trigger", 0) * 4
+        prey_dims.get("operational_trigger", 0) * 5
         + prey_dims.get("level_uncertainty", 0) * 4
-        + burden // 2,
+        + _operational_entanglement(blob, prey_dims) // 3
+        + burden // 3,
     )
     confusion = _confusion_density(blob)
     small_biz = min(
@@ -203,8 +253,8 @@ def _compute_dimension_scores(
     )
     paperwork = min(
         100,
-        prey_dims.get("paperwork_need", 0) * 5
-        + (12 if re.search(r"questionnaire|ssp|policy|evidence|document", blob) else 0),
+        prey_dims.get("paperwork_need", 0) * 6
+        + (14 if re.search(r"questionnaire|ssp|policy|evidence|document|sprs|audit", blob) else 0),
     )
 
     return {
@@ -214,7 +264,8 @@ def _compute_dimension_scores(
         "small_business_stress_score": adj("small_business_stress", small_biz),
         "compliance_uncertainty_score": adj("compliance_uncertainty", compliance_unc),
         "paperwork_likelihood_score": adj("paperwork_likelihood", paperwork),
-        "emotional_overwhelm_score": adj("emotional_overwhelm", min(100, prey_dims.get("overwhelm", 0) * 4 + emotional // 2)),
+        "emotional_overwhelm_score": adj("emotional_overwhelm", min(100, prey_dims.get("overwhelm", 0) * 3 + emotional // 4)),
+        "operational_entanglement_score": adj("operational_pressure", _operational_entanglement(blob, prey_dims)),
     }
 
 
@@ -230,13 +281,15 @@ def _build_prey_reasons(
         reasons.append("Small business confusion")
     if dims.get("operational_pressure_score", 0) >= 40:
         reasons.append("Operational pressure")
+    if dims.get("operational_entanglement_score", 0) >= 40:
+        reasons.append("Operational entanglement")
     if dims.get("paperwork_likelihood_score", 0) >= 35:
         reasons.append("Likely paperwork")
     if dims.get("compliance_uncertainty_score", 0) >= 40:
         reasons.append("Compliance uncertainty")
     if dims.get("confusion_density_score", 0) >= 35:
-        reasons.append("High confusion")
-    if dims.get("emotional_overwhelm_score", 0) >= 40:
+        reasons.append("Implementation uncertainty")
+    if dims.get("emotional_overwhelm_score", 0) >= 55:
         reasons.append("Emotional overwhelm")
     if "level_uncertainty" in prey_hits:
         reasons.append("Level uncertainty (what applies?)")
@@ -328,24 +381,29 @@ def score_acquisition_probability(
         stacking_bonus += 10
     elif len(unique_hits) >= 2:
         stacking_bonus += 6
-    if intent in ("SEEKING_HELP", "VENTING_OR_OVERWHELMED"):
+    if intent == "SEEKING_HELP":
         stacking_bonus += 8
+    elif intent == "VENTING_OR_OVERWHELMED":
+        stacking_bonus += 2
     if has_personal_need and "?" in (title or ""):
-        stacking_bonus += 5
-    if dimension_scores["financial_stress_score"] >= 45 and dimension_scores["small_business_stress_score"] >= 30:
+        stacking_bonus += 6
+    if dimension_scores.get("operational_entanglement_score", 0) >= 45:
         stacking_bonus += 8
+    if dimension_scores["financial_stress_score"] >= 45 and dimension_scores["small_business_stress_score"] >= 30:
+        stacking_bonus += 6
 
-    # prey = topical + dimensions + soft burden - predator penalty
+    # prey = topical + operational dimensions + soft burden - predator penalty
     positive = (
-        topical_relevance * 0.06
-        + dimension_scores["financial_stress_score"] * 0.11
-        + dimension_scores["operational_pressure_score"] * 0.18
-        + dimension_scores["compliance_uncertainty_score"] * 0.11
-        + dimension_scores["paperwork_likelihood_score"] * 0.10
-        + soft_score * 0.22
-        + dimension_scores["confusion_density_score"] * 0.10
+        topical_relevance * 0.05
+        + dimension_scores["financial_stress_score"] * 0.09
+        + dimension_scores["operational_pressure_score"] * 0.22
+        + dimension_scores["operational_entanglement_score"] * 0.08
+        + dimension_scores["compliance_uncertainty_score"] * 0.12
+        + dimension_scores["paperwork_likelihood_score"] * 0.13
+        + soft_score * 0.26
+        + dimension_scores["confusion_density_score"] * 0.07
         + dimension_scores["small_business_stress_score"] * 0.10
-        + dimension_scores["emotional_overwhelm_score"] * 0.08
+        + dimension_scores["emotional_overwhelm_score"] * 0.03
     )
     positive += min(12, seeker // 8)
 
@@ -368,11 +426,23 @@ def score_acquisition_probability(
         and predator_penalty < 48
         and predator_class not in ("consultant", "educator", "moderator", "promoter", "ama")
         and not topical_only
-        and (has_personal_need or prey_raw >= 16 or soft_score >= 45)
+        and (has_personal_need or prey_raw >= 14 or soft_score >= 40)
+    )
+
+    prey_tier = classify_prey_tier(
+        prey_score,
+        predator_class=predator_class,
+        predator_penalty=predator_penalty,
+        queue_eligible=queue_eligible,
+        topical_only=topical_only,
+        dimension_scores=dimension_scores,
+        soft_score=soft_score,
+        has_operational_need=has_personal_need,
     )
 
     return {
         "prey_score": prey_score,
+        "prey_tier": prey_tier,
         "predator_penalty": predator_penalty,
         "predator_class": predator_class,
         "queue_eligible": queue_eligible,
@@ -393,7 +463,51 @@ def score_acquisition_probability(
         "likelihood_emotional_overwhelm": dimension_scores["emotional_overwhelm_score"],
         "likelihood_needing_guidance": dimension_scores["compliance_uncertainty_score"],
         "likelihood_small_contractor_confusion": dimension_scores["small_business_stress_score"],
+        "likelihood_operational_entanglement": dimension_scores["operational_entanglement_score"],
     }
+
+
+def classify_prey_tier(
+    prey_score: int,
+    *,
+    predator_class: str,
+    predator_penalty: int,
+    queue_eligible: bool,
+    topical_only: bool,
+    dimension_scores: Dict[str, int],
+    soft_score: int,
+    has_operational_need: bool,
+) -> int:
+    """
+    Prey tiers for operator UI and queue prioritization.
+
+    1 — immediate operational burden (high-confidence uploads)
+    2 — quiet implementation confusion (likely uploads)
+    3 — emerging compliance realization (future uploads)
+    4 — topic-only discussion (skip)
+    5 — consultants / promoters / AMAs (block)
+    """
+    if predator_class in BANNED_PREDATOR_CLASSES or predator_penalty >= 48:
+        return 5
+    op_strength = (
+        dimension_scores.get("operational_pressure_score", 0)
+        + dimension_scores.get("operational_entanglement_score", 0)
+        + dimension_scores.get("paperwork_likelihood_score", 0)
+        + soft_score
+    )
+    if topical_only and prey_score < DEFAULT_MIN_PREY_SCORE:
+        return 4
+    if queue_eligible and prey_score >= 55 and op_strength >= 75:
+        return 1
+    if queue_eligible or (prey_score >= MIN_PREY_FLOOR and has_operational_need and op_strength >= 50):
+        if soft_score >= 40 or dimension_scores.get("operational_entanglement_score", 0) >= 35:
+            return 2
+        return 2 if prey_score >= MIN_PREY_FLOOR else 3
+    if prey_score >= MIN_PREY_FLOOR - 4 or (has_operational_need and soft_score >= 32):
+        return 3
+    if topical_only or prey_score < MIN_PREY_FLOOR - 4:
+        return 4
+    return 4
 
 
 def predator_class_hint_safe(predator_dims: Dict[str, int]) -> bool:
@@ -444,9 +558,16 @@ def compute_adaptive_prey_threshold(
     if len(would_queue) >= TARGET_QUEUE_MIN:
         return threshold
 
-    # Starvation / thin cycle: admit best operational prospect (target 3–10 per cycle, never zero by design)
+    # Starvation / thin cycle: admit best operational prospect (target 5–15 per cycle)
     if eligible and not would_queue:
-        best = max(eligible, key=lambda c: c.get("prey_score", 0))
+        best = max(
+            eligible,
+            key=lambda c: (
+                c.get("prey_score", 0),
+                c.get("operational_strength", 0),
+                c.get("soft_burden_score", 0),
+            ),
+        )
         ps = int(best.get("prey_score", 0))
         if ps >= MIN_PREY_FLOOR and best.get("low_predator") and best.get("has_operational_need"):
             return max(MIN_PREY_FLOOR, min(threshold, ps))
@@ -491,17 +612,17 @@ def apply_operator_prey_feedback(
             pl["small_business_stress"] = min(1.35, pl.get("small_business_stress", 1.0) + 0.04)
         if any("confusion" in r.lower() or "Confusion" in r for r in reasons):
             pl["confusion_density"] = min(1.3, pl.get("confusion_density", 1.0) + 0.03)
-        if any("Operational" in r or "Contract" in r for r in reasons):
+        if any("Operational" in r or "Contract" in r or "entanglement" in r for r in reasons):
             pl["operational_pressure"] = min(1.35, pl.get("operational_pressure", 1.0) + 0.04)
+            pl["paperwork_likelihood"] = min(1.35, pl.get("paperwork_likelihood", 1.0) + 0.03)
+        if any("Emotional" in r for r in reasons) and not any("Operational" in r for r in reasons):
+            pl["emotional_overwhelm"] = max(0.85, pl.get("emotional_overwhelm", 1.0) - 0.02)
         learning_state["min_prey_threshold"] = max(MIN_PREY_FLOOR, int(learning_state.get("min_prey_threshold", DEFAULT_MIN_PREY_SCORE)) - 1)
     else:
         if topical_only:
             pl["topical_weight"] = max(0.85, pl.get("topical_weight", 1.0) - 0.03)
             learning_state["min_prey_threshold"] = min(MAX_PREY_CEILING, int(learning_state.get("min_prey_threshold", DEFAULT_MIN_PREY_SCORE)) + 1)
     return learning_state
-
-
-BANNED_PREDATOR_CLASSES = frozenset({"consultant", "educator", "moderator", "promoter", "ama"})
 
 
 def passes_prey_gate(
@@ -522,13 +643,16 @@ def passes_prey_gate(
         and int(prob.get("predator_penalty", 99)) < 48
         and prob.get("predator_class") not in BANNED_PREDATOR_CLASSES
         and not prob.get("topical_only_risk")
-        and (prob.get("has_operational_need") or soft >= 40)
+        and (prob.get("has_operational_need") or soft >= 35)
+        and int(prob.get("prey_tier", 4)) <= 3
     )
 
 
-def sort_key_by_prey(opp: Dict[str, Any]) -> Tuple[int, int, int]:
+def sort_key_by_prey(opp: Dict[str, Any]) -> Tuple[int, int, int, int]:
     from services.acquisition.connectors.reddit.author_intent import sort_priority_for_opportunity
 
     intent_rank = sort_priority_for_opportunity(opp)[0]
-    prey = int(opp.get("prey_score") or (opp.get("acquisition_probability") or {}).get("prey_score", 0))
-    return (intent_rank, -prey, -int(opp.get("fit_score") or 0))
+    prob = opp.get("acquisition_probability") or {}
+    tier = int(opp.get("prey_tier") or prob.get("prey_tier", 4))
+    prey = int(opp.get("prey_score") or prob.get("prey_score", 0))
+    return (intent_rank, tier, -prey, -int(opp.get("fit_score") or 0))

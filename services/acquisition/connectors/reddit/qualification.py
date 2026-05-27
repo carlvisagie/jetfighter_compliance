@@ -87,6 +87,7 @@ def qualify_post(
         "author_intent": intent,
         "recommended_action": cls.get("recommended_action", "ignore"),
         "prey_reasons": prob.get("prey_reasons", []),
+        "prey_tier": prob.get("prey_tier", 4),
         "soft_burden_score": prob.get("soft_burden_score", 0),
         "soft_burden_badges": prob.get("soft_burden_badges", []),
     }

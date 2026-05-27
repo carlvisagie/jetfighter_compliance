@@ -68,21 +68,28 @@ CLUSTER_OPERATIONAL_SECURITY: Tuple[str, ...] = (
     "security assessment help",
     "customer audit security",
     "what applies to us",
+    "which level applies to us",
     "do we actually need this",
     "where do we start compliance",
     "operational uncertainty CMMC",
     "implementation confusion security",
+    "SPRS score help",
+    "what documentation is needed",
+    "customer asked for MFA",
+    "we store CUI drawings",
 )
 
 CLUSTER_VENDOR_PRESSURE: Tuple[str, ...] = (
     "vendor questionnaire",
     "vendor onboarding security",
+    "vendor onboarding questionnaire",
     "vendor assessment requirements",
     "prime contractor asked us",
     "prime contractor sent questionnaire",
     "prime contractor requested",
     "customer asked for security",
     "customer asked for documentation",
+    "customer asked for MFA",
 )
 
 CLUSTER_GOVERNMENT_CONTRACT: Tuple[str, ...] = (
@@ -181,7 +188,8 @@ CLUSTER_CONTENT_PATTERNS: List[Tuple[str, str]] = [
     (r"\b(\bmfa\b|multi.?factor)\b", "mfa_security_requirements"),
     (r"\b(paperwork|documentation request|evidence request|need policies)\b", "documentation_burden"),
     (r"\b(security requirements|it compliance|security assessment|security controls)\b", "operational_security"),
-    (r"\b(we got asked|what do they need|not sure what applies|customer sent)\b", "operational_security"),
+    (r"\b(we got asked|what do they need|not sure what applies|customer sent|vendor onboarding|sprs score)\b", "operational_security"),
+    (r"\b(we store|store drawings|cui handl)\b", "documentation_burden"),
 ]
 
 MIN_CLUSTER_DIVERSITY = 6

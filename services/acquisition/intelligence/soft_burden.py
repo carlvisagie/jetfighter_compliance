@@ -37,6 +37,17 @@ SOFT_UNCERTAINTY: List[Tuple[str, int, str]] = [
     (r"\bwe got quoted\b", 10, "financial"),
     (r"\bimplementation (confusion|burden)\b", 12, "quiet_confusion"),
     (r"\bquestionnaire burden\b", 10, "implementation"),
+    (r"\bwhich level applies\b", 14, "operational_uncertainty"),
+    (r"\bwhat documentation (is )?(needed|required)\b", 14, "operational_uncertainty"),
+    (r"\b(customer|client) asked for (mfa|documentation|security)\b", 14, "implementation"),
+    (r"\b(mfa|multi.?factor).{0,30}\b(require|required|asked)\b", 12, "implementation"),
+    (r"\b(sprs|supplier performance risk)\b", 12, "implementation"),
+    (r"\bvendor onboarding\b", 12, "implementation"),
+    (r"\bwe store (drawings|cui)\b", 14, "implementation"),
+    (r"\b(cui|controlled unclassified)\b", 10, "implementation"),
+    (r"\bsecurity questionnaire\b", 12, "implementation"),
+    (r"\b(evidence|policy|audit)\b.*\b(gap|uncertain|need|required)\b", 12, "operational_uncertainty"),
+    (r"\b(flowdown|prime contractor asked)\b", 12, "implementation"),
 ]
 
 SOFT_OPERATIONAL: List[Tuple[str, int, str]] = [
@@ -55,7 +66,12 @@ SOFT_OPERATIONAL: List[Tuple[str, int, str]] = [
     (r"\boffice furniture\b", 8, "implementation"),
     (r"\bvendor (pressure|requirements)\b", 10, "implementation"),
     (r"\bcustomer (pressure|requirements)\b", 10, "implementation"),
-    (r"\bsmall business operational\b", 10, "implementation"),
+    (r"\bvendor onboarding\b", 12, "implementation"),
+    (r"\b(sprs|supplier performance risk)\b", 10, "implementation"),
+    (r"\bwe store (drawings|cui)\b", 14, "implementation"),
+    (r"\b(mfa|multi.?factor)\b", 8, "implementation"),
+    (r"\b(evidence|policies?|audit)\b", 6, "implementation"),
+    (r"\bsecurity questionnaire\b", 10, "implementation"),
 ]
 
 SOFT_FINANCIAL: List[Tuple[str, int, str]] = [
@@ -78,7 +94,10 @@ PRACTICAL_CLARIFICATION_MARKERS = (
     r"\bwhat level\b",
     r"\bwhich level\b",
     r"\bwe receive cui\b",
-    r"\bnot sure whether\b",
+    r"\bwe store cui\b",
+    r"\bvendor onboarding\b",
+    r"\bsprs\b",
+    r"\bsecurity questionnaire\b",
 )
 
 
@@ -118,16 +137,18 @@ def score_soft_burden(title: str, body: str = "") -> Dict[str, Any]:
     soft_burden_score = int(
         min(
             100,
-            operational_uncertainty * 0.28
-            + quiet_confusion * 0.22
-            + implementation * 0.22
-            + financial_soft * 0.18
+            operational_uncertainty * 0.30
+            + quiet_confusion * 0.16
+            + implementation * 0.28
+            + financial_soft * 0.16
             + small_biz_pressure * 0.10
             + min(20, raw // 2),
         )
     )
 
     badges: List[str] = []
+    if implementation >= 30:
+        badges.append("Operational entanglement")
     if operational_uncertainty >= 35:
         badges.append("Operational uncertainty")
     if quiet_confusion >= 30:

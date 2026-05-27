@@ -141,6 +141,8 @@ def run_reddit_acquisition_cycle(
             {
                 "prey_score": int(qual.get("prey_score", 0)),
                 "soft_burden_score": soft_s,
+                "operational_strength": int(prob.get("operational_entanglement_score", 0))
+                + int(prob.get("operational_pressure_score", 0)),
                 "deployable_intent": deployable_intent(
                     intent,
                     soft_score=soft_s,
@@ -155,6 +157,16 @@ def run_reddit_acquisition_cycle(
     state["min_prey_threshold"] = effective_prey
     learning.save_learning_state(state, base)
     stats["effective_prey_threshold"] = effective_prey
+    if effective_prey < min_prey_score and prey_candidates:
+        telemetry.emit(
+            "queue_starvation",
+            metadata={
+                "base_threshold": min_prey_score,
+                "effective_threshold": effective_prey,
+                "candidates": len(prey_candidates),
+            },
+            base=base,
+        )
 
     queued_this_cycle = 0
     for item in evaluated:
@@ -193,14 +205,24 @@ def run_reddit_acquisition_cycle(
         if cls.get("author_intent") in ("GIVING_ADVICE", "PROMOTING_SERVICE"):
             telemetry.emit("advice_giver_detected", post_id=post.get("post_id", ""), base=base)
 
+        prob = qual.get("acquisition_probability") or {}
+        dims = prob.get("dimension_scores") or {}
         telemetry.emit(
             "prey_scored",
             post_id=post.get("post_id", ""),
             subreddit=post.get("subreddit", ""),
             metadata={
                 "prey_score": qual.get("prey_score"),
+                "prey_tier": qual.get("prey_tier"),
                 "predator_class": qual.get("predator_class"),
+                "predator_penalty": prob.get("predator_penalty"),
                 "queue_eligible": qual.get("queue_eligible"),
+                "burden_signals": qual.get("prey_reasons") or prob.get("prey_reasons"),
+                "operational_uncertainty": dims.get("operational_uncertainty_score"),
+                "financial_stress": dims.get("financial_stress_score"),
+                "quiet_confusion": prob.get("soft_burden_score"),
+                "discovery_cluster_used": post.get("discovery_source_cluster"),
+                "query_used": post.get("discovery_query"),
             },
             base=base,
         )
@@ -334,6 +356,7 @@ def run_reddit_acquisition_cycle(
             "trust_score": plan.get("trust_score"),
             "engagement_strategy": plan.get("engagement_strategy"),
             "prey_score": qual.get("prey_score"),
+            "prey_tier": qual.get("prey_tier"),
             "predator_class": qual.get("predator_class"),
             "predator_penalty": qual.get("predator_penalty"),
             "prey_reasons": qual.get("prey_reasons", []),
@@ -539,6 +562,8 @@ def _pending_with_knowledge(o: Dict[str, Any]) -> Dict[str, Any]:
         "trust_score": o.get("trust_score"),
         "engagement_strategy": o.get("engagement_strategy"),
         "prey_score": o.get("prey_score"),
+        "prey_tier": o.get("prey_tier")
+        or (o.get("acquisition_probability") or {}).get("prey_tier"),
         "predator_class": o.get("predator_class"),
         "prey_reasons": o.get("prey_reasons", []),
         "soft_burden_score": o.get("soft_burden_score", 0),

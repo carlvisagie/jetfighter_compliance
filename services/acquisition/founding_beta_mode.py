@@ -22,9 +22,9 @@ def deployable_intent(
 ) -> bool:
     if intent in ("SEEKING_HELP", "VENTING_OR_OVERWHELMED"):
         return True
-    if soft_score >= 48 and has_personal_need and predator_raw < 12:
+    if soft_score >= 42 and has_personal_need and predator_raw < 12:
         return True
-    if _beta() and intent == "UNKNOWN" and soft_score >= 40 and has_personal_need and predator_raw < 10:
+    if _beta() and intent == "UNKNOWN" and soft_score >= 35 and has_personal_need and predator_raw < 10:
         return True
     return False
 
@@ -32,6 +32,8 @@ def deployable_intent(
 def intent_passes_prey_gate(intent: str, *, soft_score: int, prob: Dict[str, Any]) -> bool:
     if intent in ("SEEKING_HELP", "VENTING_OR_OVERWHELMED"):
         return True
-    if _beta() and intent == "UNKNOWN" and soft_score >= 40 and prob.get("has_operational_need"):
+    if _beta() and intent == "UNKNOWN" and soft_score >= 35 and prob.get("has_operational_need"):
+        return True
+    if soft_score >= 40 and prob.get("has_operational_need") and int(prob.get("operational_entanglement_score", 0)) >= 30:
         return True
     return False
