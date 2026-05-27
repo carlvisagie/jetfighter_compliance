@@ -41,6 +41,34 @@ def emit(
     }
     _append_local(REDDIT_TELEMETRY_JSONL, rec, base)
     try:
+        from services.organism_observability.emit import organism_emit
+
+        organism_emit(SUBSYSTEM, event_type, message=post_id, metadata=meta, base=base)
+        aliases = {
+            "reddit_discovery_started": "acquisition_cycle_started",
+            "reddit_discovery_completed": "acquisition_cycle_completed",
+            "reddit_reply_approved": "operator_approved",
+            "reddit_post_ignored": "operator_denied",
+        }
+        if event_type in aliases:
+            organism_emit(
+                "acquisition_organism",
+                aliases[event_type],
+                message=post_id,
+                metadata={**meta, "source_event": event_type},
+                base=base,
+            )
+        if event_type == "prey_scored":
+            organism_emit(
+                "acquisition_organism",
+                "prey_scored",
+                message=post_id,
+                metadata={**meta, "connector": SUBSYSTEM},
+                base=base,
+            )
+    except Exception:
+        pass
+    try:
         from ... import telemetry as acq_telemetry
 
         acq_telemetry.emit(
@@ -49,12 +77,7 @@ def emit(
             base=base,
         )
     except Exception:
-        try:
-            from services.memory.telemetry import emit_telemetry
-
-            emit_telemetry(SUBSYSTEM, event_type, message=post_id, metadata=meta)
-        except Exception:
-            pass
+        pass
 
 
 def load_events(

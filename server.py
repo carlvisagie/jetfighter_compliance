@@ -575,6 +575,20 @@ async def customer_continuation_event(body: dict = Body(...)):
     )
 
 
+@app.post("/api/telemetry/customer-beacon")
+async def customer_telemetry_beacon(body: dict = Body(default={})):
+    from services.organism_observability.beacon import record_customer_beacon
+
+    meta = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
+    return record_customer_beacon(
+        str(body.get("event_type") or "upload_page_view"),
+        session_id=str(body.get("session_id") or ""),
+        project_id=str(body.get("project_id") or ""),
+        duration_ms=body.get("duration_ms"),
+        metadata=meta,
+    )
+
+
 @app.post("/api/customer/session/start")
 def customer_session_start():
     from services.customer_session import start_session
@@ -1083,6 +1097,15 @@ def operator_customer_friction(days: int = 14):
     return get_operator_friction_insights(days=min(max(days, 1), 90))
 
 
+@app.get("/api/operator/organism-observability")
+def operator_organism_observability(request: Request, limit: int = 500):
+    from services.organism_observability import get_operator_cockpit_observability
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return get_operator_cockpit_observability(telemetry_limit=min(max(limit, 50), 5000))
+
+
 @app.get("/api/operator/evidence-intelligence")
 def operator_evidence_intelligence(project_id: str = ""):
     from services.evidence_intelligence import get_operator_evidence_intelligence
@@ -1375,8 +1398,33 @@ async def operator_knowledge_cockpit_overlay(body: dict = Body(default={})):
     if not isinstance(payload, dict):
         payload = {k: v for k, v in body.items() if k != "view"}
     out = build_overlay(view=view, payload=payload)
-    emit_knowledge_event("overlay_opened", query=view, metadata={"view": view})
+    emit_knowledge_event(
+        "overlay_opened",
+        query=view,
+        metadata={"view": view, "panel": payload.get("panel")},
+    )
+    emit_knowledge_event(
+        "explanation_generated",
+        query=view,
+        metadata={"view": view, "explanation_type": view},
+    )
     return out
+
+
+@app.post("/api/operator/knowledge-cockpit/telemetry")
+async def operator_knowledge_cockpit_telemetry(request: Request, body: dict = Body(default={})):
+    from services.knowledge_cockpit.telemetry import emit_knowledge_event
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    event_type = str(body.get("event_type") or "overlay_collapsed")
+    emit_knowledge_event(
+        event_type,
+        concept_id=str(body.get("concept_id") or ""),
+        query=str(body.get("query") or body.get("view") or ""),
+        metadata=body.get("metadata") if isinstance(body.get("metadata"), dict) else {},
+    )
+    return {"ok": True, "event_type": event_type}
 
 
 @app.get("/api/operator/knowledge-cockpit/recent")

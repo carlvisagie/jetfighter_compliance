@@ -9,6 +9,12 @@ from services.acquisition.models import utc_now
 
 from .paths import OPERATOR_LEARNING_FILE, RECENT_LOOKUPS_FILE, ensure_knowledge_dir
 
+_EVENT_ALIASES = {
+    "concept_explained": "explanation_generated",
+    "knowledge_lookup": "concept_lookup",
+    "overlay_helpfulness": "overlay_helpfulness_signal",
+}
+
 
 def _append_jsonl(path, record: Dict[str, Any]) -> None:
     ensure_knowledge_dir()
@@ -24,43 +30,56 @@ def emit_knowledge_event(
     metadata: Optional[Dict[str, Any]] = None,
 ) -> None:
     meta = metadata or {}
+    canonical = _EVENT_ALIASES.get(event_type, event_type)
     _append_jsonl(
         RECENT_LOOKUPS_FILE,
         {
             "event_id": f"KL-{uuid.uuid4().hex[:8]}",
-            "event_type": event_type,
+            "event_type": canonical,
             "concept_id": concept_id,
             "query": query[:300],
             "when_utc": utc_now(),
             "metadata": meta,
         },
     )
-    if event_type in ("concept_explained", "knowledge_lookup", "operator_learning_signal"):
+    if canonical in (
+        "explanation_generated",
+        "concept_lookup",
+        "operator_learning_signal",
+        "overlay_opened",
+    ):
         _append_jsonl(
             OPERATOR_LEARNING_FILE,
             {
                 "event_id": f"KOL-{uuid.uuid4().hex[:8]}",
-                "event_type": event_type,
+                "event_type": canonical,
                 "concept_id": concept_id,
                 "when_utc": utc_now(),
                 "metadata": meta,
             },
         )
     try:
-        from services.memory.telemetry import emit_telemetry
+        from services.organism_observability.emit import organism_emit
 
-        emit_telemetry(
+        organism_emit(
             "knowledge_cockpit",
-            event_type,
+            canonical,
             message=query[:200] or concept_id,
-            metadata={"concept_id": concept_id, **meta},
+            metadata={"concept_id": concept_id, "explanation_type": meta.get("view"), **meta},
         )
+        if event_type != canonical:
+            organism_emit(
+                "knowledge_cockpit",
+                event_type,
+                message=query[:200] or concept_id,
+                metadata={"concept_id": concept_id, **meta},
+            )
     except Exception:
         pass
     try:
         from .memory_context import link_operator_learning
 
-        link_operator_learning(event_type, concept_id=concept_id, metadata=meta)
+        link_operator_learning(canonical, concept_id=concept_id, metadata=meta)
     except Exception:
         pass
 

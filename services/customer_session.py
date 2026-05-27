@@ -47,17 +47,69 @@ def _utc_now() -> str:
 
 def _emit(event_type: str, *, session_id: str = "", project_id: str = "", metadata: Optional[Dict] = None) -> None:
     try:
-        from services.memory.telemetry import emit_telemetry
+        from services.organism_observability.emit import organism_emit
 
-        emit_telemetry(
+        meta = {"session_id": session_id, **(metadata or {})}
+        link = bool(project_id)
+        entity_id = ""
+        if project_id:
+            try:
+                from services.memory.central_memory import find_entity_id
+
+                entity_id = find_entity_id(project_id=project_id) or ""
+            except Exception:
+                pass
+        organism_emit(
             "customer_session",
             event_type,
             project_id=project_id,
+            entity_id=entity_id,
             message=session_id,
-            metadata={"session_id": session_id, **(metadata or {})},
+            metadata=meta,
+            link_timeline=link and bool(entity_id),
         )
     except Exception as e:
         logger.debug("Session telemetry skipped: %s", e)
+
+
+def _session_timing_meta(session_id: str, extra: Optional[Dict] = None) -> Dict[str, Any]:
+    """Attach seconds_to_upload and first-interaction timing when available."""
+    meta = dict(extra or {})
+    try:
+        sess = _load_session(session_id)
+    except HTTPException:
+        return meta
+    created = sess.get("created_at")
+    first_ix = sess.get("first_interaction_at")
+    if created and first_ix:
+        try:
+            t0 = datetime.fromisoformat(str(created).replace("Z", "+00:00"))
+            t1 = datetime.fromisoformat(str(first_ix).replace("Z", "+00:00"))
+            meta.setdefault("seconds_to_first_interaction", max(0, int((t1 - t0).total_seconds())))
+        except (TypeError, ValueError):
+            pass
+    if created and sess.get("first_upload_at"):
+        try:
+            t0 = datetime.fromisoformat(str(created).replace("Z", "+00:00"))
+            tu = datetime.fromisoformat(str(sess["first_upload_at"]).replace("Z", "+00:00"))
+            meta.setdefault("seconds_to_upload", max(0, int((tu - t0).total_seconds())))
+        except (TypeError, ValueError):
+            pass
+    return meta
+
+
+def _mark_first_interaction(session_id: str) -> None:
+    sess = _load_session(session_id)
+    if not sess.get("first_interaction_at"):
+        sess["first_interaction_at"] = _utc_now()
+        _save_session(session_id, sess)
+
+
+def _mark_first_upload(session_id: str) -> None:
+    sess = _load_session(session_id)
+    if not sess.get("first_upload_at"):
+        sess["first_upload_at"] = _utc_now()
+        _save_session(session_id, sess)
 
 
 def _session_dir(session_id: str) -> Path:
@@ -158,6 +210,7 @@ def start_session() -> Dict[str, str]:
     _save_manifest(session_id, {"files": []})
     token = make_session_token(session_id)
     _emit("customer_session_started", session_id=session_id)
+    _emit("upload_page_view", session_id=session_id, metadata={"source": "session_start"})
     return {"ok": True, "session_id": session_id, "session_token": token}
 
 
@@ -168,7 +221,13 @@ async def upload_to_session(session_id: str, session_token: str, file: UploadFil
     content = await file.read()
     if len(content) > MAX_FILE_BYTES:
         raise HTTPException(status_code=413, detail="File too large (max 50MB)")
-    _emit("pre_contact_upload_started", session_id=session_id, metadata={"filename": safe_name})
+    _mark_first_interaction(session_id)
+    _emit(
+        "pre_contact_upload_started",
+        session_id=session_id,
+        metadata=_session_timing_meta(session_id, {"filename": safe_name, "upload_started": True}),
+    )
+    _emit("upload_started", session_id=session_id, metadata={"filename": safe_name})
     try:
         from services.founding_beta.telemetry import emit_beta_event
 
@@ -213,12 +272,16 @@ async def upload_to_session(session_id: str, session_token: str, file: UploadFil
     sess = _load_session(session_id)
     sess["upload_count"] = len(manifest["files"])
     _save_session(session_id, sess)
+    if sess["upload_count"] == 1:
+        _mark_first_upload(session_id)
+        sess = _load_session(session_id)
 
-    _emit(
-        "pre_contact_upload_completed",
-        session_id=session_id,
-        metadata={"filename": safe_name, "count": sess["upload_count"]},
+    timing = _session_timing_meta(
+        session_id,
+        {"filename": safe_name, "count": sess["upload_count"], "file_size": len(content)},
     )
+    _emit("pre_contact_upload_completed", session_id=session_id, metadata=timing)
+    _emit("upload_completed", session_id=session_id, metadata=timing)
     try:
         from services.founding_beta.telemetry import emit_beta_event
 
@@ -355,7 +418,12 @@ def complete_session(
         upload_url = f"{base}/upload?project_id={project_id}&token={continuation_token}"
         qr_url = f"{base}/api/customer/qr.svg?data={continuation_url}"
 
-    _emit("workspace_created", session_id=session_id, project_id=project_id)
+    _emit(
+        "workspace_created",
+        session_id=session_id,
+        project_id=project_id,
+        metadata=_session_timing_meta(session_id, {"files_linked": len(linked), "real_paperwork_submitted": True}),
+    )
     _emit("continuation_created", session_id=session_id, project_id=project_id)
     _emit("qr_shown", session_id=session_id, project_id=project_id)
     try:

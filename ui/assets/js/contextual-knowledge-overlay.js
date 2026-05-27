@@ -89,6 +89,23 @@
     if (!rootEl) return;
     collapsed = true;
     rootEl.classList.add('cko-overlay--collapsed');
+    postOverlayTelemetry('overlay_collapsed', { view: activePanelId || '' });
+  }
+
+  function postOverlayTelemetry(eventType, meta) {
+    try {
+      fetch('/api/operator/knowledge-cockpit/telemetry', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_type: eventType,
+          view: (meta && meta.view) || activePanelId || '',
+          concept_id: (meta && meta.concept_id) || '',
+          metadata: meta || {},
+        }),
+      }).catch(function () {});
+    } catch (_) {}
   }
 
   function setStatus(text) {
@@ -143,6 +160,8 @@
       btn.addEventListener('click', function () {
         var cid = btn.getAttribute('data-concept-id');
         if (!cid) return;
+        postOverlayTelemetry('concept_lookup', { concept_id: cid, view: 'concept' });
+        postOverlayTelemetry('related_concepts_opened', { concept_id: cid });
         api('/api/operator/knowledge-cockpit/concept/' + encodeURIComponent(cid)).then(function (out) {
           if (!out.ok) return;
           renderOverlay({
@@ -175,9 +194,11 @@
       body: JSON.stringify({ view: view, payload: payload || {} }),
     }).then(function (data) {
       renderOverlay(data);
+      postOverlayTelemetry('overlay_opened', { view: view, panel: (payload && payload.panel) || '' });
       return data;
     }).catch(function () {
       setStatus('Explain unavailable');
+      postOverlayTelemetry('overlay_failure', { view: view });
     });
   }
 

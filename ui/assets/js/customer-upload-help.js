@@ -28,8 +28,26 @@
     }
   }
 
+  function bindHelpTelemetry() {
+    var details = document.getElementById("upload-help");
+    if (!details || details.tagName !== "DETAILS") return;
+    details.addEventListener("toggle", function () {
+      if (!global.KYCUploadBeacon) return;
+      var evt = details.open ? "helper_opened" : "helper_closed";
+      global.KYCUploadBeacon.beacon(evt, {
+        metadata: { source: "upload-help-details" },
+      });
+      if (details.open) {
+        global.KYCUploadBeacon.beacon("hesitation_before_upload", {
+          metadata: { source: "help_panel_opened" },
+        });
+      }
+    });
+  }
+
   function init(cfg) {
     bindHelpPanelUploadButtons((cfg && cfg.fileInputId) || "fileInput");
+    bindHelpTelemetry();
     openHelpFromHash();
     window.addEventListener("hashchange", openHelpFromHash);
   }

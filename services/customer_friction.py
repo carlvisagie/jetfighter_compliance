@@ -134,15 +134,25 @@ def _ts() -> str:
 
 def _emit(event_type: str, *, project_id: Optional[str] = None, success: bool = True, metadata: Optional[Dict] = None):
     try:
-        from services.memory.telemetry import emit_telemetry
+        from services.organism_observability.emit import organism_emit
 
-        emit_telemetry(
+        entity_id = ""
+        if project_id:
+            try:
+                from services.memory.central_memory import find_entity_id
+
+                entity_id = find_entity_id(project_id=project_id) or ""
+            except Exception:
+                pass
+        organism_emit(
             SUBSYSTEM,
             event_type,
             severity="info" if success else "warning",
             success=success,
-            project_id=project_id,
+            project_id=project_id or "",
+            entity_id=entity_id,
             metadata=metadata or {},
+            link_timeline=bool(entity_id),
         )
     except Exception:
         pass

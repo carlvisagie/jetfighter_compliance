@@ -30,15 +30,22 @@ def emit_beta_event(
     meta = dict(metadata or {})
     meta["founding_beta"] = True
     try:
-        from services.memory.telemetry import emit_telemetry
+        from services.organism_observability.emit import organism_emit
 
-        emit_telemetry("founding_beta", event_type, message=message[:300], metadata=meta)
+        organism_emit("founding_beta", event_type, message=message[:300], metadata=meta)
+        if event_type in ("beta_upload_completed", "workspace_created"):
+            organism_emit(
+                "acquisition_organism",
+                "upload_conversion_completed",
+                message=message[:300],
+                metadata={**meta, "real_paperwork_submitted": True},
+            )
     except Exception:
         pass
     try:
         from services.knowledge_cockpit.telemetry import emit_knowledge_event
 
         if event_type == "overlay_helpfulness":
-            emit_knowledge_event("overlay_helpfulness", metadata=meta)
+            emit_knowledge_event("overlay_helpfulness_signal", metadata=meta)
     except Exception:
         pass

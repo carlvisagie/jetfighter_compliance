@@ -6,6 +6,43 @@
   "use strict";
 
   const STORAGE_KEY = "kyc_pre_contact_session";
+  const pageLoadedAt = new Date().toISOString();
+
+  function clientKind() {
+    const w = global.innerWidth || 1024;
+    const ua = navigator.userAgent || "";
+    if (w < 768 || /Mobi|Android|iPhone/i.test(ua)) return "mobile";
+    return "desktop";
+  }
+
+  function uploadBeacon(eventType, payload) {
+    payload = payload || {};
+    const body = {
+      event_type: eventType,
+      session_id: payload.session_id || "",
+      project_id: payload.project_id || "",
+      duration_ms: payload.duration_ms,
+      metadata: Object.assign(
+        { page_loaded_at: pageLoadedAt, client: payload.client || clientKind() },
+        payload.metadata || {}
+      ),
+    };
+    try {
+      fetch("/api/telemetry/customer-beacon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        keepalive: true,
+      }).catch(function () {});
+    } catch (_) {}
+  }
+
+  global.KYCUploadBeacon = {
+    beacon: uploadBeacon,
+    trackPageView: function (sessionId) {
+      uploadBeacon("upload_page_view", { session_id: sessionId || "" });
+    },
+  };
 
   function qrSrc(url) {
     return "/api/customer/qr.svg?data=" + encodeURIComponent(url);
@@ -76,8 +113,17 @@
   }
 
   function telemetry(eventType, metadata) {
-    if (global.KYCFriction && global.KYCFriction.telemetry) {
-      global.KYCFriction.telemetry(eventType, metadata || {});
+    metadata = metadata || {};
+    if (global.KYCUploadBeacon) {
+      var sid = (session && session.session_id) || metadata.session_id || "";
+      global.KYCUploadBeacon.beacon(eventType, {
+        session_id: sid,
+        project_id: metadata.project_id || "",
+        metadata: metadata,
+      });
+    }
+    if (global.KYCFriction && global.KYCFriction.telemetry && metadata.token) {
+      global.KYCFriction.telemetry(eventType, metadata);
     }
   }
 
@@ -246,6 +292,10 @@
     }
 
     showPhase("upload");
+    if (global.KYCUploadBeacon) {
+      global.KYCUploadBeacon.trackPageView(session && session.session_id);
+    }
+    telemetry("upload_page_view", {});
     return { handleFiles, showPhase };
   }
 

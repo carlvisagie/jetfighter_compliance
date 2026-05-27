@@ -80,6 +80,12 @@
           <span class="kyc-label-overline">Learn this now</span>
           <div data-guidance="learn"><p class="kyc-loading">Contextual learning…</p></div>
         </article>
+        <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="organism-observability-panel" data-cko-panel="telemetry">
+          <span class="kyc-label-overline">Organism observability</span>
+          <h3 style="margin-top:0;">Operational intelligence</h3>
+          <p class="org-metric-foot">Upload and acquisition funnels, overlay usefulness, evidence mapping confidence, abandonment hotspots, and silent-failure warnings.</p>
+          <div id="organism-observability-insights"><p class="kyc-loading">Loading organism observability…</p></div>
+        </article>
         <article class="guidance-panel org-card--wide" style="grid-column:1/-1;" id="customer-friction-panel" data-cko-panel="friction">
           <span class="kyc-label-overline">Customer friction</span>
           <h3 style="margin-top:0;">Onboarding &amp; upload experience</h3>
@@ -361,6 +367,7 @@
     await Promise.all([
       refreshOrganism(),
       OperatorGuidance.refreshGuidance(root, pid, mode),
+      loadOrganismObservability(),
       loadCustomerFriction(),
       loadEvidenceIntelligence(pid),
       loadAcquisitionIntelligence(),
@@ -754,6 +761,51 @@
       (m.onboarding_completion_rate != null ? ((m.onboarding_completion_rate * 100).toFixed(0) + '%') : '—') + '</li>' +
       '<li><strong>Organism learning:</strong> ' + escapeHtml((m.organism_learning_signals || []).join(' · ') || '—') + '</li>' +
       '</ul></div>';
+  }
+  async function loadOrganismObservability() {
+    const el = document.getElementById('organism-observability-insights');
+    if (!el) return;
+    try {
+      const j = await api('/api/operator/organism-observability');
+      const uf = j.upload_funnel || {};
+      const af = j.acquisition_funnel || {};
+      const ov = j.overlay_usefulness || {};
+      const ev = j.evidence_mapping || {};
+      const warnings = (j.silent_failure_warnings || []).map(function (w) {
+        return '<li class="org-warn-' + escapeHtml(w.severity || 'info') + '">' + escapeHtml(w.message || '') + '</li>';
+      }).join('') || '<li>None detected</li>';
+      const hotspots = (j.abandonment_hotspots || []).map(function (h) {
+        return '<li>' + escapeHtml(h) + '</li>';
+      }).join('') || '<li>None flagged</li>';
+      const concepts = (j.top_confusion_concepts || []).map(function (c) {
+        return '<li>' + escapeHtml(c.concept_id || '') + ' (' + (c.count || 0) + ')</li>';
+      }).join('') || '<li>—</li>';
+      const actions = (j.recommended_actions || []).slice(0, 6).map(function (a) {
+        return '<li>' + escapeHtml(a) + '</li>';
+      }).join('') || '<li>Organism healthy — keep monitoring</li>';
+      el.innerHTML =
+        '<div class="kyc-metric-grid">' +
+        '<div class="kyc-metric"><span class="kyc-metric-label">Upload funnel</span>' +
+        '<span class="kyc-metric-value">' + escapeHtml(uf.health || '—') + '</span>' +
+        '<span class="org-metric-foot">Started ' + (uf.upload_started || 0) + ' · Completed ' + (uf.upload_completed || 0) + '</span></div>' +
+        '<div class="kyc-metric"><span class="kyc-metric-label">Acquisition</span>' +
+        '<span class="kyc-metric-value">' + escapeHtml(af.health || '—') + '</span>' +
+        '<span class="org-metric-foot">Approved ' + (af.operator_approved || 0) + ' · Paperwork ' + (af.paperwork_outcomes || 0) + '</span></div>' +
+        '<div class="kyc-metric"><span class="kyc-metric-label">Evidence mapping</span>' +
+        '<span class="kyc-metric-value">' + escapeHtml(ev.health || '—') + '</span>' +
+        '<span class="org-metric-foot">Avg conf ' + (ev.avg_mapping_confidence != null ? ev.avg_mapping_confidence : '—') + '</span></div>' +
+        '<div class="kyc-metric"><span class="kyc-metric-label">Overlay</span>' +
+        '<span class="kyc-metric-value">' + (ov.overlay_opened || 0) + ' opens</span>' +
+        '<span class="org-metric-foot">Explanations ' + (ov.explanations || 0) + '</span></div>' +
+        '</div>' +
+        '<p class="org-metric-foot"><strong>Silent failure warnings</strong></p><ul class="guidance-list">' + warnings + '</ul>' +
+        '<p class="org-metric-foot"><strong>Abandonment hotspots</strong></p><ul class="guidance-list">' + hotspots + '</ul>' +
+        '<p class="org-metric-foot"><strong>Top confusion concepts</strong></p><ul class="guidance-list">' + concepts + '</ul>' +
+        '<p class="org-metric-foot"><strong>Recommended actions</strong></p><ul class="guidance-list">' + actions + '</ul>';
+      if (window.KnowledgeOverlay) KnowledgeOverlay.setPanelSnapshot('telemetry', j);
+    } catch (e) {
+      el.innerHTML = '<p class="org-metric-foot">' + escapeHtml(e.message || e) + '</p>';
+    }
   }
   async function loadCustomerFriction() {
     const el = document.getElementById('customer-friction-insights');
