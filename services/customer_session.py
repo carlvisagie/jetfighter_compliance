@@ -170,6 +170,18 @@ async def upload_to_session(session_id: str, session_token: str, file: UploadFil
         raise HTTPException(status_code=413, detail="File too large (max 50MB)")
     _emit("pre_contact_upload_started", session_id=session_id, metadata={"filename": safe_name})
     try:
+        from services.founding_beta.telemetry import emit_beta_event
+
+        ext = Path(safe_name).suffix.lower() or "unknown"
+        emit_beta_event(
+            "beta_upload_started",
+            message=safe_name,
+            metadata={"session_id": session_id, "extensions": [ext]},
+        )
+        emit_beta_event("upload_file_types", metadata={"extensions": [ext], "session_id": session_id})
+    except Exception:
+        pass
+    try:
         from services.alerts import raise_alert
 
         raise_alert(
@@ -207,6 +219,18 @@ async def upload_to_session(session_id: str, session_token: str, file: UploadFil
         session_id=session_id,
         metadata={"filename": safe_name, "count": sess["upload_count"]},
     )
+    try:
+        from services.founding_beta.telemetry import emit_beta_event
+
+        exts = list({(Path(f.get("safe_name") or "").suffix.lower() or "unknown") for f in manifest["files"]})
+        emit_beta_event(
+            "beta_upload_completed",
+            message=f"{sess['upload_count']} files",
+            metadata={"session_id": session_id, "extensions": exts, "count": sess["upload_count"]},
+        )
+        emit_beta_event("upload_file_types", metadata={"extensions": exts, "session_id": session_id})
+    except Exception:
+        pass
     return {"ok": True, "filename": safe_name, "upload_count": sess["upload_count"]}
 
 

@@ -134,15 +134,21 @@ def run_reddit_acquisition_cycle(
         qual = item["qual"]
         prob = qual.get("acquisition_probability") or {}
         intent = item["cls"].get("author_intent", "")
+        from ...founding_beta_mode import deployable_intent
+
+        soft_s = int(prob.get("soft_burden_score", 0))
         prey_candidates.append(
             {
                 "prey_score": int(qual.get("prey_score", 0)),
-                "soft_burden_score": int(prob.get("soft_burden_score", 0)),
-                "deployable_intent": intent in author_intent.DEPLOYABLE_INTENTS
-                or int(prob.get("soft_burden_score", 0)) >= 48,
+                "soft_burden_score": soft_s,
+                "deployable_intent": deployable_intent(
+                    intent,
+                    soft_score=soft_s,
+                    has_personal_need=bool(prob.get("has_operational_need")),
+                    predator_raw=int(prob.get("predator_penalty", 0)),
+                ),
                 "low_predator": int(prob.get("predator_penalty", 99)) < 48,
-                "has_operational_need": bool(prob.get("has_operational_need"))
-                or int(prob.get("soft_burden_score", 0)) >= 45,
+                "has_operational_need": bool(prob.get("has_operational_need")) or soft_s >= 40,
             }
         )
     effective_prey = compute_adaptive_prey_threshold(min_prey_score, prey_candidates, learning_state=state)
@@ -582,9 +588,18 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
 
     acq = acq_dash(base)
 
+    founding_beta: Dict[str, Any] = {}
+    try:
+        from services.founding_beta.stats import get_founding_beta_status
+
+        founding_beta = get_founding_beta_status(base)
+    except Exception:
+        pass
+
     return {
         "ok": True,
         "connector": CONNECTOR_ID,
+        "founding_beta": founding_beta,
         "operator_role": "strategic_approval_only",
         "operator_actions": ["approve", "deny"],
         "doctrine": {

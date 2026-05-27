@@ -28,6 +28,15 @@ SOFT_UNCERTAINTY: List[Tuple[str, int, str]] = [
     (r"\bconflicting information\b", 14, "quiet_confusion"),
     (r"\bi'?ve been all over the web\b", 12, "quiet_confusion"),
     (r"\bwe currently\b", 8, "operational_context"),
+    (r"\bdo we actually need\b", 14, "operational_uncertainty"),
+    (r"\bwhere do we start\b", 12, "operational_uncertainty"),
+    (r"\bwhat paperwork is needed\b", 14, "operational_uncertainty"),
+    (r"\bpartial (documentation|paperwork|files)\b", 12, "operational_uncertainty"),
+    (r"\bcustomer asked (for|us)\b", 12, "implementation"),
+    (r"\bprime contractor requested\b", 12, "implementation"),
+    (r"\bwe got quoted\b", 10, "financial"),
+    (r"\bimplementation (confusion|burden)\b", 12, "quiet_confusion"),
+    (r"\bquestionnaire burden\b", 10, "implementation"),
 ]
 
 SOFT_OPERATIONAL: List[Tuple[str, int, str]] = [
@@ -44,6 +53,9 @@ SOFT_OPERATIONAL: List[Tuple[str, int, str]] = [
     (r"\bsupplier\b", 6, "implementation"),
     (r"\bwe provide\b.*\b(military|defense|government|bases)\b", 12, "implementation"),
     (r"\boffice furniture\b", 8, "implementation"),
+    (r"\bvendor (pressure|requirements)\b", 10, "implementation"),
+    (r"\bcustomer (pressure|requirements)\b", 10, "implementation"),
+    (r"\bsmall business operational\b", 10, "implementation"),
 ]
 
 SOFT_FINANCIAL: List[Tuple[str, int, str]] = [

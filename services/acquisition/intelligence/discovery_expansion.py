@@ -67,6 +67,11 @@ CLUSTER_OPERATIONAL_SECURITY: Tuple[str, ...] = (
     "security controls small business",
     "security assessment help",
     "customer audit security",
+    "what applies to us",
+    "do we actually need this",
+    "where do we start compliance",
+    "operational uncertainty CMMC",
+    "implementation confusion security",
 )
 
 CLUSTER_VENDOR_PRESSURE: Tuple[str, ...] = (
@@ -75,6 +80,9 @@ CLUSTER_VENDOR_PRESSURE: Tuple[str, ...] = (
     "vendor assessment requirements",
     "prime contractor asked us",
     "prime contractor sent questionnaire",
+    "prime contractor requested",
+    "customer asked for security",
+    "customer asked for documentation",
 )
 
 CLUSTER_GOVERNMENT_CONTRACT: Tuple[str, ...] = (
@@ -93,6 +101,9 @@ CLUSTER_DOCUMENTATION_BURDEN: Tuple[str, ...] = (
     "what documents do we need",
     "need cybersecurity policies",
     "need policies customer",
+    "what paperwork is needed",
+    "partial documentation",
+    "partial paperwork compliance",
 )
 
 CLUSTER_CYBERSECURITY_QUESTIONNAIRE: Tuple[str, ...] = (

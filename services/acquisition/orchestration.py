@@ -470,8 +470,17 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
         for tag in (t.get("signal_bundle") or {}).get("emotional_tags") or []:
             emotional[tag] = emotional.get(tag, 0) + 1
 
+    founding_beta: Dict[str, Any] = {}
+    try:
+        from services.founding_beta.stats import get_founding_beta_status
+
+        founding_beta = get_founding_beta_status(base)
+    except Exception:
+        pass
+
     return {
         "ok": True,
+        "founding_beta": founding_beta,
         "doctrine": {
             "positioning": "burden_removal",
             "message": messaging.CORE_HEADLINE + " " + messaging.CORE_SUBLINE,

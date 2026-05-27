@@ -106,6 +106,25 @@ def process_evidence_upload(
             project_id=project_id,
             metadata={"document_type": classification.document_type, "confidence": classification.confidence},
         )
+        try:
+            from services.founding_beta.telemetry import emit_beta_event
+
+            emit_beta_event(
+                "evidence_mapping_confidence",
+                message=classification.document_type,
+                metadata={
+                    "project_id": project_id,
+                    "document_type": classification.document_type,
+                    "confidence": classification.confidence,
+                },
+            )
+            if classification.confidence < 0.55:
+                emit_beta_event(
+                    "operator_review_needed",
+                    metadata={"project_id": project_id, "file": name},
+                )
+        except Exception:
+            pass
         result.gaps_detected = len(gaps)
         result.profile_updated = True
 

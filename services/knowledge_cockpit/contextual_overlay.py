@@ -321,6 +321,13 @@ def _overlay_acquisition_panel(p: Dict[str, Any]) -> Dict[str, Any]:
         "The organism finds operational burden and routes prospects to upload-first onboarding. "
         "No auto-spam — drafts await your judgment."
     )
+    try:
+        from services.founding_beta.mode import is_founding_beta_mode
+
+        if is_founding_beta_mode():
+            why += " Founding Beta Mode: primary success metric is real paperwork submitted."
+    except Exception:
+        pass
     good_bad = []
     if rate >= 0.15 and completed > 0:
         good_bad.append("Good: real paperwork is converting — engine is producing outcomes.")

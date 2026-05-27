@@ -444,7 +444,7 @@
       const j = await api('/api/operator/acquisition-intelligence');
       const conv = j.upload_conversion || {};
       const hottest = (j.hottest_targets || []).slice(0, 6);
-      let html =
+      let html = renderFoundingBeta(j.founding_beta) +
         '<p class="org-metric-foot"><strong>Doctrine:</strong> ' + escapeHtml((j.doctrine && j.doctrine.message) || '') + '</p>' +
         '<ul class="guidance-list">' +
         '<li><strong>Upload conversion:</strong> ' + ((conv.rate || 0) * 100).toFixed(1) + '% (' + (conv.completed || 0) + '/' + (conv.started || 0) + ')</li>' +
@@ -491,7 +491,7 @@
       const conv = j.upload_conversion || {};
       const pending = j.pending_opportunities || [];
       window.__redditPendingMap = {};
-      let html =
+      let html = renderFoundingBeta(j.founding_beta) +
         '<p class="org-metric-foot">Upload conversion: ' + ((conv.rate || 0) * 100).toFixed(1) + '% · Organism handles safety, pacing, and wording.</p>';
       if (!pending.length) {
         html += '<p class="org-metric-foot">No opportunities awaiting decision.</p>';
@@ -736,6 +736,24 @@
     const d = document.createElement('div');
     d.textContent = s || '';
     return d.innerHTML;
+  }
+  function renderFoundingBeta(fb) {
+    if (!fb || !fb.active) return '';
+    const m = fb.metrics || {};
+    const cats = m.evidence_categories_mapped || {};
+    const catStr = Object.keys(cats).length
+      ? Object.keys(cats).map(function (k) { return k + '(' + cats[k] + ')'; }).join(', ')
+      : '—';
+    return '<div class="founding-beta-strip">' +
+      '<p class="org-metric-foot"><strong>' + escapeHtml(fb.label || 'Founding Beta Mode Active') + '</strong> · ' +
+      escapeHtml((fb.messaging && fb.messaging.success_metric) || 'real_paperwork_submitted') + '</p>' +
+      '<ul class="guidance-list">' +
+      '<li><strong>Uploads received:</strong> ' + (m.uploads_received || 0) + '</li>' +
+      '<li><strong>Evidence file types:</strong> ' + escapeHtml(catStr) + '</li>' +
+      '<li><strong>Onboarding completion:</strong> ' +
+      (m.onboarding_completion_rate != null ? ((m.onboarding_completion_rate * 100).toFixed(0) + '%') : '—') + '</li>' +
+      '<li><strong>Organism learning:</strong> ' + escapeHtml((m.organism_learning_signals || []).join(' · ') || '—') + '</li>' +
+      '</ul></div>';
   }
   async function loadCustomerFriction() {
     const el = document.getElementById('customer-friction-insights');

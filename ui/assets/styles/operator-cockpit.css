@@ -380,6 +380,18 @@
   opacity: 0.92;
 }
 
+.founding-beta-strip {
+  margin-bottom: 0.85rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  background: rgba(34, 120, 80, 0.12);
+  border: 1px solid rgba(34, 120, 80, 0.35);
+}
+
+.founding-beta-strip .guidance-list {
+  margin-bottom: 0;
+}
+
 .kyc-manual-knowledge summary {
   cursor: pointer;
   font-weight: 600;

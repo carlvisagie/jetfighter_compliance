@@ -8,12 +8,12 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
-DEFAULT_MIN_PREY_SCORE = 52
-MIN_PREY_FLOOR = 48
-MAX_PREY_CEILING = 62
-TARGET_QUEUE_MIN = 1
-TARGET_QUEUE_MAX = 8
-NEAR_MISS_MARGIN = 6
+DEFAULT_MIN_PREY_SCORE = 50
+MIN_PREY_FLOOR = 46
+MAX_PREY_CEILING = 60
+TARGET_QUEUE_MIN = 3
+TARGET_QUEUE_MAX = 10
+NEAR_MISS_MARGIN = 8
 
 # --- High-value prey signals (operational burden, not topic intensity) ---
 PREY_PATTERNS: List[Tuple[str, int, str]] = [
@@ -59,6 +59,15 @@ PREY_PATTERNS: List[Tuple[str, int, str]] = [
     (r"\bsecurity questionnaire\b", 10, "paperwork_need"),
     (r"\bwe house (information|data|pii)\b", 12, "operational_trigger"),
     (r"\b(messy|partial|spreadsheet|policies?)\b", 8, "paperwork_need"),
+    (r"\bpartial documentation\b", 14, "paperwork_need"),
+    (r"\bwhat paperwork is needed\b", 16, "paperwork_need"),
+    (r"\b(customer|client) asked (for|us)\b", 14, "operational_trigger"),
+    (r"\bdo we actually need\b", 14, "compliance_uncertainty"),
+    (r"\bwhere do we start\b", 14, "guidance_need"),
+    (r"\bimplementation (confusion|burden|pressure)\b", 12, "operational_trigger"),
+    (r"\bquestionnaire burden\b", 12, "paperwork_need"),
+    (r"\bvendor (pressure|requirements)\b", 10, "operational_trigger"),
+    (r"\bquiet\b.*\b(confus|uncertain)\b", 10, "guidance_need"),
 ]
 
 PREDATOR_PATTERNS: List[Tuple[str, int, str]] = [
@@ -333,7 +342,7 @@ def score_acquisition_probability(
         + dimension_scores["operational_pressure_score"] * 0.18
         + dimension_scores["compliance_uncertainty_score"] * 0.11
         + dimension_scores["paperwork_likelihood_score"] * 0.10
-        + soft_score * 0.16
+        + soft_score * 0.22
         + dimension_scores["confusion_density_score"] * 0.10
         + dimension_scores["small_business_stress_score"] * 0.10
         + dimension_scores["emotional_overwhelm_score"] * 0.08
@@ -345,8 +354,13 @@ def score_acquisition_probability(
     predator_class = _primary_predator_class(predator_dims, intent)
     prey_reasons = _build_prey_reasons(dimension_scores, prey_hits, soft.get("soft_burden_badges"))
 
-    deployable = intent in ("SEEKING_HELP", "VENTING_OR_OVERWHELMED") or (
-        soft_score >= 48 and has_personal_need and predator_raw < 12
+    from .founding_beta_mode import deployable_intent
+
+    deployable = deployable_intent(
+        intent,
+        soft_score=soft_score,
+        has_personal_need=has_personal_need,
+        predator_raw=predator_raw,
     )
     queue_eligible = (
         prey_score >= min_prey_score
@@ -430,15 +444,16 @@ def compute_adaptive_prey_threshold(
     if len(would_queue) >= TARGET_QUEUE_MIN:
         return threshold
 
+    # Starvation / thin cycle: admit best operational prospect (target 3–10 per cycle, never zero by design)
+    if eligible and not would_queue:
+        best = max(eligible, key=lambda c: c.get("prey_score", 0))
+        ps = int(best.get("prey_score", 0))
+        if ps >= MIN_PREY_FLOOR and best.get("low_predator") and best.get("has_operational_need"):
+            return max(MIN_PREY_FLOOR, min(threshold, ps))
+
     if near_miss:
         relaxed = max(MIN_PREY_FLOOR, threshold - 4)
         return relaxed
-
-    # Starvation: strongest operational burden prospect
-    if eligible:
-        best = max(eligible, key=lambda c: c.get("prey_score", 0))
-        if best.get("prey_score", 0) >= MIN_PREY_FLOOR and best.get("low_predator") and best.get("has_operational_need"):
-            return max(MIN_PREY_FLOOR, min(threshold, best.get("prey_score", 0)))
 
     return threshold
 
@@ -465,10 +480,10 @@ def apply_operator_prey_feedback(
             "topical_weight": 1.0,
         },
     )
+    reasons = prey_reasons or []
     if approved:
         if any("Quiet" in r or "Operational uncertainty" in r for r in reasons):
             pl["soft_burden"] = min(1.35, pl.get("soft_burden", 1.0) + 0.04)
-    reasons = prey_reasons or []
     if approved:
         if any("Financial" in r for r in reasons):
             pl["financial_stress"] = min(1.35, pl.get("financial_stress", 1.0) + 0.04)
@@ -496,18 +511,18 @@ def passes_prey_gate(
     min_prey_score: int,
 ) -> bool:
     """Gate operator queue on prey_score + predator profile."""
+    from .founding_beta_mode import intent_passes_prey_gate
+
     prob = qualification.get("acquisition_probability") or {}
     intent = classification.get("author_intent", "UNKNOWN")
+    soft = int(prob.get("soft_burden_score", 0))
     return bool(
         int(qualification.get("prey_score", 0)) >= min_prey_score
-        and intent in ("SEEKING_HELP", "VENTING_OR_OVERWHELMED")
+        and intent_passes_prey_gate(intent, soft_score=soft, prob=prob)
         and int(prob.get("predator_penalty", 99)) < 48
         and prob.get("predator_class") not in BANNED_PREDATOR_CLASSES
         and not prob.get("topical_only_risk")
-        and (
-            prob.get("has_operational_need")
-            or int(prob.get("soft_burden_score", 0)) >= 45
-        )
+        and (prob.get("has_operational_need") or soft >= 40)
     )
 
 
