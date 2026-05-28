@@ -1,6 +1,7 @@
 """Fleet reconciliation — disk, index, queue, audit, COTE must agree."""
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .retention import audit_receipt_path, hash_uploads_on_disk, load_audit_receipt
@@ -118,6 +119,103 @@ def reconcile_intake(intake_id: str) -> Dict[str, Any]:
         },
         "transaction_phases": [r.get("phase") for r in tx_log],
         "pending_review": is_pending_review(record.get("review_status")),
+    }
+
+
+def recover_uncommitted_intakes(*, limit: int = 200) -> Dict[str, Any]:
+    """
+    Startup recovery — files on disk without completed commit must become visible partial/incomplete.
+    """
+    from .intake import _apply_custody_status, _commit_intake_state
+    from .integrity import build_integrity_report, merge_batch_lifecycle, new_lifecycle_entry, STATE_PERSISTED
+    from .retention import require_upload_durability_verified
+    from .transactions import PHASE_RECOVERED_ON_STARTUP, append_transaction_event
+
+    recovered: List[str] = []
+    skipped: List[str] = []
+    for iid in list_intake_ids(limit=limit):
+        uploads = intake_dir(iid) / "uploads"
+        if not uploads.is_dir():
+            continue
+        disk_names = sorted(p.name for p in uploads.iterdir() if p.is_file())
+        if not disk_names:
+            continue
+        if intake_commit_complete(iid):
+            skipped.append(iid)
+            continue
+
+        try:
+            record = load_intake_record(iid, persist_recovery=True)
+        except Exception:
+            record = {"intake_id": iid, "files": [], "file_count": 0}
+
+        files_on_record = list(record.get("files") or [])
+        known = {str(f.get("name")) for f in files_on_record}
+        for name in disk_names:
+            if name not in known:
+                files_on_record.append(
+                    {
+                        "name": name,
+                        "original_name": name,
+                        "size": (uploads / name).stat().st_size,
+                        "ext": Path(name).suffix.lower(),
+                        "recovered_from_disk": True,
+                    }
+                )
+        record["files"] = files_on_record
+        record["file_count"] = len(files_on_record)
+
+        lifecycle = [
+            new_lifecycle_entry(str(f.get("original_name") or f.get("name") or ""), state=STATE_PERSISTED)
+            for f in files_on_record
+        ]
+        for entry, f in zip(lifecycle, files_on_record):
+            entry["stored_name"] = f.get("name")
+            entry["persisted_at"] = entry.get("at_utc")
+
+        prior = list((record.get("upload_integrity") or {}).get("file_lifecycle") or [])
+        merged = merge_batch_lifecycle(prior, lifecycle)
+        custody = dict(record.get("upload_custody") or {})
+        expected = int(custody.get("total_expected_count") or record.get("upload_integrity", {}).get("expected_file_count") or len(files_on_record))
+        batch_complete = bool(custody.get("batch_complete", False))
+
+        integrity = build_integrity_report(
+            expected_file_count=expected,
+            expected_file_names=[str(f.get("original_name") or f.get("name") or "") for f in files_on_record],
+            lifecycle=merged,
+            received_file_count=len(files_on_record),
+            batch_complete=batch_complete,
+        )
+
+        durability = require_upload_durability_verified(
+            iid,
+            saved_files=files_on_record,
+            integrity=integrity,
+        )
+        if durability.get("integrity"):
+            integrity = durability["integrity"]
+        _apply_custody_status(
+            record,
+            integrity,
+            durability_ok=bool(durability.get("durability_verified")),
+        )
+        if not intake_commit_complete(iid):
+            record["custody_status"] = record.get("custody_status") or "partial_upload"
+            record["review_status"] = "partial_upload"
+        committed = bool(durability.get("durability_verified"))
+        _commit_intake_state(iid, record, integrity=integrity, committed=committed)
+        append_transaction_event(
+            iid,
+            PHASE_RECOVERED_ON_STARTUP,
+            metadata={"disk_files": len(disk_names), "committed": committed},
+        )
+        recovered.append(iid)
+
+    return {
+        "ok": True,
+        "recovered_intake_ids": recovered,
+        "skipped_already_committed": skipped[:20],
+        "recovered_count": len(recovered),
     }
 
 

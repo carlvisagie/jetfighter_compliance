@@ -273,10 +273,13 @@ def _apply_custody_status(record: Dict[str, Any], integrity: Dict[str, Any], *, 
     from .integrity import derive_intake_status, review_status_from_custody
 
     integrity = dict(integrity)
+    batch_complete = bool(integrity.get("batch_complete", True))
     integrity["custody_status"] = derive_intake_status(
         integrity,
         durability_ok=durability_ok,
         operator_acknowledged_partial=bool(record.get("operator_acknowledged_partial")),
+        batch_complete=batch_complete,
+        abandoned=bool(record.get("upload_abandoned")),
     )
     custody_status = integrity["custody_status"]
     record["custody_status"] = custody_status
@@ -290,7 +293,31 @@ def _apply_custody_status(record: Dict[str, Any], integrity: Dict[str, Any], *, 
         "partial_upload",
         "integrity_failure",
         "rejected_files",
+        "abandoned_upload",
     )
+
+
+def _safe_emit_beta_event(
+    intake_id: str,
+    event_type: str,
+    *,
+    message: str = "",
+    metadata: Optional[Dict[str, Any]] = None,
+    custody: Optional[Dict[str, Any]] = None,
+) -> bool:
+    from .transactions import PHASE_TELEMETRY_FAILED, append_transaction_event
+
+    ok = emit_beta_event(event_type, message=message, metadata=metadata)
+    if not ok:
+        append_transaction_event(
+            intake_id,
+            PHASE_TELEMETRY_FAILED,
+            ok=False,
+            metadata={"event_type": event_type},
+        )
+        if custody is not None:
+            custody["telemetry_degraded"] = True
+    return ok
 
 
 async def process_upload(
@@ -391,20 +418,40 @@ async def _process_upload_locked(
     if manifest.get("filenames") and not expected_file_names:
         expected_file_names = [str(x) for x in manifest.get("filenames") or [] if str(x).strip()]
 
+    prior_ui = dict(record.get("upload_integrity") or {})
+    prior_lifecycle = list(prior_ui.get("file_lifecycle") or [])
+
     received_count = len(files)
     expected_count = int(expected_file_count or 0) or received_count
     expected_names = list(expected_file_names or [])
+
+    batch_complete = manifest.get("batch_complete")
+    if batch_complete is None:
+        if manifest.get("batch_complete") is False:
+            batch_complete = False
+        elif prior_lifecycle and expected_count > received_count:
+            batch_complete = False
+        else:
+            batch_complete = True
+    else:
+        batch_complete = bool(batch_complete)
+
     lifecycle: List[Dict[str, Any]] = []
     upload_started_at = _utc_now()
+    custody_early = dict(record.get("upload_custody") or {})
+    record["upload_custody"] = custody_early
 
-    emit_beta_event(
+    _safe_emit_beta_event(
+        intake_id,
         "beta_upload_started",
         message=f"Upload batch for {intake_id}",
         metadata={
             "intake_id": intake_id,
             "file_count": received_count,
             "expected_file_count": expected_count,
+            "batch_complete": batch_complete,
         },
+        custody=custody_early,
     )
 
     for uf in files[:MAX_FILES_PER_REQUEST]:
@@ -494,14 +541,21 @@ async def _process_upload_locked(
     if not saved and errors:
         raise HTTPException(status_code=400, detail=errors[0].get("error", "Upload failed"))
 
+    from .integrity import merge_batch_lifecycle
+
+    merged_lifecycle = merge_batch_lifecycle(prior_lifecycle, lifecycle)
+    cumulative_received = int(prior_ui.get("received_file_count") or 0) + received_count
+
     integrity = build_integrity_report(
         expected_file_count=expected_count,
-        expected_file_names=expected_names or [f.get("original_name") or f.get("name") for f in saved],
-        lifecycle=lifecycle,
-        received_file_count=received_count,
+        expected_file_names=expected_names
+        or [f.get("original_name") or f.get("name") for f in record.get("files") or []],
+        lifecycle=merged_lifecycle,
+        received_file_count=cumulative_received,
+        batch_complete=batch_complete,
     )
 
-    record["file_count"] = len(record.get("files") or [])
+    record["file_count"] = cumulative_received
     record["total_bytes"] = total_before
 
     from .integrity import (
@@ -539,6 +593,10 @@ async def _process_upload_locked(
             "originating_route": str(manifest.get("route") or meta.get("route") or "/ui/founding-beta"),
             "newest_upload_at_utc": upload_started_at,
             "client_manifest": manifest,
+            "batch_complete": batch_complete,
+            "batch_received_count": received_count,
+            "cumulative_received_count": cumulative_received,
+            "total_expected_count": expected_count,
         }
     )
     record["upload_custody"] = custody
@@ -565,7 +623,7 @@ async def _process_upload_locked(
         assert_read_write_roots_match()
         durability = require_upload_durability_verified(
             intake_id,
-            saved_files=saved,
+            saved_files=list(record.get("files") or []),
             integrity=integrity,
         )
         if durability.get("integrity"):

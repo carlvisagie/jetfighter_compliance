@@ -170,6 +170,9 @@ def write_audit_receipt(intake_id: str, receipt: Dict[str, Any]) -> Path:
     import time
 
     path = audit_receipt_path(intake_id)
+    from .storage import assert_canonical_write_path
+
+    assert_canonical_write_path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(receipt, indent=2)
     last_err: Optional[Exception] = None
@@ -354,7 +357,11 @@ def require_upload_durability_verified(
             and verified_count == int(integrity.get("persisted_file_count") or 0)
         )
         integrity["integrity_mismatch"] = not integrity["integrity_ok"]
-        integrity["custody_status"] = derive_intake_status(integrity, durability_ok=ok)
+        integrity["custody_status"] = derive_intake_status(
+            integrity,
+            durability_ok=ok,
+            batch_complete=bool(integrity.get("batch_complete", True)),
+        )
     receipt = build_audit_receipt(
         intake_id,
         files_written=saved_files,
@@ -542,7 +549,8 @@ def retention_check(intake_id: str) -> Dict[str, Any]:
             "on_disk_file_count": disk_count,
         },
         "counts_match": counts_match,
-        "integrity_mismatch": bool(ui.get("integrity_mismatch")) or not counts_match,
+        "integrity_mismatch": bool(ui.get("integrity_mismatch")) or not counts_match or not file_hashes_match,
+        "hash_mismatch_detected": not file_hashes_match,
     }
 
 
@@ -623,6 +631,15 @@ def scan_retention_at_startup(*, force: bool = False) -> Dict[str, Any]:
             file_count,
             report["write_root"],
         )
+
+    try:
+        from .reconcile import recover_uncommitted_intakes
+
+        recovery = recover_uncommitted_intakes(limit=500)
+        report["startup_recovery"] = recovery
+    except Exception as exc:
+        report["startup_recovery"] = {"ok": False, "error": str(exc)}
+        logger.critical("[retention] startup recovery failed: %s", exc)
 
     try:
         from services.runtime_boot import log_boot

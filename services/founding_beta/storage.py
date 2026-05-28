@@ -32,6 +32,7 @@ PENDING_REVIEW_STATUSES = frozenset(
         "needs_info",
         "high_value",
         "partial_upload",
+        "abandoned_upload",
         "rejected_files",
         "integrity_failure",
         "verified_complete",
@@ -51,6 +52,16 @@ def intakes_root() -> Path:
     p = _data_root() / "intakes"
     p.mkdir(parents=True, exist_ok=True)
     return p
+
+
+def assert_canonical_write_path(path: Path) -> None:
+    """All intake writes must land under canonical intakes/ — never legacy founding_beta/intakes."""
+    canonical = intakes_root().resolve()
+    resolved = path.resolve()
+    if resolved != canonical and canonical not in resolved.parents:
+        raise ValueError(
+            f"Refusing non-canonical write: {resolved} (required under {canonical})"
+        )
 
 
 def legacy_intakes_roots() -> List[Path]:
@@ -110,6 +121,7 @@ def _utc_now() -> str:
 
 
 def atomic_write_bytes(path: Path, data: bytes) -> None:
+    assert_canonical_write_path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_bytes(data)
@@ -117,6 +129,7 @@ def atomic_write_bytes(path: Path, data: bytes) -> None:
 
 
 def atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
+    assert_canonical_write_path(path)
     import time
 
     path.parent.mkdir(parents=True, exist_ok=True)

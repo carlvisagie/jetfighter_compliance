@@ -16,6 +16,9 @@ PHASE_INTAKE_COMMITTED = "intake_committed"
 PHASE_INDEX_COMMITTED = "index_committed"
 PHASE_INTEGRITY_FAILURE = "integrity_failure"
 PHASE_CLASSIFICATION = "classification_complete"
+PHASE_TELEMETRY_FAILED = "telemetry_failed"
+PHASE_RECOVERED_ON_STARTUP = "recovered_on_startup"
+PHASE_COMMIT_INTERRUPTED = "commit_interrupted"
 
 
 def _utc_now() -> str:
@@ -72,8 +75,6 @@ def last_transaction_phase(intake_id: str) -> Optional[str]:
 
 
 def intake_commit_complete(intake_id: str) -> bool:
-    """True when index_committed succeeded after audit (or empty intake created)."""
+    """True only when index_committed succeeded after audit."""
     phases = {str(r.get("phase")) for r in load_transaction_log(intake_id, tail=80)}
-    if PHASE_INDEX_COMMITTED in phases:
-        return True
-    return PHASE_INTAKE_COMMITTED in phases and PHASE_AUDIT_WRITTEN in phases
+    return PHASE_INDEX_COMMITTED in phases

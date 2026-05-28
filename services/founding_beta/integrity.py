@@ -20,6 +20,7 @@ STATE_FAILED = "failed"
 
 STATUS_VERIFIED_COMPLETE = "verified_complete"
 STATUS_PARTIAL_UPLOAD = "partial_upload"
+STATUS_ABANDONED_UPLOAD = "abandoned_upload"
 STATUS_REJECTED_FILES = "rejected_files"
 STATUS_INTEGRITY_FAILURE = "integrity_failure"
 STATUS_PENDING_REVIEW = "pending_review"
@@ -44,6 +45,11 @@ _INTEGRITY_FAILURE_REASONS = frozenset(
 RETRY_RECOMMENDATION = (
     "Ask the customer to re-submit missing files using their magic upload link. "
     "Do not mark intake approved until verified_file_count matches expected_file_count."
+)
+
+ABANDONED_RETRY_RECOMMENDATION = (
+    "Upload session started but not all selected files were received. "
+    "Customer should reopen their magic link and re-submit remaining files."
 )
 
 
@@ -209,11 +215,32 @@ def _count_lifecycle_states(lifecycle: List[Dict[str, Any]]) -> Dict[str, int]:
     }
 
 
+def merge_batch_lifecycle(
+    prior: List[Dict[str, Any]],
+    new_batch: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Merge prior intake lifecycle with current batch — current batch wins on name collision."""
+    by_key: Dict[str, Dict[str, Any]] = {}
+    for entry in prior:
+        key = str(entry.get("stored_name") or entry.get("original_name") or "")
+        if key:
+            by_key[key] = dict(entry)
+    for entry in new_batch:
+        key = str(entry.get("stored_name") or entry.get("original_name") or "")
+        if key:
+            by_key[key] = dict(entry)
+        else:
+            by_key[f"__anon_{len(by_key)}"] = dict(entry)
+    return list(by_key.values())
+
+
 def derive_intake_status(
     integrity: Dict[str, Any],
     *,
     durability_ok: bool = True,
     operator_acknowledged_partial: bool = False,
+    batch_complete: bool = True,
+    abandoned: bool = False,
 ) -> str:
     """
     Custody status for intake record.
@@ -235,9 +262,14 @@ def derive_intake_status(
     if integrity_failure:
         return STATUS_INTEGRITY_FAILURE
 
+    if abandoned or (not batch_complete and expected > verified and verified == 0 and received == 0):
+        return STATUS_ABANDONED_UPLOAD
+
     counts_match = (
         expected == received == persisted == verified and failed == 0
     )
+    if not batch_complete and expected > verified:
+        return STATUS_PARTIAL_UPLOAD
     if not counts_match or failed > 0:
         return STATUS_PARTIAL_UPLOAD
     if rejected > 0:
@@ -281,6 +313,7 @@ def build_integrity_report(
     expected_file_names: List[str],
     lifecycle: List[Dict[str, Any]],
     received_file_count: int,
+    batch_complete: bool = True,
 ) -> Dict[str, Any]:
     persisted = [
         e
@@ -297,7 +330,7 @@ def build_integrity_report(
         if e.get("state") != STATE_SELECTED and e.get("original_name")
     ]
     missing_names = reconcile_missing_filenames(expected_file_names, received_originals)
-    if expected_file_count > received_file_count:
+    if batch_complete and expected_file_count > received_file_count:
         gap = expected_file_count - received_file_count
         for i in range(gap):
             label = (
@@ -329,15 +362,17 @@ def build_integrity_report(
     failed_count = state_counts["failed_file_count"]
 
     integrity_ok = (
-        expected == received_file_count == persisted_count
+        batch_complete
+        and expected == received_file_count == persisted_count
         and not rejected
         and failed_count == 0
         and not missing_names
-        and (
-            verified_count == 0
-            or verified_count == persisted_count == expected
-        )
+        and verified_count == persisted_count == expected
     )
+
+    retry = None if integrity_ok else RETRY_RECOMMENDATION
+    if not batch_complete and expected > received_file_count:
+        retry = ABANDONED_RETRY_RECOMMENDATION
 
     missing_files = list(
         dict.fromkeys(
@@ -389,7 +424,9 @@ def build_integrity_report(
         "duplicate_file_count": duplicate_count,
         "failed_file_count": failed_count,
         "integrity_ok": integrity_ok,
-        "integrity_mismatch": not integrity_ok,
+        "integrity_mismatch": not integrity_ok
+        or (not batch_complete and expected > verified_count)
+        or (batch_complete and expected != verified_count),
         "missing_files": missing_files,
         "rejected_files": rejected_files,
         "expected_files": expected_files,
@@ -397,9 +434,14 @@ def build_integrity_report(
         "file_lifecycle": lifecycle,
         "file_lifecycle_table": lifecycle_table,
         "reason_codes": sorted({str(e.get("reason_code")) for e in lifecycle if e.get("reason_code")}),
-        "retry_recommendation": None if integrity_ok else RETRY_RECOMMENDATION,
+        "retry_recommendation": retry,
+        "batch_complete": batch_complete,
     }
-    report["custody_status"] = derive_intake_status(report, durability_ok=True)
+    report["custody_status"] = derive_intake_status(
+        report,
+        durability_ok=True,
+        batch_complete=batch_complete,
+    )
     return report
 
 
@@ -413,6 +455,9 @@ def mark_lifecycle_verified(
     saved_by_name = {str(f.get("name") or ""): f for f in saved_files}
     verified = 0
     for entry in lifecycle:
+        if entry.get("state") == STATE_VERIFIED:
+            verified += 1
+            continue
         if entry.get("state") not in (STATE_PERSISTED, STATE_DUPLICATE):
             continue
         stored = str(entry.get("stored_name") or entry.get("original_name") or "")

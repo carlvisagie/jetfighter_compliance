@@ -31,11 +31,13 @@ def emit_beta_event(
     *,
     message: str = "",
     metadata: Optional[Dict[str, Any]] = None,
-) -> None:
+) -> bool:
+    """Emit founding-beta telemetry. Returns False if organism emit failed."""
     if not is_founding_beta_mode():
-        return
+        return True
     meta = dict(metadata or {})
     meta["founding_beta"] = True
+    ok = True
     try:
         from services.organism_observability.emit import organism_emit
 
@@ -48,7 +50,7 @@ def emit_beta_event(
                 metadata={**meta, "real_paperwork_submitted": True},
             )
     except Exception:
-        pass
+        ok = False
     try:
         from services.knowledge_cockpit.telemetry import emit_knowledge_event
 
@@ -56,3 +58,4 @@ def emit_beta_event(
             emit_knowledge_event("overlay_helpfulness_signal", metadata=meta)
     except Exception:
         pass
+    return ok
