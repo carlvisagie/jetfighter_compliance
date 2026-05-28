@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,7 +17,7 @@ from services.security import make_founding_beta_token, parse_founding_beta_toke
 
 from .storage import (
     all_intake_ids,
-    append_index_row,
+    atomic_write_bytes,
     atomic_write_json,
     canonical_intake_dir,
     count_upload_files,
@@ -27,11 +28,25 @@ from .storage import (
     intakes_root,
     load_intake_record,
     normalize_intake_record,
+    upsert_index_row,
 )
 from .telemetry import emit_beta_event
 from services.durable_storage import require_founding_beta_upload_allowed
 
 logger = logging.getLogger(__name__)
+
+_INTAKE_COMMIT_LOCKS: Dict[str, threading.Lock] = {}
+_INTAKE_LOCK_GUARD = threading.Lock()
+
+
+def _intake_commit_lock(intake_id: str) -> threading.Lock:
+    with _INTAKE_LOCK_GUARD:
+        lock = _INTAKE_COMMIT_LOCKS.get(intake_id)
+        if lock is None:
+            lock = threading.Lock()
+            _INTAKE_COMMIT_LOCKS[intake_id] = lock
+        return lock
+
 
 MAX_FILE_BYTES = 52_428_800
 MAX_FILES_PER_REQUEST = 25
@@ -98,7 +113,54 @@ def _save_intake(intake_id: str, data: Dict[str, Any]) -> None:
 
 
 def _append_index(row: Dict[str, Any]) -> None:
-    append_index_row(row)
+    row = dict(row)
+    row.setdefault("committed_at_utc", _utc_now())
+    upsert_index_row(row)
+
+
+def _commit_intake_state(
+    intake_id: str,
+    record: Dict[str, Any],
+    *,
+    integrity: Dict[str, Any],
+    committed: bool,
+) -> None:
+    """Single publish point — intake.json then index, only after audit when files exist."""
+    from .transactions import (
+        PHASE_INDEX_COMMITTED,
+        PHASE_INTAKE_COMMITTED,
+        append_transaction_event,
+    )
+
+    _save_intake(intake_id, record)
+    append_transaction_event(
+        intake_id,
+        PHASE_INTAKE_COMMITTED,
+        metadata={
+            "custody_status": record.get("custody_status"),
+            "file_count": record.get("file_count"),
+        },
+    )
+    _append_index(
+        {
+            "intake_id": intake_id,
+            "created_at_utc": record.get("created_at_utc") or _utc_now(),
+            "status": record.get("review_status"),
+            "company": record.get("company"),
+            "email": record.get("email"),
+            "urgent": record.get("urgent"),
+            "file_count": record.get("file_count", 0),
+            "updated": True,
+            "committed": committed,
+            "integrity_mismatch": bool(integrity.get("integrity_mismatch")),
+            "custody_status": record.get("custody_status"),
+        }
+    )
+    append_transaction_event(
+        intake_id,
+        PHASE_INDEX_COMMITTED,
+        metadata={"committed": committed},
+    )
 
 
 def validate_intake_access(intake_id: str, token: str) -> Dict[str, Any]:
@@ -161,6 +223,9 @@ def create_intake(
         "total_bytes": 0,
     }
     _save_intake(intake_id, record)
+    from .transactions import PHASE_INDEX_COMMITTED, PHASE_INTAKE_COMMITTED, append_transaction_event
+
+    append_transaction_event(intake_id, PHASE_INTAKE_COMMITTED, metadata={"file_count": 0})
     _append_index(
         {
             "intake_id": intake_id,
@@ -170,8 +235,10 @@ def create_intake(
             "email": record["email"],
             "urgent": urgent,
             "file_count": 0,
+            "committed": True,
         }
     )
+    append_transaction_event(intake_id, PHASE_INDEX_COMMITTED, metadata={"committed": True})
     logger.info(
         "Founding beta intake created %s at %s",
         intake_id,
@@ -269,6 +336,34 @@ async def process_upload(
         intake_id = record["intake_id"]
         token = make_founding_beta_token(intake_id)
 
+    commit_lock = _intake_commit_lock(intake_id)
+    commit_lock.acquire()
+    try:
+        return await _process_upload_locked(
+            files=files,
+            intake_id=intake_id,
+            token=token,
+            record=record,
+            expected_file_count=expected_file_count,
+            expected_file_names=expected_file_names,
+            upload_manifest=upload_manifest,
+            request_metadata=request_metadata,
+        )
+    finally:
+        commit_lock.release()
+
+
+async def _process_upload_locked(
+    *,
+    files: List[UploadFile],
+    intake_id: str,
+    token: str,
+    record: Dict[str, Any],
+    expected_file_count: int,
+    expected_file_names: Optional[List[str]],
+    upload_manifest: Optional[Dict[str, Any]],
+    request_metadata: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
     uploads_dir = _intake_dir(intake_id) / "uploads"
     uploads_dir.mkdir(parents=True, exist_ok=True)
     total_before = _intake_total_bytes(intake_id)
@@ -360,7 +455,7 @@ async def process_upload(
                 ext = Path(safe_name).suffix
                 safe_name = f"{stem}_{uuid.uuid4().hex[:6]}{ext}"
                 dest = uploads_dir / safe_name
-            dest.write_bytes(content)
+            atomic_write_bytes(dest, content)
             total_before += size
             file_entry = {
                 "name": safe_name,
@@ -414,6 +509,14 @@ async def process_upload(
         detect_submission_method,
         summarize_user_agent,
     )
+    from .transactions import (
+        PHASE_AUDIT_WRITTEN,
+        PHASE_FILES_PERSISTED,
+        PHASE_HASH_VERIFIED,
+        PHASE_INTEGRITY_FAILURE,
+        PHASE_UPLOAD_RECEIVED,
+        append_transaction_event,
+    )
 
     custody = dict(record.get("upload_custody") or {})
     custody.update(
@@ -439,8 +542,69 @@ async def process_upload(
         }
     )
     record["upload_custody"] = custody
-    _apply_custody_status(record, integrity, durability_ok=True)
+
+    append_transaction_event(
+        intake_id,
+        PHASE_UPLOAD_RECEIVED,
+        metadata={
+            "expected_file_count": expected_count,
+            "received_file_count": received_count,
+            "upload_session_id": session_id,
+        },
+    )
+    append_transaction_event(
+        intake_id,
+        PHASE_FILES_PERSISTED,
+        metadata={"persisted_file_count": len(saved), "rejected": len(errors)},
+    )
+
+    durability: Dict[str, Any] = {}
+    if saved:
+        from .retention import assert_read_write_roots_match, require_upload_durability_verified
+
+        assert_read_write_roots_match()
+        durability = require_upload_durability_verified(
+            intake_id,
+            saved_files=saved,
+            integrity=integrity,
+        )
+        if durability.get("integrity"):
+            integrity = durability["integrity"]
+        if durability.get("durability_verified"):
+            append_transaction_event(
+                intake_id,
+                PHASE_HASH_VERIFIED,
+                metadata={"verified_file_count": durability.get("verified_file_count")},
+            )
+            append_transaction_event(intake_id, PHASE_AUDIT_WRITTEN, metadata={"audit": True})
+        else:
+            append_transaction_event(
+                intake_id,
+                PHASE_INTEGRITY_FAILURE,
+                ok=False,
+                metadata={"detail": durability.get("detail")},
+            )
+
+    custody["newest_upload_at_utc"] = _utc_now()
+    record["upload_custody"] = custody
+    _apply_custody_status(
+        record,
+        integrity,
+        durability_ok=bool(durability.get("durability_verified", not saved)),
+    )
     integrity = record["upload_integrity"]
+
+    committed = bool(durability.get("durability_verified")) if saved else True
+    _commit_intake_state(intake_id, record, integrity=integrity, committed=committed)
+
+    logger.info(
+        "Founding beta upload committed %s files=%s path=%s committed=%s",
+        intake_id,
+        record["file_count"],
+        intake_json_path(intake_id),
+        committed,
+    )
+
     if integrity.get("integrity_mismatch"):
         emit_beta_event(
             "upload_integrity_mismatch",
@@ -458,32 +622,13 @@ async def process_upload(
             },
         )
         logger.critical(
-            "upload_integrity_mismatch intake=%s expected=%s received=%s persisted=%s",
+            "upload_integrity_mismatch intake=%s expected=%s received=%s persisted=%s verified=%s",
             intake_id,
             integrity.get("expected_file_count"),
             integrity.get("received_file_count"),
             integrity.get("persisted_file_count"),
+            integrity.get("verified_file_count"),
         )
-    _save_intake(intake_id, record)
-    _append_index(
-        {
-            "intake_id": intake_id,
-            "created_at_utc": record.get("created_at_utc") or _utc_now(),
-            "status": record.get("review_status"),
-            "company": record.get("company"),
-            "email": record.get("email"),
-            "urgent": record.get("urgent"),
-            "file_count": record["file_count"],
-            "updated": True,
-            "integrity_mismatch": bool(integrity.get("integrity_mismatch")),
-        }
-    )
-    logger.info(
-        "Founding beta upload saved %s files=%s path=%s",
-        intake_id,
-        record["file_count"],
-        intake_json_path(intake_id),
-    )
 
     ext_counts: Dict[str, int] = {}
     for f in record.get("files") or []:
@@ -498,6 +643,7 @@ async def process_upload(
             "extensions": list(ext_counts.keys()),
             "file_count": record["file_count"],
             "urgent": record.get("urgent"),
+            "committed": committed,
         },
     )
     emit_beta_event(
@@ -512,12 +658,18 @@ async def process_upload(
             metadata={"intake_id": intake_id, "deadline": record.get("deadline")},
         )
 
-    if saved:
+    if saved and committed:
         try:
             from .classification import classify_intake
             from .learning_hooks import record_founding_beta_learning
+            from .transactions import PHASE_CLASSIFICATION
 
             clf = classify_intake(intake_id)
+            append_transaction_event(
+                intake_id,
+                PHASE_CLASSIFICATION,
+                metadata={"primary_category": clf.get("primary_category")},
+            )
             emit_beta_event(
                 "intake_classified",
                 message=intake_id,
@@ -547,28 +699,6 @@ async def process_upload(
                 )
         except Exception as exc:
             logger.warning("Founding beta classification skipped: %s", exc)
-
-    durability: Dict[str, Any] = {}
-    if saved:
-        from .retention import assert_read_write_roots_match, require_upload_durability_verified
-
-        assert_read_write_roots_match()
-        durability = require_upload_durability_verified(
-            intake_id,
-            saved_files=saved,
-            integrity=integrity,
-        )
-        if durability.get("integrity"):
-            integrity = durability["integrity"]
-        custody["newest_upload_at_utc"] = _utc_now()
-        record["upload_custody"] = custody
-        _apply_custody_status(
-            record,
-            integrity,
-            durability_ok=bool(durability.get("durability_verified", not saved)),
-        )
-        integrity = record["upload_integrity"]
-        _save_intake(intake_id, record)
 
     link = _magic_link(intake_id, token)
     qr_bytes = _qr_png(link)

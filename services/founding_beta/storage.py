@@ -109,11 +109,36 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
+def atomic_write_bytes(path: Path, data: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    tmp.write_bytes(data)
     tmp.replace(path)
+
+
+def atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
+    import time
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(data, indent=2)
+    last_err: Optional[Exception] = None
+    for attempt in range(8):
+        tmp = path.with_suffix(path.suffix + f".tmp.{attempt}")
+        try:
+            tmp.write_text(payload, encoding="utf-8")
+            tmp.replace(path)
+            return
+        except OSError as exc:
+            last_err = exc
+            time.sleep(0.02 * (attempt + 1))
+        finally:
+            if tmp.is_file() and not path.is_file():
+                try:
+                    tmp.unlink(missing_ok=True)
+                except OSError:
+                    pass
+    if last_err:
+        raise last_err
 
 
 def normalize_review_status(status: Optional[str]) -> str:
@@ -263,16 +288,34 @@ def list_intake_ids(*, limit: int = 500) -> List[str]:
 
 
 def index_intake_ids(*, tail_lines: int = 500) -> List[str]:
+    """Latest row per intake wins (jsonl append log)."""
+    order: List[str] = []
+    for row in _iter_index_rows(tail_lines=tail_lines):
+        iid = str(row.get("intake_id") or "")
+        if not iid:
+            continue
+        if iid in order:
+            order.remove(iid)
+        order.append(iid)
+    return list(reversed(order))
+
+
+def _iter_index_rows(*, tail_lines: int = 500):
     from ..lazy_io import iter_jsonl_lines
 
-    seen: List[str] = []
-    found: Set[str] = set()
-    for row in iter_jsonl_lines(index_jsonl(), tail_lines=tail_lines):
-        iid = row.get("intake_id")
-        if iid and str(iid) not in found:
-            found.add(str(iid))
-            seen.append(str(iid))
-    return seen
+    return iter_jsonl_lines(index_jsonl(), tail_lines=tail_lines)
+
+
+def latest_index_row(intake_id: str) -> Optional[Dict[str, Any]]:
+    row: Optional[Dict[str, Any]] = None
+    for candidate in _iter_index_rows(tail_lines=2000):
+        if str(candidate.get("intake_id") or "") == intake_id:
+            row = candidate
+    return row
+
+
+def upsert_index_row(row: Dict[str, Any]) -> None:
+    append_index_row(row)
 
 
 def all_intake_ids(*, limit: int = 500) -> List[str]:
@@ -298,7 +341,9 @@ def append_index_row(row: Dict[str, Any]) -> None:
 
 
 def sync_index_from_filesystem(*, max_rows: int = 200) -> int:
-    """Append index rows for on-disk intakes missing from index tail."""
+    """Append index rows for on-disk intakes missing from index — only if commit complete."""
+    from .transactions import intake_commit_complete
+
     tail = set(index_intake_ids(tail_lines=max_rows * 2))
     added = 0
     for iid in list_intake_ids(limit=max_rows):
@@ -308,7 +353,12 @@ def sync_index_from_filesystem(*, max_rows: int = 200) -> int:
             rec = load_intake_record(iid, persist_recovery=False)
         except (FileNotFoundError, ValueError, OSError):
             continue
-        append_index_row(
+        file_count = int(rec.get("file_count") or 0)
+        uploads = intake_dir(iid) / "uploads"
+        disk_files = sum(1 for p in uploads.iterdir() if p.is_file()) if uploads.is_dir() else 0
+        if disk_files > 0 and not intake_commit_complete(iid):
+            continue
+        upsert_index_row(
             {
                 "intake_id": iid,
                 "created_at_utc": rec.get("created_at_utc"),
@@ -318,6 +368,7 @@ def sync_index_from_filesystem(*, max_rows: int = 200) -> int:
                 "urgent": rec.get("urgent"),
                 "file_count": rec.get("file_count", 0),
                 "synced_from_disk": True,
+                "committed": file_count == 0 or intake_commit_complete(iid),
             }
         )
         added += 1

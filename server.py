@@ -1283,6 +1283,24 @@ def operator_founding_beta_diagnostics(request: Request):
     }
 
 
+@app.get("/api/operator/founding-beta/reconcile")
+def operator_founding_beta_reconcile(request: Request, limit: int = 100):
+    from services.founding_beta.reconcile import reconcile_fleet
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return reconcile_fleet(limit=min(max(limit, 1), 500))
+
+
+@app.get("/api/operator/founding-beta/reconcile/{intake_id}")
+def operator_founding_beta_reconcile_intake(request: Request, intake_id: str):
+    from services.founding_beta.reconcile import reconcile_intake
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return reconcile_intake(intake_id.strip())
+
+
 @app.get("/api/operator/founding-beta/intake/{intake_id}/audit")
 def operator_founding_beta_intake_audit(request: Request, intake_id: str):
     from services.founding_beta.retention import get_intake_audit

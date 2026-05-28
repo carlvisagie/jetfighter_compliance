@@ -167,11 +167,29 @@ def build_audit_receipt(
 
 
 def write_audit_receipt(intake_id: str, receipt: Dict[str, Any]) -> Path:
+    import time
+
     path = audit_receipt_path(intake_id)
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(receipt, indent=2), encoding="utf-8")
-    tmp.replace(path)
+    payload = json.dumps(receipt, indent=2)
+    last_err: Optional[Exception] = None
+    for attempt in range(8):
+        tmp = path.with_suffix(f".tmp.{attempt}")
+        try:
+            tmp.write_text(payload, encoding="utf-8")
+            tmp.replace(path)
+            return path
+        except OSError as exc:
+            last_err = exc
+            time.sleep(0.02 * (attempt + 1))
+        finally:
+            if tmp.is_file() and not path.is_file():
+                try:
+                    tmp.unlink(missing_ok=True)
+                except OSError:
+                    pass
+    if last_err:
+        raise last_err
     return path
 
 
@@ -191,9 +209,11 @@ def verify_intake_durability(
     *,
     expected_files: List[Dict[str, Any]],
     require_classification: bool = False,
+    pre_commit: bool = False,
 ) -> Tuple[bool, Dict[str, Any]]:
     """
     Verify filesystem SoT after upload. Returns (ok, detail dict).
+    pre_commit=True: verify disk + hashes only (intake.json not yet updated with files).
     """
     detail: Dict[str, Any] = {
         "intake_id": intake_id,
@@ -251,13 +271,21 @@ def verify_intake_durability(
         detail["error"] = "classification_missing"
         return False, detail
 
-    ok = (
-        detail["intake_dir_exists"]
-        and detail["intake_json_exists"]
-        and detail["upload_files_found"]
-        and not hash_mismatch
-        and detail.get("intake_json_matches_disk", False)
-    )
+    if pre_commit:
+        ok = (
+            detail["intake_dir_exists"]
+            and detail["upload_files_found"]
+            and not missing
+            and not hash_mismatch
+        )
+    else:
+        ok = (
+            detail["intake_dir_exists"]
+            and detail["intake_json_exists"]
+            and detail["upload_files_found"]
+            and not hash_mismatch
+            and detail.get("intake_json_matches_disk", False)
+        )
     if not ok and "error" not in detail:
         if missing:
             detail["error"] = "files_missing_on_disk"
@@ -316,7 +344,7 @@ def require_upload_durability_verified(
         integrity["duplicate_file_count"] = state_counts["duplicate_file_count"]
         integrity["failed_file_count"] = state_counts["failed_file_count"]
         integrity["file_lifecycle_table"] = [lifecycle_to_custody_row(e) for e in lifecycle]
-    ok, detail = verify_intake_durability(intake_id, expected_files=saved_files)
+    ok, detail = verify_intake_durability(intake_id, expected_files=saved_files, pre_commit=True)
     if integrity is not None:
         integrity["integrity_ok"] = (
             int(integrity.get("expected_file_count") or 0) == verified_count
@@ -393,6 +421,8 @@ def get_intake_audit(intake_id: str) -> Dict[str, Any]:
         from .integrity import lifecycle_to_custody_row
 
         lifecycle_table = [lifecycle_to_custody_row(e) for e in ui.get("file_lifecycle") or []]
+    from .transactions import load_transaction_log
+
     return {
         "ok": True,
         "intake_id": intake_id,
@@ -408,6 +438,7 @@ def get_intake_audit(intake_id: str) -> Dict[str, Any]:
         "upload_integrity": ui,
         "upload_custody": custody,
         "file_lifecycle_table": lifecycle_table,
+        "transaction_lifecycle": load_transaction_log(intake_id),
         "count_breakdown": {
             "expected_file_count": ui.get("expected_file_count"),
             "received_file_count": ui.get("received_file_count"),
@@ -429,21 +460,18 @@ def _queue_contains_intake(intake_id: str) -> bool:
 
 
 def _cote_reflects_intake(intake_id: str) -> bool:
+    """Per-intake: COTE latest signal matches this intake's storage-backed custody."""
     try:
-        from .intake import intake_flow_metrics
+        from .intake import _latest_intake_custody_signal
 
-        m = intake_flow_metrics()
-        if int(m.get("pending_review") or m.get("queue_depth") or 0) >= 1:
-            return True
-    except Exception:
-        pass
-    try:
+        signal = _latest_intake_custody_signal()
+        if signal.get("latest_intake_id") != intake_id:
+            return False
         rec = load_intake_record(intake_id, persist_recovery=False)
-        if is_pending_review(rec.get("review_status")) and (rec.get("files") or rec.get("file_count")):
-            return True
+        storage_status = str(rec.get("custody_status") or (rec.get("upload_integrity") or {}).get("custody_status") or "")
+        return storage_status == str(signal.get("latest_custody_status") or "")
     except (FileNotFoundError, ValueError, OSError):
-        pass
-    return False
+        return False
 
 
 def retention_check(intake_id: str) -> Dict[str, Any]:
