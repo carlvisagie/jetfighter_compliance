@@ -1207,6 +1207,16 @@ def operator_founding_beta_queue(request: Request, limit: int = 40):
     return get_operator_review_queue(limit=min(max(limit, 1), 100))
 
 
+@app.get("/api/operator/telemetry-status")
+def operator_telemetry_status(request: Request):
+    """Operator: actionable telemetry diagnostics for COTE (no fake/synthetic events)."""
+    from services.production import require_ops_access
+    from services.telemetry_diagnostics import build_telemetry_status
+
+    require_ops_access(request)
+    return build_telemetry_status()
+
+
 @app.get("/api/operator/storage-status")
 def operator_storage_status(request: Request):
     """Operator: durable storage + founding beta upload gate (no secrets)."""

@@ -39,6 +39,24 @@
       if (ls === 'warming_up') return 'cote-node--warming-up';
       if (ls === 'healthy') return 'cote-node--healthy';
     }
+    if (nodeId === 'telemetry') {
+      var pulse = m.telemetry_pulse || '';
+      if (pulse === 'write_failure' || m.telemetry_status === 'failed') {
+        return 'cote-node--telemetry-write-fail';
+      }
+      if (pulse === 'backlog' || (m.queue_depth && m.queue_depth >= 50)) {
+        return 'cote-node--telemetry-backlog';
+      }
+      if (pulse === 'stale' || m.stale_threshold_exceeded) {
+        return 'cote-node--telemetry-stale';
+      }
+      if (pulse === 'healthy_flow' || m.telemetry_status === 'healthy') {
+        return 'cote-node--telemetry-flow';
+      }
+      if (m.telemetry_status === 'degraded') {
+        return 'cote-node--telemetry-stale';
+      }
+    }
     if (nodeId === 'upload_pipeline') {
       var pending = (m.pending_review || m.queue_depth || 0) > 0;
       var urgent = (m.urgent_count || 0) > 0;
@@ -217,6 +235,17 @@
       label.setAttribute('x', String(pos.x));
       label.setAttribute('y', String(pos.y + NODE_R + 14));
       label.textContent = cfg.label;
+      if (cfg.id === 'telemetry') {
+        var tBacklog = intMetric(m.queue_depth) >= 50;
+        if (tBacklog || m.telemetry_pulse === 'backlog') {
+          var tRing = ns('circle');
+          tRing.setAttribute('class', 'cote-node-alert-ring cote-node-telemetry-backlog-ring');
+          tRing.setAttribute('cx', String(pos.x));
+          tRing.setAttribute('cy', String(pos.y));
+          tRing.setAttribute('r', String(NODE_R + 14));
+          g.insertBefore(tRing, pulse);
+        }
+      }
       if (cfg.id === 'upload_pipeline') {
         var pendingN = intMetric(m.pending_review || m.queue_depth);
         var urgentN = intMetric(m.urgent_count);
@@ -256,7 +285,7 @@
         if (nid === 'upload_pipeline' && global.CockpitFoundingBeta) {
           global.CockpitFoundingBeta.scrollToQueue();
         }
-        showDetail(nid);
+        showDetail(nid, false, nid === 'telemetry');
       });
       node.addEventListener('mouseenter', function () {
         showDetail(node.getAttribute('data-node'), true);
@@ -290,13 +319,138 @@
       .replace(/>/g, '&gt;');
   }
 
-  function showDetail(nodeId, hoverOnly) {
+  function showDetail(nodeId, hoverOnly, loadTelemetryDiag) {
     if (!state.data || !nodeId) return;
     var detail = document.getElementById('cote-topology-detail');
     if (!detail) return;
     var m = (state.data.subsystems && state.data.subsystems[nodeId]) || {};
     var title = nodeId.replace(/_/g, ' ');
     detail.hidden = false;
+    if (loadTelemetryDiag && nodeId === 'telemetry') {
+      detail.innerHTML =
+        '<strong>Telemetry diagnostics</strong><p class="kyc-loading">Loading telemetry status…</p>';
+      fetchTelemetryDiagnostics(m, hoverOnly);
+      return;
+    }
+    renderDetailPanel(nodeId, m, hoverOnly);
+  }
+
+  function fetchTelemetryDiagnostics(m, hoverOnly) {
+    fetch('/api/operator/telemetry-status', { credentials: 'same-origin' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('telemetry-status ' + r.status);
+        return r.json();
+      })
+      .then(function (diag) {
+        renderTelemetryDetailPanel(m, diag, hoverOnly);
+      })
+      .catch(function (err) {
+        var detail = document.getElementById('cote-topology-detail');
+        if (!detail) return;
+        detail.innerHTML =
+          '<strong>Telemetry diagnostics</strong>' +
+          '<p class="org-metric-foot cote-telemetry-warn">Could not load diagnostics: ' +
+          escapeHtml(err.message || String(err)) +
+          '</p>' +
+          renderTelemetryMetricsOnly(m);
+      });
+  }
+
+  function renderTelemetryMetricsOnly(m) {
+    return (
+      '<div class="cote-detail-metrics">' +
+      metric('Health', m.health) +
+      metric('Status', m.telemetry_status) +
+      metric('Pulse', m.telemetry_pulse) +
+      '</div>'
+    );
+  }
+
+  function renderTelemetryDetailPanel(m, diag, hoverOnly) {
+    var detail = document.getElementById('cote-topology-detail');
+    if (!detail) return;
+    var reasons = diag.degraded_reasons || [];
+    var reasonsHtml = '';
+    if (reasons.length) {
+      reasonsHtml =
+        '<ul class="cote-telemetry-reasons">' +
+        reasons
+          .map(function (r) {
+            return (
+              '<li><strong>' +
+              escapeHtml(r.code || 'issue') +
+              '</strong> · ' +
+              escapeHtml(r.subsystem || 'telemetry') +
+              '<p>' +
+              escapeHtml(r.message || '') +
+              '</p><p class="cote-telemetry-action"><em>Action:</em> ' +
+              escapeHtml(r.recommended_action || '') +
+              '</p></li>'
+            );
+          })
+          .join('') +
+        '</ul>';
+    } else {
+      reasonsHtml = '<p class="org-metric-foot">Telemetry flow healthy — recent events ingesting normally.</p>';
+    }
+    detail.innerHTML =
+      '<strong>Telemetry diagnostics</strong>' +
+      '<div class="cote-detail-telemetry-summary">' +
+      '<div><span>Health</span><strong class="cote-telemetry-health--' +
+      escapeHtml(diag.telemetry_health || 'unknown') +
+      '">' +
+      escapeHtml(diag.telemetry_health || '—') +
+      '</strong></div>' +
+      '<div><span>Pulse</span><strong>' +
+      escapeHtml(diag.telemetry_pulse || '—') +
+      '</strong></div>' +
+      '<div><span>Stale threshold</span><strong>' +
+      (diag.stale_threshold_exceeded ? 'Exceeded' : 'OK') +
+      '</strong></div>' +
+      '</div>' +
+      '<div class="cote-detail-metrics">' +
+      metric('Sample count', diag.telemetry_sample_count) +
+      metric('Ingest / hr', diag.telemetry_ingest_rate_per_hour) +
+      metric('Last write', diag.last_telemetry_write_utc) +
+      metric('Queue depth', diag.queue_depth) +
+      metric('Parse errors', diag.parse_error_count) +
+      metric('Dropped', diag.dropped_event_count) +
+      metric('High latency', diag.high_latency_event_count) +
+      '</div>' +
+      '<p class="org-metric-foot"><strong>Storage:</strong> <code>' +
+      escapeHtml(diag.telemetry_storage_path || '') +
+      '</code></p>' +
+      (diag.failing_subsystems && diag.failing_subsystems.length
+        ? '<p class="org-metric-foot"><strong>Failing subsystems:</strong> ' +
+          escapeHtml(diag.failing_subsystems.join(', ')) +
+          '</p>'
+        : '') +
+      '<div class="cote-telemetry-reasons-wrap"><span class="kyc-metric-label">Degraded reasons</span>' +
+      reasonsHtml +
+      '</div>' +
+      (diag.last_telemetry_errors && diag.last_telemetry_errors.length
+        ? '<div class="cote-telemetry-errors"><span class="kyc-metric-label">Recent errors</span><ul>' +
+          diag.last_telemetry_errors
+            .map(function (e) {
+              return (
+                '<li><code>' +
+                escapeHtml(e.subsystem + '/' + e.event_type) +
+                '</code> ' +
+                escapeHtml(e.message || '') +
+                '</li>'
+              );
+            })
+            .join('') +
+          '</ul></div>'
+        : '') +
+      renderTelemetryMetricsOnly(m);
+    if (!hoverOnly) state.selected = 'telemetry';
+  }
+
+  function renderDetailPanel(nodeId, m, hoverOnly) {
+    var detail = document.getElementById('cote-topology-detail');
+    if (!detail) return;
+    var title = nodeId.replace(/_/g, ' ');
     var learningBlock = '';
     if (nodeId === 'learning' && m.learning_status) {
       learningBlock =

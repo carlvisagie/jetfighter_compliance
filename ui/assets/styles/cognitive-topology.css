@@ -239,6 +239,108 @@
   animation: cote-flicker 0.7s steps(2) infinite;
 }
 
+/* Telemetry pulse states */
+.cote-node--telemetry-flow .cote-node-body {
+  stroke: rgba(80, 220, 255, 0.95);
+  filter: drop-shadow(0 0 12px rgba(60, 200, 255, 0.55));
+}
+.cote-node--telemetry-flow .cote-node-pulse {
+  stroke: rgba(80, 220, 255, 0.7);
+  animation: cote-telemetry-flow 2.4s ease-in-out infinite;
+}
+
+.cote-node--telemetry-stale .cote-node-body {
+  stroke: rgba(255, 190, 90, 0.9);
+  filter: drop-shadow(0 0 10px rgba(255, 170, 60, 0.4));
+}
+.cote-node--telemetry-stale .cote-node-pulse {
+  stroke: rgba(255, 190, 90, 0.65);
+  animation: cote-pulse-fast 1.6s ease-in-out infinite;
+}
+
+.cote-node--telemetry-write-fail .cote-node-body {
+  stroke: rgba(255, 70, 70, 0.95);
+  fill: rgba(40, 12, 12, 0.85);
+  animation: cote-flicker 0.85s steps(2) infinite;
+}
+.cote-node--telemetry-write-fail .cote-node-pulse {
+  stroke: rgba(255, 80, 80, 0.75);
+  animation: cote-flicker 0.7s steps(2) infinite;
+}
+
+.cote-node--telemetry-backlog .cote-node-body {
+  stroke: rgba(120, 180, 255, 0.85);
+}
+.cote-node--telemetry-backlog .cote-node-pulse {
+  stroke: rgba(100, 200, 255, 0.6);
+  animation: cote-pulse-fast 1.2s ease-in-out infinite;
+}
+
+.cote-node-telemetry-backlog-ring {
+  fill: none;
+  stroke: rgba(100, 200, 255, 0.75);
+  stroke-width: 2;
+  animation: cote-upload-ring 1.5s ease-in-out infinite;
+}
+
+@keyframes cote-telemetry-flow {
+  0%,
+  100% {
+    stroke-opacity: 0.45;
+    transform: scale(1);
+    transform-origin: center;
+  }
+  50% {
+    stroke-opacity: 0.95;
+    transform: scale(1.06);
+    transform-origin: center;
+  }
+}
+
+.cote-detail-telemetry-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0.5rem 0 0.75rem;
+  font-size: 0.85rem;
+}
+
+.cote-telemetry-reasons {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+  color: rgba(220, 228, 240, 0.9);
+}
+
+.cote-telemetry-reasons li {
+  margin-bottom: 0.65rem;
+}
+
+.cote-telemetry-action {
+  margin: 0.25rem 0 0;
+  color: rgba(180, 210, 255, 0.85);
+}
+
+.cote-telemetry-errors ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1rem;
+  font-size: 0.78rem;
+}
+
+.cote-telemetry-health--healthy {
+  color: #7dffb0;
+}
+.cote-telemetry-health--degraded {
+  color: #ffc870;
+}
+.cote-telemetry-health--failed {
+  color: #ff7a7a;
+}
+
+.cote-telemetry-warn {
+  color: #ffb85c;
+}
+
 .cote-legend {
   display: flex;
   flex-wrap: wrap;

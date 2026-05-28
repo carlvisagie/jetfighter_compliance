@@ -607,7 +607,21 @@ def build_cognitive_topology() -> Dict[str, Any]:
             subsystems["learning"][key] = learn[key]
 
     tel_n = len(telem_rows)
+    tel_diag: Dict[str, Any] = {}
+    try:
+        from .telemetry_diagnostics import build_telemetry_status
+
+        tel_diag = build_telemetry_status()
+    except Exception:
+        tel_diag = {}
     tel_health = _clamp(0.4 + min(tel_n, 100) / 120.0) if _TELEMETRY.is_file() else 0.35
+    pulse = str(tel_diag.get("telemetry_pulse") or "")
+    if pulse == "write_failure":
+        tel_health = min(tel_health, 0.32)
+    elif pulse in ("stale", "backlog", "degraded"):
+        tel_health = min(tel_health, 0.48)
+    elif pulse == "healthy_flow":
+        tel_health = max(tel_health, 0.72)
     subsystems["telemetry"] = _merge_state(
         {
             "health": tel_health,
@@ -616,7 +630,14 @@ def build_cognitive_topology() -> Dict[str, Any]:
             "confidence": _clamp(0.5 + tel_health * 0.4),
             "latency": 0.04,
             "alerts": sum(1 for r in telem_rows if r.get("success") is False),
-            "anomaly": file_size(_TELEMETRY) > 5 * 1024 * 1024,
+            "anomaly": file_size(_TELEMETRY) > 5 * 1024 * 1024
+            or tel_diag.get("telemetry_health") in ("failed", "degraded"),
+            "telemetry_status": tel_diag.get("telemetry_health"),
+            "telemetry_pulse": pulse,
+            "telemetry_ingest_rate": tel_diag.get("telemetry_ingest_rate_per_hour"),
+            "queue_depth": tel_diag.get("queue_depth", 0),
+            "stale_threshold_exceeded": tel_diag.get("stale_threshold_exceeded"),
+            "degraded_reason_count": len(tel_diag.get("degraded_reasons") or []),
         }
     )
 
@@ -683,6 +704,26 @@ def build_cognitive_topology() -> Dict[str, Any]:
                 pass
             elif st.get("health", 1) < 0.55:
                 attention.append(f"{key.replace('_', ' ').title()} health degraded.")
+        elif key == "telemetry":
+            th = st.get("telemetry_status") or (
+                "degraded" if st.get("health", 1) < 0.55 else ""
+            )
+            if th in ("degraded", "failed"):
+                try:
+                    from .telemetry_diagnostics import build_telemetry_status
+
+                    reasons = build_telemetry_status().get("degraded_reasons") or []
+                    if reasons:
+                        r0 = reasons[0]
+                        attention.append(
+                            f"Telemetry health {th}: {r0.get('message', '')[:120]}"
+                        )
+                    else:
+                        attention.append(f"Telemetry health {th}.")
+                except Exception:
+                    attention.append("Telemetry health degraded.")
+            elif st.get("health", 1) < 0.55:
+                attention.append("Telemetry health degraded.")
         elif st.get("health", 1) < 0.55:
             attention.append(f"{key.replace('_', ' ').title()} health degraded.")
         if st.get("pressure", 0) > 0.62:
