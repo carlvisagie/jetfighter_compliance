@@ -205,7 +205,13 @@
           showConfirm(j);
           return;
         }
-        statusEl.textContent = j.detail || j.message || 'Upload failed (' + xhr.status + ')';
+        var msg = j.detail || j.message || 'Upload failed (' + xhr.status + ')';
+        if (xhr.status === 503) {
+          msg =
+            j.detail ||
+            'Paperwork upload is not available right now. Please contact support@keepyourcontracts.com.';
+        }
+        statusEl.textContent = msg;
         progressBox.hidden = true;
       });
       xhr.addEventListener('error', function () {

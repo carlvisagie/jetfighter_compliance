@@ -275,6 +275,9 @@ def count_upload_files() -> int:
 
 
 def intake_diagnostics() -> Dict[str, Any]:
+    from services.durable_storage import get_storage_status
+
+    storage = get_storage_status()
     root = intakes_root()
     ids = list_intake_ids(limit=200)
     pending_ids: List[str] = []
@@ -287,6 +290,9 @@ def intake_diagnostics() -> Dict[str, Any]:
             continue
     return {
         "data_root": str(_data_root().resolve()),
+        "durable_storage_configured": storage["durable_storage_configured"],
+        "founding_beta_uploads_enabled": storage["founding_beta_uploads_enabled"],
+        "upload_block_reason": storage.get("upload_block_reason"),
         "founding_beta_root": str(founding_beta_root().resolve()),
         "intakes_root": str(root.resolve()),
         "index_jsonl": str(index_jsonl().resolve()),

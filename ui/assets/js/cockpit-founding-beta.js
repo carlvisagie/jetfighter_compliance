@@ -12,6 +12,7 @@
     error: null,
     visibility_warning: null,
     diagnostics: null,
+    storage: null,
   };
 
   function escapeHtml(s) {
@@ -28,9 +29,32 @@
     el.classList.toggle('fb-queue-atlas--hidden', !on);
   }
 
+  function updateStorageCriticalBanner() {
+    var el = document.getElementById('fb-storage-critical-banner');
+    if (!el) return;
+    var s = state.storage;
+    if (!s || s.founding_beta_uploads_enabled) {
+      el.hidden = true;
+      el.classList.add('fb-storage-critical-banner--hidden');
+      return;
+    }
+    el.hidden = false;
+    el.classList.remove('fb-storage-critical-banner--hidden');
+    el.className = 'fb-storage-critical-banner';
+    el.innerHTML =
+      '<strong>Durable paperwork storage not configured — uploads disabled.</strong>' +
+      '<span class="fb-storage-critical-banner__detail">' +
+      escapeHtml(s.operator_message || s.upload_block_reason || 'Set KYC_DATA on persistent disk.') +
+      '</span>';
+  }
+
   function updateBanner() {
     var banner = document.getElementById('fb-paperwork-banner');
     if (!banner) return;
+    if (state.storage && !state.storage.founding_beta_uploads_enabled) {
+      setVisible(banner, false);
+      return;
+    }
     if (state.error) {
       setVisible(banner, true);
       banner.className = 'fb-paperwork-banner fb-paperwork-banner--warn';
@@ -208,23 +232,43 @@
     }
   }
 
-  function refresh(apiFn) {
-    return apiFn('/api/operator/founding-beta/queue')
-      .then(function (q) {
-        if (!q || q.ok === false) {
-          throw new Error((q && q.detail) || 'Queue response not ok');
-        }
-        applyQueueResponse(q);
-        return q;
+  function refreshStorage(apiFn) {
+    return apiFn('/api/operator/storage-status')
+      .then(function (s) {
+        state.storage = s;
+        updateStorageCriticalBanner();
+        updateBanner();
+        return s;
       })
-      .catch(function (err) {
-        applyError(err);
-        throw err;
+      .catch(function () {
+        state.storage = null;
+        updateStorageCriticalBanner();
       });
+  }
+
+  function refresh(apiFn) {
+    return Promise.all([
+      refreshStorage(apiFn),
+      apiFn('/api/operator/founding-beta/queue')
+        .then(function (q) {
+          if (!q || q.ok === false) {
+            throw new Error((q && q.detail) || 'Queue response not ok');
+          }
+          applyQueueResponse(q);
+          return q;
+        })
+        .catch(function (err) {
+          applyError(err);
+          throw err;
+        }),
+    ]).then(function (results) {
+      return results[1];
+    });
   }
 
   global.CockpitFoundingBeta = {
     refresh: refresh,
+    refreshStorage: refreshStorage,
     getState: function () {
       return state;
     },

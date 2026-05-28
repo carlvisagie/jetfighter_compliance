@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _resolve_data_root() -> Path:
-    """Production persistent disk (Render) — set KYC_DATA to mounted volume path."""
+    """Runtime data root. Production paperwork requires explicit KYC_DATA (see durable_storage)."""
     for key in ("KYC_DATA", "DATA_ROOT", "RENDER_DISK_PATH"):
         val = (os.getenv(key) or "").strip()
         if val:

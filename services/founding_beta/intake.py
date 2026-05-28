@@ -27,6 +27,7 @@ from .storage import (
     normalize_intake_record,
 )
 from .telemetry import emit_beta_event
+from services.durable_storage import require_founding_beta_upload_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +211,7 @@ async def process_upload(
     context: str = "",
     deadline: str = "",
 ) -> Dict[str, Any]:
+    require_founding_beta_upload_allowed()
     if not files:
         raise HTTPException(status_code=400, detail="At least one file required")
 

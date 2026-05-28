@@ -171,6 +171,10 @@ async def _boot_worker():
     audit_boot_env()
     enforce_safe_mode_required()
 
+    from services.durable_storage import log_storage_boot_status
+
+    log_storage_boot_status()
+
     for w in startup_warnings():
         logging.warning("[startup] %s", w)
         log_boot("startup_warning", "warn", w[:200])
@@ -258,6 +262,9 @@ def _find_project_by_order(order_id: str) -> Optional[str]:
 
 
 def kickoff(order_id: str, email: str, name: str, skus: list):
+    from services.durable_storage import reject_demo_order_in_production
+
+    reject_demo_order_in_production(order_id)
     try:
         from services.memory import safe_read_before_kickoff
 
@@ -1198,6 +1205,16 @@ def operator_founding_beta_queue(request: Request, limit: int = 40):
 
     require_ops_access(request)
     return get_operator_review_queue(limit=min(max(limit, 1), 100))
+
+
+@app.get("/api/operator/storage-status")
+def operator_storage_status(request: Request):
+    """Operator: durable storage + founding beta upload gate (no secrets)."""
+    from services.durable_storage import get_storage_status
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return get_storage_status()
 
 
 @app.get("/api/operator/founding-beta/diagnostics")

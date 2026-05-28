@@ -36,6 +36,13 @@ def startup_warnings() -> List[str]:
             warnings.append("OPS_PASSWORD unset — internal UI/API require login or X-Ops-Key")
         if SETTINGS.intake_token_secret == _DEV_INTAKE_SECRET:
             warnings.append("CRITICAL: rotate INTAKE_TOKEN_SECRET before accepting real clients")
+        from .durable_storage import founding_beta_upload_allowed, upload_block_reason
+
+        if not founding_beta_upload_allowed():
+            warnings.append(
+                "CRITICAL: founding beta uploads disabled — "
+                + (upload_block_reason() or "configure KYC_DATA on persistent disk")
+            )
     return warnings
 
 
@@ -78,9 +85,12 @@ def _smtp_missing_fields() -> list:
 
 
 def readiness_checks() -> Dict[str, Any]:
+    from .durable_storage import get_storage_status
+
     data_ok = DATA.exists() and os.access(str(DATA), os.W_OK)
     projects_ok = PROJECTS.exists()
     base = get_public_base_for_checks()
+    storage = get_storage_status()
     return {
         "data_writable": data_ok,
         "projects_dir": projects_ok,
@@ -90,6 +100,8 @@ def readiness_checks() -> Dict[str, Any]:
         "smtp_configured": smtp_env_status()["configured"],
         "smtp_status": smtp_env_status(),
         "environment": os.getenv("ENVIRONMENT", "development"),
+        "durable_storage_configured": storage["durable_storage_configured"],
+        "founding_beta_uploads_enabled": storage["founding_beta_uploads_enabled"],
     }
 
 

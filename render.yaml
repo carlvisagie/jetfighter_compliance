@@ -5,6 +5,11 @@ services:
     plan: starter
     autoDeploy: true
     healthCheckPath: /healthz
+    # Persistent disk required for founding beta client paperwork (survives deploys).
+    disk:
+      name: kyc-data
+      mountPath: /var/data
+      sizeGB: 10
 
     envVars:
       - key: ENVIRONMENT
@@ -32,10 +37,9 @@ services:
         sync: false
       - key: PUBLIC_BASE_URL
         sync: false
-      # Mount a Render persistent disk and set KYC_DATA to the mount path (e.g. /var/data)
-      # so founding beta uploads survive deploys and are visible to the operator queue.
-      # - key: KYC_DATA
-      #   value: /var/data
+      # Must match disk.mountPath above — founding beta uploads are refused without this.
+      - key: KYC_DATA
+        value: /var/data
       - key: SMTP_ENABLED
         value: "true"
       - key: SMTP_HOST

@@ -42,6 +42,14 @@
   </div>
 
   <div
+    id="fb-storage-critical-banner"
+    class="fb-storage-critical-banner fb-storage-critical-banner--hidden"
+    role="alert"
+    aria-live="assertive"
+    hidden
+  ></div>
+
+  <div
     id="fb-paperwork-banner"
     class="fb-paperwork-banner fb-paperwork-banner--hidden"
     role="alert"
@@ -227,7 +235,7 @@
           <a id="openStatus" class="btn secondary" href="/ui/status.html" target="_blank" rel="noopener">Open status</a>
           <a id="exportBtn" class="btn secondary" href="#" target="_blank" rel="noopener">Export binder</a>
           <a class="btn secondary" href="/ui/memory.html">Central intelligence</a>
-          <button id="demo" class="btn" type="button">Create demo project</button>
+          <button id="demo" class="btn" type="button" hidden>Create demo project</button>
         </div>
       </article>
     </section>
@@ -398,6 +406,13 @@
     return html;
   }
   async function initProjects() {
+    try {
+      const st = await api('/api/operator/storage-status');
+      const demoBtn = document.getElementById('demo');
+      if (demoBtn && st && st.environment !== 'production') {
+        demoBtn.hidden = false;
+      }
+    } catch {}
     let projects = [];
     try { projects = (await api('/api/projects')).projects || []; } catch {}
     const pid = projects.slice(-1)[0] || '';
