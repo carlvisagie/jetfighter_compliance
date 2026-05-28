@@ -435,6 +435,36 @@ def _learning_node_payload(
     }
 
 
+def _boost_learning_from_founding_beta(
+    learn: Dict[str, Any], telem_rows: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Raise learning health when founding-beta classification/operator events are consistent."""
+    if learn.get("learning_status") in ("failed", "degraded"):
+        return learn
+    good = 0
+    for row in telem_rows:
+        if str(row.get("subsystem") or "") != "founding_beta":
+            continue
+        et = str(row.get("event_type") or "")
+        if et in (
+            "intake_classified",
+            "operator_approved",
+            "operator_high_value",
+        ):
+            good += 1
+    if good <= 0:
+        return learn
+    out = dict(learn)
+    boost = min(0.18, good * 0.04)
+    out["health"] = _clamp(float(out.get("health", 0.6)) + boost)
+    out["activity"] = _clamp(float(out.get("activity", 0.1)) + boost * 0.5)
+    out["confidence"] = _clamp(float(out.get("confidence", 0.5)) + boost * 0.6)
+    if out.get("learning_status") == "warming_up" and good >= 2:
+        out["learning_status"] = "healthy"
+        out["learning_reason"] = "founding beta learning loop active"
+    return out
+
+
 def _paused_state(label: str = "") -> Dict[str, Any]:
     return {
         "health": 0.52,
@@ -485,6 +515,7 @@ def build_cognitive_topology() -> Dict[str, Any]:
     )
     alert_count, alert_pressure = _alerts_signal()
     learn = _assess_learning_node(telem_rows)
+    learn = _boost_learning_from_founding_beta(learn, telem_rows)
 
     safe = is_safe_mode()
     acq_paused = safe or not manual_acquisition_enabled()
@@ -524,8 +555,13 @@ def build_cognitive_topology() -> Dict[str, Any]:
     fb_activity = float(fb_flow.get("activity", 0))
     fb_pressure = float(fb_flow.get("pressure", 0))
     fb_health = float(fb_flow.get("health", upload_health))
-    upload_activity = _clamp(max(upload_act, fb_activity))
+    fb_glow = float(fb_flow.get("glow_intensity", fb_activity))
+    fb_backlog = bool(fb_flow.get("backlog_pressure"))
+    fb_urgent = int(fb_flow.get("urgent_count", 0))
+    upload_activity = _clamp(max(upload_act, fb_activity, fb_glow * 0.85))
     upload_pressure = _clamp(max((1.0 - upload_act) * 0.35, fb_pressure))
+    if fb_backlog or fb_urgent > 0:
+        upload_pressure = _clamp(max(upload_pressure, 0.42))
     upload_anomaly = bool(fb_flow.get("failed_recent")) or (
         upload_act < 0.08 and proj_count > 0
     )
@@ -540,6 +576,9 @@ def build_cognitive_topology() -> Dict[str, Any]:
             "anomaly": upload_anomaly,
             "flow_active": bool(fb_flow.get("uploads_active")),
             "pending_review": int(fb_flow.get("pending_review", 0)),
+            "queue_depth": int(fb_flow.get("queue_depth", 0)),
+            "uploads_per_hour": float(fb_flow.get("uploads_per_hour", 0)),
+            "backlog_pressure": fb_backlog,
         }
     )
 

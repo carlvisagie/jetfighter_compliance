@@ -160,10 +160,16 @@ def create_intake(
         }
     )
     emit_beta_event(
-        "beta_upload_started",
+        "intake_received",
         message=f"Intake {intake_id} created",
         metadata={"intake_id": intake_id, "urgent": urgent},
     )
+    try:
+        from .learning_hooks import record_founding_beta_learning
+
+        record_founding_beta_learning("intake_received", intake_id=intake_id)
+    except Exception:
+        pass
     return record
 
 
@@ -297,6 +303,42 @@ async def process_upload(
             metadata={"intake_id": intake_id, "deadline": record.get("deadline")},
         )
 
+    if saved:
+        try:
+            from .classification import classify_intake
+            from .learning_hooks import record_founding_beta_learning
+
+            clf = classify_intake(intake_id)
+            emit_beta_event(
+                "intake_classified",
+                message=intake_id,
+                metadata={
+                    "intake_id": intake_id,
+                    "primary_category": clf.get("primary_category"),
+                    "confidence_score": clf.get("confidence_score"),
+                },
+            )
+            record_founding_beta_learning(
+                "intake_classified",
+                intake_id=intake_id,
+                extra={"primary_category": clf.get("primary_category")},
+            )
+            if clf.get("missing_items"):
+                emit_beta_event(
+                    "missing_documents_detected",
+                    message=intake_id,
+                    metadata={
+                        "intake_id": intake_id,
+                        "missing_items": clf.get("missing_items"),
+                    },
+                )
+                record_founding_beta_learning(
+                    "missing_documents_detected",
+                    intake_id=intake_id,
+                )
+        except Exception as exc:
+            logger.warning("Founding beta classification skipped: %s", exc)
+
     link = _magic_link(intake_id, token)
     qr_bytes = _qr_png(link)
     import base64
@@ -389,8 +431,19 @@ def intake_flow_metrics() -> Dict[str, Any]:
     pending = dash.get("pending_review_count", 0)
     uploads = dash.get("uploads_received", 0)
     urgent = len(dash.get("urgent_intake_ids") or [])
-    activity = _clamp(uploads / 10.0 + (1.0 if pending else 0.0) * 0.2)
-    pressure = _clamp(pending / 5.0 + urgent / 3.0)
+    qm: Dict[str, Any] = {}
+    try:
+        from .queue import queue_flow_metrics
+
+        qm = queue_flow_metrics()
+    except Exception:
+        qm = {}
+    pending = max(pending, int(qm.get("queue_depth") or 0))
+    urgent = max(urgent, int(qm.get("urgent_count") or 0))
+    activity = _clamp(
+        max(uploads / 10.0 + (1.0 if pending else 0.0) * 0.2, float(qm.get("activity") or 0))
+    )
+    pressure = _clamp(max(pending / 5.0 + urgent / 3.0, float(qm.get("pressure") or 0)))
     health = _clamp(0.65 + activity * 0.25 - pressure * 0.2)
     return {
         "uploads_active": uploads > 0,
@@ -400,6 +453,10 @@ def intake_flow_metrics() -> Dict[str, Any]:
         "pressure": pressure,
         "health": health,
         "failed_recent": False,
+        "queue_depth": int(qm.get("queue_depth") or pending),
+        "uploads_per_hour": float(qm.get("uploads_per_hour") or 0),
+        "glow_intensity": float(qm.get("glow_intensity") or activity),
+        "backlog_pressure": bool(qm.get("backlog_pressure")),
     }
 
 

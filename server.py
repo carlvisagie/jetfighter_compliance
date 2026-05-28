@@ -1191,6 +1191,30 @@ def operator_founding_beta_intake(request: Request):
     return get_operator_intake_dashboard()
 
 
+@app.get("/api/operator/founding-beta/queue")
+def operator_founding_beta_queue(request: Request, limit: int = 40):
+    from services.founding_beta.queue import get_operator_review_queue
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return get_operator_review_queue(limit=min(max(limit, 1), 100))
+
+
+@app.post("/api/operator/founding-beta/action")
+async def operator_founding_beta_action(request: Request):
+    from services.founding_beta.operator_actions import apply_operator_action
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    body = await request.json()
+    intake_id = str(body.get("intake_id") or "").strip()
+    action = str(body.get("action") or "").strip()
+    note = str(body.get("operator_note") or "")
+    if not intake_id:
+        raise HTTPException(status_code=400, detail="intake_id required")
+    return apply_operator_action(intake_id, action, operator_note=note)
+
+
 @app.get("/api/cognitive-topology")
 def cognitive_topology(request: Request):
     """COTE — lightweight summarized organism topology (no heavy subsystem imports)."""

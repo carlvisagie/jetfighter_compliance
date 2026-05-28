@@ -15,6 +15,13 @@ BETA_EVENT_TYPES = frozenset(
         "onboarding_confusion",
         "overlay_helpfulness",
         "acquisition_to_upload_conversion",
+        "intake_received",
+        "intake_classified",
+        "operator_approved",
+        "operator_archived",
+        "operator_high_value",
+        "operator_request_more_info",
+        "missing_documents_detected",
     }
 )
 

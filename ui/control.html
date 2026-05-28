@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/ui/assets/styles/organism-command.css">
   <link rel="stylesheet" href="/ui/assets/styles/operator-cockpit.css">
   <link rel="stylesheet" href="/ui/assets/styles/cognitive-topology.css">
+  <link rel="stylesheet" href="/ui/assets/styles/founding-beta-queue.css">
 </head>
 <body class="kyc-page kyc-surface-ops" id="org-control-root">
   <header class="kyc-topbar">
@@ -64,10 +65,10 @@
   <section class="kyc-section" id="founding-beta-intake-panel" style="padding-top:0;">
     <header class="kyc-section-head">
       <span class="kyc-label-overline">Founding Beta</span>
-      <h2>Paperwork intake</h2>
-      <p>Upload-first founding beta funnel — <a href="/ui/founding-beta" target="_blank" rel="noopener">open public intake</a></p>
+      <h2>Founding Beta Queue</h2>
+      <p>Operational review queue — <a href="/ui/founding-beta" target="_blank" rel="noopener">public intake</a></p>
     </header>
-    <div id="founding-beta-intake-insights"><p class="kyc-loading">Loading founding beta intake…</p></div>
+    <div id="founding-beta-intake-insights"><p class="kyc-loading">Loading founding beta queue…</p></div>
   </section>
 
   <main class="kyc-main kyc-main--ops">
@@ -435,61 +436,121 @@
       document.getElementById('org-pulse-label').textContent = String(e.message || e);
     }
   }
+  async function fbQueueAction(intakeId, action, btn) {
+    if (!intakeId || !action) return;
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '…';
+    }
+    try {
+      await api('/api/operator/founding-beta/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ intake_id: intakeId, action: action }),
+      });
+      await loadFoundingBetaIntake();
+      if (window.CognitiveTopology && CognitiveTopology.refresh) {
+        CognitiveTopology.refresh();
+      }
+    } catch (e) {
+      alert('Action failed: ' + (e.message || e));
+      if (btn) btn.disabled = false;
+    }
+  }
+
   async function loadFoundingBetaIntake() {
     const el = document.getElementById('founding-beta-intake-insights');
     if (!el) return;
     try {
-      const j = await api('/api/operator/founding-beta-intake');
-      const types = j.document_type_counts || {};
-      const typeRows = Object.keys(types).length
-        ? Object.entries(types).map(function (e) {
-            return '<li>' + escapeHtml(e[0]) + ': ' + e[1] + '</li>';
-          }).join('')
-        : '<li>—</li>';
-      const ids = (j.newest_intake_ids || []).slice(0, 8).map(function (id) {
-        return '<code style="margin-right:0.5rem;">' + escapeHtml(id) + '</code>';
-      }).join('') || '—';
-      const links = (j.intake_links || []).slice(0, 5);
-      var linkHtml = '';
-      links.forEach(function (row) {
-        linkHtml +=
-          '<div class="kyc-btn-row" style="margin:0.35rem 0;">' +
-          '<code>' + escapeHtml(row.intake_id) + '</code>' +
-          (row.urgent ? ' <span class="kyc-pill kyc-pill--warn">urgent</span>' : '') +
-          ' <button type="button" class="btn secondary fb-copy-intake-link" data-link="' +
-          escapeHtml(row.magic_link || '') + '">Copy intake link</button>' +
-          (row.magic_link
-            ? ' <a class="btn secondary" href="' + escapeHtml(row.magic_link) +
-              '" target="_blank" rel="noopener">Open</a>'
-            : '') +
-          '</div>';
+      const q = await api('/api/operator/founding-beta/queue');
+      const dash = await api('/api/operator/founding-beta-intake');
+      const queue = q.queue || [];
+      const summary =
+        '<div class="kyc-metric-grid fb-queue-summary">' +
+        '<div class="kyc-metric"><span class="kyc-metric-label">Queue depth</span>' +
+        '<span class="kyc-metric-value">' + (q.queue_depth || 0) + '</span></div>' +
+        '<div class="kyc-metric"><span class="kyc-metric-label">Urgent</span>' +
+        '<span class="kyc-metric-value">' + (q.urgent_count || 0) + '</span></div>' +
+        '<div class="kyc-metric"><span class="kyc-metric-label">Uploads (all)</span>' +
+        '<span class="kyc-metric-value">' + (dash.uploads_received || 0) + '</span></div>' +
+        '</div>';
+      if (!queue.length) {
+        el.innerHTML =
+          summary +
+          '<p class="org-metric-foot">No intakes in queue — share <a href="/ui/founding-beta">/ui/founding-beta</a></p>';
+        return;
+      }
+      var cards = '';
+      queue.forEach(function (row) {
+        const urgent = row.urgent_flag
+          ? '<span class="kyc-pill kyc-pill--warn">urgent</span>'
+          : '';
+        const types = (row.file_types || []).join(', ') || '—';
+        const clf = (row.classified_file_types || []).join(', ') || row.primary_category || '—';
+        const missing = (row.missing_items || []).length
+          ? '<p class="fb-queue-missing"><strong>Missing:</strong> ' +
+            row.missing_items.map(function (m) { return escapeHtml(m); }).join(', ') +
+            '</p>'
+          : '';
+        cards +=
+          '<article class="fb-queue-card' +
+          (row.urgent_flag ? ' fb-queue-card--urgent' : '') +
+          '" data-intake="' +
+          escapeHtml(row.intake_id) +
+          '">' +
+          '<header class="fb-queue-card__head">' +
+          '<code>' +
+          escapeHtml(row.intake_id) +
+          '</code> ' +
+          urgent +
+          '<span class="fb-queue-status">' +
+          escapeHtml(row.review_status || 'pending') +
+          '</span></header>' +
+          '<p class="fb-queue-company"><strong>' +
+          escapeHtml(row.company || '—') +
+          '</strong> · ' +
+          escapeHtml(row.contact || '') +
+          '</p>' +
+          '<p class="org-metric-foot">Uploaded ' +
+          escapeHtml(row.created_utc || '') +
+          ' · ' +
+          (row.file_count || 0) +
+          ' file(s) · ' +
+          (row.total_size_mb || 0) +
+          ' MB</p>' +
+          '<p class="org-metric-foot">Types: ' +
+          escapeHtml(types) +
+          ' · Classified: ' +
+          escapeHtml(clf) +
+          '</p>' +
+          '<p class="org-metric-foot">Confidence ' +
+          Math.round((row.confidence_score || 0) * 100) +
+          '% · Risk ' +
+          Math.round((row.risk_score || 0) * 100) +
+          '%</p>' +
+          '<p class="fb-queue-action-hint">' +
+          escapeHtml(row.suggested_next_action || '') +
+          '</p>' +
+          missing +
+          '<div class="kyc-btn-row fb-queue-actions">' +
+          '<button type="button" class="btn primary" data-fb-action="approve_review">Approve review</button>' +
+          '<button type="button" class="btn secondary" data-fb-action="request_more_info">Request more info</button>' +
+          '<button type="button" class="btn secondary" data-fb-action="mark_high_value">Mark high value</button>' +
+          '<button type="button" class="btn secondary" data-fb-action="archive">Archive</button>' +
+          '<a class="btn secondary" href="/ui/founding-beta" target="_blank" rel="noopener">Open intake</a>' +
+          '</div></article>';
       });
-      const urgent = (j.urgent_intake_ids || []).length
-        ? '<p class="org-metric-foot"><strong>Urgent:</strong> ' +
-          j.urgent_intake_ids.map(function (x) { return escapeHtml(x); }).join(', ') + '</p>'
-        : '';
-      el.innerHTML =
-        '<div class="kyc-metric-grid">' +
-        '<div class="kyc-metric"><span class="kyc-metric-label">Uploads received</span>' +
-        '<span class="kyc-metric-value">' + (j.uploads_received || 0) + '</span></div>' +
-        '<div class="kyc-metric"><span class="kyc-metric-label">Pending review</span>' +
-        '<span class="kyc-metric-value">' + (j.pending_review_count || 0) + '</span></div>' +
-        '</div>' + urgent +
-        '<p class="org-metric-foot"><strong>Newest intake IDs</strong></p><p>' + ids + '</p>' +
-        '<p class="org-metric-foot"><strong>Document types</strong></p><ul class="guidance-list">' + typeRows + '</ul>' +
-        '<p class="org-metric-foot"><strong>Magic links</strong></p>' +
-        (linkHtml || '<p class="org-metric-foot">No intakes yet — share <a href="/ui/founding-beta">/ui/founding-beta</a></p>');
-      el.querySelectorAll('.fb-copy-intake-link').forEach(function (btn) {
+      el.innerHTML = summary + '<div class="fb-queue-list">' + cards + '</div>';
+      el.querySelectorAll('[data-fb-action]').forEach(function (btn) {
         btn.addEventListener('click', function () {
-          var link = btn.getAttribute('data-link');
-          if (link && navigator.clipboard) {
-            navigator.clipboard.writeText(link);
-            btn.textContent = 'Copied';
-          }
+          const card = btn.closest('.fb-queue-card');
+          const iid = card && card.getAttribute('data-intake');
+          const act = btn.getAttribute('data-fb-action');
+          fbQueueAction(iid, act, btn);
         });
       });
     } catch (e) {
-      el.innerHTML = '<p class="org-metric-foot">Founding beta intake unavailable.</p>';
+      el.innerHTML = '<p class="org-metric-foot">Founding beta queue unavailable.</p>';
     }
   }
   async function refreshAllSafeMode() {

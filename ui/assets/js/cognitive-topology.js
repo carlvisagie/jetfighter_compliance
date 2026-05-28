@@ -41,6 +41,9 @@
     }
     if (nodeId === 'upload_pipeline') {
       if (m.anomaly && m.health < 0.45) return 'cote-node--failed cote-node--upload-fail';
+      if (m.backlog_pressure || (m.queue_depth && m.queue_depth >= 5)) {
+        return 'cote-node--pressure cote-node--upload-backlog';
+      }
       if (m.pending_review > 0) return 'cote-node--pressure cote-node--upload-pending';
       if (m.flow_active || m.activity > 0.45) return 'cote-node--opportunity cote-node--upload-flow';
     }

@@ -164,6 +164,11 @@
   animation: cote-pulse-fast 1.2s ease-in-out infinite;
 }
 
+.cote-node--upload-backlog .cote-node-pulse {
+  stroke: rgba(120, 180, 255, 0.75);
+  animation: cote-pulse-fast 1.4s ease-in-out infinite;
+}
+
 .cote-node--upload-fail .cote-node-body {
   stroke: rgba(255, 80, 80, 0.9);
   animation: cote-flicker 0.7s steps(2) infinite;
