@@ -6,7 +6,18 @@ from pathlib import Path
 load_dotenv()
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT / "data"
+
+
+def _resolve_data_root() -> Path:
+    """Production persistent disk (Render) — set KYC_DATA to mounted volume path."""
+    for key in ("KYC_DATA", "DATA_ROOT", "RENDER_DISK_PATH"):
+        val = (os.getenv(key) or "").strip()
+        if val:
+            return Path(val).expanduser().resolve()
+    return (ROOT / "data").resolve()
+
+
+DATA = _resolve_data_root()
 PROJECTS = DATA / "projects"
 LOGS = DATA / "logs"
 for p in (DATA, PROJECTS, LOGS):

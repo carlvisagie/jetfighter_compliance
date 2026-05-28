@@ -10,6 +10,8 @@
     urgent: 0,
     latest: null,
     error: null,
+    visibility_warning: null,
+    diagnostics: null,
   };
 
   function escapeHtml(s) {
@@ -131,15 +133,14 @@
     state.queue = q;
     state.error = null;
     state.pending = int(q.queue_depth || 0);
-    var items = q.queue || [];
-    state.pending = Math.max(state.pending, items.filter(function (row) {
-      return (row.review_status || '') !== 'archived';
-    }).length);
     state.urgent = int(q.urgent_count || 0);
-    state.latest = items[0] || null;
+    state.latest = (q.queue && q.queue[0]) || null;
+    state.visibility_warning = q.visibility_warning || null;
+    state.diagnostics = q.diagnostics || null;
     updateBanner();
     updateAtlas();
     updateOrgPulse();
+    updateVisibilityWarning();
     document.dispatchEvent(
       new CustomEvent('cockpit-founding-beta-updated', { detail: { state: state } })
     );
@@ -154,8 +155,46 @@
     state.pending = 0;
     state.urgent = 0;
     state.latest = null;
+    state.visibility_warning = null;
     updateBanner();
     updateAtlas();
+    updateVisibilityWarning();
+  }
+
+  function updateVisibilityWarning() {
+    var box = document.getElementById('fb-visibility-warning');
+    if (!box) return;
+    if (state.visibility_warning) {
+      box.hidden = false;
+      box.className = 'fb-visibility-warning';
+      box.innerHTML =
+        '<strong>Paperwork visibility mismatch</strong><p>' +
+        escapeHtml(state.visibility_warning) +
+        '</p>';
+      return;
+    }
+    if (state.diagnostics && state.pending <= 0) {
+      var dirs = int(state.diagnostics.intake_directories_found);
+      var files = int(state.diagnostics.upload_files_on_disk);
+      if (dirs > 0 || files > 0) {
+        box.hidden = false;
+        box.className = 'fb-visibility-warning';
+        box.innerHTML =
+          '<strong>Intake data on disk but queue empty</strong><p>' +
+          escapeHtml(
+            dirs +
+              ' intake folder(s), ' +
+              files +
+              ' file(s) under ' +
+              (state.diagnostics.intakes_root || 'data path') +
+              ' — reload or check operator session.'
+          ) +
+          '</p>';
+        return;
+      }
+    }
+    box.hidden = true;
+    box.textContent = '';
   }
 
   function scrollToQueue() {

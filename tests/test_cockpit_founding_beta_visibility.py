@@ -11,9 +11,6 @@ def fb_env(monkeypatch, tmp_path):
     fb = tmp_path / "founding_beta"
     fb.mkdir(parents=True)
     (fb / "intakes").mkdir()
-    monkeypatch.setattr("services.founding_beta.intake.DATA", tmp_path)
-    monkeypatch.setattr("services.founding_beta.intake.INTAKES_ROOT", fb / "intakes")
-    monkeypatch.setattr("services.founding_beta.intake.INDEX_JSONL", fb / "intakes_index.jsonl")
     monkeypatch.setattr("services.config.DATA", tmp_path)
     return tmp_path
 

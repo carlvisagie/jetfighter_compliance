@@ -17,9 +17,7 @@ def fb_env(monkeypatch, tmp_path):
     fb = tmp_path / "founding_beta"
     fb.mkdir(parents=True)
     (fb / "intakes").mkdir()
-    monkeypatch.setattr("services.founding_beta.intake.DATA", tmp_path)
-    monkeypatch.setattr("services.founding_beta.intake.INTAKES_ROOT", fb / "intakes")
-    monkeypatch.setattr("services.founding_beta.intake.INDEX_JSONL", fb / "intakes_index.jsonl")
+    monkeypatch.setattr("services.config.DATA", tmp_path)
     return tmp_path
 
 
@@ -54,8 +52,9 @@ def test_upload_success_no_orchestration_import(fb_env, anon_client):
     assert body.get("magic_link")
     assert body.get("qr_png_base64")
     assert "services.acquisition.orchestration" not in sys.modules
-    intake_dir = fb_env / "founding_beta" / "intakes" / body["intake_id"]
-    assert (intake_dir / "uploads" / "policy.pdf").is_file()
+    from services.founding_beta.storage import intake_dir as fb_intake_dir
+
+    assert (fb_intake_dir(body["intake_id"]) / "uploads" / "policy.pdf").is_file()
 
 
 def test_operator_panel_lists_intake(client, fb_env, anon_client):

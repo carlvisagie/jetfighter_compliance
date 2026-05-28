@@ -10,17 +10,26 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException, UploadFile
 
-from services.config import DATA
 from services.production import safe_upload_filename
 from services.public_url import get_public_base_url
 from services.security import make_founding_beta_token, parse_founding_beta_token
 
+from .storage import (
+    all_intake_ids,
+    append_index_row,
+    atomic_write_json,
+    count_upload_files,
+    index_jsonl,
+    intake_dir,
+    intake_json_path,
+    intakes_root,
+    load_intake_record,
+    normalize_intake_record,
+)
 from .telemetry import emit_beta_event
 
 logger = logging.getLogger(__name__)
 
-INTAKES_ROOT = DATA / "founding_beta" / "intakes"
-INDEX_JSONL = DATA / "founding_beta" / "intakes_index.jsonl"
 MAX_FILE_BYTES = 52_428_800
 MAX_FILES_PER_REQUEST = 25
 MAX_TOTAL_INTAKE_BYTES = 250 * 1024 * 1024
@@ -44,9 +53,10 @@ def _utc_now() -> str:
 
 
 def _intake_dir(intake_id: str) -> Path:
-    if not intake_id.startswith("FB-") or ".." in intake_id or "/" in intake_id:
-        raise HTTPException(status_code=400, detail="Invalid intake_id")
-    return INTAKES_ROOT / intake_id
+    try:
+        return intake_dir(intake_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid intake_id") from e
 
 
 def _validate_extension(safe_name: str) -> None:
@@ -70,22 +80,22 @@ def _contact_ok(email: str, phone: str) -> bool:
 
 
 def _load_intake(intake_id: str) -> Dict[str, Any]:
-    path = _intake_dir(intake_id) / "intake.json"
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail="Intake not found")
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        return load_intake_record(intake_id, persist_recovery=True)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail="Intake not found") from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid intake_id") from e
 
 
 def _save_intake(intake_id: str, data: Dict[str, Any]) -> None:
     data["updated_at_utc"] = _utc_now()
-    path = _intake_dir(intake_id) / "intake.json"
-    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    rec = normalize_intake_record(data, intake_id=intake_id)
+    atomic_write_json(intake_json_path(intake_id), rec)
 
 
 def _append_index(row: Dict[str, Any]) -> None:
-    INDEX_JSONL.parent.mkdir(parents=True, exist_ok=True)
-    with INDEX_JSONL.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    append_index_row(row)
 
 
 def validate_intake_access(intake_id: str, token: str) -> Dict[str, Any]:
@@ -125,7 +135,7 @@ def create_intake(
 ) -> Dict[str, Any]:
     if not _contact_ok(email, phone):
         raise HTTPException(status_code=400, detail="Email or phone required")
-    INTAKES_ROOT.mkdir(parents=True, exist_ok=True)
+    intakes_root()
     intake_id = f"FB-{uuid.uuid4().hex[:12]}"
     idir = _intake_dir(intake_id)
     idir.mkdir(parents=True, exist_ok=True)
@@ -158,6 +168,11 @@ def create_intake(
             "urgent": urgent,
             "file_count": 0,
         }
+    )
+    logger.info(
+        "Founding beta intake created %s at %s",
+        intake_id,
+        intake_json_path(intake_id).parent,
     )
     emit_beta_event(
         "intake_received",
@@ -274,7 +289,26 @@ async def process_upload(
     record["file_count"] = len(record.get("files") or [])
     record["total_bytes"] = total_before
     record["status"] = "pending_review"
+    record["review_status"] = "pending_review"
     _save_intake(intake_id, record)
+    _append_index(
+        {
+            "intake_id": intake_id,
+            "created_at_utc": record.get("created_at_utc") or _utc_now(),
+            "status": record.get("review_status"),
+            "company": record.get("company"),
+            "email": record.get("email"),
+            "urgent": record.get("urgent"),
+            "file_count": record["file_count"],
+            "updated": True,
+        }
+    )
+    logger.info(
+        "Founding beta upload saved %s files=%s path=%s",
+        intake_id,
+        record["file_count"],
+        intake_json_path(intake_id),
+    )
 
     ext_counts: Dict[str, int] = {}
     for f in record.get("files") or []:
@@ -361,61 +395,69 @@ async def process_upload(
 
 
 def get_operator_intake_dashboard(limit: int = 20) -> Dict[str, Any]:
-    """Lightweight operator panel — index tail + pending counts."""
-    from ..lazy_io import iter_jsonl_lines
+    """Lightweight operator panel — filesystem + index, same paths as upload."""
+    from .storage import intake_diagnostics, is_pending_review, sync_index_from_filesystem
 
-    rows = list(iter_jsonl_lines(INDEX_JSONL, tail_lines=max(limit, 50)))
-    rows.reverse()
-    pending = [r for r in rows if r.get("status") == "pending_review"]
-    newest = rows[:limit]
+    sync_index_from_filesystem(max_rows=max(limit, 100))
+    intake_ids = all_intake_ids(limit=max(limit, 80))
+    pending_ids: List[str] = []
     doc_types: Dict[str, int] = {}
     urgent_ids: List[str] = []
+    uploads_received = count_upload_files()
 
-    for intake_id in [r.get("intake_id") for r in newest[:15] if r.get("intake_id")]:
+    for intake_id in intake_ids[: max(limit, 30)]:
         try:
-            rec = _load_intake(str(intake_id))
-        except HTTPException:
+            rec = load_intake_record(intake_id, persist_recovery=False)
+        except (FileNotFoundError, ValueError, OSError):
             continue
+        if is_pending_review(rec.get("review_status")):
+            pending_ids.append(intake_id)
         if rec.get("urgent"):
-            urgent_ids.append(str(intake_id))
+            urgent_ids.append(intake_id)
         for f in rec.get("files") or []:
             ext = f.get("ext") or "unknown"
             doc_types[ext] = doc_types.get(ext, 0) + 1
 
-    uploads_received = sum(r.get("file_count", 0) for r in rows)
-    if not uploads_received:
-        for intake_id in [r.get("intake_id") for r in rows[:30] if r.get("intake_id")]:
-            try:
-                rec = _load_intake(str(intake_id))
-                uploads_received += len(rec.get("files") or [])
-            except HTTPException:
-                pass
+    newest = intake_ids[:limit]
+    recent_rows: List[Dict[str, Any]] = []
 
     links = []
-    for r in newest[:8]:
-        iid = r.get("intake_id")
-        if not iid:
+    for iid in newest[:8]:
+        try:
+            rec = load_intake_record(iid, persist_recovery=False)
+        except (FileNotFoundError, ValueError, OSError):
             continue
+        recent_rows.append(
+            {
+                "intake_id": iid,
+                "created_at_utc": rec.get("created_at_utc"),
+                "status": rec.get("review_status"),
+                "company": rec.get("company"),
+                "file_count": rec.get("file_count", 0),
+            }
+        )
         tok = make_founding_beta_token(str(iid))
         links.append(
             {
                 "intake_id": iid,
                 "magic_link": _magic_link(str(iid), tok),
-                "created_at_utc": r.get("created_at_utc"),
-                "urgent": r.get("urgent"),
-                "file_count": r.get("file_count", 0),
+                "created_at_utc": rec.get("created_at_utc"),
+                "urgent": rec.get("urgent"),
+                "file_count": rec.get("file_count", 0),
             }
         )
 
+    diag = intake_diagnostics()
     return {
         "ok": True,
         "uploads_received": uploads_received,
-        "pending_review_count": len(pending),
-        "newest_intake_ids": [r.get("intake_id") for r in newest[:10] if r.get("intake_id")],
+        "pending_review_count": len(pending_ids),
+        "newest_intake_ids": newest[:10],
         "document_type_counts": doc_types,
         "urgent_intake_ids": urgent_ids[:10],
         "intake_links": links,
-        "recent": newest[:limit],
+        "recent": recent_rows[:limit],
+        "diagnostics": diag,
     }
 
 

@@ -1200,6 +1200,26 @@ def operator_founding_beta_queue(request: Request, limit: int = 40):
     return get_operator_review_queue(limit=min(max(limit, 1), 100))
 
 
+@app.get("/api/operator/founding-beta/diagnostics")
+def operator_founding_beta_diagnostics(request: Request):
+    """Operator diagnostics — data paths and intake inventory (no secrets)."""
+    from services.founding_beta.queue import get_operator_review_queue
+    from services.founding_beta.storage import intake_diagnostics
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    diag = intake_diagnostics()
+    q = get_operator_review_queue(limit=10)
+    return {
+        "ok": True,
+        "diagnostics": diag,
+        "queue_depth": q.get("queue_depth"),
+        "queue_rows_generated": q.get("queue_rows_generated"),
+        "visibility_warning": q.get("visibility_warning"),
+        "newest_intake_id": (q.get("queue") or [{}])[0].get("intake_id") if q.get("queue") else None,
+    }
+
+
 @app.post("/api/operator/founding-beta/action")
 async def operator_founding_beta_action(request: Request):
     from services.founding_beta.operator_actions import apply_operator_action

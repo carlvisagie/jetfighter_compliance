@@ -9,7 +9,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from services.lazy_io import read_text_bounded
 
-from .intake import INTAKES_ROOT, _intake_dir
+from .storage import intake_dir
+
+
+def _intake_dir(intake_id: str) -> Path:
+    return intake_dir(intake_id)
 
 DOC_SSP = "SSP"
 DOC_POAM = "POAM"

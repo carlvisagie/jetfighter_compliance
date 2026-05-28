@@ -1,21 +1,22 @@
-"""Founding Beta operator review queue — triage without heavy imports."""
+"""Founding Beta operator review queue — filesystem source of truth."""
 from __future__ import annotations
 
-import json
 from typing import Any, Dict, List, Optional
-
-from ..lazy_io import iter_jsonl_lines
 
 from .classification import (
     DOC_UNKNOWN,
     classify_intake,
     load_classification,
 )
-from . import intake as _intake_mod
-from .intake import _intake_dir, _load_intake
+from .storage import (
+    all_intake_ids,
+    intake_diagnostics,
+    is_pending_review,
+    load_intake_record,
+    sync_index_from_filesystem,
+)
 
 QUEUE_BACKLOG_PRESSURE = 5
-URGENT_PRESSURE = 1
 
 
 def _risk_score(*, urgent: bool, missing: List[str], file_count: int, review_status: str) -> float:
@@ -36,8 +37,8 @@ def _risk_score(*, urgent: bool, missing: List[str], file_count: int, review_sta
 
 def _queue_row(intake_id: str) -> Optional[Dict[str, Any]]:
     try:
-        rec = _load_intake(intake_id)
-    except Exception:
+        rec = load_intake_record(intake_id, persist_recovery=True)
+    except (FileNotFoundError, ValueError, OSError):
         return None
 
     clf = load_classification(intake_id)
@@ -53,9 +54,6 @@ def _queue_row(intake_id: str) -> Optional[Dict[str, Any]]:
     file_count = int(rec.get("file_count") or len(files))
     total_bytes = int(rec.get("total_bytes") or sum(int(f.get("size") or 0) for f in files))
     review_status = str(rec.get("review_status") or rec.get("status") or "pending_review")
-    missing = list(clf.get("missing_items") or [])
-    confidence = float(clf.get("confidence_score") or 0.35)
-    primary = str(clf.get("primary_category") or DOC_UNKNOWN)
 
     return {
         "intake_id": intake_id,
@@ -70,17 +68,18 @@ def _queue_row(intake_id: str) -> Optional[Dict[str, Any]]:
         "review_status": review_status,
         "risk_score": _risk_score(
             urgent=bool(rec.get("urgent")),
-            missing=missing,
+            missing=list(clf.get("missing_items") or []),
             file_count=file_count,
             review_status=review_status,
         ),
-        "confidence_score": confidence,
-        "missing_items": missing,
+        "confidence_score": float(clf.get("confidence_score") or 0.35),
+        "missing_items": list(clf.get("missing_items") or []),
         "suggested_next_action": clf.get("suggested_next_action")
         or "Review uploaded paperwork",
-        "primary_category": primary,
+        "primary_category": str(clf.get("primary_category") or DOC_UNKNOWN),
         "classified_file_types": list(clf.get("file_types") or []),
         "context_preview": (rec.get("context") or "")[:160],
+        "recovered_from_disk": bool(rec.get("recovered_from_disk")),
     }
 
 
@@ -102,39 +101,44 @@ def _sort_key(row: Dict[str, Any]) -> tuple:
     )
 
 
-def get_operator_review_queue(*, limit: int = 40, include_archived: bool = False) -> Dict[str, Any]:
-    rows: List[Dict[str, Any]] = []
-    seen: set[str] = set()
+def _visibility_warning(diag: Dict[str, Any], rows: List[Dict[str, Any]], pending: List[Dict[str, Any]]) -> Optional[str]:
+    dirs = int(diag.get("intake_directories_found") or 0)
+    uploads = int(diag.get("upload_files_on_disk") or 0)
+    if dirs <= 0 and uploads <= 0:
+        return None
+    if not rows and dirs > 0:
+        return (
+            f"Found {dirs} intake folder(s) on disk but queue could not load metadata — "
+            "check intake.json or disk permissions."
+        )
+    if dirs > 0 and not pending and uploads > 0:
+        return (
+            f"Found {dirs} intake(s) and {uploads} file(s) on disk but none marked pending review — "
+            "verify review_status on intake records."
+        )
+    return None
 
-    for idx in iter_jsonl_lines(_intake_mod.INDEX_JSONL, tail_lines=max(limit * 3, 120)):
-        iid = idx.get("intake_id")
-        if not iid or iid in seen:
-            continue
-        seen.add(str(iid))
-        item = _queue_row(str(iid))
+
+def get_operator_review_queue(*, limit: int = 40, include_archived: bool = False) -> Dict[str, Any]:
+    sync_index_from_filesystem(max_rows=max(limit, 100))
+    diag = intake_diagnostics()
+    rows: List[Dict[str, Any]] = []
+
+    for iid in all_intake_ids(limit=max(limit * 3, 200)):
+        item = _queue_row(iid)
         if not item:
             continue
         if not include_archived and item.get("review_status") == "archived":
             continue
         rows.append(item)
 
-    root = _intake_mod.INTAKES_ROOT
-    if root.is_dir():
-        for path in sorted(root.iterdir(), key=lambda p: p.stat().st_mtime if p.is_dir() else 0, reverse=True):
-            if not path.is_dir() or not path.name.startswith("FB-"):
-                continue
-            if path.name in seen:
-                continue
-            item = _queue_row(path.name)
-            if item:
-                rows.append(item)
-                seen.add(path.name)
-
     rows.sort(key=_sort_key)
     rows = rows[:limit]
 
-    pending = [r for r in rows if r.get("review_status") in ("pending_review", "needs_info")]
-    urgent = [r for r in rows if r.get("urgent_flag")]
+    pending = [r for r in rows if is_pending_review(r.get("review_status"))]
+    urgent = [r for r in rows if r.get("urgent_flag") and is_pending_review(r.get("review_status"))]
+    warning = _visibility_warning(diag, rows, pending)
+
     return {
         "ok": True,
         "queue": rows,
@@ -142,16 +146,21 @@ def get_operator_review_queue(*, limit: int = 40, include_archived: bool = False
         "urgent_count": len(urgent),
         "backlog_pressure": len(pending) >= QUEUE_BACKLOG_PRESSURE,
         "uploads_per_hour_estimate": _uploads_per_hour_estimate(),
+        "diagnostics": diag,
+        "visibility_warning": warning,
+        "queue_rows_generated": len(rows),
     }
 
 
 def _uploads_per_hour_estimate() -> float:
-    """Rough rate from index tail — bounded scan only."""
     from datetime import datetime, timezone
+
+    from ..lazy_io import iter_jsonl_lines
+    from .storage import index_jsonl
 
     now = datetime.now(timezone.utc)
     count = 0
-    for row in iter_jsonl_lines(_intake_mod.INDEX_JSONL, tail_lines=80):
+    for row in iter_jsonl_lines(index_jsonl(), tail_lines=80):
         ts = row.get("created_at_utc") or ""
         try:
             t = datetime.strptime(ts[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
@@ -180,4 +189,5 @@ def queue_flow_metrics() -> Dict[str, Any]:
         "activity": activity,
         "glow_intensity": glow,
         "pending_review": depth,
+        "visibility_warning": q.get("visibility_warning"),
     }

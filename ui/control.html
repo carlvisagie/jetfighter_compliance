@@ -48,6 +48,7 @@
     aria-live="assertive"
     hidden
   ></div>
+  <div id="fb-visibility-warning" class="fb-visibility-warning" role="alert" hidden></div>
 
   <section class="kyc-section cote-section" id="cote-topology-section" aria-label="Cognitive operational topology">
     <header class="kyc-section-head">
@@ -478,6 +479,16 @@
           : await api('/api/operator/founding-beta/queue');
       const dash = await api('/api/operator/founding-beta-intake');
       const queue = q.queue || [];
+      if (q.visibility_warning) {
+        var warnBox = document.getElementById('fb-visibility-warning');
+        if (warnBox) {
+          warnBox.hidden = false;
+          warnBox.innerHTML =
+            '<strong>Paperwork visibility mismatch</strong><p>' +
+            escapeHtml(q.visibility_warning) +
+            '</p>';
+        }
+      }
       const summary =
         '<div class="kyc-metric-grid fb-queue-summary">' +
         '<div class="kyc-metric"><span class="kyc-metric-label">Queue depth</span>' +

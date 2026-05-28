@@ -4,6 +4,26 @@
   display: none !important;
 }
 
+.fb-visibility-warning {
+  margin: 0 1rem 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 140, 80, 0.65);
+  background: rgba(60, 28, 12, 0.85);
+  color: #ffe8d0;
+  font-size: 0.9rem;
+}
+
+.fb-visibility-warning[hidden] {
+  display: none !important;
+}
+
+.fb-visibility-warning strong {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #ffb85c;
+}
+
 .fb-paperwork-banner {
   margin: 0 1rem 1rem;
   padding: 0.85rem 1.1rem;
