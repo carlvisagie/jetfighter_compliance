@@ -212,6 +212,8 @@ async def process_upload(
     company: str = "",
     context: str = "",
     deadline: str = "",
+    expected_file_count: int = 0,
+    expected_file_names: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     require_founding_beta_upload_allowed()
     if not files:
@@ -246,54 +248,142 @@ async def process_upload(
     total_before = _intake_total_bytes(intake_id)
     saved: List[Dict[str, Any]] = []
     errors: List[Dict[str, str]] = []
+    from .integrity import (
+        REASON_DUPLICATE_RENAMED,
+        REASON_FILE_TOO_LARGE,
+        REASON_PERSIST_FAILED,
+        REASON_TOTAL_SIZE_LIMIT,
+        REASON_UNSUPPORTED_EXTENSION,
+        STATE_DUPLICATE,
+        STATE_PERSISTED,
+        STATE_RECEIVED,
+        STATE_REJECTED,
+        build_integrity_report,
+        new_lifecycle_entry,
+    )
+
+    received_count = len(files)
+    expected_count = int(expected_file_count or 0) or received_count
+    expected_names = list(expected_file_names or [])
+    lifecycle: List[Dict[str, Any]] = []
 
     emit_beta_event(
         "beta_upload_started",
         message=f"Upload batch for {intake_id}",
-        metadata={"intake_id": intake_id, "file_count": len(files)},
+        metadata={
+            "intake_id": intake_id,
+            "file_count": received_count,
+            "expected_file_count": expected_count,
+        },
     )
 
     for uf in files[:MAX_FILES_PER_REQUEST]:
+        original_name = uf.filename or "upload.bin"
+        entry = new_lifecycle_entry(original_name, state=STATE_RECEIVED)
+        lifecycle.append(entry)
         try:
-            safe_name = safe_upload_filename(uf.filename or "upload.bin")
-            _validate_extension(safe_name)
+            safe_name = safe_upload_filename(original_name)
+            try:
+                _validate_extension(safe_name)
+            except HTTPException as he:
+                entry["state"] = STATE_REJECTED
+                entry["reason_code"] = REASON_UNSUPPORTED_EXTENSION
+                entry["reason_detail"] = str(he.detail)
+                errors.append({"filename": original_name, "error": str(he.detail)})
+                continue
             content = await uf.read()
             size = len(content)
             if size > MAX_FILE_BYTES:
-                errors.append({"filename": safe_name, "error": "File too large (max 50MB)"})
+                entry["state"] = STATE_REJECTED
+                entry["reason_code"] = REASON_FILE_TOO_LARGE
+                entry["reason_detail"] = "File too large (max 50MB)"
+                errors.append({"filename": safe_name, "error": entry["reason_detail"]})
                 continue
             if total_before + size > MAX_TOTAL_INTAKE_BYTES:
-                errors.append({"filename": safe_name, "error": "Intake total size limit reached"})
+                entry["state"] = STATE_REJECTED
+                entry["reason_code"] = REASON_TOTAL_SIZE_LIMIT
+                entry["reason_detail"] = "Intake total size limit reached"
+                errors.append({"filename": safe_name, "error": entry["reason_detail"]})
                 continue
             dest = uploads_dir / safe_name
+            was_duplicate = False
             if dest.exists():
+                was_duplicate = True
+                entry["state"] = STATE_DUPLICATE
+                entry["reason_code"] = REASON_DUPLICATE_RENAMED
+                entry["reason_detail"] = "Duplicate filename — stored under renamed path"
                 stem = Path(safe_name).stem
                 ext = Path(safe_name).suffix
                 safe_name = f"{stem}_{uuid.uuid4().hex[:6]}{ext}"
                 dest = uploads_dir / safe_name
             dest.write_bytes(content)
             total_before += size
-            entry = {
+            file_entry = {
                 "name": safe_name,
+                "original_name": original_name,
                 "size": size,
                 "ext": Path(safe_name).suffix.lower(),
                 "uploaded_at_utc": _utc_now(),
             }
-            record.setdefault("files", []).append(entry)
-            saved.append(entry)
+            record.setdefault("files", []).append(file_entry)
+            saved.append(file_entry)
+            entry["stored_name"] = safe_name
+            entry["size"] = size
+            entry["state"] = STATE_DUPLICATE if was_duplicate else STATE_PERSISTED
         except HTTPException as he:
-            errors.append({"filename": uf.filename or "?", "error": he.detail})
+            entry["state"] = STATE_REJECTED
+            entry["reason_code"] = REASON_UNSUPPORTED_EXTENSION
+            entry["reason_detail"] = str(he.detail)
+            errors.append({"filename": original_name, "error": str(he.detail)})
         except Exception as exc:
             logger.warning("Founding beta file save failed: %s", exc)
-            errors.append({"filename": uf.filename or "?", "error": "Could not save file"})
+            entry["state"] = STATE_REJECTED
+            entry["reason_code"] = REASON_PERSIST_FAILED
+            entry["reason_detail"] = "Could not save file"
+            errors.append({"filename": original_name, "error": "Could not save file"})
 
     if not saved and errors:
         raise HTTPException(status_code=400, detail=errors[0].get("error", "Upload failed"))
 
+    integrity = build_integrity_report(
+        expected_file_count=expected_count,
+        expected_file_names=expected_names or [f.get("original_name") or f.get("name") for f in saved],
+        lifecycle=lifecycle,
+        received_file_count=received_count,
+    )
+
     record["file_count"] = len(record.get("files") or [])
     record["total_bytes"] = total_before
-    record["status"] = "pending_review"
-    record["review_status"] = "pending_review"
+    record["upload_integrity"] = integrity
+    if integrity.get("integrity_mismatch"):
+        record["status"] = "partial_upload"
+        record["review_status"] = "partial_upload"
+        record["urgent"] = True
+        emit_beta_event(
+            "upload_integrity_mismatch",
+            message=f"{intake_id} expected={integrity.get('expected_file_count')} verified={integrity.get('verified_file_count')}",
+            metadata={
+                "intake_id": intake_id,
+                **{k: integrity.get(k) for k in (
+                    "expected_file_count",
+                    "received_file_count",
+                    "persisted_file_count",
+                    "verified_file_count",
+                    "missing_files",
+                    "reason_codes",
+                )},
+            },
+        )
+        logger.critical(
+            "upload_integrity_mismatch intake=%s expected=%s received=%s persisted=%s",
+            intake_id,
+            integrity.get("expected_file_count"),
+            integrity.get("received_file_count"),
+            integrity.get("persisted_file_count"),
+        )
+    else:
+        record["status"] = "pending_review"
+        record["review_status"] = "pending_review"
     _save_intake(intake_id, record)
     _append_index(
         {
@@ -305,6 +395,7 @@ async def process_upload(
             "urgent": record.get("urgent"),
             "file_count": record["file_count"],
             "updated": True,
+            "integrity_mismatch": bool(integrity.get("integrity_mismatch")),
         }
     )
     logger.info(
@@ -382,7 +473,19 @@ async def process_upload(
         from .retention import assert_read_write_roots_match, require_upload_durability_verified
 
         assert_read_write_roots_match()
-        durability = require_upload_durability_verified(intake_id, saved_files=saved)
+        durability = require_upload_durability_verified(
+            intake_id,
+            saved_files=saved,
+            integrity=integrity,
+        )
+        if durability.get("integrity"):
+            integrity = durability["integrity"]
+        record["upload_integrity"] = integrity
+        if integrity.get("integrity_mismatch"):
+            record["status"] = "partial_upload"
+            record["review_status"] = "partial_upload"
+            record["urgent"] = True
+        _save_intake(intake_id, record)
 
     link = _magic_link(intake_id, token)
     qr_bytes = _qr_png(link)
@@ -397,6 +500,14 @@ async def process_upload(
             headers={"X-KYC-Error-Code": "upload_durability_failed"},
         )
 
+    integrity = record.get("upload_integrity") or {}
+    upload_integrity_ok = bool(integrity.get("integrity_ok"))
+    customer_may_show_success = (
+        upload_integrity_ok
+        and int(integrity.get("verified_file_count") or 0) == int(integrity.get("expected_file_count") or 0)
+        and bool(durability.get("durability_verified", not saved))
+    )
+
     return {
         "ok": True,
         "intake_id": intake_id,
@@ -407,11 +518,24 @@ async def process_upload(
         "files_saved": saved,
         "errors": errors,
         "file_count": record["file_count"],
-        "verified_file_count": durability.get("verified_file_count", len(saved)),
+        "expected_file_count": int(integrity.get("expected_file_count") or expected_count),
+        "received_file_count": int(integrity.get("received_file_count") or received_count),
+        "persisted_file_count": int(integrity.get("persisted_file_count") or len(saved)),
+        "verified_file_count": int(
+            durability.get("verified_file_count")
+            or integrity.get("verified_file_count")
+            or len(saved)
+        ),
+        "upload_integrity_ok": upload_integrity_ok,
+        "integrity_mismatch": bool(integrity.get("integrity_mismatch")),
+        "customer_may_show_success": customer_may_show_success,
+        "missing_files": list(integrity.get("missing_files") or []),
+        "rejected_files": list(integrity.get("rejected_files") or []),
+        "retry_recommendation": integrity.get("retry_recommendation"),
         "durable_receipt_created": bool(durability.get("durable_receipt_created")),
         "durability_verified": bool(durability.get("durability_verified", not saved)),
         "status": record["status"],
-        "review_status": "pending_review",
+        "review_status": record.get("review_status"),
     }
 
 
@@ -494,6 +618,7 @@ def intake_flow_metrics() -> Dict[str, Any]:
     pending = dash.get("pending_review_count", 0)
     uploads = dash.get("uploads_received", 0)
     urgent = len(dash.get("urgent_intake_ids") or [])
+    integrity_mismatch_count = 0
     qm: Dict[str, Any] = {}
     try:
         from .queue import queue_flow_metrics
@@ -503,19 +628,24 @@ def intake_flow_metrics() -> Dict[str, Any]:
         qm = {}
     pending = max(pending, int(qm.get("queue_depth") or 0))
     urgent = max(urgent, int(qm.get("urgent_count") or 0))
+    integrity_mismatch_count = int(qm.get("integrity_mismatch_count") or 0)
     activity = _clamp(
         max(uploads / 10.0 + (1.0 if pending else 0.0) * 0.2, float(qm.get("activity") or 0))
     )
     pressure = _clamp(max(pending / 5.0 + urgent / 3.0, float(qm.get("pressure") or 0)))
+    if integrity_mismatch_count:
+        pressure = _clamp(max(pressure, 0.58 + integrity_mismatch_count * 0.08))
+        urgent = max(urgent, integrity_mismatch_count)
     health = _clamp(0.65 + activity * 0.25 - pressure * 0.2)
     return {
         "uploads_active": uploads > 0,
         "pending_review": pending,
         "urgent_count": urgent,
+        "integrity_mismatch_count": integrity_mismatch_count,
         "activity": activity,
         "pressure": pressure,
         "health": health,
-        "failed_recent": False,
+        "failed_recent": integrity_mismatch_count > 0,
         "queue_depth": int(qm.get("queue_depth") or pending),
         "uploads_per_hour": float(qm.get("uploads_per_hour") or 0),
         "glow_intensity": float(qm.get("glow_intensity") or activity),

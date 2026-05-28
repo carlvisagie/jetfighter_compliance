@@ -596,11 +596,12 @@ def build_cognitive_topology() -> Dict[str, Any]:
     fb_glow = float(fb_flow.get("glow_intensity", fb_activity))
     fb_backlog = bool(fb_flow.get("backlog_pressure"))
     fb_urgent = int(fb_flow.get("urgent_count", 0))
+    fb_integrity = int(fb_flow.get("integrity_mismatch_count", 0))
     upload_activity = _clamp(max(upload_act, fb_activity, fb_glow * 0.85))
     upload_pressure = _clamp(max((1.0 - upload_act) * 0.35, fb_pressure))
-    if fb_backlog or fb_urgent > 0:
-        upload_pressure = _clamp(max(upload_pressure, 0.42))
-    upload_anomaly = bool(fb_flow.get("failed_recent")) or (
+    if fb_backlog or fb_urgent > 0 or fb_integrity > 0:
+        upload_pressure = _clamp(max(upload_pressure, 0.42 + fb_integrity * 0.12))
+    upload_anomaly = bool(fb_flow.get("failed_recent")) or fb_integrity > 0 or (
         upload_act < 0.08 and proj_count > 0
     )
     subsystems["upload_pipeline"] = _merge_state(
@@ -616,6 +617,7 @@ def build_cognitive_topology() -> Dict[str, Any]:
             "pending_review": int(fb_flow.get("pending_review", 0)),
             "queue_depth": int(fb_flow.get("queue_depth", 0)),
             "urgent_count": fb_urgent,
+            "integrity_mismatch_count": fb_integrity,
             "uploads_per_hour": float(fb_flow.get("uploads_per_hour", 0)),
             "backlog_pressure": fb_backlog,
         }

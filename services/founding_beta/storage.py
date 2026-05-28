@@ -31,6 +31,7 @@ PENDING_REVIEW_STATUSES = frozenset(
         "submitted",
         "needs_info",
         "high_value",
+        "partial_upload",
         "new",
         "",
     }
@@ -118,6 +119,8 @@ def normalize_review_status(status: Optional[str]) -> str:
         return s
     if s in ("received", "submitted", "new", ""):
         return "pending_review"
+    if s == "partial_upload":
+        return "partial_upload"
     if not s:
         return "pending_review"
     return s

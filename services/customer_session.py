@@ -244,6 +244,8 @@ async def upload_to_session(session_id: str, session_token: str, file: UploadFil
         phone=str(sess.get("phone") or ""),
         company=str(sess.get("company") or ""),
         context=str(sess.get("context") or ""),
+        expected_file_count=1,
+        expected_file_names=[file.filename or "upload.bin"],
     )
     if not iid:
         sess["canonical_intake_id"] = result.get("intake_id")

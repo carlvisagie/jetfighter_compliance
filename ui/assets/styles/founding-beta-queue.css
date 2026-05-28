@@ -1,4 +1,58 @@
 /* Cockpit paperwork visibility — banner, atlas, COTE highlight */
+.fb-integrity-banner--hidden {
+  display: none !important;
+}
+
+.fb-integrity-banner {
+  margin: 0 1rem 1rem;
+  padding: 0.9rem 1.15rem;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 184, 92, 0.85);
+  background: linear-gradient(90deg, rgba(48, 32, 8, 0.98), rgba(56, 36, 10, 0.95));
+  color: #ffe8c8;
+  box-shadow: 0 0 24px rgba(255, 184, 92, 0.35);
+  animation: fb-banner-urgent 1.6s ease-in-out infinite;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.fb-integrity-banner strong {
+  display: block;
+  font-size: 1rem;
+  color: #ffb85c;
+}
+
+.fb-integrity-banner__detail {
+  flex: 1 1 12rem;
+  font-size: 0.88rem;
+  opacity: 0.92;
+}
+
+.fb-queue-card--integrity {
+  border-color: rgba(255, 184, 92, 0.55);
+  box-shadow: 0 0 18px rgba(255, 184, 92, 0.15);
+}
+
+.fb-queue-integrity {
+  margin: 0.65rem 0 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 184, 92, 0.55);
+  background: rgba(48, 32, 8, 0.55);
+  color: #ffe8c8;
+  font-size: 0.88rem;
+}
+
+.fb-queue-integrity strong {
+  color: #ffb85c;
+}
+
+.fb-queue-action-hint--integrity {
+  color: #ffd4a0;
+}
+
 .fb-paperwork-banner--hidden,
 .fb-queue-atlas--hidden,
 .fb-storage-critical-banner--hidden {

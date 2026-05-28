@@ -114,6 +114,7 @@ def build_audit_receipt(
     *,
     files_written: List[Dict[str, Any]],
     created_utc: Optional[str] = None,
+    integrity: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     assert_read_write_roots_match()
     root = resolved_write_root()
@@ -130,7 +131,7 @@ def build_audit_receipt(
             file_hashes[name] = sha256_file(dest)
         elif entry.get("sha256"):
             file_hashes[name] = str(entry["sha256"])
-    return {
+    receipt: Dict[str, Any] = {
         "intake_id": intake_id,
         "created_utc": created_utc or _utc_now(),
         "data_root": str(root),
@@ -147,6 +148,22 @@ def build_audit_receipt(
         "classification_path": str(clf),
         "intake_json_path": str(ij),
     }
+    if integrity:
+        receipt.update(
+            {
+                "expected_file_count": integrity.get("expected_file_count"),
+                "received_file_count": integrity.get("received_file_count"),
+                "persisted_file_count": integrity.get("persisted_file_count"),
+                "verified_file_count": integrity.get("verified_file_count"),
+                "integrity_ok": integrity.get("integrity_ok"),
+                "expected_files": integrity.get("expected_files"),
+                "verified_files": integrity.get("verified_files"),
+                "missing_files": integrity.get("missing_files"),
+                "rejected_files": integrity.get("rejected_files"),
+                "file_lifecycle": integrity.get("file_lifecycle"),
+            }
+        )
+    return receipt
 
 
 def write_audit_receipt(intake_id: str, receipt: Dict[str, Any]) -> Path:
@@ -257,9 +274,13 @@ def require_upload_durability_verified(
     intake_id: str,
     *,
     saved_files: List[Dict[str, Any]],
+    integrity: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Raise in production if post-upload verification fails; always write audit on success."""
+    """Raise in production if post-upload verification fails; write audit with integrity fields."""
+    from .integrity import mark_lifecycle_verified
+
     assert_read_write_roots_match()
+    lifecycle = list((integrity or {}).get("file_lifecycle") or [])
     for entry in saved_files:
         name = str(entry.get("name") or "")
         if not name:
@@ -268,22 +289,52 @@ def require_upload_durability_verified(
         if dest.is_file():
             entry["sha256"] = sha256_file(dest)
 
+    on_disk = hash_uploads_on_disk(intake_id)
+    verified_count = mark_lifecycle_verified(lifecycle, saved_files, on_disk_hashes=on_disk)
+    if integrity is not None:
+        integrity = dict(integrity)
+        integrity["file_lifecycle"] = lifecycle
+        integrity["verified_file_count"] = verified_count
+        integrity["persisted_file_count"] = sum(
+            1
+            for e in lifecycle
+            if e.get("state") in ("persisted", "verified", "duplicate")
+        )
+        integrity["verified_files"] = [
+            {
+                "original_name": e.get("original_name"),
+                "stored_name": e.get("stored_name"),
+                "sha256": e.get("sha256"),
+            }
+            for e in lifecycle
+            if e.get("state") == "verified"
+        ]
+        integrity["integrity_ok"] = (
+            int(integrity.get("expected_file_count") or 0) == verified_count
+            and not integrity.get("missing_files")
+            and not integrity.get("rejected_files")
+            and verified_count == int(integrity.get("received_file_count") or 0)
+        )
+        integrity["integrity_mismatch"] = not integrity["integrity_ok"]
+
     ok, detail = verify_intake_durability(intake_id, expected_files=saved_files)
     receipt = build_audit_receipt(
         intake_id,
         files_written=saved_files,
         created_utc=detail.get("verified_at_utc") or _utc_now(),
+        integrity=integrity,
     )
-    if ok:
+    if ok and saved_files:
         write_audit_receipt(intake_id, receipt)
         detail["audit_receipt_path"] = str(audit_receipt_path(intake_id).resolve())
         detail["durable_receipt_created"] = True
         return {
             "durability_verified": True,
             "durable_receipt_created": True,
-            "verified_file_count": len(saved_files),
+            "verified_file_count": verified_count,
             "audit": receipt,
             "detail": detail,
+            "integrity": integrity,
         }
 
     detail["durable_receipt_created"] = False

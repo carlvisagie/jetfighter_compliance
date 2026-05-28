@@ -702,8 +702,11 @@ async def founding_beta_upload(
     company: str = Form(""),
     context: str = Form(""),
     deadline: str = Form(""),
+    expected_file_count: int = Form(0),
+    expected_file_names: str = Form(""),
 ):
     from services.founding_beta.intake import process_upload
+    from services.founding_beta.integrity import parse_expected_file_names
 
     return await process_upload(
         files,
@@ -714,6 +717,8 @@ async def founding_beta_upload(
         company=company,
         context=context,
         deadline=deadline,
+        expected_file_count=expected_file_count,
+        expected_file_names=parse_expected_file_names(expected_file_names),
     )
 
 

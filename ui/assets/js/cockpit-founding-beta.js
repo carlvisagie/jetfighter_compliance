@@ -8,6 +8,7 @@
     queue: null,
     pending: 0,
     urgent: 0,
+    integrityMismatch: 0,
     latest: null,
     error: null,
     visibility_warning: null,
@@ -47,6 +48,26 @@
       '<span class="fb-storage-critical-banner__detail">' +
       escapeHtml(s.operator_message || s.upload_block_reason || 'Set KYC_DATA on persistent disk.') +
       '</span>';
+  }
+
+  function updateIntegrityBanner() {
+    var el = document.getElementById('fb-integrity-banner');
+    if (!el) return;
+    var n = int(state.integrityMismatch || 0);
+    if (n <= 0) {
+      el.hidden = true;
+      el.classList.add('fb-integrity-banner--hidden');
+      return;
+    }
+    el.hidden = false;
+    el.classList.remove('fb-integrity-banner--hidden');
+    el.innerHTML =
+      '<strong>Upload integrity mismatch detected</strong>' +
+      '<span class="fb-integrity-banner__detail">' +
+      n +
+      ' intake(s) have expected/received/verified file count drift — review immediately.</span>' +
+      '<button type="button" class="kyc-btn kyc-btn--secondary fb-paperwork-banner__btn" id="fbIntegrityReview">Review queue</button>';
+    document.getElementById('fbIntegrityReview')?.addEventListener('click', scrollToQueue);
   }
 
   function updateBanner() {
@@ -159,9 +180,11 @@
     state.error = null;
     state.pending = int(q.queue_depth || 0);
     state.urgent = int(q.urgent_count || 0);
+    state.integrityMismatch = int(q.integrity_mismatch_count || 0);
     state.latest = (q.queue && q.queue[0]) || null;
     state.visibility_warning = q.visibility_warning || null;
     state.diagnostics = q.diagnostics || null;
+    updateIntegrityBanner();
     updateBanner();
     updateAtlas();
     updateOrgPulse();
@@ -179,8 +202,10 @@
     state.error = err;
     state.pending = 0;
     state.urgent = 0;
+    state.integrityMismatch = 0;
     state.latest = null;
     state.visibility_warning = null;
+    updateIntegrityBanner();
     updateBanner();
     updateAtlas();
     updateVisibilityWarning();

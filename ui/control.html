@@ -50,6 +50,13 @@
   ></div>
 
   <div
+    id="fb-integrity-banner"
+    class="fb-integrity-banner fb-integrity-banner--hidden"
+    role="alert"
+    aria-live="assertive"
+    hidden
+  ></div>
+  <div
     id="fb-paperwork-banner"
     class="fb-paperwork-banner fb-paperwork-banner--hidden"
     role="alert"
@@ -541,9 +548,38 @@
             row.missing_items.map(function (m) { return escapeHtml(m); }).join(', ') +
             '</p>'
           : '';
+        const integrity = row.upload_integrity || {};
+        const integrityBanner = integrity.integrity_mismatch
+          ? '<div class="fb-queue-integrity" role="alert">' +
+            '<strong>Upload integrity mismatch detected</strong>' +
+            '<p>Expected ' +
+            (integrity.expected_file_count || 0) +
+            ' · received ' +
+            (integrity.received_file_count || 0) +
+            ' · verified ' +
+            (integrity.verified_file_count || 0) +
+            '</p>' +
+            ((integrity.missing_files || []).length
+              ? '<p class="fb-queue-missing"><strong>Missing files:</strong> ' +
+                integrity.missing_files.map(function (m) { return escapeHtml(m); }).join(', ') +
+                '</p>'
+              : '') +
+            ((integrity.reason_codes || []).length
+              ? '<p class="org-metric-foot"><strong>Reason codes:</strong> ' +
+                integrity.reason_codes.map(function (c) { return escapeHtml(c); }).join(', ') +
+                '</p>'
+              : '') +
+            (integrity.retry_recommendation
+              ? '<p class="fb-queue-action-hint fb-queue-action-hint--integrity">' +
+                escapeHtml(integrity.retry_recommendation) +
+                '</p>'
+              : '') +
+            '</div>'
+          : '';
         cards +=
           '<article class="fb-queue-card' +
           (row.urgent_flag ? ' fb-queue-card--urgent' : '') +
+          (integrity.integrity_mismatch ? ' fb-queue-card--integrity' : '') +
           '" data-intake="' +
           escapeHtml(row.intake_id) +
           '">' +
@@ -580,6 +616,7 @@
           '<p class="fb-queue-action-hint">' +
           escapeHtml(row.suggested_next_action || '') +
           '</p>' +
+          integrityBanner +
           missing +
           '<div class="kyc-btn-row fb-queue-actions">' +
           '<button type="button" class="btn primary" data-fb-action="approve_review">Approve review</button>' +

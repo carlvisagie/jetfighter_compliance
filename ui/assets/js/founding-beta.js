@@ -180,6 +180,11 @@
       fd.append('company', document.getElementById('fbCompany').value);
       fd.append('context', document.getElementById('fbContext').value);
       fd.append('deadline', document.getElementById('fbDeadline').value);
+      fd.append('expected_file_count', String(selectedFiles.length));
+      fd.append(
+        'expected_file_names',
+        JSON.stringify(selectedFiles.map(function (f) { return f.name; }))
+      );
 
       var xhr = new XMLHttpRequest();
       progressBox.hidden = false;
@@ -205,10 +210,18 @@
           xhr.status >= 200 &&
           xhr.status < 300 &&
           j.ok &&
-          j.durability_verified !== false &&
-          (j.durable_receipt_created || !j.files_saved || !j.files_saved.length)
+          j.customer_may_show_success === true &&
+          j.durability_verified !== false
         ) {
           showConfirm(j);
+          return;
+        }
+        if (xhr.status >= 200 && xhr.status < 300 && j.ok && j.integrity_mismatch) {
+          showPartialUpload(j);
+          return;
+        }
+        if (xhr.status >= 200 && xhr.status < 300 && j.ok && !j.customer_may_show_success) {
+          showPartialUpload(j);
           return;
         }
         if (xhr.status >= 200 && xhr.status < 300 && j.ok && !j.durable_receipt_created) {
@@ -237,17 +250,46 @@
     });
   }
 
+  function showPartialUpload(j) {
+    progressBox.hidden = true;
+    uploadCard.classList.remove('kyc-fb-hidden');
+    confirmCard.classList.add('kyc-fb-hidden');
+    var expected = j.expected_file_count != null ? j.expected_file_count : selectedFiles.length;
+    var verified = j.verified_file_count != null ? j.verified_file_count : 0;
+    var missing = (j.missing_files || []).join(', ');
+    statusEl.textContent =
+      'Upload incomplete — expected ' +
+      expected +
+      ' file(s), verified ' +
+      verified +
+      (missing ? '. Missing: ' + missing : '') +
+      '. Use your magic link to retry missing files.';
+    document.getElementById('fbSubmit').disabled = false;
+    if (j.intake_id) intakeInput.value = j.intake_id;
+    if (j.token) tokenInput.value = j.token;
+    if (j.magic_link || j.upload_url) magicLink = j.magic_link || j.upload_url;
+    bindCopyButton();
+  }
+
   function showConfirm(j) {
     uploadCard.classList.add('kyc-fb-hidden');
     confirmCard.classList.remove('kyc-fb-hidden');
     document.getElementById('fbConfirmId').textContent = j.intake_id || '—';
     var verified = document.getElementById('fbConfirmVerified');
     if (verified) {
+      var expected = j.expected_file_count != null ? j.expected_file_count : j.file_count;
       var n = j.verified_file_count != null ? j.verified_file_count : j.file_count;
       verified.textContent =
-        n != null
-          ? String(n) + ' file(s) verified on secure storage.'
+        n != null && expected != null
+          ? String(n) + ' of ' + String(expected) + ' file(s) verified on secure storage.'
           : '';
+    }
+    var integrityNote = document.getElementById('fbConfirmIntegrityNote');
+    if (integrityNote) {
+      integrityNote.textContent =
+        j.customer_may_show_success === true
+          ? ''
+          : 'Some files may still be processing — check your magic link if anything is missing.';
     }
     var receipt = document.getElementById('fbConfirmReceipt');
     if (receipt) {

@@ -8,6 +8,7 @@ from .classification import (
     classify_intake,
     load_classification,
 )
+from .integrity import integrity_summary_for_operator
 from .storage import (
     all_intake_ids,
     intake_diagnostics,
@@ -19,10 +20,19 @@ from .storage import (
 QUEUE_BACKLOG_PRESSURE = 5
 
 
-def _risk_score(*, urgent: bool, missing: List[str], file_count: int, review_status: str) -> float:
+def _risk_score(
+    *,
+    urgent: bool,
+    missing: List[str],
+    file_count: int,
+    review_status: str,
+    integrity_mismatch: bool = False,
+) -> float:
     score = 0.2
     if urgent:
         score += 0.35
+    if integrity_mismatch:
+        score += 0.4
     score += min(0.25, len(missing) * 0.08)
     if file_count <= 0:
         score += 0.2
@@ -54,6 +64,8 @@ def _queue_row(intake_id: str) -> Optional[Dict[str, Any]]:
     file_count = int(rec.get("file_count") or len(files))
     total_bytes = int(rec.get("total_bytes") or sum(int(f.get("size") or 0) for f in files))
     review_status = str(rec.get("review_status") or rec.get("status") or "pending_review")
+    integrity = integrity_summary_for_operator(rec)
+    mismatch = bool(integrity.get("integrity_mismatch"))
 
     return {
         "intake_id": intake_id,
@@ -63,23 +75,28 @@ def _queue_row(intake_id: str) -> Optional[Dict[str, Any]]:
         "file_count": file_count,
         "total_size_mb": round(total_bytes / (1024 * 1024), 2),
         "file_types": ext_types,
-        "urgent_flag": bool(rec.get("urgent")),
+        "urgent_flag": bool(rec.get("urgent")) or mismatch,
         "deadline": rec.get("deadline") or "",
         "review_status": review_status,
         "risk_score": _risk_score(
-            urgent=bool(rec.get("urgent")),
-            missing=list(clf.get("missing_items") or []),
+            urgent=bool(rec.get("urgent")) or mismatch,
+            missing=list(integrity.get("missing_files") or []) + list(clf.get("missing_items") or []),
             file_count=file_count,
             review_status=review_status,
+            integrity_mismatch=mismatch,
         ),
         "confidence_score": float(clf.get("confidence_score") or 0.35),
         "missing_items": list(clf.get("missing_items") or []),
-        "suggested_next_action": clf.get("suggested_next_action")
-        or "Review uploaded paperwork",
+        "suggested_next_action": (
+            integrity.get("retry_recommendation")
+            if mismatch
+            else (clf.get("suggested_next_action") or "Review uploaded paperwork")
+        ),
         "primary_category": str(clf.get("primary_category") or DOC_UNKNOWN),
         "classified_file_types": list(clf.get("file_types") or []),
         "context_preview": (rec.get("context") or "")[:160],
         "recovered_from_disk": bool(rec.get("recovered_from_disk")),
+        "upload_integrity": integrity,
     }
 
 
@@ -161,6 +178,11 @@ def get_operator_review_queue(*, limit: int = 40, include_archived: bool = False
 
     pending = [r for r in rows if is_pending_review(r.get("review_status"))]
     urgent = [r for r in rows if r.get("urgent_flag") and is_pending_review(r.get("review_status"))]
+    integrity_mismatch = [
+        r
+        for r in pending
+        if bool((r.get("upload_integrity") or {}).get("integrity_mismatch"))
+    ]
     warning = _visibility_warning(diag, rows, pending)
     block = diag.get("upload_block_reason")
     empty_code, empty_detail = _queue_empty_reason(
@@ -179,6 +201,7 @@ def get_operator_review_queue(*, limit: int = 40, include_archived: bool = False
         "queue": rows,
         "queue_depth": len(pending),
         "urgent_count": len(urgent),
+        "integrity_mismatch_count": len(integrity_mismatch),
         "backlog_pressure": len(pending) >= QUEUE_BACKLOG_PRESSURE,
         "uploads_per_hour_estimate": _uploads_per_hour_estimate(),
         "diagnostics": diag,
@@ -214,8 +237,9 @@ def queue_flow_metrics() -> Dict[str, Any]:
     q = get_operator_review_queue(limit=50)
     depth = int(q.get("queue_depth") or 0)
     urgent = int(q.get("urgent_count") or 0)
+    mismatch = int(q.get("integrity_mismatch_count") or 0)
     uph = float(q.get("uploads_per_hour_estimate") or 0)
-    pressure = min(1.0, depth / float(QUEUE_BACKLOG_PRESSURE) + urgent / 3.0)
+    pressure = min(1.0, depth / float(QUEUE_BACKLOG_PRESSURE) + urgent / 3.0 + mismatch * 0.15)
     activity = min(1.0, uph / 5.0 + depth / 20.0)
     glow = min(1.0, activity * 0.6 + (0.25 if depth else 0))
     return {
@@ -227,5 +251,6 @@ def queue_flow_metrics() -> Dict[str, Any]:
         "activity": activity,
         "glow_intensity": glow,
         "pending_review": depth,
+        "integrity_mismatch_count": mismatch,
         "visibility_warning": q.get("visibility_warning"),
     }
