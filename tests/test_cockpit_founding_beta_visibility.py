@@ -22,6 +22,10 @@ def test_topology_attention_when_founding_beta_pending(client, fb_env, anon_clie
         files=[("files", ("ssp.pdf", io.BytesIO(b"%PDF"), "application/pdf"))],
         data={"email": "vis@example.com", "company": "Visible Co"},
     )
+    from services.founding_beta.intake import intake_flow_metrics
+
+    flow = intake_flow_metrics()
+    assert flow.get("pending_review", 0) >= 1 or flow.get("queue_depth", 0) >= 1
     r = client.get("/api/cognitive-topology")
     assert r.status_code == 200
     body = r.json()

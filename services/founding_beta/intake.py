@@ -896,6 +896,7 @@ def _latest_intake_custody_signal() -> Dict[str, Any]:
     """Most recent intake custody — drives COTE upload node severity."""
     from .integrity import STATUS_INTEGRITY_FAILURE, STATUS_PARTIAL_UPLOAD, STATUS_REJECTED_FILES
     from .integrity import STATUS_VERIFIED_COMPLETE
+    from .retention import audit_hashes_match
     from .storage import all_intake_ids, list_intake_ids, load_intake_record
 
     ids = list_intake_ids(limit=5) or all_intake_ids(limit=5)
@@ -908,10 +909,13 @@ def _latest_intake_custody_signal() -> Dict[str, Any]:
             continue
         ui = rec.get("upload_integrity") or {}
         status = str(rec.get("custody_status") or ui.get("custody_status") or "").lower()
+        hash_ok = audit_hashes_match(iid)
+        if not hash_ok:
+            status = STATUS_INTEGRITY_FAILURE
         return {
             "latest_intake_id": iid,
             "latest_custody_status": status,
-            "latest_integrity_mismatch": bool(ui.get("integrity_mismatch")),
+            "latest_integrity_mismatch": bool(ui.get("integrity_mismatch")) or not hash_ok,
         }
     return {
         "latest_intake_id": None,
@@ -922,6 +926,13 @@ def _latest_intake_custody_signal() -> Dict[str, Any]:
 
 def _upload_node_severity(custody_status: str) -> str:
     """green | amber | red — no fake healthy on mismatch."""
+    from .integrity import (
+        STATUS_INTEGRITY_FAILURE,
+        STATUS_PARTIAL_UPLOAD,
+        STATUS_REJECTED_FILES,
+        STATUS_VERIFIED_COMPLETE,
+    )
+
     s = (custody_status or "").lower()
     if s == STATUS_INTEGRITY_FAILURE:
         return "red"
@@ -953,6 +964,8 @@ def intake_flow_metrics() -> Dict[str, Any]:
     integrity_mismatch_count = int(qm.get("integrity_mismatch_count") or 0)
     latest = _latest_intake_custody_signal()
     custody_status = str(latest.get("latest_custody_status") or "")
+    if latest.get("latest_integrity_mismatch"):
+        integrity_mismatch_count = max(integrity_mismatch_count, 1)
     upload_severity = _upload_node_severity(custody_status)
     activity = _clamp(
         max(uploads / 10.0 + (1.0 if pending else 0.0) * 0.2, float(qm.get("activity") or 0))

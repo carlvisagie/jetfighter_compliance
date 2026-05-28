@@ -109,6 +109,26 @@ def hash_uploads_on_disk(intake_id: str) -> Dict[str, str]:
     return out
 
 
+def audit_hashes_match(intake_id: str, *, on_disk: Optional[Dict[str, str]] = None) -> bool:
+    """True when on-disk upload hashes match the durable audit receipt."""
+    receipt = load_audit_receipt(intake_id)
+    if not receipt:
+        return True
+    disk = on_disk if on_disk is not None else hash_uploads_on_disk(intake_id)
+    if receipt.get("file_hashes"):
+        for name, expected in (receipt.get("file_hashes") or {}).items():
+            actual = disk.get(name)
+            if actual is None or actual != expected:
+                return False
+        return bool(disk) or not receipt.get("file_hashes")
+    for entry in receipt.get("files_written") or []:
+        name = str(entry.get("name") or "")
+        exp = str(entry.get("sha256") or "")
+        if exp and disk.get(name) != exp:
+            return False
+    return True
+
+
 def build_audit_receipt(
     intake_id: str,
     *,
@@ -488,20 +508,7 @@ def retention_check(intake_id: str) -> Dict[str, Any]:
     receipt = load_audit_receipt(intake_id)
     on_disk = hash_uploads_on_disk(intake_id)
 
-    file_hashes_match = True
-    if receipt and receipt.get("file_hashes"):
-        for name, expected in (receipt.get("file_hashes") or {}).items():
-            actual = on_disk.get(name)
-            if actual is None or actual != expected:
-                file_hashes_match = False
-                break
-    elif receipt and receipt.get("files_written"):
-        for entry in receipt.get("files_written") or []:
-            name = str(entry.get("name") or "")
-            exp = str(entry.get("sha256") or "")
-            if exp and on_disk.get(name) != exp:
-                file_hashes_match = False
-                break
+    file_hashes_match = audit_hashes_match(intake_id, on_disk=on_disk)
 
     clf_path = classification_path(intake_id)
     record: Dict[str, Any] = {}
