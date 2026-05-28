@@ -89,6 +89,8 @@ def test_control_html_includes_cote(client):
     assert "cognitive-topology.js" in text
     assert "cognitive-topology.css" in text
     assert "CoteTopology" in text or "cognitive-topology.js" in text
+    assert "Healthy (still)" in text
+    assert "Motion appears only when attention is required" in text
 
 
 def test_cognitive_topology_module_import_lightweight():

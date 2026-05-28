@@ -1,4 +1,16 @@
 /* Cognitive Operational Topology Engine (COTE) */
+
+/*
+ * VIO MOTION DOCTRINE
+ * -----------------
+ * No movement unless it demands attention. Motion is operator-attention currency.
+ *
+ * Stable (healthy, warming, paused): static circumference — no pulse halo, no orbit particles.
+ * Attention (pressure, unstable, failed, pending review): pulse rate encodes severity.
+ * Flow (active processing, queue backlog, telemetry backlog): optional orbit particle only.
+ * Organism heartbeat: single slow green ring pulse when ALL ring nodes are healthy — never alarm-like.
+ */
+
 .cote-section {
   padding-top: 0.5rem;
   margin-bottom: 0.5rem;
@@ -52,11 +64,12 @@
   max-height: 420px;
 }
 
+/* Core — static unless organism-wide heartbeat is eligible */
 .cote-core-glow {
   fill: url(#cote-core-gradient);
   filter: url(#cote-soft-glow);
   transform-origin: center;
-  animation: cote-core-breathe 4.5s ease-in-out infinite;
+  animation: none;
 }
 
 .cote-core-ring {
@@ -64,7 +77,21 @@
   stroke: rgba(140, 200, 255, 0.35);
   stroke-width: 1.5;
   transform-origin: center;
-  animation: cote-core-breathe 4.5s ease-in-out infinite reverse;
+  animation: none;
+}
+
+.cote-vio-core-stable .cote-core-glow,
+.cote-vio-core-stable .cote-core-ring {
+  animation: none;
+}
+
+.cote-mount--organism-heartbeat .cote-vio-organism-heartbeat .cote-core-ring {
+  stroke: rgba(100, 220, 160, 0.45);
+  animation: cote-organism-heartbeat 5.5s ease-in-out infinite;
+}
+
+.cote-mount--organism-heartbeat .cote-vio-organism-heartbeat .cote-core-glow {
+  animation: none;
 }
 
 .cote-link {
@@ -83,14 +110,16 @@
   stroke-width: 2;
   transform-origin: center;
   transition: stroke 0.35s ease, filter 0.35s ease;
+  animation: none;
 }
 
 .cote-node-pulse {
   fill: none;
   stroke-width: 1.5;
-  opacity: 0.5;
+  opacity: 0;
   transform-origin: center;
   pointer-events: none;
+  animation: none;
 }
 
 .cote-node-label {
@@ -102,54 +131,30 @@
   user-select: none;
 }
 
-/* Visual language states */
-.cote-node--healthy .cote-node-body {
-  stroke: rgba(100, 220, 160, 0.75);
-  filter: drop-shadow(0 0 6px rgba(80, 200, 140, 0.35));
-}
-.cote-node--healthy .cote-node-pulse {
-  stroke: rgba(100, 220, 160, 0.45);
-  animation: cote-pulse-calm 3.2s ease-in-out infinite;
+/* --- Stable states: no attention motion --- */
+.cote-vio-stable .cote-node-pulse {
+  display: none;
 }
 
-.cote-node--warming-up .cote-node-body {
-  stroke: rgba(120, 190, 255, 0.85);
-  filter: drop-shadow(0 0 8px rgba(90, 160, 255, 0.4));
-}
-.cote-node--warming-up .cote-node-pulse {
-  stroke: rgba(255, 190, 100, 0.55);
-  animation: cote-warmup-pulse 2.4s ease-in-out infinite;
-}
-
-.cote-node--pressure .cote-node-body {
-  stroke: rgba(255, 180, 90, 0.9);
-  filter: drop-shadow(0 0 10px rgba(255, 160, 60, 0.45));
-  animation: cote-swell 2.2s ease-in-out infinite;
-}
-.cote-node--pressure .cote-node-pulse {
-  stroke: rgba(255, 180, 90, 0.55);
-  animation: cote-pulse-fast 1.4s ease-in-out infinite;
-}
-
-.cote-node--unstable .cote-node-body {
-  stroke: rgba(255, 120, 100, 0.85);
-  filter: drop-shadow(0 0 8px rgba(255, 80, 60, 0.4));
-  animation: cote-warp 1.8s ease-in-out infinite;
-}
-.cote-node--unstable .cote-node-pulse {
-  stroke: rgba(255, 100, 80, 0.5);
-  animation: cote-flicker 0.9s steps(2) infinite;
-}
-
-.cote-node--failed .cote-node-body {
-  stroke: rgba(90, 100, 110, 0.5);
-  fill: rgba(20, 24, 30, 0.9);
-  filter: none;
-  opacity: 0.55;
-}
-.cote-node--failed .cote-node-pulse {
-  opacity: 0;
+.cote-vio-stable .cote-node-body {
   animation: none;
+}
+
+.cote-node--healthy .cote-node-body {
+  stroke: rgba(100, 220, 160, 0.82);
+  filter: drop-shadow(0 0 4px rgba(80, 200, 140, 0.22));
+}
+
+/* Warming up — soft cyan/teal (distinct from electric-blue opportunity) */
+.cote-node--warming-up .cote-node-body {
+  stroke: rgba(72, 210, 195, 0.9);
+  filter: drop-shadow(0 0 6px rgba(60, 190, 180, 0.28));
+}
+
+/* Opportunity — deeper electric blue, static unless flow particle active */
+.cote-node--opportunity .cote-node-body {
+  stroke: rgba(48, 130, 255, 0.95);
+  filter: drop-shadow(0 0 8px rgba(40, 110, 255, 0.38));
 }
 
 .cote-node--paused .cote-node-body {
@@ -157,66 +162,100 @@
   fill: rgba(18, 22, 30, 0.92);
   opacity: 0.5;
 }
-.cote-node--paused .cote-node-pulse {
-  opacity: 0.12;
-  animation: cote-pulse-calm 6s ease-in-out infinite;
-}
-
-.cote-node--opportunity .cote-node-body {
-  stroke: rgba(120, 200, 255, 0.9);
-  filter: drop-shadow(0 0 12px rgba(80, 180, 255, 0.5));
-}
-.cote-node--opportunity .cote-node-pulse {
-  stroke: rgba(120, 200, 255, 0.55);
-  animation: cote-emerge 2.5s ease-out infinite;
-}
 
 .cote-node--uncertain .cote-node-body {
   stroke: rgba(180, 160, 220, 0.65);
   stroke-dasharray: 4 3;
-  animation: cote-warp 2.8s ease-in-out infinite;
 }
 
-.cote-node--upload-flow .cote-node-pulse {
-  stroke: rgba(100, 220, 255, 0.65);
-  animation: cote-emerge 2.2s ease-out infinite;
+/* --- Attention: severity-encoded pulse (amber / red) --- */
+.cote-vio-attention .cote-node-pulse {
+  display: block;
+  opacity: 0.55;
 }
 
-.cote-node--upload-pending .cote-node-pulse {
-  stroke: rgba(255, 200, 100, 0.7);
-  animation: cote-pulse-fast 1.2s ease-in-out infinite;
+.cote-vio-attention--pressure .cote-node-pulse {
+  stroke: rgba(255, 190, 90, 0.55);
+  animation: cote-attention-pressure 2.8s ease-in-out infinite;
 }
 
-.cote-node--upload-backlog .cote-node-pulse {
-  stroke: rgba(120, 180, 255, 0.75);
-  animation: cote-pulse-fast 1.4s ease-in-out infinite;
+.cote-vio-attention--pressure .cote-node-body {
+  stroke: rgba(255, 180, 90, 0.9);
+  filter: drop-shadow(0 0 8px rgba(255, 160, 60, 0.35));
+  animation: none;
 }
 
-.cote-node--upload-new .cote-node-alert-ring {
+.cote-node--pressure .cote-node-body {
+  stroke: rgba(255, 180, 90, 0.9);
+  filter: drop-shadow(0 0 8px rgba(255, 160, 60, 0.35));
+}
+
+.cote-vio-attention--urgent .cote-node-pulse {
+  stroke: rgba(255, 120, 70, 0.75);
+  animation: cote-attention-urgent 1.1s ease-in-out infinite;
+}
+
+.cote-node--unstable .cote-node-body,
+.cote-node--telemetry-stale .cote-node-body {
+  stroke: rgba(255, 120, 100, 0.88);
+  filter: drop-shadow(0 0 8px rgba(255, 80, 60, 0.35));
+}
+
+.cote-vio-attention--urgent.cote-node--unstable .cote-node-pulse,
+.cote-node--unstable.cote-vio-attention--urgent .cote-node-pulse {
+  stroke: rgba(255, 100, 80, 0.6);
+  animation: cote-attention-urgent 1s ease-in-out infinite;
+}
+
+.cote-vio-attention--failed .cote-node-pulse,
+.cote-node--failed.cote-vio-attention--failed .cote-node-pulse,
+.cote-node--telemetry-write-fail.cote-vio-attention--failed .cote-node-pulse {
+  stroke: rgba(255, 70, 70, 0.7);
+  animation: cote-attention-failed 0.75s steps(2) infinite;
+}
+
+.cote-node--failed .cote-node-body,
+.cote-node--telemetry-write-fail .cote-node-body {
+  stroke: rgba(255, 70, 70, 0.85);
+  fill: rgba(40, 12, 12, 0.85);
+  animation: cote-attention-failed 0.75s steps(2) infinite;
+}
+
+.cote-node--upload-fail .cote-node-body {
+  stroke: rgba(255, 80, 80, 0.9);
+  animation: cote-attention-failed 0.75s steps(2) infinite;
+}
+
+/* Upload pending review — attention only when operator action needed */
+.cote-node--upload-pending .cote-node-body {
+  stroke: rgba(255, 190, 100, 0.88);
+  filter: drop-shadow(0 0 8px rgba(255, 170, 70, 0.32));
+}
+
+.cote-node--upload-urgent .cote-node-body {
+  stroke: rgba(255, 130, 70, 0.95);
+  filter: drop-shadow(0 0 10px rgba(255, 100, 50, 0.45));
+}
+
+.cote-node-alert-ring {
   fill: none;
-  stroke: rgba(100, 220, 255, 0.55);
   stroke-width: 2;
-  animation: cote-upload-ring 1.6s ease-in-out infinite;
+  pointer-events: none;
 }
 
-.cote-node--upload-urgent .cote-node-alert-ring {
+.cote-vio-attention--urgent .cote-node-alert-ring {
   stroke: rgba(255, 120, 70, 0.85);
-  animation: cote-upload-ring-urgent 1.1s ease-in-out infinite;
+  animation: cote-attention-ring-urgent 1.1s ease-in-out infinite;
 }
 
-.cote-node--upload-urgent .cote-node-pulse {
-  stroke: rgba(255, 140, 80, 0.85);
-  animation: cote-pulse-fast 0.95s ease-in-out infinite;
-}
-
-.cote-node--upload-pending.cote-node--upload-new .cote-node-body {
-  stroke: rgba(120, 210, 255, 0.95);
-  filter: drop-shadow(0 0 14px rgba(80, 200, 255, 0.55));
+.cote-vio-flow.cote-vio-attention--pressure .cote-node-alert-ring {
+  stroke: rgba(100, 180, 255, 0.7);
+  animation: cote-attention-ring-pressure 2.4s ease-in-out infinite;
 }
 
 .cote-node-badge-bg {
   fill: rgba(20, 40, 70, 0.95);
-  stroke: rgba(120, 200, 255, 0.9);
+  stroke: rgba(255, 190, 100, 0.85);
   stroke-width: 1.5;
 }
 
@@ -233,137 +272,27 @@
   pointer-events: none;
 }
 
-@keyframes cote-upload-ring {
-  0%,
-  100% {
-    stroke-opacity: 0.4;
-    transform: scale(1);
-    transform-origin: center;
-  }
-  50% {
-    stroke-opacity: 0.95;
-    transform: scale(1.08);
-    transform-origin: center;
-  }
+/* Flow particle — only for processing / backlog paths */
+.cote-vio-particle {
+  fill: rgba(100, 200, 255, 0.85);
+  pointer-events: none;
+  animation: cote-vio-particle-orbit 2.6s linear infinite;
+  transform-origin: center;
+  transform-box: fill-box;
 }
 
-@keyframes cote-upload-ring-urgent {
-  0%,
-  100% {
-    stroke-opacity: 0.5;
-  }
-  50% {
-    stroke-opacity: 1;
-  }
-}
-
-.cote-node--upload-fail .cote-node-body {
-  stroke: rgba(255, 80, 80, 0.9);
-  animation: cote-flicker 0.7s steps(2) infinite;
-}
-
-/* Telemetry pulse states */
-.cote-node--telemetry-flow .cote-node-body {
-  stroke: rgba(80, 220, 255, 0.95);
-  filter: drop-shadow(0 0 12px rgba(60, 200, 255, 0.55));
-}
-.cote-node--telemetry-flow .cote-node-pulse {
-  stroke: rgba(80, 220, 255, 0.7);
-  animation: cote-telemetry-flow 2.4s ease-in-out infinite;
-}
-
-.cote-node--telemetry-stale .cote-node-body {
-  stroke: rgba(255, 190, 90, 0.9);
-  filter: drop-shadow(0 0 10px rgba(255, 170, 60, 0.4));
-}
-.cote-node--telemetry-stale .cote-node-pulse {
-  stroke: rgba(255, 190, 90, 0.65);
-  animation: cote-pulse-fast 1.6s ease-in-out infinite;
-}
-
-.cote-node--telemetry-write-fail .cote-node-body {
-  stroke: rgba(255, 70, 70, 0.95);
-  fill: rgba(40, 12, 12, 0.85);
-  animation: cote-flicker 0.85s steps(2) infinite;
-}
-.cote-node--telemetry-write-fail .cote-node-pulse {
-  stroke: rgba(255, 80, 80, 0.75);
-  animation: cote-flicker 0.7s steps(2) infinite;
+.cote-vio-flow .cote-node-pulse {
+  display: block;
+  stroke: rgba(80, 160, 255, 0.45);
+  opacity: 0.4;
+  animation: cote-flow-halo 2.8s ease-in-out infinite;
 }
 
 .cote-node--telemetry-backlog .cote-node-body {
-  stroke: rgba(120, 180, 255, 0.85);
-}
-.cote-node--telemetry-backlog .cote-node-pulse {
-  stroke: rgba(100, 200, 255, 0.6);
-  animation: cote-pulse-fast 1.2s ease-in-out infinite;
+  stroke: rgba(90, 170, 255, 0.88);
 }
 
-.cote-node-telemetry-backlog-ring {
-  fill: none;
-  stroke: rgba(100, 200, 255, 0.75);
-  stroke-width: 2;
-  animation: cote-upload-ring 1.5s ease-in-out infinite;
-}
-
-@keyframes cote-telemetry-flow {
-  0%,
-  100% {
-    stroke-opacity: 0.45;
-    transform: scale(1);
-    transform-origin: center;
-  }
-  50% {
-    stroke-opacity: 0.95;
-    transform: scale(1.06);
-    transform-origin: center;
-  }
-}
-
-.cote-detail-telemetry-summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem 1rem;
-  margin: 0.5rem 0 0.75rem;
-  font-size: 0.85rem;
-}
-
-.cote-telemetry-reasons {
-  margin: 0.35rem 0 0;
-  padding-left: 1.1rem;
-  font-size: 0.82rem;
-  color: rgba(220, 228, 240, 0.9);
-}
-
-.cote-telemetry-reasons li {
-  margin-bottom: 0.65rem;
-}
-
-.cote-telemetry-action {
-  margin: 0.25rem 0 0;
-  color: rgba(180, 210, 255, 0.85);
-}
-
-.cote-telemetry-errors ul {
-  margin: 0.25rem 0 0;
-  padding-left: 1rem;
-  font-size: 0.78rem;
-}
-
-.cote-telemetry-health--healthy {
-  color: #7dffb0;
-}
-.cote-telemetry-health--degraded {
-  color: #ffc870;
-}
-.cote-telemetry-health--failed {
-  color: #ff7a7a;
-}
-
-.cote-telemetry-warn {
-  color: #ffb85c;
-}
-
+/* Legend */
 .cote-legend {
   display: flex;
   flex-wrap: wrap;
@@ -384,6 +313,14 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cote-legend-note {
+  flex: 1 1 100%;
+  margin: 0.35rem 0 0;
+  font-size: 0.68rem;
+  opacity: 0.65;
 }
 
 .cote-detail {
@@ -442,44 +379,136 @@
   display: none;
 }
 
-@keyframes cote-core-breathe {
-  0%, 100% { transform: scale(1); opacity: 0.92; }
-  50% { transform: scale(1.04); opacity: 1; }
+.cote-detail-telemetry-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0.5rem 0 0.75rem;
+  font-size: 0.85rem;
 }
 
-@keyframes cote-pulse-calm {
-  0%, 100% { transform: scale(1); opacity: 0.35; }
-  50% { transform: scale(1.12); opacity: 0.55; }
+.cote-telemetry-reasons {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+  color: rgba(220, 228, 240, 0.9);
 }
 
-@keyframes cote-pulse-fast {
-  0%, 100% { transform: scale(1); opacity: 0.4; }
-  50% { transform: scale(1.2); opacity: 0.75; }
+.cote-telemetry-reasons li {
+  margin-bottom: 0.65rem;
 }
 
-@keyframes cote-swell {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.06); }
+.cote-telemetry-action {
+  margin: 0.25rem 0 0;
+  color: rgba(180, 210, 255, 0.85);
 }
 
-@keyframes cote-warp {
-  0%, 100% { transform: scale(1) rotate(0deg); }
-  33% { transform: scale(1.03) rotate(0.6deg); }
-  66% { transform: scale(0.98) rotate(-0.5deg); }
+.cote-telemetry-errors ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1rem;
+  font-size: 0.78rem;
 }
 
-@keyframes cote-flicker {
-  0%, 100% { opacity: 0.25; }
-  50% { opacity: 0.7; }
+.cote-telemetry-health--healthy {
+  color: #7dffb0;
+}
+.cote-telemetry-health--degraded {
+  color: #ffc870;
+}
+.cote-telemetry-health--failed {
+  color: #ff7a7a;
 }
 
-@keyframes cote-emerge {
-  0% { transform: scale(0.95); opacity: 0.3; }
-  70% { transform: scale(1.18); opacity: 0.65; }
-  100% { transform: scale(1.05); opacity: 0.4; }
+.cote-telemetry-warn {
+  color: #ffb85c;
 }
 
-@keyframes cote-warmup-pulse {
-  0%, 100% { transform: scale(1); opacity: 0.35; stroke: rgba(255, 190, 100, 0.45); }
-  50% { transform: scale(1.14); opacity: 0.7; stroke: rgba(120, 190, 255, 0.65); }
+/* Motion keyframes — attention currency only */
+@keyframes cote-organism-heartbeat {
+  0%,
+  100% {
+    stroke-opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    stroke-opacity: 0.55;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes cote-attention-pressure {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.6;
+  }
+}
+
+@keyframes cote-attention-urgent {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.16);
+    opacity: 0.85;
+  }
+}
+
+@keyframes cote-attention-failed {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes cote-attention-ring-urgent {
+  0%,
+  100% {
+    stroke-opacity: 0.45;
+  }
+  50% {
+    stroke-opacity: 1;
+  }
+}
+
+@keyframes cote-attention-ring-pressure {
+  0%,
+  100% {
+    stroke-opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    stroke-opacity: 0.75;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes cote-flow-halo {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes cote-vio-particle-orbit {
+  0% {
+    transform: rotate(0deg) translateX(10px) rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg) translateX(10px) rotate(-360deg);
+  }
 }

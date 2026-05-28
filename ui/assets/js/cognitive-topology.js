@@ -170,7 +170,8 @@
     return { x: CX + radius * Math.cos(a), y: CY + radius * Math.sin(a) };
   }
 
-  function nodeVisualClass(m, nodeId) {
+  /** Visual state only (colour / shape) — motion comes from vioMotionClasses. */
+  function nodeStateClasses(m, nodeId) {
     if (!m) return 'cote-node--uncertain';
     if (m._cote_uncertain) return 'cote-node--uncertain';
     if (nodeId === 'learning') {
@@ -181,21 +182,18 @@
       if (ls === 'healthy') return 'cote-node--healthy';
     }
     if (nodeId === 'telemetry') {
-      var pulse = m.telemetry_pulse || '';
-      if (pulse === 'write_failure' || m.telemetry_status === 'failed') {
+      var tp = m.telemetry_pulse || '';
+      if (tp === 'write_failure' || m.telemetry_status === 'failed') {
         return 'cote-node--telemetry-write-fail';
       }
-      if (pulse === 'backlog' || intMetric(m.queue_depth) >= 50) {
+      if (tp === 'backlog' || intMetric(m.queue_depth) >= 50) {
         return 'cote-node--telemetry-backlog';
       }
-      if (pulse === 'stale' || m.stale_threshold_exceeded) {
+      if (tp === 'stale' || m.stale_threshold_exceeded || m.telemetry_status === 'degraded') {
         return 'cote-node--telemetry-stale';
       }
-      if (pulse === 'healthy_flow' || m.telemetry_status === 'healthy') {
-        return 'cote-node--telemetry-flow';
-      }
-      if (m.telemetry_status === 'degraded') {
-        return 'cote-node--telemetry-stale';
+      if (tp === 'healthy_flow' || m.telemetry_status === 'healthy') {
+        return 'cote-node--healthy';
       }
     }
     if (nodeId === 'upload_pipeline') {
@@ -203,13 +201,13 @@
       var urgent = intMetric(m.urgent_count) > 0;
       var h = numMetric(m.health, 0.5);
       if (m.anomaly && h < 0.45) return 'cote-node--failed cote-node--upload-fail';
-      if (urgent && pending) return 'cote-node--upload-urgent cote-node--upload-pending cote-node--upload-new';
-      if (pending) return 'cote-node--upload-pending cote-node--upload-new';
+      if (urgent && pending) return 'cote-node--upload-urgent cote-node--upload-pending';
+      if (pending) return 'cote-node--upload-pending';
       if (m.backlog_pressure || intMetric(m.queue_depth) >= 5) {
         return 'cote-node--pressure cote-node--upload-backlog';
       }
       if (m.flow_active || numMetric(m.activity, 0) > 0.45) {
-        return 'cote-node--opportunity cote-node--upload-flow';
+        return 'cote-node--opportunity';
       }
     }
     if (m.paused) return 'cote-node--paused';
@@ -224,6 +222,77 @@
     if (activity > 0.72 && health > 0.68 && !m.paused) return 'cote-node--opportunity';
     if (health > 0.72 && pressure < 0.42) return 'cote-node--healthy';
     return 'cote-node--healthy';
+  }
+
+  /**
+   * VIO motion doctrine: no movement unless it demands attention.
+   * Returns motion modifier classes (stable | attention | flow).
+   */
+  function vioMotionClasses(state, m, nodeId) {
+    if (!state) return 'cote-vio-stable';
+    if (state.indexOf('cote-node--failed') >= 0 || state.indexOf('cote-node--upload-fail') >= 0) {
+      return 'cote-vio-attention cote-vio-attention--failed';
+    }
+    if (state.indexOf('cote-node--upload-urgent') >= 0) {
+      return 'cote-vio-attention cote-vio-attention--urgent';
+    }
+    if (state.indexOf('cote-node--unstable') >= 0 || state.indexOf('cote-node--telemetry-write-fail') >= 0) {
+      return 'cote-vio-attention cote-vio-attention--urgent';
+    }
+    if (state.indexOf('cote-node--telemetry-stale') >= 0) {
+      return 'cote-vio-attention cote-vio-attention--pressure';
+    }
+    if (state.indexOf('cote-node--pressure') >= 0 || state.indexOf('cote-node--upload-pending') >= 0) {
+      return 'cote-vio-attention cote-vio-attention--pressure';
+    }
+    if (state.indexOf('cote-node--uncertain') >= 0) {
+      return 'cote-vio-attention cote-vio-attention--pressure';
+    }
+    if (state.indexOf('cote-node--telemetry-backlog') >= 0 || state.indexOf('cote-node--upload-backlog') >= 0) {
+      return 'cote-vio-flow cote-vio-attention cote-vio-attention--pressure';
+    }
+    if (state.indexOf('cote-node--opportunity') >= 0 && (m.flow_active || numMetric(m.activity, 0) > 0.45)) {
+      return 'cote-vio-flow';
+    }
+    if (state.indexOf('cote-node--warming-up') >= 0 || state.indexOf('cote-node--paused') >= 0) {
+      return 'cote-vio-stable';
+    }
+    if (state.indexOf('cote-node--healthy') >= 0) {
+      return 'cote-vio-stable';
+    }
+    if (state.indexOf('cote-node--opportunity') >= 0) {
+      return 'cote-vio-stable';
+    }
+    return 'cote-vio-stable';
+  }
+
+  function nodeVisualClass(m, nodeId) {
+    var state = nodeStateClasses(m, nodeId);
+    return state + ' ' + vioMotionClasses(state, m, nodeId);
+  }
+
+  function organismHeartbeatEligible(data) {
+    if (!data || data.safe_mode) return false;
+    var subs = data.subsystems || {};
+    var core = subs.system_health || {};
+    if (numMetric(core.health, 0) < 0.72) return false;
+    if (numMetric(data.global_pressure, 0) > 0.38) return false;
+    for (var i = 0; i < NODES.length; i++) {
+      var id = NODES[i].id;
+      var state = nodeStateClasses(subs[id], id);
+      if (state.indexOf('cote-node--healthy') < 0) return false;
+    }
+    return true;
+  }
+
+  function nodeNeedsAttentionRing(state, nodeId, m) {
+    if (state.indexOf('cote-node--upload-urgent') >= 0) return true;
+    if (nodeId === 'telemetry' && state.indexOf('cote-node--telemetry-backlog') >= 0) return true;
+    return false;
+  }
+
+  function nodeNeedsFlowParticle(state) {
+    return state.indexOf('cote-vio-flow') >= 0;
   }
 
   function coreVisualClass(m, globalPressure) {
@@ -295,8 +364,10 @@
   function buildRingNodeGroup(cfg, m) {
     var pos = polar(cfg.angle, RING);
     var pressure = numMetric(m.pressure, 0);
+    var state = nodeStateClasses(m, cfg.id);
+    var motion = vioMotionClasses(state, m, cfg.id);
     var g = ns('g');
-    g.setAttribute('class', 'cote-node ' + nodeVisualClass(m, cfg.id));
+    g.setAttribute('class', 'cote-node ' + state + ' ' + motion);
     g.setAttribute('data-node', cfg.id);
     if (m._cote_uncertain) g.setAttribute('data-cote-uncertain', 'true');
 
@@ -326,28 +397,19 @@
 
     g.appendChild(pulse);
 
-    if (cfg.id === 'telemetry') {
-      var tBacklog = intMetric(m.queue_depth) >= 50 || m.telemetry_pulse === 'backlog';
-      if (tBacklog) {
-        var tRing = ns('circle');
-        tRing.setAttribute('class', 'cote-node-alert-ring cote-node-telemetry-backlog-ring');
-        tRing.setAttribute('cx', String(pos.x));
-        tRing.setAttribute('cy', String(pos.y));
-        tRing.setAttribute('r', String(NODE_R + 14));
-        g.insertBefore(tRing, pulse);
-      }
+    if (nodeNeedsAttentionRing(state, cfg.id, m)) {
+      var alertRing = ns('circle');
+      alertRing.setAttribute('class', 'cote-node-alert-ring');
+      alertRing.setAttribute('cx', String(pos.x));
+      alertRing.setAttribute('cy', String(pos.y));
+      alertRing.setAttribute('r', String(NODE_R + 14));
+      g.insertBefore(alertRing, pulse);
     }
 
     if (cfg.id === 'upload_pipeline') {
       var pendingN = intMetric(m.pending_review || m.queue_depth);
       var urgentN = intMetric(m.urgent_count);
       if (pendingN > 0) {
-        var ring = ns('circle');
-        ring.setAttribute('class', 'cote-node-alert-ring');
-        ring.setAttribute('cx', String(pos.x));
-        ring.setAttribute('cy', String(pos.y));
-        ring.setAttribute('r', String(NODE_R + 14 + (urgentN ? 4 : 0)));
-        g.insertBefore(ring, pulse);
         var badgeBg = ns('circle');
         badgeBg.setAttribute('class', 'cote-node-badge-bg');
         badgeBg.setAttribute('cx', String(pos.x + 16));
@@ -367,6 +429,16 @@
     g.appendChild(body);
     g.appendChild(hit);
     g.appendChild(label);
+
+    if (nodeNeedsFlowParticle(motion)) {
+      var particle = ns('circle');
+      particle.setAttribute('class', 'cote-vio-particle');
+      particle.setAttribute('cx', String(pos.x + NODE_R + 10));
+      particle.setAttribute('cy', String(pos.y));
+      particle.setAttribute('r', '3');
+      g.appendChild(particle);
+    }
+
     return g;
   }
 
@@ -403,6 +475,7 @@
       mount.classList.toggle('cote-mount--safe', !!normalized.safe_mode);
       mount.classList.toggle('cote-mount--refreshing', !!state.refreshing);
       mount.classList.toggle('cote-mount--fallback', !!opts.usedFallback);
+      mount.classList.toggle('cote-mount--organism-heartbeat', organismHeartbeatEligible(normalized));
     }
 
     var links = ns('g');
@@ -424,7 +497,9 @@
 
     var coreG = ns('g');
     var coreMetrics = subs.system_health || uncertainSubsystem('system_health', 'missing_core');
-    coreG.setAttribute('class', 'cote-node cote-core ' + coreVisualClass(coreMetrics, gp));
+    var coreState = coreVisualClass(coreMetrics, gp);
+    var coreMotion = organismHeartbeatEligible(normalized) ? ' cote-vio-organism-heartbeat' : ' cote-vio-core-stable';
+    coreG.setAttribute('class', 'cote-node cote-core ' + coreState + coreMotion);
     coreG.setAttribute('data-node', 'system_health');
     var corePulse = ns('circle');
     corePulse.setAttribute('class', 'cote-node-pulse');
@@ -848,6 +923,10 @@
     validateTopologyPayload: validateTopologyPayload,
     mergeTopologyPayload: mergeTopologyPayload,
     buildRingNodeGroup: buildRingNodeGroup,
+    nodeStateClasses: nodeStateClasses,
+    vioMotionClasses: vioMotionClasses,
+    nodeVisualClass: nodeVisualClass,
+    organismHeartbeatEligible: organismHeartbeatEligible,
     NODES: NODES,
     logCoteRenderError: logCoteRenderError,
   };

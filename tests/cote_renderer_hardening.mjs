@@ -163,6 +163,78 @@ try {
   assert(false, 'buildRingNodeGroup threw: ' + e.message);
 }
 
+// VIO motion semantics
+const healthyCls = C.nodeVisualClass(
+  { health: 0.85, pressure: 0.1, activity: 0.3, confidence: 0.8, latency: 0.05, alerts: 0 },
+  'acquisition'
+);
+assert(healthyCls.indexOf('cote-vio-stable') >= 0, 'healthy has stable motion');
+assert(healthyCls.indexOf('cote-vio-attention') < 0, 'healthy has no attention motion');
+
+const pressureCls = C.nodeVisualClass(
+  { health: 0.6, pressure: 0.7, activity: 0.4, confidence: 0.5, alerts: 0 },
+  'knowledge'
+);
+assert(pressureCls.indexOf('cote-vio-attention--pressure') >= 0, 'pressure has slow attention pulse');
+
+const urgentUpload = C.nodeVisualClass(
+  {
+    health: 0.7,
+    pressure: 0.4,
+    activity: 0.5,
+    confidence: 0.6,
+    pending_review: 2,
+    urgent_count: 1,
+  },
+  'upload_pipeline'
+);
+assert(urgentUpload.indexOf('cote-vio-attention--urgent') >= 0, 'urgent upload has urgent motion');
+assert(urgentUpload.indexOf('cote-node--upload-pending') >= 0, 'pending review uses attention state');
+
+const pendingOnly = C.nodeVisualClass(
+  { health: 0.7, pressure: 0.3, activity: 0.4, confidence: 0.6, pending_review: 1, urgent_count: 0 },
+  'upload_pipeline'
+);
+assert(pendingOnly.indexOf('cote-vio-attention--pressure') >= 0, 'non-urgent pending uses mild pressure');
+assert(pendingOnly.indexOf('cote-vio-attention--urgent') < 0, 'non-urgent pending is not urgent pulse');
+
+const warmCls = C.nodeVisualClass(
+  { health: 0.6, pressure: 0.2, activity: 0.2, confidence: 0.5, learning_status: 'warming_up' },
+  'learning'
+);
+const oppCls = C.nodeVisualClass(
+  { health: 0.8, pressure: 0.2, activity: 0.8, confidence: 0.7, flow_active: true },
+  'upload_pipeline'
+);
+assert(warmCls.indexOf('cote-node--warming-up') >= 0, 'warming_up state class');
+assert(oppCls.indexOf('cote-node--opportunity') >= 0, 'opportunity state class');
+assert(warmCls !== oppCls, 'warming_up and opportunity differ');
+
+const failedCls = C.nodeVisualClass(
+  { health: 0.2, pressure: 0.5, activity: 0.1, confidence: 0.3, anomaly: true },
+  'alerts'
+);
+assert(failedCls.indexOf('cote-vio-attention--failed') >= 0, 'failed has failed flicker motion');
+
+assert(C.organismHeartbeatEligible(normFull) === false, 'mixed upload pending disables organism heartbeat');
+const allHealthy = C.normalizeTopologyPayload({
+  ok: true,
+  global_pressure: 0.15,
+  subsystems: {},
+});
+C.NODES.forEach(function (cfg) {
+  allHealthy.subsystems[cfg.id] = {
+    health: 0.85,
+    pressure: 0.1,
+    activity: 0.3,
+    confidence: 0.8,
+    latency: 0.05,
+    alerts: 0,
+  };
+});
+allHealthy.subsystems.system_health = { health: 0.85, pressure: 0.1, activity: 0.3, confidence: 0.8 };
+assert(C.organismHeartbeatEligible(allHealthy) === true, 'all healthy enables organism heartbeat');
+
 // partial failure payload still validates after normalize
 const broken = { ok: true, subsystems: null };
 const normBroken = C.normalizeTopologyPayload(broken);
