@@ -42,13 +42,28 @@
 }
 
 .cote-mount--fallback::after {
-  content: 'Showing last-known-good topology';
+  content: 'STALE — LAST KNOWN GOOD';
   position: absolute;
   top: 0.5rem;
   right: 0.65rem;
-  font-size: 0.7rem;
-  color: rgba(255, 190, 120, 0.9);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 210, 140, 0.98);
+  background: rgba(80, 40, 10, 0.55);
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 160, 80, 0.45);
   pointer-events: none;
+}
+
+.cote-attention--stale-lkg {
+  color: rgba(255, 200, 120, 0.95);
+  font-weight: 600;
+  border-left: 3px solid rgba(255, 140, 60, 0.85);
+  padding-left: 0.5rem;
+  margin-bottom: 0.35rem;
 }
 
 .cote-uncertain-tag {

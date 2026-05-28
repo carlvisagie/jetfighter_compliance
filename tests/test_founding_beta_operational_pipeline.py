@@ -21,15 +21,14 @@ from services.founding_beta.operator_actions import apply_operator_action
 
 
 @pytest.fixture
-def fb_env(monkeypatch, tmp_path):
-    fb = tmp_path / "founding_beta"
-    fb.mkdir(parents=True)
-    (fb / "intakes").mkdir()
-    mem = tmp_path / "memory"
-    mem.mkdir(parents=True)
-    monkeypatch.setattr("services.founding_beta.learning_hooks._LEARNING", mem / "learning_state.json")
-    monkeypatch.setattr("services.config.DATA", tmp_path)
-    return tmp_path
+def fb_env(durable_paperwork_env, monkeypatch):
+    mem = durable_paperwork_env / "memory"
+    mem.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(
+        "services.founding_beta.learning_hooks._LEARNING",
+        mem / "learning_state.json",
+    )
+    return durable_paperwork_env
 
 
 def test_classify_ssp_filename(tmp_path):

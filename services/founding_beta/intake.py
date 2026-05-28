@@ -283,6 +283,14 @@ async def process_upload(
             errors.append({"filename": uf.filename or "?", "error": he.detail})
         except Exception as exc:
             logger.warning("Founding beta file save failed: %s", exc)
+            from .pipeline_truth import surface_pipeline_failure
+
+            surface_pipeline_failure(
+                "upload_file_save_failed",
+                str(exc)[:200],
+                intake_id=intake_id,
+                filename=uf.filename or "?",
+            )
             errors.append({"filename": uf.filename or "?", "error": "Could not save file"})
 
     if not saved and errors:
@@ -466,9 +474,16 @@ def get_operator_intake_dashboard(limit: int = 20) -> Dict[str, Any]:
             }
         )
 
+    from .queue import get_operator_review_queue
+
     diag = intake_diagnostics()
+    q = get_operator_review_queue(limit=limit)
     return {
         "ok": True,
+        "pipeline": q.get("pipeline"),
+        "queue_empty": q.get("queue_empty"),
+        "queue_empty_reason": q.get("queue_empty_reason"),
+        "queue_empty_message": q.get("queue_empty_message"),
         "uploads_received": uploads_received,
         "pending_review_count": len(pending_ids),
         "newest_intake_ids": newest[:10],

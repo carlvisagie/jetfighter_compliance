@@ -8,6 +8,7 @@ from .classification import (
     classify_intake,
     load_classification,
 )
+from .pipeline_truth import compute_queue_truth
 from .storage import (
     all_intake_ids,
     intake_diagnostics,
@@ -138,11 +139,28 @@ def get_operator_review_queue(*, limit: int = 40, include_archived: bool = False
     pending = [r for r in rows if is_pending_review(r.get("review_status"))]
     urgent = [r for r in rows if r.get("urgent_flag") and is_pending_review(r.get("review_status"))]
     warning = _visibility_warning(diag, rows, pending)
+    from services.durable_storage import get_storage_status
+
+    pipeline = compute_queue_truth(
+        diag=diag,
+        rows=rows,
+        pending=pending,
+        storage=get_storage_status(),
+    )
+    if pipeline.get("queue_empty") and pipeline.get("queue_empty_reason") not in (
+        "no_customer_paperwork_on_disk",
+        "no_pending_reviews",
+    ):
+        warning = warning or pipeline.get("queue_empty_message")
 
     return {
         "ok": True,
+        "pipeline": pipeline,
         "queue": rows,
         "queue_depth": len(pending),
+        "queue_empty": bool(pipeline.get("queue_empty")),
+        "queue_empty_reason": pipeline.get("queue_empty_reason"),
+        "queue_empty_message": pipeline.get("queue_empty_message"),
         "urgent_count": len(urgent),
         "backlog_pressure": len(pending) >= QUEUE_BACKLOG_PRESSURE,
         "uploads_per_hour_estimate": _uploads_per_hour_estimate(),

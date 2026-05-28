@@ -71,18 +71,15 @@ def founding_beta_intake_enabled() -> bool:
 
 
 def founding_beta_upload_allowed() -> bool:
+    """Customer paperwork uploads require durable KYC_DATA in every environment."""
     if not founding_beta_intake_enabled():
         return False
-    if not is_production():
-        return True
     return is_durable_storage_configured()
 
 
 def upload_block_reason() -> Optional[str]:
     if not founding_beta_intake_enabled():
         return "founding_beta_intake_disabled"
-    if not is_production():
-        return None
     if not kyc_data_env_value():
         return "KYC_DATA_not_configured"
     path = resolved_kyc_data_path()

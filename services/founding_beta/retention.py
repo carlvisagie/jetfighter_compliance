@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 AUDIT_FILENAME = "intake_audit.json"
 _STARTUP_SCAN: Optional[Dict[str, Any]] = None
+_LAST_INVENTORY: Optional[Dict[str, int]] = None
 _PUBLIC_DURABILITY_DETAIL = (
     "Your files could not be verified on secure storage. "
     "Please try again or contact support@keepyourcontracts.com."
@@ -418,7 +419,36 @@ def scan_retention_at_startup(*, force: bool = False) -> Dict[str, Any]:
         "index_disk_agree": not only_disk and not only_index,
     }
 
+    global _LAST_INVENTORY
+    inventory = {
+        "intake_directories": len(disk_ids),
+        "intake_json_files": intake_json_count,
+        "upload_files": file_count,
+    }
+    if _LAST_INVENTORY is not None:
+        for key in ("intake_directories", "intake_json_files", "upload_files"):
+            prev = int(_LAST_INVENTORY.get(key) or 0)
+            cur = int(inventory.get(key) or 0)
+            if cur < prev:
+                from .pipeline_truth import emit_sev1_data_loss_suspected
+
+                emit_sev1_data_loss_suspected(
+                    f"Durable inventory dropped for {key}: {prev} -> {cur}",
+                    detail={"key": key, "previous": prev, "current": cur, "root": report["write_root"]},
+                )
+    _LAST_INVENTORY = inventory
+
     if only_disk or only_index:
+        from .pipeline_truth import emit_sev1_data_loss_suspected
+
+        emit_sev1_data_loss_suspected(
+            "Index and durable disk disagree at startup",
+            detail={
+                "only_on_disk": len(only_disk),
+                "only_in_index": len(only_index),
+                "write_root": report["write_root"],
+            },
+        )
         logger.critical(
             "[retention] index and disk disagree dirs=%s json=%s files=%s "
             "only_disk=%s only_index=%s root=%s",

@@ -18,9 +18,8 @@ from services.founding_beta.storage import (
 
 
 @pytest.fixture
-def fb_data(monkeypatch, tmp_path):
-    monkeypatch.setattr("services.config.DATA", tmp_path)
-    return tmp_path
+def fb_data(durable_paperwork_env):
+    return durable_paperwork_env
 
 
 def test_upload_writes_intake_metadata(fb_data, anon_client):

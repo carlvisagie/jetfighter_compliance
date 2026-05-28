@@ -521,9 +521,16 @@
         '<span class="kyc-metric-value">' + (dash.uploads_received || 0) + '</span></div>' +
         '</div>';
       if (!queue.length) {
+        var emptyWhy =
+          q.queue_empty_message ||
+          (q.queue_empty_reason ? 'Reason: ' + q.queue_empty_reason : '') ||
+          'No pending customer paperwork on durable storage.';
         el.innerHTML =
           summary +
-          '<p class="org-metric-foot">No intakes in queue — share <a href="/ui/founding-beta">/ui/founding-beta</a></p>';
+          '<p class="org-metric-foot kyc-status--warn">' +
+          escapeHtml(emptyWhy) +
+          '</p>' +
+          '<p class="org-metric-foot">Public intake: <a href="/ui/founding-beta">/ui/founding-beta</a></p>';
         return;
       }
       var cards = '';

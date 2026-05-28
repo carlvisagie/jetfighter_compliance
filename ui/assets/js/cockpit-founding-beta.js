@@ -161,6 +161,10 @@
     state.urgent = int(q.urgent_count || 0);
     state.latest = (q.queue && q.queue[0]) || null;
     state.visibility_warning = q.visibility_warning || null;
+    if (q.queue_empty && q.queue_empty_message) {
+      state.visibility_warning = q.queue_empty_message;
+    }
+    state.queue_empty_reason = q.queue_empty_reason || null;
     state.diagnostics = q.diagnostics || null;
     updateBanner();
     updateAtlas();

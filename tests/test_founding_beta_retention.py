@@ -27,11 +27,8 @@ from services.founding_beta.storage import (
 
 
 @pytest.fixture
-def fb_data(monkeypatch, tmp_path):
-    root = tmp_path.resolve()
-    monkeypatch.setenv("KYC_DATA", str(root))
-    monkeypatch.setattr("services.config.DATA", root)
-    return root
+def fb_data(durable_paperwork_env):
+    return durable_paperwork_env
 
 
 @pytest.fixture
