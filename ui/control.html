@@ -499,7 +499,7 @@
         window.CockpitFoundingBeta && CockpitFoundingBeta.refresh
           ? await CockpitFoundingBeta.refresh(api)
           : await api('/api/operator/founding-beta/queue');
-      const dash = await api('/api/operator/founding-beta-intake');
+      const dash = q.dashboard || {};
       const queue = q.queue || [];
       if (q.visibility_warning) {
         var warnBox = document.getElementById('fb-visibility-warning');
@@ -521,16 +521,12 @@
         '<span class="kyc-metric-value">' + (dash.uploads_received || 0) + '</span></div>' +
         '</div>';
       if (!queue.length) {
-        var emptyWhy =
-          q.queue_empty_message ||
-          (q.queue_empty_reason ? 'Reason: ' + q.queue_empty_reason : '') ||
-          'No pending customer paperwork on durable storage.';
+        var why = q.queue_empty_detail || q.queue_empty_reason || 'No intakes in queue';
         el.innerHTML =
           summary +
-          '<p class="org-metric-foot kyc-status--warn">' +
-          escapeHtml(emptyWhy) +
-          '</p>' +
-          '<p class="org-metric-foot">Public intake: <a href="/ui/founding-beta">/ui/founding-beta</a></p>';
+          '<p class="org-metric-foot"><strong>Queue empty:</strong> ' +
+          escapeHtml(why) +
+          ' — share <a href="/ui/founding-beta">/ui/founding-beta</a></p>';
         return;
       }
       var cards = '';

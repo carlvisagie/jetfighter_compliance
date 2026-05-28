@@ -18,8 +18,12 @@ from services.founding_beta.storage import (
 
 
 @pytest.fixture
-def fb_data(durable_paperwork_env):
-    return durable_paperwork_env
+def fb_data(monkeypatch, tmp_path):
+    root = tmp_path.resolve()
+    monkeypatch.setenv("KYC_DATA", str(root))
+    monkeypatch.setenv("KYC_FOUNDING_BETA_MODE", "true")
+    monkeypatch.setattr("services.config.DATA", root)
+    return root
 
 
 def test_upload_writes_intake_metadata(fb_data, anon_client):
@@ -111,7 +115,7 @@ def test_production_data_path_consistency(fb_data, monkeypatch):
     monkeypatch.setenv("KYC_DATA", str(fb_data))
     assert _resolve_data_root() == fb_data.resolve()
     monkeypatch.setattr("services.config.DATA", fb_data.resolve())
-    assert intakes_root().resolve() == (fb_data / "founding_beta" / "intakes").resolve()
+    assert intakes_root().resolve() == (fb_data / "intakes").resolve()
     diag = intake_diagnostics()
     assert str(fb_data.resolve()) in diag["data_root"]
 

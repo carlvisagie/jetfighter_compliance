@@ -21,14 +21,16 @@ from services.founding_beta.operator_actions import apply_operator_action
 
 
 @pytest.fixture
-def fb_env(durable_paperwork_env, monkeypatch):
-    mem = durable_paperwork_env / "memory"
-    mem.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(
-        "services.founding_beta.learning_hooks._LEARNING",
-        mem / "learning_state.json",
-    )
-    return durable_paperwork_env
+def fb_env(monkeypatch, tmp_path):
+    root = tmp_path.resolve()
+    (root / "intakes").mkdir(parents=True)
+    mem = root / "memory"
+    mem.mkdir(parents=True)
+    monkeypatch.setenv("KYC_DATA", str(root))
+    monkeypatch.setenv("KYC_FOUNDING_BETA_MODE", "true")
+    monkeypatch.setattr("services.founding_beta.learning_hooks._LEARNING", mem / "learning_state.json")
+    monkeypatch.setattr("services.config.DATA", root)
+    return root
 
 
 def test_classify_ssp_filename(tmp_path):
@@ -73,7 +75,7 @@ def test_queue_generation_and_sort(fb_env, anon_client, client):
     assert "confidence_score" in queue[0]
     assert "suggested_next_action" in queue[0]
     iid = queue[0]["intake_id"]
-    clf_path = fb_env / "founding_beta" / "intakes" / iid / "classification.json"
+    clf_path = fb_env / "intakes" / iid / "classification.json"
     assert clf_path.is_file()
 
 
@@ -87,7 +89,7 @@ def test_classification_persisted(fb_env, anon_client):
     iid = r.json()["intake_id"]
     clf = classify_intake(iid)
     assert clf.get("primary_category")
-    assert (fb_env / "founding_beta" / "intakes" / iid / "classification.json").is_file()
+    assert (fb_env / "intakes" / iid / "classification.json").is_file()
 
 
 def test_mixed_upload_malformed_and_ok(fb_env, anon_client):

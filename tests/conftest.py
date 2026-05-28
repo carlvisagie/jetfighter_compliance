@@ -59,16 +59,6 @@ def login_ops(c: TestClient) -> None:
 
 
 @pytest.fixture
-def durable_paperwork_env(monkeypatch, tmp_path):
-    """Isolated KYC_DATA root — same durable pipeline as production."""
-    root = tmp_path.resolve()
-    monkeypatch.setenv("KYC_DATA", str(root))
-    monkeypatch.setattr("services.config.DATA", root)
-    (root / "founding_beta" / "intakes").mkdir(parents=True, exist_ok=True)
-    return root
-
-
-@pytest.fixture
 def reddit_env(monkeypatch, tmp_path):
     """Isolated DATA tree for Reddit acquisition connector tests."""
     intel = tmp_path / "intelligence"

@@ -38,31 +38,67 @@ PENDING_REVIEW_STATUSES = frozenset(
 
 
 def founding_beta_root() -> Path:
-    p = _data_root() / "founding_beta"
-    p.mkdir(parents=True, exist_ok=True)
-    return p
+    """Deprecated layout root — reads only; new writes use intakes_root()."""
+    return _data_root() / "founding_beta"
 
 
 def intakes_root() -> Path:
-    p = founding_beta_root() / "intakes"
+    """Canonical customer paperwork storage (not rollout-branded)."""
+    p = _data_root() / "intakes"
     p.mkdir(parents=True, exist_ok=True)
     return p
 
 
+def legacy_intakes_roots() -> List[Path]:
+    """Read-only legacy trees merged into inventory scans."""
+    roots: List[Path] = []
+    old = founding_beta_root() / "intakes"
+    if old.is_dir():
+        roots.append(old)
+    return roots
+
+
 def index_jsonl() -> Path:
-    p = founding_beta_root() / "intakes_index.jsonl"
+    p = intakes_root() / "index.jsonl"
     p.parent.mkdir(parents=True, exist_ok=True)
+    legacy = founding_beta_root() / "intakes_index.jsonl"
+    if not p.is_file() and legacy.is_file():
+        return legacy
     return p
 
 
-def intake_dir(intake_id: str) -> Path:
+def canonical_intake_dir(intake_id: str) -> Path:
     if not intake_id.startswith("FB-") or ".." in intake_id or "/" in intake_id:
         raise ValueError("Invalid intake_id")
     return intakes_root() / intake_id
 
 
+def intake_dir(intake_id: str) -> Path:
+    """Resolve intake directory — canonical write path; legacy read fallback."""
+    canonical = canonical_intake_dir(intake_id)
+    if canonical.is_dir():
+        return canonical
+    for legacy_root in legacy_intakes_roots():
+        leg = legacy_root / intake_id
+        if leg.is_dir():
+            return leg
+    return canonical
+
+
+def ensure_canonical_intake_dir(intake_id: str) -> Path:
+    """All writes land on canonical intakes/ tree (migrate legacy dir on first write)."""
+    import shutil
+
+    canonical = canonical_intake_dir(intake_id)
+    current = intake_dir(intake_id)
+    if current.is_dir() and current != canonical and not canonical.exists():
+        shutil.copytree(current, canonical)
+    canonical.mkdir(parents=True, exist_ok=True)
+    return canonical
+
+
 def intake_json_path(intake_id: str) -> Path:
-    return intake_dir(intake_id) / "intake.json"
+    return ensure_canonical_intake_dir(intake_id) / "intake.json"
 
 
 def _utc_now() -> str:
@@ -192,21 +228,31 @@ def load_intake_record(intake_id: str, *, persist_recovery: bool = True) -> Dict
     return rec
 
 
+def _collect_intake_dir_entries(roots: List[Path]) -> List[tuple[float, str]]:
+    entries: List[tuple[float, str]] = []
+    seen: Set[str] = set()
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for path in root.iterdir():
+            if not path.is_dir() or not path.name.startswith("FB-"):
+                continue
+            if path.name in seen:
+                continue
+            seen.add(path.name)
+            try:
+                mtime = path.stat().st_mtime
+            except OSError:
+                mtime = 0.0
+            entries.append((mtime, path.name))
+    entries.sort(key=lambda x: x[0], reverse=True)
+    return entries
+
+
 def list_intake_ids(*, limit: int = 500) -> List[str]:
     """Filesystem source of truth — all FB-* intake directories, newest first."""
-    root = intakes_root()
-    if not root.is_dir():
-        return []
-    entries: List[tuple[float, str]] = []
-    for path in root.iterdir():
-        if not path.is_dir() or not path.name.startswith("FB-"):
-            continue
-        try:
-            mtime = path.stat().st_mtime
-        except OSError:
-            mtime = 0.0
-        entries.append((mtime, path.name))
-    entries.sort(key=lambda x: x[0], reverse=True)
+    roots = [intakes_root(), *legacy_intakes_roots()]
+    entries = _collect_intake_dir_entries(roots)
     return [name for _, name in entries[:limit]]
 
 
@@ -305,7 +351,8 @@ def intake_diagnostics() -> Dict[str, Any]:
         "durable_storage_configured": storage["durable_storage_configured"],
         "founding_beta_uploads_enabled": storage["founding_beta_uploads_enabled"],
         "upload_block_reason": storage.get("upload_block_reason"),
-        "founding_beta_root": str(founding_beta_root().resolve()),
+        "canonical_intakes_root": str(root.resolve()),
+        "legacy_intakes_roots": [str(p.resolve()) for p in legacy_intakes_roots()],
         "intakes_root": str(root.resolve()),
         "index_jsonl": str(index_jsonl().resolve()),
         "index_exists": index_jsonl().is_file(),

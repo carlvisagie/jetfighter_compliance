@@ -41,6 +41,23 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def emit_sev1_data_loss_suspected(message: str, detail: Optional[Dict[str, Any]] = None) -> None:
+    """SEV-1 — unexplained intake disappearance or inventory drop."""
+    logger.critical("[SEV-1] intake_data_loss_suspected %s detail=%s", message, detail)
+    try:
+        from services.organism_observability.emit import organism_emit
+
+        organism_emit(
+            "founding_beta",
+            "intake_data_loss_suspected",
+            message=message[:240],
+            metadata=detail or {},
+            severity="critical",
+        )
+    except Exception:
+        pass
+
+
 def resolved_write_root() -> Path:
     return active_data_root().resolve()
 
@@ -430,8 +447,6 @@ def scan_retention_at_startup(*, force: bool = False) -> Dict[str, Any]:
             prev = int(_LAST_INVENTORY.get(key) or 0)
             cur = int(inventory.get(key) or 0)
             if cur < prev:
-                from .pipeline_truth import emit_sev1_data_loss_suspected
-
                 emit_sev1_data_loss_suspected(
                     f"Durable inventory dropped for {key}: {prev} -> {cur}",
                     detail={"key": key, "previous": prev, "current": cur, "root": report["write_root"]},
@@ -439,8 +454,6 @@ def scan_retention_at_startup(*, force: bool = False) -> Dict[str, Any]:
     _LAST_INVENTORY = inventory
 
     if only_disk or only_index:
-        from .pipeline_truth import emit_sev1_data_loss_suspected
-
         emit_sev1_data_loss_suspected(
             "Index and durable disk disagree at startup",
             detail={

@@ -211,90 +211,66 @@ def start_session() -> Dict[str, str]:
     token = make_session_token(session_id)
     _emit("customer_session_started", session_id=session_id)
     _emit("upload_page_view", session_id=session_id, metadata={"source": "session_start"})
-    return {"ok": True, "session_id": session_id, "session_token": token}
+    return {
+        "ok": True,
+        "session_id": session_id,
+        "session_token": token,
+        "redirect_ui": "/ui/founding-beta",
+        "deprecated_route": "/api/customer/session/start",
+        "canonical_intake": True,
+    }
 
 
 async def upload_to_session(session_id: str, session_token: str, file: UploadFile) -> Dict[str, Any]:
+    """Deprecated shim — all customer paperwork writes canonical durable intake only."""
+    from services.durable_storage import require_founding_beta_upload_allowed
+    from services.founding_beta.intake import process_upload
+
+    require_founding_beta_upload_allowed()
     validate_session_access(session_id, session_token)
-    safe_name = safe_upload_filename(file.filename or "upload.bin")
-    _validate_extension(safe_name)
-    content = await file.read()
-    if len(content) > MAX_FILE_BYTES:
-        raise HTTPException(status_code=413, detail="File too large (max 50MB)")
     _mark_first_interaction(session_id)
-    _emit(
-        "pre_contact_upload_started",
-        session_id=session_id,
-        metadata=_session_timing_meta(session_id, {"filename": safe_name, "upload_started": True}),
-    )
-    _emit("upload_started", session_id=session_id, metadata={"filename": safe_name})
-    try:
-        from services.founding_beta.telemetry import emit_beta_event
-
-        ext = Path(safe_name).suffix.lower() or "unknown"
-        emit_beta_event(
-            "beta_upload_started",
-            message=safe_name,
-            metadata={"session_id": session_id, "extensions": [ext]},
-        )
-        emit_beta_event("upload_file_types", metadata={"extensions": [ext], "session_id": session_id})
-    except Exception:
-        pass
-    try:
-        from services.alerts import raise_alert
-
-        raise_alert(
-            "upload_started",
-            title="Upload started",
-            body="Customer began upload-first session.",
-            context={"session_id": session_id, "stage": "pre_contact"},
-            dedupe_key=f"upload_started:{session_id}",
-        )
-    except Exception:
-        pass
-
-    stored_name = f"{uuid.uuid4().hex[:8]}_{safe_name}"
-    dest = _session_dir(session_id) / "uploads" / stored_name
-    dest.write_bytes(content)
-
-    manifest = _load_manifest(session_id)
-    manifest["files"].append(
-        {
-            "safe_name": safe_name,
-            "stored_name": stored_name,
-            "size": len(content),
-            "uploaded_at": _utc_now(),
-            "media_type": _guess_media_type(safe_name),
-        }
-    )
-    _save_manifest(session_id, manifest)
-
     sess = _load_session(session_id)
-    sess["upload_count"] = len(manifest["files"])
-    _save_session(session_id, sess)
-    if sess["upload_count"] == 1:
-        _mark_first_upload(session_id)
-        sess = _load_session(session_id)
+    iid = str(sess.get("canonical_intake_id") or "")
+    token = str(sess.get("canonical_intake_token") or "")
+    email = str(sess.get("email") or "").strip()
+    if not email and not iid:
+        email = f"pending.{session_id.lower()}@upload.local"
 
-    timing = _session_timing_meta(
-        session_id,
-        {"filename": safe_name, "count": sess["upload_count"], "file_size": len(content)},
+    result = await process_upload(
+        [file],
+        intake_id=iid,
+        token=token,
+        email=email,
+        phone=str(sess.get("phone") or ""),
+        company=str(sess.get("company") or ""),
+        context=str(sess.get("context") or ""),
     )
-    _emit("pre_contact_upload_completed", session_id=session_id, metadata=timing)
-    _emit("upload_completed", session_id=session_id, metadata=timing)
-    try:
-        from services.founding_beta.telemetry import emit_beta_event
+    if not iid:
+        sess["canonical_intake_id"] = result.get("intake_id")
+        sess["canonical_intake_token"] = result.get("token")
+        sess["upload_count"] = int(result.get("file_count") or 0)
+        _save_session(session_id, sess)
 
-        exts = list({(Path(f.get("safe_name") or "").suffix.lower() or "unknown") for f in manifest["files"]})
-        emit_beta_event(
-            "beta_upload_completed",
-            message=f"{sess['upload_count']} files",
-            metadata={"session_id": session_id, "extensions": exts, "count": sess["upload_count"]},
-        )
-        emit_beta_event("upload_file_types", metadata={"extensions": exts, "session_id": session_id})
-    except Exception:
-        pass
-    return {"ok": True, "filename": safe_name, "upload_count": sess["upload_count"]}
+    _emit(
+        "pre_contact_upload_completed",
+        session_id=session_id,
+        metadata={"canonical_intake_id": result.get("intake_id"), "deprecated_shim": True},
+    )
+    logger.info(
+        "session_upload_shim session=%s intake=%s (canonical intakes/)",
+        session_id,
+        result.get("intake_id"),
+    )
+    return {
+        **result,
+        "ok": bool(result.get("ok")),
+        "session_id": session_id,
+        "deprecated_route": "/api/customer/session/upload",
+        "canonical_intake": True,
+        "redirect_ui": "/ui/founding-beta",
+        "upload_count": int(result.get("file_count") or 0),
+        "filename": (result.get("files_saved") or [{}])[0].get("name") if result.get("files_saved") else "",
+    }
 
 
 def complete_session(
@@ -311,178 +287,42 @@ def complete_session(
         raise HTTPException(status_code=400, detail="name and valid email required")
 
     _emit("min_info_requested", session_id=session_id)
-    manifest = _load_manifest(session_id)
-    files: List[Dict[str, Any]] = manifest.get("files") or []
-    if not files:
+    sess = _load_session(session_id)
+    iid = str(sess.get("canonical_intake_id") or "")
+    if not iid:
+        raise HTTPException(
+            status_code=400,
+            detail="Upload paperwork first. Use /ui/founding-beta if this page did not redirect.",
+        )
+
+    from services.founding_beta.intake import _load_intake, _save_intake
+
+    rec = _load_intake(iid)
+    if not (rec.get("files") or rec.get("file_count")):
         raise HTTPException(status_code=400, detail="Upload at least one file before continuing")
 
-    from services.projects import new_project
-    from services.process import init_workflow, set_phase
-
-    order_id = f"SESSION-{session_id[3:]}"
-    skus = ["UPLOAD-FIRST"]
-    meta = new_project(order_id, email, name, skus)
-    project_id = meta["project_id"]
-    try:
-        init_workflow(project_id, skus)
-        set_phase(project_id, "INTAKE")
-    except Exception as e:
-        logger.warning("Workflow init for session %s: %s", session_id, e)
-
-    evidence_dir = PROJECTS / project_id / "evidence"
-    evidence_dir.mkdir(parents=True, exist_ok=True)
-    session_uploads = _session_dir(session_id) / "uploads"
-    linked: List[str] = []
-
-    for entry in files:
-        src = session_uploads / entry["stored_name"]
-        if not src.is_file():
-            continue
-        safe_name = entry["safe_name"]
-        dest = evidence_dir / safe_name
-        if dest.exists():
-            dest = evidence_dir / f"{entry['stored_name']}"
-        shutil.copy2(src, dest)
-        media_type = entry.get("media_type") or _guess_media_type(safe_name)
-        register_artifact(project_id, dest, media_type, email)
-        linked.append(safe_name)
-        try:
-            from services.acquisition.forensics import safe_record_evidence
-
-            safe_record_evidence(project_id, safe_name, media_type)
-        except Exception:
-            pass
-        try:
-            from services.evidence_intelligence import process_evidence_upload
-
-            process_evidence_upload(
-                project_id,
-                dest,
-                artifact_id="",
-                sha256="",
-                owner=email,
-            )
-        except Exception:
-            pass
-
+    rec["email"] = email
+    if name:
+        rec["company"] = name
     if note.strip():
-        comm = PROJECTS / project_id / "communications"
-        comm.mkdir(parents=True, exist_ok=True)
-        (comm / "session_note.json").write_text(
-            json.dumps(
-                {
-                    "note": note.strip(),
-                    "session_id": session_id,
-                    "received_utc": _utc_now(),
-                },
-                indent=2,
-            ),
-            encoding="utf-8",
-        )
-
-    _emit("min_info_completed", session_id=session_id, project_id=project_id)
-
-    try:
-        from services.memory.central_memory import safe_link_after_customer_session
-
-        safe_link_after_customer_session(
-            project_id,
-            session_id,
-            email,
-            name,
-            skus,
-            file_count=len(linked),
-            note=note.strip(),
-        )
-    except Exception as e:
-        logger.warning("Memory link after session: %s", e)
-
-    base = get_public_base_url()
-    continuation_token = ""
-    continuation_url = ""
-    upload_url = ""
-    qr_url = ""
-    try:
-        from services.customer_friction import get_or_issue_continuation
-
-        cont = get_or_issue_continuation(project_id, email)
-        continuation_token = cont["continuation_token"]
-        continuation_url = cont["continuation_url"]
-        upload_url = f"{base}/upload?project_id={project_id}&token={continuation_token}"
-        qr_url = f"{base}/api/customer/qr.svg?data={continuation_url}"
-    except Exception:
-        from services.security import make_continuation_token
-
-        continuation_token = make_continuation_token(project_id, email)
-        continuation_url = f"{base}/ui/continue.html?token={continuation_token}"
-        upload_url = f"{base}/upload?project_id={project_id}&token={continuation_token}"
-        qr_url = f"{base}/api/customer/qr.svg?data={continuation_url}"
-
-    _emit(
-        "workspace_created",
-        session_id=session_id,
-        project_id=project_id,
-        metadata=_session_timing_meta(session_id, {"files_linked": len(linked), "real_paperwork_submitted": True}),
-    )
-    _emit("continuation_created", session_id=session_id, project_id=project_id)
-    _emit("qr_shown", session_id=session_id, project_id=project_id)
-    try:
-        from services.acquisition.orchestration import track_funnel_event
-
-        track_funnel_event(
-            "workspace_created",
-            success=True,
-            project_id=project_id,
-            org_key=email.split("@")[-1] if "@" in email else "",
-            metadata={"session_id": session_id, "files_linked": len(linked)},
-        )
-    except Exception:
-        pass
-
-    sess = _load_session(session_id)
-    sess["status"] = "completed"
-    sess["project_id"] = project_id
-    sess["completed_at"] = _utc_now()
-    sess["customer"] = {"name": name, "email": email}
+        rec["context"] = ((rec.get("context") or "") + "\n" + note.strip()).strip()[:2000]
+    _save_intake(iid, rec)
+    sess["email"] = email
+    sess["company"] = name
     _save_session(session_id, sess)
 
-    try:
-        from services.emails import send_email
+    token = str(sess.get("canonical_intake_token") or "")
+    base = get_public_base_url()
+    magic = f"{base}/ui/founding-beta?intake_id={iid}&token={token}" if token else f"{base}/ui/founding-beta"
 
-        html = f"""
-        <h2>Your secure workspace is ready</h2>
-        <p>We received your paperwork and created your workspace.</p>
-        <p><strong><a href="{upload_url}">Upload more paperwork</a></strong></p>
-        <p>Continue anytime on any device (no password):<br>
-        <a href="{continuation_url}">{continuation_url}</a></p>
-        """
-        send_email(email, "Your secure workspace — KeepYourContracts", html)
-    except Exception as e:
-        logger.warning("Session complete email failed: %s", e)
-
-    try:
-        from services.alerts import alert_first_paperwork_submission
-
-        file_types = list({f.get("media_type", "document") for f in files})
-        alert_first_paperwork_submission(
-            email=email,
-            name=name,
-            project_id=project_id,
-            upload_count=len(linked),
-            file_types=file_types,
-            source=sess.get("acquisition_source", "upload-first"),
-            continuation_url=continuation_url,
-            route_url=upload_url,
-        )
-    except Exception as e:
-        logger.warning("Operational alert after session complete: %s", e)
-
+    logger.info("session_complete_shim session=%s intake=%s (no shadow project)", session_id, iid)
     return {
         "ok": True,
-        "project_id": project_id,
-        "continuation_url": continuation_url,
-        "continuation_token": continuation_token,
-        "upload_url": upload_url,
-        "qr_url": qr_url,
-        "files_linked": len(linked),
+        "intake_id": iid,
+        "token": token,
+        "magic_link": magic,
+        "redirect_ui": "/ui/founding-beta",
+        "deprecated_route": "/api/customer/session/complete",
+        "project_created": False,
+        "message": "Paperwork on durable intake — operator review before project kickoff.",
     }

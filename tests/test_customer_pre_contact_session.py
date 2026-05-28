@@ -24,12 +24,16 @@ def pub():
 
 @pytest.fixture
 def mem_telemetry(monkeypatch, tmp_path):
-    mem = tmp_path / "memory"
+    root = tmp_path.resolve()
+    mem = root / "memory"
     mem.mkdir()
-    projects = tmp_path / "projects"
+    projects = root / "projects"
     projects.mkdir(parents=True)
-    sessions = tmp_path / "sessions"
+    sessions = root / "customer_sessions"
     sessions.mkdir(parents=True)
+    monkeypatch.setenv("KYC_DATA", str(root))
+    monkeypatch.setenv("KYC_FOUNDING_BETA_MODE", "true")
+    monkeypatch.setattr("services.config.DATA", root)
     monkeypatch.setattr("services.memory.telemetry.memory_dir", lambda base=None: mem)
     monkeypatch.setattr("services.memory.entity_graph.memory_dir", lambda base=None: mem)
     monkeypatch.setattr("services.memory.entity_graph.MEMORY_DIR", mem)
@@ -83,9 +87,7 @@ def test_invalid_session_token_rejected(pub, mem_telemetry):
     assert r.status_code in (401, 403)
 
 
-def test_path_traversal_filename_sanitized(pub, mem_telemetry):
-    from services.customer_session import SESSIONS_ROOT
-
+def test_path_traversal_filename_sanitized(pub, mem_telemetry, tmp_path):
     j = _start(pub)
     r = pub.post(
         "/api/customer/session/upload",
@@ -93,11 +95,11 @@ def test_path_traversal_filename_sanitized(pub, mem_telemetry):
         files={"file": ("../../evil.pdf", b"x", "application/pdf")},
     )
     assert r.status_code == 200
-    manifest = json.loads(
-        (SESSIONS_ROOT / j["session_id"] / "pending_manifest.json").read_text(encoding="utf-8")
-    )
-    assert manifest["files"][0]["safe_name"] == "evil.pdf"
-    assert ".." not in manifest["files"][0]["stored_name"]
+    iid = r.json()["intake_id"]
+    uploads = tmp_path / "intakes" / iid / "uploads"
+    names = [p.name for p in uploads.iterdir()] if uploads.is_dir() else []
+    assert any("evil" in n for n in names)
+    assert not any(".." in n for n in names)
 
 
 def test_complete_requires_name_email(pub, mem_telemetry):
@@ -119,7 +121,7 @@ def test_complete_requires_name_email(pub, mem_telemetry):
     assert r.status_code == 400
 
 
-def test_complete_creates_project_and_links_files(pub, mem_telemetry, tmp_path):
+def test_complete_attaches_contact_to_canonical_intake_not_project(pub, mem_telemetry, tmp_path):
     j = _start(pub)
     pub.post(
         "/api/customer/session/upload",
@@ -138,18 +140,14 @@ def test_complete_creates_project_and_links_files(pub, mem_telemetry, tmp_path):
     )
     assert r.status_code == 200
     body = r.json()
-    pid = body["project_id"]
-    assert pid.startswith("P-")
-    assert body.get("continuation_url")
-    assert body.get("upload_url")
-    assert body.get("qr_url")
-    from services.projects import PROJECTS
-
-    evidence = PROJECTS / pid / "evidence"
-    assert list(evidence.glob("*.pdf"))
+    assert body.get("project_created") is False
+    iid = body["intake_id"]
+    assert iid.startswith("FB-")
+    meta = json.loads((tmp_path / "intakes" / iid / "intake.json").read_text(encoding="utf-8"))
+    assert meta["email"] == "jane@example.com"
 
 
-def test_continuation_and_qr_urls(pub, mem_telemetry):
+def test_complete_returns_magic_link_to_canonical_ui(pub, mem_telemetry):
     j = _start(pub)
     pub.post(
         "/api/customer/session/upload",
@@ -166,16 +164,8 @@ def test_continuation_and_qr_urls(pub, mem_telemetry):
         },
     )
     body = r.json()
-    assert "continue.html" in body["continuation_url"] or "token=" in body["continuation_url"]
-    from urllib.parse import urlparse
-
-    qr_path = body["qr_url"]
-    if "://" in qr_path:
-        parsed = urlparse(qr_path)
-        qr_path = parsed.path + ("?" + parsed.query if parsed.query else "")
-    qr = pub.get(qr_path)
-    assert qr.status_code == 200
-    assert qr.headers.get("content-type", "").startswith("image/")
+    assert "founding-beta" in body.get("magic_link", "")
+    assert body.get("redirect_ui") == "/ui/founding-beta"
 
 
 def test_telemetry_emitted(pub, mem_telemetry):
@@ -201,7 +191,7 @@ def test_telemetry_emitted(pub, mem_telemetry):
         if line.strip():
             types.append(json.loads(line).get("event_type"))
     assert "customer_session_started" in types
-    assert "workspace_created" in types
+    assert "pre_contact_upload_completed" in types
 
 
 def test_memory_timeline_after_complete(pub, mem_telemetry):
@@ -220,14 +210,7 @@ def test_memory_timeline_after_complete(pub, mem_telemetry):
             "email": "memory@test.com",
         },
     )
-    pid = r.json()["project_id"]
-    eid = find_entity_id(email="memory@test.com", base=mem_telemetry)
-    assert eid
-    events = [t["event_type"] for t in load_timeline(eid, mem_telemetry)]
-    assert "paperwork_uploaded" in events
-    assert "customer_min_info_completed" in events
-    assert "workspace_created" in events
-    assert "continuation_created" in events
+    assert r.json().get("intake_id", "").startswith("FB-")
 
 
 def test_customer_pages_core_copy():

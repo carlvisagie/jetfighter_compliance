@@ -128,6 +128,13 @@
   }
 
   function initUploadFirstFlow(cfg) {
+    var params = new URLSearchParams(global.location.search || "");
+    if (!params.get("legacy_session")) {
+      var target = "/ui/founding-beta";
+      if (params.toString()) target += "?" + params.toString();
+      global.location.replace(target);
+      return;
+    }
     const phaseUpload = document.getElementById(cfg.phaseUploadId || "phaseUpload");
     const phaseMinInfo = document.getElementById(cfg.phaseMinInfoId || "phaseMinInfo");
     const phaseSuccess = document.getElementById(cfg.phaseSuccessId || "phaseSuccess");

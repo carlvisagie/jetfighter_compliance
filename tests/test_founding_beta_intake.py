@@ -13,8 +13,12 @@ from server import app
 
 
 @pytest.fixture
-def fb_env(durable_paperwork_env):
-    return durable_paperwork_env
+def fb_env(monkeypatch, tmp_path):
+    fb = tmp_path / "founding_beta"
+    fb.mkdir(parents=True)
+    (fb / "intakes").mkdir()
+    monkeypatch.setattr("services.config.DATA", tmp_path)
+    return tmp_path
 
 
 def test_founding_beta_page_loads(client):

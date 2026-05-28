@@ -16,6 +16,7 @@ VALID_ACTIONS = frozenset(
         "request_more_info",
         "mark_high_value",
         "archive",
+        "kickoff_project",
     }
 )
 
@@ -46,6 +47,11 @@ def apply_operator_action(
             status_code=400,
             detail=f"Invalid action. Use one of: {', '.join(sorted(VALID_ACTIONS))}",
         )
+
+    if action == "kickoff_project":
+        from .kickoff import kickoff_project_from_intake
+
+        return kickoff_project_from_intake(intake_id, operator_note=operator_note)
 
     rec = _load_intake(intake_id)
     new_status = _STATUS_MAP[action]

@@ -70,16 +70,40 @@ def founding_beta_intake_enabled() -> bool:
     return is_founding_beta_mode()
 
 
+def _writable_data_root(path: Path) -> bool:
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        probe = path / ".kyc_storage_probe"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink(missing_ok=True)
+        return True
+    except OSError:
+        return False
+
+
+def canonical_storage_ready() -> bool:
+    """All environments: customer paperwork requires a writable non-ephemeral data root."""
+    if is_durable_storage_configured():
+        return True
+    root = active_data_root()
+    if root == repo_default_data_dir():
+        return False
+    return _writable_data_root(root)
+
+
 def founding_beta_upload_allowed() -> bool:
-    """Customer paperwork uploads require durable KYC_DATA in every environment."""
     if not founding_beta_intake_enabled():
         return False
-    return is_durable_storage_configured()
+    return canonical_storage_ready()
 
 
 def upload_block_reason() -> Optional[str]:
     if not founding_beta_intake_enabled():
         return "founding_beta_intake_disabled"
+    if canonical_storage_ready():
+        return None
+    if not kyc_data_env_value() and active_data_root() == repo_default_data_dir():
+        return "durable_storage_required_set_KYC_DATA"
     if not kyc_data_env_value():
         return "KYC_DATA_not_configured"
     path = resolved_kyc_data_path()

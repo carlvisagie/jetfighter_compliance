@@ -8,7 +8,6 @@ from .classification import (
     classify_intake,
     load_classification,
 )
-from .pipeline_truth import compute_queue_truth
 from .storage import (
     all_intake_ids,
     intake_diagnostics,
@@ -102,6 +101,30 @@ def _sort_key(row: Dict[str, Any]) -> tuple:
     )
 
 
+def _queue_empty_reason(
+    diag: Dict[str, Any],
+    rows: List[Dict[str, Any]],
+    pending: List[Dict[str, Any]],
+    *,
+    upload_block_reason: Optional[str] = None,
+) -> tuple[str, Optional[str]]:
+    if upload_block_reason:
+        return "storage_blocked", f"Uploads blocked: {upload_block_reason}"
+    dirs = int(diag.get("intake_directories_found") or 0)
+    uploads = int(diag.get("upload_files_on_disk") or 0)
+    if dirs <= 0 and uploads <= 0:
+        return "no_intakes_on_disk", "No customer paperwork on durable disk yet."
+    if pending:
+        return "ok", None
+    if not rows and dirs > 0:
+        return "load_errors", "Intake folders exist but queue rows could not be built."
+    if dirs > 0 and uploads > 0:
+        return "all_reviewed_or_filtered", (
+            f"{dirs} intake(s) and {uploads} file(s) on disk; none pending operator review."
+        )
+    return "all_reviewed", "No intakes currently pending review."
+
+
 def _visibility_warning(diag: Dict[str, Any], rows: List[Dict[str, Any]], pending: List[Dict[str, Any]]) -> Optional[str]:
     dirs = int(diag.get("intake_directories_found") or 0)
     uploads = int(diag.get("upload_files_on_disk") or 0)
@@ -139,34 +162,31 @@ def get_operator_review_queue(*, limit: int = 40, include_archived: bool = False
     pending = [r for r in rows if is_pending_review(r.get("review_status"))]
     urgent = [r for r in rows if r.get("urgent_flag") and is_pending_review(r.get("review_status"))]
     warning = _visibility_warning(diag, rows, pending)
-    from services.durable_storage import get_storage_status
-
-    pipeline = compute_queue_truth(
-        diag=diag,
-        rows=rows,
-        pending=pending,
-        storage=get_storage_status(),
+    block = diag.get("upload_block_reason")
+    empty_code, empty_detail = _queue_empty_reason(
+        diag, rows, pending, upload_block_reason=block
     )
-    if pipeline.get("queue_empty") and pipeline.get("queue_empty_reason") not in (
-        "no_customer_paperwork_on_disk",
-        "no_pending_reviews",
-    ):
-        warning = warning or pipeline.get("queue_empty_message")
+    dashboard: Dict[str, Any] = {}
+    try:
+        from .intake import get_operator_intake_dashboard
+
+        dashboard = get_operator_intake_dashboard(limit=limit)
+    except Exception:
+        dashboard = {}
 
     return {
         "ok": True,
-        "pipeline": pipeline,
         "queue": rows,
         "queue_depth": len(pending),
-        "queue_empty": bool(pipeline.get("queue_empty")),
-        "queue_empty_reason": pipeline.get("queue_empty_reason"),
-        "queue_empty_message": pipeline.get("queue_empty_message"),
         "urgent_count": len(urgent),
         "backlog_pressure": len(pending) >= QUEUE_BACKLOG_PRESSURE,
         "uploads_per_hour_estimate": _uploads_per_hour_estimate(),
         "diagnostics": diag,
         "visibility_warning": warning,
+        "queue_empty_reason": empty_code,
+        "queue_empty_detail": empty_detail,
         "queue_rows_generated": len(rows),
+        "dashboard": dashboard,
     }
 
 

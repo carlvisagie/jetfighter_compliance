@@ -552,7 +552,7 @@
     field.appendChild(nodesG);
 
     bindNodeInteractions(field);
-    renderAttention(normalized, opts);
+    renderAttention(normalized);
     updateHeaderPulse(normalized);
   }
 
@@ -567,29 +567,20 @@
     }
   }
 
-  function renderAttention(data, opts) {
-    opts = opts || {};
+  function renderAttention(data) {
     var box = document.getElementById('cote-attention');
     if (!box) return;
-    var parts = [];
-    if (opts.usedFallback) {
-      parts.push(
-        '<div class="cote-attention--stale-lkg" role="alert">STALE — LAST KNOWN GOOD (live topology unavailable)</div>'
-      );
-    }
     var items = (data && data.operator_attention_required) || [];
-    if (items.length) {
-      parts = parts.concat(
-        items.slice(0, 4).map(function (t) {
-          return '<span>• ' + escapeHtml(t) + '</span>';
-        })
-      );
-    }
-    if (!parts.length) {
+    if (!items.length) {
       box.textContent = '';
       return;
     }
-    box.innerHTML = parts.join('');
+    box.innerHTML = items
+      .slice(0, 4)
+      .map(function (t) {
+        return '<span>• ' + escapeHtml(t) + '</span>';
+      })
+      .join(' ');
   }
 
   function escapeHtml(s) {

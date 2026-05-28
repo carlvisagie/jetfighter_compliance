@@ -43,7 +43,10 @@ app = FastAPI(title="KeepYourContracts.com  Compliance Control Panel", version="
 
 @app.get("/ui/founding-beta")
 @app.get("/ui/founding-beta.html")
+@app.get("/ui/intake")
+@app.get("/ui/paperwork")
 def founding_beta_page():
+    """Canonical customer paperwork UI (founding-beta path kept for stable links)."""
     return FileResponse(ROOT / "ui" / "founding-beta.html")
 
 
@@ -1198,11 +1201,17 @@ def operator_organism_state(project_id: str = "", mode: str = ""):
 
 @app.get("/api/operator/founding-beta-intake")
 def operator_founding_beta_intake(request: Request):
-    from services.founding_beta.intake import get_operator_intake_dashboard
+    """Deprecated — use GET /api/operator/founding-beta/queue (includes dashboard)."""
+    from services.founding_beta.queue import get_operator_review_queue
     from services.production import require_ops_access
+    from fastapi.responses import JSONResponse
 
     require_ops_access(request)
-    return get_operator_intake_dashboard()
+    q = get_operator_review_queue(limit=40)
+    return JSONResponse(
+        content={**q, "deprecated": True, "use": "/api/operator/founding-beta/queue"},
+        headers={"Deprecation": "true", "Link": '</api/operator/founding-beta/queue>; rel="successor-version"'},
+    )
 
 
 @app.get("/api/operator/founding-beta/queue")
