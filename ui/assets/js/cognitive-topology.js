@@ -19,7 +19,147 @@
   var CY = 210;
   var RING = 148;
   var NODE_R = 22;
-  var state = { data: null, selected: null, timer: null };
+  var state = {
+    data: null,
+    lastGood: null,
+    selected: null,
+    timer: null,
+    refreshGen: 0,
+    refreshing: false,
+  };
+
+  function logCoteRenderError(nodeId, reason, detail) {
+    var payload = { nodeId: nodeId, reason: reason, detail: detail || {} };
+    console.error('COTE_RENDER_ERROR', payload);
+    return payload;
+  }
+
+  function numMetric(v, fallback) {
+    if (v === null || v === undefined || v === '') return fallback;
+    var n = Number(v);
+    return isFinite(n) ? n : fallback;
+  }
+
+  function clamp01(n) {
+    return Math.max(0, Math.min(1, n));
+  }
+
+  function uncertainSubsystem(nodeId, reason) {
+    return {
+      health: 0.48,
+      pressure: 0.25,
+      activity: 0.15,
+      confidence: 0.35,
+      latency: 0.1,
+      alerts: 0,
+      paused: false,
+      anomaly: true,
+      _cote_uncertain: true,
+      _cote_reason: reason || 'uncertain',
+    };
+  }
+
+  function normalizeSubsystem(raw, nodeId) {
+    try {
+      if (raw === null || raw === undefined) {
+        logCoteRenderError(nodeId, 'null_subsystem');
+        return uncertainSubsystem(nodeId, 'null_subsystem');
+      }
+      if (typeof raw !== 'object' || Array.isArray(raw)) {
+        logCoteRenderError(nodeId, 'malformed_subsystem', { type: typeof raw });
+        return uncertainSubsystem(nodeId, 'malformed_subsystem');
+      }
+      var m = {
+        health: clamp01(numMetric(raw.health, 0.5)),
+        pressure: clamp01(numMetric(raw.pressure, 0.2)),
+        activity: clamp01(numMetric(raw.activity, 0.2)),
+        confidence: clamp01(numMetric(raw.confidence, 0.5)),
+        latency: clamp01(numMetric(raw.latency, 0.05)),
+        alerts: Math.max(0, intMetric(raw.alerts)),
+        paused: !!raw.paused,
+        anomaly: !!raw.anomaly,
+        _cote_uncertain: false,
+      };
+      var numericFields = ['health', 'pressure', 'activity', 'confidence', 'latency'];
+      numericFields.forEach(function (field) {
+        if (raw[field] != null && raw[field] !== '' && !isFinite(Number(raw[field]))) {
+          m._cote_uncertain = true;
+          logCoteRenderError(nodeId, 'malformed_metric', { field: field, value: raw[field] });
+        }
+      });
+      Object.keys(raw).forEach(function (k) {
+        if (Object.prototype.hasOwnProperty.call(m, k)) return;
+        var v = raw[k];
+        if (v !== null && typeof v !== 'function') m[k] = v;
+      });
+      return m;
+    } catch (e) {
+      logCoteRenderError(nodeId, 'normalize_exception', { message: e.message });
+      return uncertainSubsystem(nodeId, 'normalize_exception');
+    }
+  }
+
+  function normalizeTopologyPayload(data) {
+    var base = data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+    var subsIn = base.subsystems;
+    if (subsIn === null || typeof subsIn !== 'object' || Array.isArray(subsIn)) {
+      if (subsIn != null) logCoteRenderError('topology', 'invalid_subsystems_container', { type: typeof subsIn });
+      subsIn = {};
+    }
+    var subs = {};
+    NODES.forEach(function (cfg) {
+      subs[cfg.id] = normalizeSubsystem(subsIn[cfg.id], cfg.id);
+    });
+    subs.system_health = normalizeSubsystem(subsIn.system_health, 'system_health');
+    return Object.assign({}, base, {
+      ok: base.ok !== false,
+      subsystems: subs,
+      global_pressure: numMetric(base.global_pressure, 0),
+      system_health: numMetric(base.system_health, subs.system_health.health),
+    });
+  }
+
+  function validateTopologyPayload(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return { valid: false, reason: 'not_object' };
+    }
+    if (data.ok === false) return { valid: false, reason: 'ok_false' };
+    if (!data.subsystems || typeof data.subsystems !== 'object' || Array.isArray(data.subsystems)) {
+      return { valid: false, reason: 'missing_subsystems' };
+    }
+    var missing = [];
+    NODES.forEach(function (cfg) {
+      var row = data.subsystems[cfg.id];
+      if (row === null || row === undefined) missing.push(cfg.id);
+    });
+    if (missing.length) return { valid: false, reason: 'missing_nodes', missing: missing };
+    return { valid: true };
+  }
+
+  function mergeTopologyPayload(incoming, lastGood) {
+    var normalized = normalizeTopologyPayload(incoming || {});
+    var check = validateTopologyPayload(normalized);
+    if (check.valid) {
+      return { data: normalized, valid: true, usedFallback: false };
+    }
+    if (lastGood) {
+      var goodNorm = normalizeTopologyPayload(lastGood);
+      var goodCheck = validateTopologyPayload(goodNorm);
+      if (goodCheck.valid) {
+        logCoteRenderError('topology', 'using_last_known_good', {
+          reason: check.reason,
+          missing: check.missing || [],
+        });
+        return {
+          data: goodNorm,
+          valid: true,
+          usedFallback: true,
+          fallbackReason: check.reason,
+        };
+      }
+    }
+    return { data: normalized, valid: true, usedFallback: false, partial: true, reason: check.reason };
+  }
 
   function ns(tag) {
     return document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -31,7 +171,8 @@
   }
 
   function nodeVisualClass(m, nodeId) {
-    if (!m) return 'cote-node--paused';
+    if (!m) return 'cote-node--uncertain';
+    if (m._cote_uncertain) return 'cote-node--uncertain';
     if (nodeId === 'learning') {
       var ls = m.learning_status;
       if (ls === 'failed') return 'cote-node--failed';
@@ -44,7 +185,7 @@
       if (pulse === 'write_failure' || m.telemetry_status === 'failed') {
         return 'cote-node--telemetry-write-fail';
       }
-      if (pulse === 'backlog' || (m.queue_depth && m.queue_depth >= 50)) {
+      if (pulse === 'backlog' || intMetric(m.queue_depth) >= 50) {
         return 'cote-node--telemetry-backlog';
       }
       if (pulse === 'stale' || m.stale_threshold_exceeded) {
@@ -58,32 +199,42 @@
       }
     }
     if (nodeId === 'upload_pipeline') {
-      var pending = (m.pending_review || m.queue_depth || 0) > 0;
-      var urgent = (m.urgent_count || 0) > 0;
-      if (m.anomaly && m.health < 0.45) return 'cote-node--failed cote-node--upload-fail';
+      var pending = intMetric(m.pending_review || m.queue_depth) > 0;
+      var urgent = intMetric(m.urgent_count) > 0;
+      var h = numMetric(m.health, 0.5);
+      if (m.anomaly && h < 0.45) return 'cote-node--failed cote-node--upload-fail';
       if (urgent && pending) return 'cote-node--upload-urgent cote-node--upload-pending cote-node--upload-new';
       if (pending) return 'cote-node--upload-pending cote-node--upload-new';
-      if (m.backlog_pressure || (m.queue_depth && m.queue_depth >= 5)) {
+      if (m.backlog_pressure || intMetric(m.queue_depth) >= 5) {
         return 'cote-node--pressure cote-node--upload-backlog';
       }
-      if (m.flow_active || m.activity > 0.45) return 'cote-node--opportunity cote-node--upload-flow';
+      if (m.flow_active || numMetric(m.activity, 0) > 0.45) {
+        return 'cote-node--opportunity cote-node--upload-flow';
+      }
     }
     if (m.paused) return 'cote-node--paused';
-    if (m.health < 0.35) return 'cote-node--failed';
-    if (m.anomaly || m.health < 0.52) return 'cote-node--unstable';
-    if (m.pressure > 0.62) return 'cote-node--pressure';
-    if (m.confidence < 0.42) return 'cote-node--uncertain';
-    if (m.activity > 0.72 && m.health > 0.68 && !m.paused) return 'cote-node--opportunity';
-    if (m.health > 0.72 && m.pressure < 0.42) return 'cote-node--healthy';
+    var health = numMetric(m.health, 0.5);
+    var pressure = numMetric(m.pressure, 0);
+    var activity = numMetric(m.activity, 0);
+    var confidence = numMetric(m.confidence, 0.5);
+    if (health < 0.35) return 'cote-node--failed';
+    if (m.anomaly || health < 0.52) return 'cote-node--unstable';
+    if (pressure > 0.62) return 'cote-node--pressure';
+    if (confidence < 0.42) return 'cote-node--uncertain';
+    if (activity > 0.72 && health > 0.68 && !m.paused) return 'cote-node--opportunity';
+    if (health > 0.72 && pressure < 0.42) return 'cote-node--healthy';
     return 'cote-node--healthy';
   }
 
   function coreVisualClass(m, globalPressure) {
-    if (!m) return 'cote-node--paused';
-    if (m.health < 0.4) return 'cote-node--failed';
-    if (m.anomaly || globalPressure > 0.55) return 'cote-node--unstable';
-    if (globalPressure > 0.38) return 'cote-node--pressure';
-    if (m.health > 0.8) return 'cote-node--healthy';
+    if (!m) return 'cote-node--uncertain';
+    if (m._cote_uncertain) return 'cote-node--uncertain';
+    var health = numMetric(m.health, 0.5);
+    var gp = numMetric(globalPressure, 0);
+    if (health < 0.4) return 'cote-node--failed';
+    if (m.anomaly || gp > 0.55) return 'cote-node--unstable';
+    if (gp > 0.38) return 'cote-node--pressure';
+    if (health > 0.8) return 'cote-node--healthy';
     return 'cote-node--healthy';
   }
 
@@ -141,18 +292,117 @@
     return svg;
   }
 
-  function renderTopology(data) {
+  function buildRingNodeGroup(cfg, m) {
+    var pos = polar(cfg.angle, RING);
+    var pressure = numMetric(m.pressure, 0);
+    var g = ns('g');
+    g.setAttribute('class', 'cote-node ' + nodeVisualClass(m, cfg.id));
+    g.setAttribute('data-node', cfg.id);
+    if (m._cote_uncertain) g.setAttribute('data-cote-uncertain', 'true');
+
+    var pulse = ns('circle');
+    pulse.setAttribute('class', 'cote-node-pulse');
+    pulse.setAttribute('cx', String(pos.x));
+    pulse.setAttribute('cy', String(pos.y));
+    pulse.setAttribute('r', String(NODE_R + 6 + pressure * 6));
+
+    var body = ns('circle');
+    body.setAttribute('class', 'cote-node-body');
+    body.setAttribute('cx', String(pos.x));
+    body.setAttribute('cy', String(pos.y));
+    body.setAttribute('r', String(NODE_R + pressure * 4));
+
+    var hit = ns('circle');
+    hit.setAttribute('class', 'cote-node-hit');
+    hit.setAttribute('cx', String(pos.x));
+    hit.setAttribute('cy', String(pos.y));
+    hit.setAttribute('r', String(NODE_R + 10));
+
+    var label = ns('text');
+    label.setAttribute('class', 'cote-node-label');
+    label.setAttribute('x', String(pos.x));
+    label.setAttribute('y', String(pos.y + NODE_R + 14));
+    label.textContent = cfg.label;
+
+    g.appendChild(pulse);
+
+    if (cfg.id === 'telemetry') {
+      var tBacklog = intMetric(m.queue_depth) >= 50 || m.telemetry_pulse === 'backlog';
+      if (tBacklog) {
+        var tRing = ns('circle');
+        tRing.setAttribute('class', 'cote-node-alert-ring cote-node-telemetry-backlog-ring');
+        tRing.setAttribute('cx', String(pos.x));
+        tRing.setAttribute('cy', String(pos.y));
+        tRing.setAttribute('r', String(NODE_R + 14));
+        g.insertBefore(tRing, pulse);
+      }
+    }
+
+    if (cfg.id === 'upload_pipeline') {
+      var pendingN = intMetric(m.pending_review || m.queue_depth);
+      var urgentN = intMetric(m.urgent_count);
+      if (pendingN > 0) {
+        var ring = ns('circle');
+        ring.setAttribute('class', 'cote-node-alert-ring');
+        ring.setAttribute('cx', String(pos.x));
+        ring.setAttribute('cy', String(pos.y));
+        ring.setAttribute('r', String(NODE_R + 14 + (urgentN ? 4 : 0)));
+        g.insertBefore(ring, pulse);
+        var badgeBg = ns('circle');
+        badgeBg.setAttribute('class', 'cote-node-badge-bg');
+        badgeBg.setAttribute('cx', String(pos.x + 16));
+        badgeBg.setAttribute('cy', String(pos.y - 16));
+        badgeBg.setAttribute('r', '11');
+        var badge = ns('text');
+        badge.setAttribute('class', 'cote-node-badge');
+        badge.setAttribute('x', String(pos.x + 16));
+        badge.setAttribute('y', String(pos.y - 12));
+        badge.setAttribute('text-anchor', 'middle');
+        badge.textContent = urgentN > 0 ? pendingN + '!' : String(pendingN);
+        g.appendChild(badgeBg);
+        g.appendChild(badge);
+      }
+    }
+
+    g.appendChild(body);
+    g.appendChild(hit);
+    g.appendChild(label);
+    return g;
+  }
+
+  function bindNodeInteractions(field) {
+    field.querySelectorAll('.cote-node').forEach(function (node) {
+      node.addEventListener('click', function () {
+        var nid = node.getAttribute('data-node');
+        if (nid === 'upload_pipeline' && global.CockpitFoundingBeta) {
+          global.CockpitFoundingBeta.scrollToQueue();
+        }
+        showDetail(nid, false, nid === 'telemetry');
+      });
+      node.addEventListener('mouseenter', function () {
+        showDetail(node.getAttribute('data-node'), true);
+      });
+    });
+  }
+
+  function renderTopology(data, opts) {
+    opts = opts || {};
     var svg = ensureSvg();
     if (!svg) return;
     var field = svg.querySelector('#cote-field');
     if (!field) return;
+
+    var normalized = normalizeTopologyPayload(data || {});
+    var subs = normalized.subsystems || {};
+
     while (field.firstChild) field.removeChild(field.firstChild);
 
-    var subs = (data && data.subsystems) || {};
-    var gp = data.global_pressure || 0;
+    var gp = numMetric(normalized.global_pressure, 0);
     var mount = document.getElementById('cote-topology-mount');
     if (mount) {
-      mount.classList.toggle('cote-mount--safe', !!(data && data.safe_mode));
+      mount.classList.toggle('cote-mount--safe', !!normalized.safe_mode);
+      mount.classList.toggle('cote-mount--refreshing', !!state.refreshing);
+      mount.classList.toggle('cote-mount--fallback', !!opts.usedFallback);
     }
 
     var links = ns('g');
@@ -166,14 +416,15 @@
       line.setAttribute('y1', String(CY));
       line.setAttribute('x2', String(pos.x));
       line.setAttribute('y2', String(pos.y));
-      var sm = subs[cfg.id] || {};
-      line.style.strokeOpacity = String(0.15 + (sm.activity || 0) * 0.45);
+      var sm = subs[cfg.id] || uncertainSubsystem(cfg.id, 'missing_at_render');
+      line.style.strokeOpacity = String(0.15 + numMetric(sm.activity, 0) * 0.45);
       links.appendChild(line);
     });
     field.appendChild(links);
 
     var coreG = ns('g');
-    coreG.setAttribute('class', 'cote-node cote-core ' + coreVisualClass(subs.system_health, gp));
+    var coreMetrics = subs.system_health || uncertainSubsystem('system_health', 'missing_core');
+    coreG.setAttribute('class', 'cote-node cote-core ' + coreVisualClass(coreMetrics, gp));
     coreG.setAttribute('data-node', 'system_health');
     var corePulse = ns('circle');
     corePulse.setAttribute('class', 'cote-node-pulse');
@@ -210,90 +461,35 @@
     var nodesG = ns('g');
     nodesG.setAttribute('class', 'cote-nodes');
     NODES.forEach(function (cfg) {
-      var pos = polar(cfg.angle, RING);
-      var m = subs[cfg.id] || { paused: true };
-      var g = ns('g');
-      g.setAttribute('class', 'cote-node ' + nodeVisualClass(m, cfg.id));
-      g.setAttribute('data-node', cfg.id);
-      var pulse = ns('circle');
-      pulse.setAttribute('class', 'cote-node-pulse');
-      pulse.setAttribute('cx', String(pos.x));
-      pulse.setAttribute('cy', String(pos.y));
-      pulse.setAttribute('r', String(NODE_R + 6 + (m.pressure || 0) * 6));
-      var body = ns('circle');
-      body.setAttribute('class', 'cote-node-body');
-      body.setAttribute('cx', String(pos.x));
-      body.setAttribute('cy', String(pos.y));
-      body.setAttribute('r', String(NODE_R + (m.pressure || 0) * 4));
-      var hit = ns('circle');
-      hit.setAttribute('class', 'cote-node-hit');
-      hit.setAttribute('cx', String(pos.x));
-      hit.setAttribute('cy', String(pos.y));
-      hit.setAttribute('r', String(NODE_R + 10));
-      var label = ns('text');
-      label.setAttribute('class', 'cote-node-label');
-      label.setAttribute('x', String(pos.x));
-      label.setAttribute('y', String(pos.y + NODE_R + 14));
-      label.textContent = cfg.label;
-      if (cfg.id === 'telemetry') {
-        var tBacklog = intMetric(m.queue_depth) >= 50;
-        if (tBacklog || m.telemetry_pulse === 'backlog') {
-          var tRing = ns('circle');
-          tRing.setAttribute('class', 'cote-node-alert-ring cote-node-telemetry-backlog-ring');
-          tRing.setAttribute('cx', String(pos.x));
-          tRing.setAttribute('cy', String(pos.y));
-          tRing.setAttribute('r', String(NODE_R + 14));
-          g.insertBefore(tRing, pulse);
+      try {
+        var m = subs[cfg.id] || uncertainSubsystem(cfg.id, 'missing_at_render');
+        var g = buildRingNodeGroup(cfg, m);
+        nodesG.appendChild(g);
+      } catch (e) {
+        logCoteRenderError(cfg.id, 'node_render_failed', { message: e.message });
+        try {
+          nodesG.appendChild(buildRingNodeGroup(cfg, uncertainSubsystem(cfg.id, 'node_render_failed')));
+        } catch (e2) {
+          logCoteRenderError(cfg.id, 'fallback_node_render_failed', { message: e2.message });
         }
       }
-      if (cfg.id === 'upload_pipeline') {
-        var pendingN = intMetric(m.pending_review || m.queue_depth);
-        var urgentN = intMetric(m.urgent_count);
-        if (pendingN > 0) {
-          var ring = ns('circle');
-          ring.setAttribute('class', 'cote-node-alert-ring');
-          ring.setAttribute('cx', String(pos.x));
-          ring.setAttribute('cy', String(pos.y));
-          ring.setAttribute('r', String(NODE_R + 14 + (urgentN ? 4 : 0)));
-          g.insertBefore(ring, pulse);
-          var badgeBg = ns('circle');
-          badgeBg.setAttribute('class', 'cote-node-badge-bg');
-          badgeBg.setAttribute('cx', String(pos.x + 16));
-          badgeBg.setAttribute('cy', String(pos.y - 16));
-          badgeBg.setAttribute('r', '11');
-          var badge = ns('text');
-          badge.setAttribute('class', 'cote-node-badge');
-          badge.setAttribute('x', String(pos.x + 16));
-          badge.setAttribute('y', String(pos.y - 12));
-          badge.setAttribute('text-anchor', 'middle');
-          badge.textContent = urgentN > 0 ? pendingN + '!' : String(pendingN);
-          g.appendChild(badgeBg);
-          g.appendChild(badge);
-        }
-      }
-      g.appendChild(pulse);
-      g.appendChild(body);
-      g.appendChild(hit);
-      g.appendChild(label);
-      nodesG.appendChild(g);
     });
     field.appendChild(nodesG);
 
-    field.querySelectorAll('.cote-node').forEach(function (node) {
-      node.addEventListener('click', function () {
-        var nid = node.getAttribute('data-node');
-        if (nid === 'upload_pipeline' && global.CockpitFoundingBeta) {
-          global.CockpitFoundingBeta.scrollToQueue();
-        }
-        showDetail(nid, false, nid === 'telemetry');
-      });
-      node.addEventListener('mouseenter', function () {
-        showDetail(node.getAttribute('data-node'), true);
-      });
-    });
+    bindNodeInteractions(field);
+    renderAttention(normalized);
+    updateHeaderPulse(normalized);
+  }
 
-    renderAttention(data);
-    updateHeaderPulse(data);
+  function safeRenderTopology(data, opts) {
+    try {
+      renderTopology(data, opts);
+    } catch (e) {
+      logCoteRenderError('topology', 'render_collapse', { message: e.message });
+      if (state.lastGood && data !== state.lastGood) {
+        safeRenderTopology(state.lastGood, { usedFallback: true });
+      }
+    }
   }
 
   function renderAttention(data) {
@@ -323,8 +519,8 @@
     if (!state.data || !nodeId) return;
     var detail = document.getElementById('cote-topology-detail');
     if (!detail) return;
-    var m = (state.data.subsystems && state.data.subsystems[nodeId]) || {};
-    var title = nodeId.replace(/_/g, ' ');
+    var raw = (state.data.subsystems && state.data.subsystems[nodeId]) || null;
+    var m = normalizeSubsystem(raw, nodeId);
     detail.hidden = false;
     if (loadTelemetryDiag && nodeId === 'telemetry') {
       detail.innerHTML =
@@ -467,10 +663,14 @@
         metric('Uploads', m.uploads_seen) +
         '</div>';
     }
+    var uncertainNote = m._cote_uncertain
+      ? ' <em class="cote-uncertain-tag">(uncertain — payload incomplete)</em>'
+      : '';
     detail.innerHTML =
       '<strong>' +
       escapeHtml(title.charAt(0).toUpperCase() + title.slice(1)) +
       '</strong>' +
+      uncertainNote +
       (m.paused ? ' <em>(paused)</em>' : '') +
       learningBlock +
       '<div class="cote-detail-metrics">' +
@@ -532,8 +732,8 @@
     var pulse = document.getElementById('org-pulse-label');
     var health = document.getElementById('health');
     if (!data) return;
-    var sh = data.system_health != null ? data.system_health : 0;
-    var gp = data.global_pressure != null ? data.global_pressure : 0;
+    var sh = numMetric(data.system_health, numMetric(data.subsystems && data.subsystems.system_health && data.subsystems.system_health.health, 0));
+    var gp = numMetric(data.global_pressure, 0);
     var paperwork = paperworkPendingLabel(data);
     if (pulse) {
       if (paperwork) {
@@ -584,20 +784,46 @@
       });
   }
 
+  function applyTopologyResponse(data, gen) {
+    if (gen !== state.refreshGen) return null;
+    var merged = mergeTopologyPayload(data, state.lastGood);
+    if (!merged.data) return null;
+    state.data = merged.data;
+    if (!merged.usedFallback) state.lastGood = merged.data;
+    safeRenderTopology(merged.data, { usedFallback: merged.usedFallback });
+    return merged;
+  }
+
   function refresh() {
+    var gen = ++state.refreshGen;
+    state.refreshing = true;
+    var mount = document.getElementById('cote-topology-mount');
+    if (mount) mount.classList.add('cote-mount--refreshing');
     return fetchTopology()
       .then(function (data) {
-        if (!data || data.ok === false) return data;
-        state.data = data;
-        renderTopology(data);
-        return data;
+        state.refreshing = false;
+        if (mount) mount.classList.remove('cote-mount--refreshing');
+        if (data && data.ok === false) {
+          logCoteRenderError('topology', 'api_ok_false', {});
+          if (state.lastGood) {
+            safeRenderTopology(state.lastGood, { usedFallback: true });
+          }
+          return data;
+        }
+        return applyTopologyResponse(data, gen);
       })
       .catch(function (err) {
-        console.warn('COTE topology fetch failed', err);
-        var mount = document.getElementById('cote-topology-mount');
-        if (mount && !mount.querySelector('#cote-topology-svg')) {
-          mount.innerHTML =
-            '<p class="org-metric-foot" style="padding:1rem;">Topology unavailable — retry refresh.</p>';
+        state.refreshing = false;
+        if (mount) mount.classList.remove('cote-mount--refreshing');
+        logCoteRenderError('topology', 'fetch_failed', { message: err.message || String(err) });
+        if (state.lastGood) {
+          safeRenderTopology(state.lastGood, { usedFallback: true });
+        } else {
+          console.warn('COTE topology fetch failed', err);
+          if (mount && !mount.querySelector('#cote-topology-svg')) {
+            mount.innerHTML =
+              '<p class="org-metric-foot" style="padding:1rem;">Topology unavailable — retry refresh.</p>';
+          }
         }
       });
   }
@@ -616,6 +842,13 @@
     init: init,
     refresh: refresh,
     startAutoRefresh: startAutoRefresh,
-    render: renderTopology,
+    render: safeRenderTopology,
+    normalizeSubsystem: normalizeSubsystem,
+    normalizeTopologyPayload: normalizeTopologyPayload,
+    validateTopologyPayload: validateTopologyPayload,
+    mergeTopologyPayload: mergeTopologyPayload,
+    buildRingNodeGroup: buildRingNodeGroup,
+    NODES: NODES,
+    logCoteRenderError: logCoteRenderError,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -21,6 +21,29 @@
   background: radial-gradient(ellipse 70% 55% at 50% 50%, rgba(40, 44, 56, 0.4), rgba(10, 12, 18, 0.95));
 }
 
+.cote-mount--refreshing {
+  opacity: 0.96;
+}
+
+.cote-mount--refreshing .cote-nodes {
+  opacity: 0.92;
+}
+
+.cote-mount--fallback::after {
+  content: 'Showing last-known-good topology';
+  position: absolute;
+  top: 0.5rem;
+  right: 0.65rem;
+  font-size: 0.7rem;
+  color: rgba(255, 190, 120, 0.9);
+  pointer-events: none;
+}
+
+.cote-uncertain-tag {
+  color: rgba(200, 170, 255, 0.9);
+  font-style: italic;
+}
+
 #cote-topology-svg {
   display: block;
   width: 100%;

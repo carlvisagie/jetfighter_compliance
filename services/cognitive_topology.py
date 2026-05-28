@@ -479,6 +479,37 @@ def _paused_state(label: str = "") -> Dict[str, Any]:
     }
 
 
+def _uncertain_state(reason: str = "incomplete_payload") -> Dict[str, Any]:
+    return _merge_state(
+        {
+            "health": 0.48,
+            "pressure": 0.25,
+            "activity": 0.15,
+            "confidence": 0.35,
+            "latency": 0.1,
+            "alerts": 0,
+            "anomaly": True,
+            "_cote_uncertain": True,
+            "_cote_reason": reason,
+        }
+    )
+
+
+def sanitize_topology_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Ensure COTE ring nodes always exist — never return null subsystem slots."""
+    out = dict(payload)
+    subs: Dict[str, Any] = dict(out.get("subsystems") or {})
+    for key in _RING_KEYS:
+        row = subs.get(key)
+        if not isinstance(row, dict):
+            subs[key] = _uncertain_state(f"missing_{key}")
+    core = subs.get("system_health")
+    if not isinstance(core, dict):
+        subs["system_health"] = _uncertain_state("missing_system_health")
+    out["subsystems"] = subs
+    return out
+
+
 def _merge_state(
     base: Dict[str, float],
     *,
@@ -736,24 +767,26 @@ def build_cognitive_topology() -> Dict[str, Any]:
     if not schedulers_enabled():
         attention.append("Background schedulers are off (stabilization).")
 
-    return {
-        "ok": True,
-        "generated_at_utc": _utc_now(),
-        "safe_mode": safe,
-        "schedulers_enabled": schedulers_enabled(),
-        "system_health": _round3(system_health),
-        "global_pressure": _round3(global_pressure),
-        "global_activity": _round3(
-            sum(s["activity"] for s in subsystems.values()) / len(subsystems)
-        ),
-        "global_confidence": _round3(
-            sum(s["confidence"] for s in subsystems.values()) / len(subsystems)
-        ),
-        "subsystems": subsystems,
-        "operator_attention_required": attention[:8],
-        "topology_meta": {
-            "telemetry_sample": tel_n,
-            "project_dirs": proj_count,
-            "data_writable": bool(ready.get("data_writable")),
-        },
-    }
+    return sanitize_topology_payload(
+        {
+            "ok": True,
+            "generated_at_utc": _utc_now(),
+            "safe_mode": safe,
+            "schedulers_enabled": schedulers_enabled(),
+            "system_health": _round3(system_health),
+            "global_pressure": _round3(global_pressure),
+            "global_activity": _round3(
+                sum(s["activity"] for s in subsystems.values()) / len(subsystems)
+            ),
+            "global_confidence": _round3(
+                sum(s["confidence"] for s in subsystems.values()) / len(subsystems)
+            ),
+            "subsystems": subsystems,
+            "operator_attention_required": attention[:8],
+            "topology_meta": {
+                "telemetry_sample": tel_n,
+                "project_dirs": proj_count,
+                "data_writable": bool(ready.get("data_writable")),
+            },
+        }
+    )
