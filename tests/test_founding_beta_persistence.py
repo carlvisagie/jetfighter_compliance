@@ -17,15 +17,6 @@ from services.founding_beta.storage import (
 )
 
 
-@pytest.fixture
-def fb_data(monkeypatch, tmp_path):
-    root = tmp_path.resolve()
-    monkeypatch.setenv("KYC_DATA", str(root))
-    monkeypatch.setenv("KYC_FOUNDING_BETA_MODE", "true")
-    monkeypatch.setattr("services.config.DATA", root)
-    return root
-
-
 def test_upload_writes_intake_metadata(fb_data, anon_client):
     r = anon_client.post(
         "/api/founding-beta/upload",

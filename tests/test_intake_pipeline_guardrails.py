@@ -6,19 +6,8 @@ import io
 import re
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[1]
 SERVER_PY = ROOT / "server.py"
-
-
-@pytest.fixture
-def fb_data(monkeypatch, tmp_path):
-    root = tmp_path.resolve()
-    monkeypatch.setenv("KYC_DATA", str(root))
-    monkeypatch.setenv("KYC_FOUNDING_BETA_MODE", "true")
-    monkeypatch.setattr("services.config.DATA", root)
-    return root
 
 ALLOWED_CUSTOMER_FILE_UPLOAD_ROUTES = frozenset(
     {
@@ -37,8 +26,7 @@ def test_server_no_shadow_customer_upload_routes():
     assert not extra, f"Unexpected customer upload routes: {extra}"
 
 
-def test_session_upload_writes_canonical_intake_not_customer_sessions(fb_data, anon_client, monkeypatch):
-    monkeypatch.setenv("KYC_DATA", str(fb_data))
+def test_session_upload_writes_canonical_intake_not_customer_sessions(fb_data, anon_client):
     r = anon_client.post("/api/customer/session/start")
     sid = r.json()["session_id"]
     tok = r.json()["session_token"]
@@ -56,8 +44,7 @@ def test_session_upload_writes_canonical_intake_not_customer_sessions(fb_data, a
     assert not sessions.is_dir() or not list(sessions.glob("*"))
 
 
-def test_session_complete_does_not_create_shadow_project(fb_data, anon_client, monkeypatch):
-    monkeypatch.setenv("KYC_DATA", str(fb_data))
+def test_session_complete_does_not_create_shadow_project(fb_data, anon_client):
     r = anon_client.post("/api/customer/session/start")
     sid = r.json()["session_id"]
     tok = r.json()["session_token"]

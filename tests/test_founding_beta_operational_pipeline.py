@@ -20,19 +20,6 @@ from services.founding_beta.queue import get_operator_review_queue
 from services.founding_beta.operator_actions import apply_operator_action
 
 
-@pytest.fixture
-def fb_env(monkeypatch, tmp_path):
-    root = tmp_path.resolve()
-    (root / "intakes").mkdir(parents=True)
-    mem = root / "memory"
-    mem.mkdir(parents=True)
-    monkeypatch.setenv("KYC_DATA", str(root))
-    monkeypatch.setenv("KYC_FOUNDING_BETA_MODE", "true")
-    monkeypatch.setattr("services.founding_beta.learning_hooks._LEARNING", mem / "learning_state.json")
-    monkeypatch.setattr("services.config.DATA", root)
-    return root
-
-
 def test_classify_ssp_filename(tmp_path):
     p = tmp_path / "Acme_System_Security_Plan.pdf"
     p.write_bytes(b"%PDF-1.4")

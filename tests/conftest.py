@@ -17,6 +17,55 @@ def ops_password_env(monkeypatch):
     monkeypatch.delenv("ENVIRONMENT", raising=False)
 
 
+@pytest.fixture
+def durable_intake_root(monkeypatch, tmp_path):
+    """
+    Isolated writable KYC_DATA for founding-beta intake tests.
+    Does not weaken production gates — tests must opt in explicitly.
+    """
+    root = tmp_path.resolve()
+    (root / "intakes").mkdir(parents=True, exist_ok=True)
+    (root / "projects").mkdir(parents=True, exist_ok=True)
+    (root / "memory").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("ENVIRONMENT", "test")
+    monkeypatch.setenv("KYC_DATA", str(root))
+    monkeypatch.setenv("KYC_FOUNDING_BETA_MODE", "true")
+    monkeypatch.setattr("services.config.DATA", root)
+    monkeypatch.setattr("services.config.PROJECTS", root / "projects")
+    from services.durable_storage import (
+        founding_beta_upload_allowed,
+        is_durable_storage_configured,
+    )
+
+    assert is_durable_storage_configured() is True
+    assert founding_beta_upload_allowed() is True
+    return root
+
+
+@pytest.fixture
+def fb_data(durable_intake_root):
+    """Alias — canonical durable intake root for founding-beta tests."""
+    return durable_intake_root
+
+
+@pytest.fixture
+def fb_env(durable_intake_root, monkeypatch):
+    """Durable intake root + founding-beta learning hook path."""
+    mem = durable_intake_root / "memory"
+    monkeypatch.setattr(
+        "services.founding_beta.learning_hooks._LEARNING",
+        mem / "learning_state.json",
+    )
+    return durable_intake_root
+
+
+@pytest.fixture
+def prod_env(monkeypatch):
+    """Production ENVIRONMENT — use with explicit KYC_DATA or expect 503."""
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("KYC_FOUNDING_BETA_MODE", "true")
+
+
 @pytest.fixture(autouse=True)
 def _clear_knowledge_cockpit_caches():
     """Prevent lru_cache from retaining concepts loaded under a patched DATA root."""

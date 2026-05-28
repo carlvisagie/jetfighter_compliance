@@ -27,18 +27,8 @@ from services.founding_beta.storage import (
 
 
 @pytest.fixture
-def fb_data(monkeypatch, tmp_path):
-    root = tmp_path.resolve()
-    monkeypatch.setenv("KYC_DATA", str(root))
-    monkeypatch.setattr("services.config.DATA", root)
-    return root
-
-
-@pytest.fixture
-def prod_durable(monkeypatch, fb_data):
-    monkeypatch.setenv("ENVIRONMENT", "production")
-    monkeypatch.setenv("KYC_FOUNDING_BETA_MODE", "true")
-    return fb_data
+def prod_durable(prod_env, durable_intake_root):
+    return durable_intake_root
 
 
 def test_upload_writes_under_var_data_style_root(prod_durable, anon_client):
@@ -203,9 +193,3 @@ def test_production_upload_fails_without_durable_root(prod_env, anon_client, mon
       data={"email": "n@x.com"},
   )
   assert r.status_code == 503
-
-
-@pytest.fixture
-def prod_env(monkeypatch):
-  monkeypatch.setenv("ENVIRONMENT", "production")
-  monkeypatch.setenv("KYC_FOUNDING_BETA_MODE", "true")

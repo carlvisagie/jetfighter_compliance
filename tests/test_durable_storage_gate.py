@@ -13,12 +13,6 @@ from services.durable_storage import (
 from services.founding_beta.storage import intakes_root
 
 
-@pytest.fixture
-def prod_env(monkeypatch):
-    monkeypatch.setenv("ENVIRONMENT", "production")
-    monkeypatch.setenv("KYC_FOUNDING_BETA_MODE", "true")
-
-
 def test_production_rejects_upload_without_kyc_data(prod_env, anon_client, monkeypatch, tmp_path):
     monkeypatch.delenv("KYC_DATA", raising=False)
     monkeypatch.setattr("services.config.DATA", tmp_path.resolve())
@@ -103,6 +97,6 @@ def test_no_ephemeral_fallback_writes_in_production(prod_env, anon_client, monke
         files=[("files", ("x.txt", io.BytesIO(b"x"), "text/plain"))],
         data={"email": "x@y.com"},
     )
-    fb = tmp_path / "founding_beta" / "intakes"
-    if fb.is_dir():
-        assert list(fb.iterdir()) == []
+    intakes = tmp_path / "intakes"
+    if intakes.is_dir():
+        assert list(intakes.iterdir()) == []

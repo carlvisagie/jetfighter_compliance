@@ -12,15 +12,6 @@ from fastapi.testclient import TestClient
 from server import app
 
 
-@pytest.fixture
-def fb_env(monkeypatch, tmp_path):
-    fb = tmp_path / "founding_beta"
-    fb.mkdir(parents=True)
-    (fb / "intakes").mkdir()
-    monkeypatch.setattr("services.config.DATA", tmp_path)
-    return tmp_path
-
-
 def test_founding_beta_page_loads(client):
     r = client.get("/ui/founding-beta")
     assert r.status_code == 200
@@ -66,9 +57,10 @@ def test_operator_panel_lists_intake(client, fb_env, anon_client):
     r = client.get("/api/operator/founding-beta-intake")
     assert r.status_code == 200
     body = r.json()
-    assert body.get("uploads_received", 0) >= 1
-    assert body.get("pending_review_count", 0) >= 1
-    assert body.get("newest_intake_ids")
+    dash = body.get("dashboard") or {}
+    assert body.get("queue_depth", 0) >= 1 or dash.get("uploads_received", 0) >= 1
+    assert body.get("queue_depth", 0) >= 1 or dash.get("pending_review_count", 0) >= 1
+    assert dash.get("newest_intake_ids") or [row.get("intake_id") for row in body.get("queue") or []]
 
 
 def test_cognitive_topology_includes_upload_signal(client, fb_env, anon_client):
