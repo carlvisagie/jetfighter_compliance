@@ -40,11 +40,14 @@
       if (ls === 'healthy') return 'cote-node--healthy';
     }
     if (nodeId === 'upload_pipeline') {
+      var pending = (m.pending_review || m.queue_depth || 0) > 0;
+      var urgent = (m.urgent_count || 0) > 0;
       if (m.anomaly && m.health < 0.45) return 'cote-node--failed cote-node--upload-fail';
+      if (urgent && pending) return 'cote-node--upload-urgent cote-node--upload-pending cote-node--upload-new';
+      if (pending) return 'cote-node--upload-pending cote-node--upload-new';
       if (m.backlog_pressure || (m.queue_depth && m.queue_depth >= 5)) {
         return 'cote-node--pressure cote-node--upload-backlog';
       }
-      if (m.pending_review > 0) return 'cote-node--pressure cote-node--upload-pending';
       if (m.flow_active || m.activity > 0.45) return 'cote-node--opportunity cote-node--upload-flow';
     }
     if (m.paused) return 'cote-node--paused';
@@ -214,6 +217,31 @@
       label.setAttribute('x', String(pos.x));
       label.setAttribute('y', String(pos.y + NODE_R + 14));
       label.textContent = cfg.label;
+      if (cfg.id === 'upload_pipeline') {
+        var pendingN = intMetric(m.pending_review || m.queue_depth);
+        var urgentN = intMetric(m.urgent_count);
+        if (pendingN > 0) {
+          var ring = ns('circle');
+          ring.setAttribute('class', 'cote-node-alert-ring');
+          ring.setAttribute('cx', String(pos.x));
+          ring.setAttribute('cy', String(pos.y));
+          ring.setAttribute('r', String(NODE_R + 14 + (urgentN ? 4 : 0)));
+          g.insertBefore(ring, pulse);
+          var badgeBg = ns('circle');
+          badgeBg.setAttribute('class', 'cote-node-badge-bg');
+          badgeBg.setAttribute('cx', String(pos.x + 16));
+          badgeBg.setAttribute('cy', String(pos.y - 16));
+          badgeBg.setAttribute('r', '11');
+          var badge = ns('text');
+          badge.setAttribute('class', 'cote-node-badge');
+          badge.setAttribute('x', String(pos.x + 16));
+          badge.setAttribute('y', String(pos.y - 12));
+          badge.setAttribute('text-anchor', 'middle');
+          badge.textContent = urgentN > 0 ? pendingN + '!' : String(pendingN);
+          g.appendChild(badgeBg);
+          g.appendChild(badge);
+        }
+      }
       g.appendChild(pulse);
       g.appendChild(body);
       g.appendChild(hit);
@@ -224,7 +252,11 @@
 
     field.querySelectorAll('.cote-node').forEach(function (node) {
       node.addEventListener('click', function () {
-        showDetail(node.getAttribute('data-node'));
+        var nid = node.getAttribute('data-node');
+        if (nid === 'upload_pipeline' && global.CockpitFoundingBeta) {
+          global.CockpitFoundingBeta.scrollToQueue();
+        }
+        showDetail(nid);
       });
       node.addEventListener('mouseenter', function () {
         showDetail(node.getAttribute('data-node'), true);
@@ -294,13 +326,52 @@
       metric('Confidence', m.confidence) +
       metric('Latency', m.latency) +
       metric('Alerts', m.alerts) +
+      metric('Pending', m.pending_review) +
+      metric('Urgent', m.urgent_count) +
       '</div>';
+    if (nodeId === 'upload_pipeline' && global.CockpitFoundingBeta) {
+      detail.innerHTML +=
+        '<p class="org-metric-foot"><button type="button" class="kyc-btn kyc-btn--secondary" id="coteUploadScrollQueue">Jump to Founding Beta Queue</button></p>';
+      document.getElementById('coteUploadScrollQueue')?.addEventListener('click', function () {
+        global.CockpitFoundingBeta.scrollToQueue();
+      });
+    }
     if (!hoverOnly) state.selected = nodeId;
   }
 
   function metric(label, val) {
-    var v = val == null ? '—' : typeof val === 'number' ? (val * 100).toFixed(0) + '%' : val;
+    var v = '—';
+    if (val != null) {
+      if (typeof val === 'number' && val >= 0 && val <= 1) {
+        v = (val * 100).toFixed(0) + '%';
+      } else if (typeof val === 'number') {
+        v = String(val);
+      } else {
+        v = val;
+      }
+    }
     return '<div><span>' + label + '</span><strong>' + v + '</strong></div>';
+  }
+
+  function intMetric(v) {
+    var n = parseInt(v, 10);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function paperworkPendingLabel(data) {
+    var up = (data && data.subsystems && data.subsystems.upload_pipeline) || {};
+    var pending = intMetric(up.pending_review || up.queue_depth);
+    var urgent = intMetric(up.urgent_count);
+    var fb = global.CockpitFoundingBeta && global.CockpitFoundingBeta.getState();
+    if (fb && !fb.error) {
+      pending = Math.max(pending, fb.pending || 0);
+      urgent = Math.max(urgent, fb.urgent || 0);
+    }
+    if (pending <= 0) return '';
+    var label =
+      pending === 1 ? '1 paperwork review pending' : pending + ' paperwork reviews pending';
+    if (urgent > 0) label += ' (' + urgent + ' urgent)';
+    return label;
   }
 
   function updateHeaderPulse(data) {
@@ -309,8 +380,11 @@
     if (!data) return;
     var sh = data.system_health != null ? data.system_health : 0;
     var gp = data.global_pressure != null ? data.global_pressure : 0;
+    var paperwork = paperworkPendingLabel(data);
     if (pulse) {
-      if (data.safe_mode) {
+      if (paperwork) {
+        pulse.textContent = paperwork;
+      } else if (data.safe_mode) {
         pulse.textContent = 'Topology live · intelligence paused';
       } else if (gp > 0.55) {
         pulse.textContent = 'Elevated operational pressure';

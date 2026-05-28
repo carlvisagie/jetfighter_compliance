@@ -1,3 +1,139 @@
+/* Cockpit paperwork visibility — banner, atlas, COTE highlight */
+.fb-paperwork-banner--hidden,
+.fb-queue-atlas--hidden {
+  display: none !important;
+}
+
+.fb-paperwork-banner {
+  margin: 0 1rem 1rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(100, 200, 255, 0.55);
+  background: linear-gradient(90deg, rgba(12, 28, 48, 0.95), rgba(18, 40, 68, 0.92));
+  box-shadow: 0 0 28px rgba(80, 180, 255, 0.22);
+  animation: fb-banner-pulse 2.2s ease-in-out infinite;
+}
+
+.fb-paperwork-banner--urgent {
+  border-color: rgba(255, 140, 80, 0.75);
+  background: linear-gradient(90deg, rgba(48, 22, 12, 0.95), rgba(40, 18, 10, 0.92));
+  box-shadow: 0 0 32px rgba(255, 120, 60, 0.28);
+  animation: fb-banner-urgent 1.4s ease-in-out infinite;
+}
+
+.fb-paperwork-banner--warn {
+  border-color: rgba(255, 180, 80, 0.6);
+  animation: none;
+}
+
+.fb-paperwork-banner__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  justify-content: space-between;
+}
+
+.fb-paperwork-banner__tag {
+  color: #5ec4ff;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.fb-paperwork-banner--urgent .fb-paperwork-banner__tag {
+  color: #ffb85c;
+}
+
+.fb-paperwork-banner__copy strong {
+  display: block;
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  color: #f4f7fb;
+}
+
+.fb-paperwork-banner__detail {
+  display: block;
+  font-size: 0.88rem;
+  color: rgba(200, 220, 255, 0.92);
+  margin-top: 0.2rem;
+}
+
+.fb-paperwork-banner__urgent {
+  color: #ffb85c;
+  font-style: normal;
+}
+
+.fb-paperwork-banner__btn {
+  flex-shrink: 0;
+  min-height: 44px;
+}
+
+.fb-queue-atlas {
+  margin: 0 1rem 1.25rem;
+  padding: 1rem 1.1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(100, 180, 255, 0.35);
+  background: rgba(12, 22, 38, 0.85);
+}
+
+.fb-queue-atlas--warn {
+  border-color: rgba(255, 160, 80, 0.5);
+}
+
+.fb-queue-atlas__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.65rem 1rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.88rem;
+}
+
+.fb-queue-atlas__grid strong,
+.fb-queue-atlas__grid code {
+  display: block;
+  margin-top: 0.15rem;
+  color: #f4f7fb;
+}
+
+.fb-queue-atlas__warn {
+  margin: 0 0 0.5rem;
+  color: #ffcc88;
+}
+
+.fb-queue-load-error {
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 140, 80, 0.55);
+  background: rgba(48, 24, 12, 0.5);
+  color: #ffe8d0;
+}
+
+#founding-beta-intake-panel.fb-queue-panel--highlight {
+  outline: 2px solid rgba(100, 200, 255, 0.65);
+  outline-offset: 4px;
+  box-shadow: 0 0 24px rgba(80, 180, 255, 0.25);
+}
+
+@keyframes fb-banner-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(80, 180, 255, 0.18);
+  }
+  50% {
+    box-shadow: 0 0 36px rgba(100, 200, 255, 0.35);
+  }
+}
+
+@keyframes fb-banner-urgent {
+  0%,
+  100% {
+    box-shadow: 0 0 22px rgba(255, 120, 60, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(255, 100, 50, 0.4);
+  }
+}
+
 /* Founding Beta operator review queue */
 .fb-queue-summary {
   margin-bottom: 1rem;

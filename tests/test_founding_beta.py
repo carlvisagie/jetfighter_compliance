@@ -106,3 +106,5 @@ def test_control_html_founding_beta_strip(client):
     assert r.status_code == 200
     assert "renderFoundingBeta" in r.text
     assert "founding-beta-strip" in r.text
+    assert "fb-paperwork-banner" in r.text
+    assert "loadFoundingBetaIntake" in r.text

@@ -485,7 +485,10 @@ def _merge_state(
     paused: bool = False,
     alerts: int = 0,
 ) -> Dict[str, Any]:
-    return {
+    core_keys = frozenset(
+        {"health", "pressure", "activity", "confidence", "latency", "alerts", "anomaly", "paused"}
+    )
+    out: Dict[str, Any] = {
         "health": _round3(base.get("health", 0.7)),
         "pressure": _round3(base.get("pressure", 0.2)),
         "activity": _round3(base.get("activity", 0.3)),
@@ -495,6 +498,10 @@ def _merge_state(
         "paused": paused,
         "anomaly": bool(base.get("anomaly")),
     }
+    for key, val in base.items():
+        if key not in core_keys and key not in out:
+            out[key] = val
+    return out
 
 
 def build_cognitive_topology() -> Dict[str, Any]:
@@ -577,6 +584,7 @@ def build_cognitive_topology() -> Dict[str, Any]:
             "flow_active": bool(fb_flow.get("uploads_active")),
             "pending_review": int(fb_flow.get("pending_review", 0)),
             "queue_depth": int(fb_flow.get("queue_depth", 0)),
+            "urgent_count": fb_urgent,
             "uploads_per_hour": float(fb_flow.get("uploads_per_hour", 0)),
             "backlog_pressure": fb_backlog,
         }
@@ -645,6 +653,16 @@ def build_cognitive_topology() -> Dict[str, Any]:
     system_health = subsystems["system_health"]["health"]
 
     attention: List[str] = []
+    fb_pending = int(fb_flow.get("pending_review", 0) or fb_flow.get("queue_depth", 0))
+    if fb_pending > 0:
+        if fb_urgent > 0:
+            attention.append(
+                f"NEW PAPERWORK: {fb_pending} founding beta intake(s) pending ({fb_urgent} urgent)."
+            )
+        else:
+            attention.append(
+                f"NEW PAPERWORK: {fb_pending} founding beta paperwork review(s) pending."
+            )
     if safe:
         attention.append("Safe mode active — intelligence modules paused; core intake/upload paths remain.")
     if alert_count:

@@ -41,6 +41,14 @@
     </div>
   </div>
 
+  <div
+    id="fb-paperwork-banner"
+    class="fb-paperwork-banner fb-paperwork-banner--hidden"
+    role="alert"
+    aria-live="assertive"
+    hidden
+  ></div>
+
   <section class="kyc-section cote-section" id="cote-topology-section" aria-label="Cognitive operational topology">
     <header class="kyc-section-head">
       <span class="kyc-label-overline">COTE</span>
@@ -60,6 +68,7 @@
       <span class="cote-legend-item"><span class="cote-legend-dot" style="background:#6a7080"></span> Paused</span>
     </div>
     <div id="cote-topology-detail" class="cote-detail" hidden></div>
+    <div id="fb-queue-atlas" class="fb-queue-atlas fb-queue-atlas--hidden" hidden aria-live="polite"></div>
   </section>
 
   <section class="kyc-section" id="founding-beta-intake-panel" style="padding-top:0;">
@@ -342,6 +351,7 @@
 
   <script src="/ui/assets/js/cockpit-safe-boot.js"></script>
   <script src="/ui/assets/js/cockpit-stabilization.js"></script>
+  <script src="/ui/assets/js/cockpit-founding-beta.js"></script>
   <script src="/ui/assets/js/cognitive-topology.js"></script>
   <script src="/ui/assets/js/contextual-knowledge-overlay.js" onerror="reportCockpitScriptError('contextual-knowledge-overlay.js')"></script>
   <script src="/ui/assets/js/organism-intel.js" onerror="reportCockpitScriptError('organism-intel.js')"></script>
@@ -449,8 +459,8 @@
         body: JSON.stringify({ intake_id: intakeId, action: action }),
       });
       await loadFoundingBetaIntake();
-      if (window.CognitiveTopology && CognitiveTopology.refresh) {
-        CognitiveTopology.refresh();
+      if (window.CoteTopology && CoteTopology.refresh) {
+        CoteTopology.refresh();
       }
     } catch (e) {
       alert('Action failed: ' + (e.message || e));
@@ -462,7 +472,10 @@
     const el = document.getElementById('founding-beta-intake-insights');
     if (!el) return;
     try {
-      const q = await api('/api/operator/founding-beta/queue');
+      const q =
+        window.CockpitFoundingBeta && CockpitFoundingBeta.refresh
+          ? await CockpitFoundingBeta.refresh(api)
+          : await api('/api/operator/founding-beta/queue');
       const dash = await api('/api/operator/founding-beta-intake');
       const queue = q.queue || [];
       const summary =
@@ -549,8 +562,18 @@
           fbQueueAction(iid, act, btn);
         });
       });
+      if (window.CoteTopology && CoteTopology.refresh) {
+        await CoteTopology.refresh();
+      }
     } catch (e) {
-      el.innerHTML = '<p class="org-metric-foot">Founding beta queue unavailable.</p>';
+      el.innerHTML =
+        '<div class="fb-queue-load-error" role="alert">' +
+        '<strong>Founding beta queue unavailable</strong>' +
+        '<p>' +
+        escapeHtml(e.message || String(e)) +
+        '</p>' +
+        '<button type="button" class="kyc-btn kyc-btn--secondary" id="fbQueueRetry">Retry queue</button></div>';
+      document.getElementById('fbQueueRetry')?.addEventListener('click', loadFoundingBetaIntake);
     }
   }
   async function refreshAllSafeMode() {
@@ -1137,6 +1160,7 @@
       if (window.CockpitStable && CockpitStable.init) {
         await CockpitStable.init();
       }
+      await loadFoundingBetaIntake();
       if (window.CoteTopology && CoteTopology.init) {
         await CoteTopology.init();
         CoteTopology.startAutoRefresh(60000);
