@@ -375,11 +375,25 @@ async def process_upload(
         except Exception as exc:
             logger.warning("Founding beta classification skipped: %s", exc)
 
+    durability: Dict[str, Any] = {}
+    if saved:
+        from .retention import assert_read_write_roots_match, require_upload_durability_verified
+
+        assert_read_write_roots_match()
+        durability = require_upload_durability_verified(intake_id, saved_files=saved)
+
     link = _magic_link(intake_id, token)
     qr_bytes = _qr_png(link)
     import base64
 
     qr_b64 = base64.standard_b64encode(qr_bytes).decode("ascii")
+
+    if saved and not durability.get("durability_verified"):
+        raise HTTPException(
+            status_code=500,
+            detail="Your files could not be verified on secure storage. Please try again.",
+            headers={"X-KYC-Error-Code": "upload_durability_failed"},
+        )
 
     return {
         "ok": True,
@@ -391,6 +405,9 @@ async def process_upload(
         "files_saved": saved,
         "errors": errors,
         "file_count": record["file_count"],
+        "verified_file_count": durability.get("verified_file_count", len(saved)),
+        "durable_receipt_created": bool(durability.get("durable_receipt_created")),
+        "durability_verified": bool(durability.get("durability_verified", not saved)),
         "status": record["status"],
         "review_status": "pending_review",
     }

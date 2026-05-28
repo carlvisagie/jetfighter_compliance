@@ -11,6 +11,7 @@
     latest: null,
     error: null,
     visibility_warning: null,
+    retention_critical: null,
     diagnostics: null,
     storage: null,
   };
@@ -185,9 +186,85 @@
     updateVisibilityWarning();
   }
 
+  function updateRetentionCriticalBanner() {
+    var el = document.getElementById('fb-retention-critical-banner');
+    if (!el) return;
+    var msg = state.retention_critical;
+    if (!msg) {
+      el.hidden = true;
+      el.classList.add('fb-storage-critical-banner--hidden');
+      return;
+    }
+    el.hidden = false;
+    el.classList.remove('fb-storage-critical-banner--hidden');
+    el.className = 'fb-storage-critical-banner';
+    el.innerHTML =
+      '<strong>CRITICAL — founding beta retention risk</strong>' +
+      '<span class="fb-storage-critical-banner__detail">' +
+      escapeHtml(msg) +
+      '</span>';
+  }
+
+  function computeRetentionCritical() {
+    var parts = [];
+    var d = state.diagnostics || {};
+    var scan = d.retention_scan || {};
+    if (scan.index_disk_agree === false) {
+      var od = (scan.only_on_disk_not_in_index || []).length;
+      var oi = (scan.only_in_index_not_on_disk || []).length;
+      if (od || oi) {
+        parts.push(
+          'Index and disk disagree (' +
+            od +
+            ' on disk only, ' +
+            oi +
+            ' in index only). Filesystem is source of truth — reconcile immediately.'
+        );
+      }
+    }
+    if (d.roots_match === false) {
+      parts.push('Write root and read root do not match — uploads and queue may diverge.');
+    }
+    var dirs = int(d.intake_directories_found || scan.intake_directories || 0);
+    var files = int(d.upload_files_on_disk || scan.upload_files || 0);
+    if (dirs > 0 && state.pending <= 0 && files > 0) {
+      parts.push(
+        dirs +
+          ' intake(s) and ' +
+          files +
+          ' file(s) on durable disk but operator queue shows empty.'
+      );
+    }
+    if (
+      state.storage &&
+      state.storage.founding_beta_uploads_enabled &&
+      state.storage.durable_storage_configured &&
+      dirs > 0 &&
+      state.pending <= 0 &&
+      !state.error
+    ) {
+      var uph = state.queue && state.queue.uploads_per_hour_estimate;
+      if (uph > 0 || files > 0) {
+        parts.push(
+          'Durable storage is configured but no pending paperwork is visible after recent upload activity.'
+        );
+      }
+    }
+    state.retention_critical = parts.length ? parts.join(' ') : null;
+    updateRetentionCriticalBanner();
+  }
+
   function updateVisibilityWarning() {
     var box = document.getElementById('fb-visibility-warning');
     if (!box) return;
+    computeRetentionCritical();
+    if (state.retention_critical) {
+      box.hidden = false;
+      box.className = 'fb-visibility-warning fb-visibility-warning--critical';
+      box.innerHTML =
+        '<strong>Retention alert</strong><p>' + escapeHtml(state.retention_critical) + '</p>';
+      return;
+    }
     if (state.visibility_warning) {
       box.hidden = false;
       box.className = 'fb-visibility-warning';
@@ -249,6 +326,12 @@
   function refresh(apiFn) {
     return Promise.all([
       refreshStorage(apiFn),
+      apiFn('/api/operator/founding-beta/diagnostics')
+        .then(function (d) {
+          applyDiagnosticsResponse(d);
+          return d;
+        })
+        .catch(function () {}),
       apiFn('/api/operator/founding-beta/queue')
         .then(function (q) {
           if (!q || q.ok === false) {
@@ -262,7 +345,7 @@
           throw err;
         }),
     ]).then(function (results) {
-      return results[1];
+      return results[2];
     });
   }
 

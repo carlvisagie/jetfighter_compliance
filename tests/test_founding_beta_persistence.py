@@ -98,7 +98,7 @@ def test_cockpit_queue_api_returns_pending(fb_data, anon_client, client):
 def test_recover_metadata_from_files_without_intake_json(fb_data):
     iid = "FB-deadbeefcafe"
     idir = intakes_root() / iid
-    (idir / "uploads").mkdir(parents=True)
+    (idir / "uploads").mkdir(parents=True, exist_ok=True)
     (idir / "uploads" / "recovered.pdf").write_bytes(b"%PDF")
     rec = recover_intake_from_disk(iid)
     assert rec["file_count"] == 1

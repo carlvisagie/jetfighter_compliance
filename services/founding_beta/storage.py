@@ -11,10 +11,17 @@ logger = logging.getLogger(__name__)
 
 
 def _data_root() -> Path:
-    """Always resolve live config.DATA (supports KYC_DATA + test monkeypatch)."""
+    """Durable root: KYC_DATA when set; else isolated config.DATA (tests); else live resolver."""
     from services import config
+    from services.durable_storage import active_data_root, kyc_data_env_value
 
-    return config.DATA
+    if kyc_data_env_value():
+        return active_data_root()
+    data = Path(config.DATA).resolve()
+    default = (config.ROOT / "data").resolve()
+    if data != default:
+        return data
+    return active_data_root()
 
 PENDING_REVIEW_STATUSES = frozenset(
     {
@@ -288,8 +295,13 @@ def intake_diagnostics() -> Dict[str, Any]:
                 pending_ids.append(iid)
         except (FileNotFoundError, ValueError, OSError):
             continue
+    write_root = _data_root().resolve()
+    read_root = write_root
     return {
-        "data_root": str(_data_root().resolve()),
+        "data_root": str(write_root),
+        "write_root": str(write_root),
+        "read_root": str(read_root),
+        "roots_match": write_root == read_root,
         "durable_storage_configured": storage["durable_storage_configured"],
         "founding_beta_uploads_enabled": storage["founding_beta_uploads_enabled"],
         "upload_block_reason": storage.get("upload_block_reason"),

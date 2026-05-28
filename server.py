@@ -175,6 +175,13 @@ async def _boot_worker():
 
     log_storage_boot_status()
 
+    try:
+        from services.founding_beta.retention import scan_retention_at_startup
+
+        scan_retention_at_startup()
+    except Exception as exc:
+        logging.critical("[retention] startup scan failed: %s", exc)
+
     for w in startup_warnings():
         logging.warning("[startup] %s", w)
         log_boot("startup_warning", "warn", w[:200])
@@ -1235,7 +1242,10 @@ def operator_founding_beta_diagnostics(request: Request):
     from services.production import require_ops_access
 
     require_ops_access(request)
+    from services.founding_beta.retention import retention_diagnostics_overlay
+
     diag = intake_diagnostics()
+    diag.update(retention_diagnostics_overlay())
     q = get_operator_review_queue(limit=10)
     return {
         "ok": True,
@@ -1245,6 +1255,24 @@ def operator_founding_beta_diagnostics(request: Request):
         "visibility_warning": q.get("visibility_warning"),
         "newest_intake_id": (q.get("queue") or [{}])[0].get("intake_id") if q.get("queue") else None,
     }
+
+
+@app.get("/api/operator/founding-beta/intake/{intake_id}/audit")
+def operator_founding_beta_intake_audit(request: Request, intake_id: str):
+    from services.founding_beta.retention import get_intake_audit
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return get_intake_audit(intake_id.strip())
+
+
+@app.get("/api/operator/founding-beta/retention-check/{intake_id}")
+def operator_founding_beta_retention_check(request: Request, intake_id: str):
+    from services.founding_beta.retention import retention_check
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return retention_check(intake_id.strip())
 
 
 @app.post("/api/operator/founding-beta/action")

@@ -201,8 +201,21 @@
         try {
           j = JSON.parse(xhr.responseText);
         } catch (err) {}
-        if (xhr.status >= 200 && xhr.status < 300 && j.ok) {
+        if (
+          xhr.status >= 200 &&
+          xhr.status < 300 &&
+          j.ok &&
+          j.durability_verified !== false &&
+          (j.durable_receipt_created || !j.files_saved || !j.files_saved.length)
+        ) {
           showConfirm(j);
+          return;
+        }
+        if (xhr.status >= 200 && xhr.status < 300 && j.ok && !j.durable_receipt_created) {
+          msg =
+            'Upload could not be verified on secure storage. Please try again or contact support@keepyourcontracts.com.';
+          statusEl.textContent = msg;
+          progressBox.hidden = true;
           return;
         }
         var msg = j.detail || j.message || 'Upload failed (' + xhr.status + ')';
@@ -228,6 +241,20 @@
     uploadCard.classList.add('kyc-fb-hidden');
     confirmCard.classList.remove('kyc-fb-hidden');
     document.getElementById('fbConfirmId').textContent = j.intake_id || '—';
+    var verified = document.getElementById('fbConfirmVerified');
+    if (verified) {
+      var n = j.verified_file_count != null ? j.verified_file_count : j.file_count;
+      verified.textContent =
+        n != null
+          ? String(n) + ' file(s) verified on secure storage.'
+          : '';
+    }
+    var receipt = document.getElementById('fbConfirmReceipt');
+    if (receipt) {
+      receipt.textContent = j.durable_receipt_created
+        ? 'Durable audit receipt created for this intake.'
+        : '';
+    }
     intakeInput.value = j.intake_id || '';
     tokenInput.value = j.token || '';
     magicLink = j.magic_link || j.upload_url || '';
