@@ -246,6 +246,18 @@ async def upload_to_session(session_id: str, session_token: str, file: UploadFil
         context=str(sess.get("context") or ""),
         expected_file_count=1,
         expected_file_names=[file.filename or "upload.bin"],
+        upload_manifest={
+            "client_selected_count": 1,
+            "filenames": [file.filename or "upload.bin"],
+            "upload_session_id": session_id,
+            "submission_method": "resume",
+            "resume_token_used": True,
+            "route": "/api/customer/session/upload",
+        },
+        request_metadata={
+            "upload_session_id": session_id,
+            "route": "/api/customer/session/upload",
+        },
     )
     if not iid:
         sess["canonical_intake_id"] = result.get("intake_id")

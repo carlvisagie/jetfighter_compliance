@@ -25,6 +25,11 @@
   var copyBtn = document.getElementById('fbCopyLink');
   var selectedFiles = [];
   var magicLink = '';
+  var uploadSessionId =
+    'fb-' +
+    Date.now().toString(36) +
+    '-' +
+    Math.random().toString(36).slice(2, 10);
 
   function escapeHtml(s) {
     return String(s)
@@ -185,6 +190,19 @@
         'expected_file_names',
         JSON.stringify(selectedFiles.map(function (f) { return f.name; }))
       );
+      fd.append(
+        'upload_manifest',
+        JSON.stringify({
+          client_selected_count: selectedFiles.length,
+          filenames: selectedFiles.map(function (f) { return f.name; }),
+          sizes: selectedFiles.map(function (f) { return f.size; }),
+          lastModified: selectedFiles.map(function (f) { return f.lastModified; }),
+          client_user_agent: navigator.userAgent || '',
+          upload_session_id: uploadSessionId,
+          route: location.pathname + location.search,
+          resume_token_used: !!tokenInput.value,
+        })
+      );
 
       var xhr = new XMLHttpRequest();
       progressBox.hidden = false;
@@ -250,10 +268,38 @@
     });
   }
 
+  function renderCustodySummary(j, targetId) {
+    var el = document.getElementById(targetId);
+    if (!el) return;
+    var expected = j.expected_file_count != null ? j.expected_file_count : selectedFiles.length;
+    var received = j.received_file_count != null ? j.received_file_count : '—';
+    var verified = j.verified_file_count != null ? j.verified_file_count : '—';
+    var rejected = (j.rejected_file_count || 0) + (j.failed_file_count || 0);
+    var mismatch =
+      j.integrity_mismatch ||
+      j.customer_may_show_success === false ||
+      Number(verified) !== Number(expected) ||
+      Number(j.failed_file_count || 0) > 0;
+    el.innerHTML =
+      '<ul class="kyc-fb-custody-list">' +
+      '<li><strong>Files selected:</strong> ' + escapeHtml(String(expected)) + '</li>' +
+      '<li><strong>Files received:</strong> ' + escapeHtml(String(received)) + '</li>' +
+      '<li><strong>Files verified:</strong> ' + escapeHtml(String(verified)) + '</li>' +
+      '<li><strong>Files rejected/failed:</strong> ' + escapeHtml(String(rejected)) + '</li>' +
+      '<li><strong>Intake ID:</strong> <code>' + escapeHtml(j.intake_id || '—') + '</code></li>' +
+      '<li><strong>Receipt created:</strong> ' +
+      (j.durable_receipt_created ? 'Yes' : 'No') +
+      '</li></ul>' +
+      (mismatch
+        ? '<p class="kyc-fb-custody-warn" role="alert">Chain-of-custody mismatch — not all selected files were verified. Use your magic link to retry.</p>'
+        : '');
+  }
+
   function showPartialUpload(j) {
     progressBox.hidden = true;
     uploadCard.classList.remove('kyc-fb-hidden');
     confirmCard.classList.add('kyc-fb-hidden');
+    renderCustodySummary(j, 'fbCustodySummary');
     var expected = j.expected_file_count != null ? j.expected_file_count : selectedFiles.length;
     var verified = j.verified_file_count != null ? j.verified_file_count : 0;
     var missing = (j.missing_files || []).join(', ');
@@ -275,6 +321,7 @@
     uploadCard.classList.add('kyc-fb-hidden');
     confirmCard.classList.remove('kyc-fb-hidden');
     document.getElementById('fbConfirmId').textContent = j.intake_id || '—';
+    renderCustodySummary(j, 'fbCustodySummary');
     var verified = document.getElementById('fbConfirmVerified');
     if (verified) {
       var expected = j.expected_file_count != null ? j.expected_file_count : j.file_count;
@@ -286,10 +333,15 @@
     }
     var integrityNote = document.getElementById('fbConfirmIntegrityNote');
     if (integrityNote) {
-      integrityNote.textContent =
-        j.customer_may_show_success === true
-          ? ''
-          : 'Some files may still be processing — check your magic link if anything is missing.';
+      var failed = Number(j.failed_file_count || 0);
+      var mismatch =
+        j.customer_may_show_success !== true ||
+        Number(j.verified_file_count) !== Number(j.expected_file_count) ||
+        failed > 0;
+      integrityNote.textContent = mismatch
+        ? 'Warning: chain-of-custody mismatch detected. Not all selected files were verified — use your magic link to retry.'
+        : '';
+      integrityNote.classList.toggle('kyc-fb-custody-warn', mismatch);
     }
     var receipt = document.getElementById('fbConfirmReceipt');
     if (receipt) {

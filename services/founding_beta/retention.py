@@ -309,15 +309,24 @@ def require_upload_durability_verified(
             for e in lifecycle
             if e.get("state") == "verified"
         ]
+        from .integrity import _count_lifecycle_states, derive_intake_status, lifecycle_to_custody_row
+
+        state_counts = _count_lifecycle_states(lifecycle)
+        integrity["rejected_file_count"] = state_counts["rejected_file_count"]
+        integrity["duplicate_file_count"] = state_counts["duplicate_file_count"]
+        integrity["failed_file_count"] = state_counts["failed_file_count"]
+        integrity["file_lifecycle_table"] = [lifecycle_to_custody_row(e) for e in lifecycle]
+    ok, detail = verify_intake_durability(intake_id, expected_files=saved_files)
+    if integrity is not None:
         integrity["integrity_ok"] = (
             int(integrity.get("expected_file_count") or 0) == verified_count
             and not integrity.get("missing_files")
-            and not integrity.get("rejected_files")
+            and state_counts["failed_file_count"] == 0
             and verified_count == int(integrity.get("received_file_count") or 0)
+            and verified_count == int(integrity.get("persisted_file_count") or 0)
         )
         integrity["integrity_mismatch"] = not integrity["integrity_ok"]
-
-    ok, detail = verify_intake_durability(intake_id, expected_files=saved_files)
+        integrity["custody_status"] = derive_intake_status(integrity, durability_ok=ok)
     receipt = build_audit_receipt(
         intake_id,
         files_written=saved_files,
@@ -372,6 +381,18 @@ def require_upload_durability_verified(
 def get_intake_audit(intake_id: str) -> Dict[str, Any]:
     receipt = load_audit_receipt(intake_id)
     on_disk = hash_uploads_on_disk(intake_id)
+    record: Dict[str, Any] = {}
+    try:
+        record = load_intake_record(intake_id, persist_recovery=False)
+    except (FileNotFoundError, ValueError, OSError):
+        record = {}
+    ui = record.get("upload_integrity") or {}
+    custody = record.get("upload_custody") or {}
+    lifecycle_table = list(ui.get("file_lifecycle_table") or [])
+    if not lifecycle_table and ui.get("file_lifecycle"):
+        from .integrity import lifecycle_to_custody_row
+
+        lifecycle_table = [lifecycle_to_custody_row(e) for e in ui.get("file_lifecycle") or []]
     return {
         "ok": True,
         "intake_id": intake_id,
@@ -383,6 +404,19 @@ def get_intake_audit(intake_id: str) -> Dict[str, Any]:
         "files_on_disk": on_disk,
         "intake_json_path": str(intake_json_path(intake_id).resolve()),
         "classification_path": str(classification_path(intake_id).resolve()),
+        "custody_status": record.get("custody_status") or ui.get("custody_status"),
+        "upload_integrity": ui,
+        "upload_custody": custody,
+        "file_lifecycle_table": lifecycle_table,
+        "count_breakdown": {
+            "expected_file_count": ui.get("expected_file_count"),
+            "received_file_count": ui.get("received_file_count"),
+            "persisted_file_count": ui.get("persisted_file_count"),
+            "verified_file_count": ui.get("verified_file_count"),
+            "rejected_file_count": ui.get("rejected_file_count"),
+            "duplicate_file_count": ui.get("duplicate_file_count"),
+            "failed_file_count": ui.get("failed_file_count"),
+        },
     }
 
 
@@ -435,6 +469,23 @@ def retention_check(intake_id: str) -> Dict[str, Any]:
                 break
 
     clf_path = classification_path(intake_id)
+    record: Dict[str, Any] = {}
+    try:
+        record = load_intake_record(intake_id, persist_recovery=False)
+    except (FileNotFoundError, ValueError, OSError):
+        record = {}
+    ui = record.get("upload_integrity") or {}
+    expected = int(ui.get("expected_file_count") or 0)
+    received = int(ui.get("received_file_count") or 0)
+    persisted = int(ui.get("persisted_file_count") or 0)
+    verified = int(ui.get("verified_file_count") or 0)
+    rejected = int(ui.get("rejected_file_count") or 0)
+    duplicate = int(ui.get("duplicate_file_count") or 0)
+    failed = int(ui.get("failed_file_count") or 0)
+    disk_count = len(on_disk)
+    counts_match = (
+        expected == received == persisted == verified == disk_count and failed == 0
+    )
     return {
         "ok": True,
         "intake_id": intake_id,
@@ -443,7 +494,7 @@ def retention_check(intake_id: str) -> Dict[str, Any]:
         "intake_dir_exists": idir.is_dir(),
         "intake_json_exists": ij.is_file(),
         "upload_files_found": len(on_disk) > 0,
-        "upload_file_count": len(on_disk),
+        "upload_file_count": disk_count,
         "file_hashes_match": file_hashes_match and (not receipt or bool(on_disk)),
         "classification_exists": clf_path.is_file(),
         "audit_receipt_exists": receipt is not None,
@@ -451,6 +502,19 @@ def retention_check(intake_id: str) -> Dict[str, Any]:
         "cote_visible": _cote_reflects_intake(intake_id),
         "files_on_disk": on_disk,
         "audit_receipt": receipt,
+        "custody_status": record.get("custody_status") or ui.get("custody_status"),
+        "count_breakdown": {
+            "expected_file_count": expected,
+            "received_file_count": received,
+            "persisted_file_count": persisted,
+            "verified_file_count": verified,
+            "rejected_file_count": rejected,
+            "duplicate_file_count": duplicate,
+            "failed_file_count": failed,
+            "on_disk_file_count": disk_count,
+        },
+        "counts_match": counts_match,
+        "integrity_mismatch": bool(ui.get("integrity_mismatch")) or not counts_match,
     }
 
 
@@ -554,10 +618,21 @@ def last_startup_retention_scan() -> Optional[Dict[str, Any]]:
 
 def retention_diagnostics_overlay() -> Dict[str, Any]:
     """Extra fields for operator founding-beta diagnostics."""
+    from .integrity import latest_integrity_mismatch_from_records
+    from .storage import all_intake_ids
+
     scan = last_startup_retention_scan() or scan_retention_at_startup()
+    recent_records: List[Dict[str, Any]] = []
+    for iid in all_intake_ids(limit=15):
+        try:
+            recent_records.append(load_intake_record(iid, persist_recovery=False))
+        except (FileNotFoundError, ValueError, OSError):
+            continue
+    mismatch = latest_integrity_mismatch_from_records(recent_records)
     return {
         "write_root": str(resolved_write_root()),
         "read_root": str(resolved_read_root()),
         "roots_match": resolved_write_root() == resolved_read_root(),
         "retention_scan": scan,
+        "latest_integrity_mismatch": mismatch,
     }

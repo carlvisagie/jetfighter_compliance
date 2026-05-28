@@ -549,6 +549,55 @@
             '</p>'
           : '';
         const integrity = row.upload_integrity || {};
+        const custodyCounts =
+          '<p class="org-metric-foot fb-queue-custody">' +
+          'Expected ' + (integrity.expected_file_count || 0) +
+          ' · received ' + (integrity.received_file_count || 0) +
+          ' · persisted ' + (integrity.persisted_file_count || 0) +
+          ' · verified ' + (integrity.verified_file_count || 0) +
+          ' · rejected ' + (integrity.rejected_file_count || 0) +
+          ' · failed ' + (integrity.failed_file_count || 0) +
+          (integrity.duplicate_file_count ? ' · dup ' + integrity.duplicate_file_count : '') +
+          '</p>';
+        const custodyMeta =
+          (integrity.source_ip || integrity.upload_session_id)
+            ? '<p class="org-metric-foot">Source ' +
+              escapeHtml(integrity.source_ip || '—') +
+              ' · ' +
+              escapeHtml(integrity.submission_method || '—') +
+              ' · session ' +
+              escapeHtml(integrity.upload_session_id || '—') +
+              (integrity.originating_route
+                ? ' · route ' + escapeHtml(integrity.originating_route)
+                : '') +
+              (integrity.newest_upload_at_utc
+                ? ' · last upload ' + escapeHtml(integrity.newest_upload_at_utc)
+                : '') +
+              '</p>'
+            : '';
+        const lifecycleRows = (integrity.file_lifecycle_table || []).slice(0, 12);
+        const lifecycleTable = lifecycleRows.length
+          ? '<details class="fb-queue-lifecycle"><summary>File lifecycle (' +
+            lifecycleRows.length +
+            ')</summary><table class="fb-lifecycle-table"><thead><tr>' +
+            '<th>Original</th><th>Stored</th><th>State</th><th>SHA256</th></tr></thead><tbody>' +
+            lifecycleRows
+              .map(function (lf) {
+                return (
+                  '<tr><td>' +
+                  escapeHtml(lf.original_filename || '') +
+                  '</td><td>' +
+                  escapeHtml(lf.sanitized_filename || '') +
+                  '</td><td>' +
+                  escapeHtml(lf.lifecycle_state || '') +
+                  '</td><td class="fb-sha">' +
+                  escapeHtml((lf.sha256 || '').slice(0, 12)) +
+                  '</td></tr>'
+                );
+              })
+              .join('') +
+            '</tbody></table></details>'
+          : '';
         const integrityBanner = integrity.integrity_mismatch
           ? '<div class="fb-queue-integrity" role="alert">' +
             '<strong>Upload integrity mismatch detected</strong>' +
@@ -602,7 +651,11 @@
           (row.file_count || 0) +
           ' file(s) · ' +
           (row.total_size_mb || 0) +
-          ' MB</p>' +
+          ' MB' +
+          (row.custody_status ? ' · custody ' + escapeHtml(row.custody_status) : '') +
+          '</p>' +
+          custodyCounts +
+          custodyMeta +
           '<p class="org-metric-foot">Types: ' +
           escapeHtml(types) +
           ' · Classified: ' +
@@ -617,6 +670,7 @@
           escapeHtml(row.suggested_next_action || '') +
           '</p>' +
           integrityBanner +
+          lifecycleTable +
           missing +
           '<div class="kyc-btn-row fb-queue-actions">' +
           '<button type="button" class="btn primary" data-fb-action="approve_review">Approve review</button>' +

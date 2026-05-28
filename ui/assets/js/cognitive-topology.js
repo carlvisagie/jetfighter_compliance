@@ -200,6 +200,16 @@
       var pending = intMetric(m.pending_review || m.queue_depth) > 0;
       var urgent = intMetric(m.urgent_count) > 0;
       var h = numMetric(m.health, 0.5);
+      var sev = String(m.upload_node_severity || '').toLowerCase();
+      if (sev === 'red' || (m.anomaly && h < 0.45)) {
+        return 'cote-node--failed cote-node--upload-fail';
+      }
+      if (sev === 'amber' || intMetric(m.integrity_mismatch_count) > 0) {
+        return 'cote-node--upload-pending cote-node--upload-urgent';
+      }
+      if (sev === 'green' && !m.anomaly && intMetric(m.integrity_mismatch_count) === 0) {
+        return 'cote-node--healthy';
+      }
       if (m.anomaly && h < 0.45) return 'cote-node--failed cote-node--upload-fail';
       if (urgent && pending) return 'cote-node--upload-urgent cote-node--upload-pending';
       if (pending) return 'cote-node--upload-pending';

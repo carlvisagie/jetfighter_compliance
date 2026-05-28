@@ -597,13 +597,24 @@ def build_cognitive_topology() -> Dict[str, Any]:
     fb_backlog = bool(fb_flow.get("backlog_pressure"))
     fb_urgent = int(fb_flow.get("urgent_count", 0))
     fb_integrity = int(fb_flow.get("integrity_mismatch_count", 0))
+    upload_severity = str(fb_flow.get("upload_node_severity") or "amber")
+    latest_custody = str(fb_flow.get("latest_custody_status") or "")
     upload_activity = _clamp(max(upload_act, fb_activity, fb_glow * 0.85))
     upload_pressure = _clamp(max((1.0 - upload_act) * 0.35, fb_pressure))
     if fb_backlog or fb_urgent > 0 or fb_integrity > 0:
         upload_pressure = _clamp(max(upload_pressure, 0.42 + fb_integrity * 0.12))
-    upload_anomaly = bool(fb_flow.get("failed_recent")) or fb_integrity > 0 or (
-        upload_act < 0.08 and proj_count > 0
-    )
+    if upload_severity == "red":
+        upload_pressure = _clamp(max(upload_pressure, 0.72))
+        fb_health = _clamp(min(fb_health, 0.38))
+    elif upload_severity == "amber":
+        upload_pressure = _clamp(max(upload_pressure, 0.44 + fb_integrity * 0.1))
+        fb_health = _clamp(min(fb_health, 0.55))
+    elif upload_severity == "green" and latest_custody:
+        fb_health = _clamp(max(fb_health, 0.78))
+    upload_anomaly = bool(fb_flow.get("failed_recent")) or fb_integrity > 0 or upload_severity in (
+        "amber",
+        "red",
+    ) or (upload_act < 0.08 and proj_count > 0)
     subsystems["upload_pipeline"] = _merge_state(
         {
             "health": _clamp((upload_health + fb_health) / 2),
@@ -620,6 +631,9 @@ def build_cognitive_topology() -> Dict[str, Any]:
             "integrity_mismatch_count": fb_integrity,
             "uploads_per_hour": float(fb_flow.get("uploads_per_hour", 0)),
             "backlog_pressure": fb_backlog,
+            "upload_node_severity": upload_severity,
+            "latest_custody_status": latest_custody,
+            "latest_intake_id": fb_flow.get("latest_intake_id"),
         }
     )
 

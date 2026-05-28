@@ -202,6 +202,30 @@ def _qr_png(link: str) -> bytes:
     return generate_qr_png(link)
 
 
+def _apply_custody_status(record: Dict[str, Any], integrity: Dict[str, Any], *, durability_ok: bool) -> None:
+    from .integrity import derive_intake_status, review_status_from_custody
+
+    integrity = dict(integrity)
+    integrity["custody_status"] = derive_intake_status(
+        integrity,
+        durability_ok=durability_ok,
+        operator_acknowledged_partial=bool(record.get("operator_acknowledged_partial")),
+    )
+    custody_status = integrity["custody_status"]
+    record["custody_status"] = custody_status
+    record["upload_integrity"] = integrity
+    record["review_status"] = review_status_from_custody(
+        custody_status,
+        operator_acknowledged_partial=bool(record.get("operator_acknowledged_partial")),
+    )
+    record["status"] = record["review_status"]
+    record["urgent"] = bool(record.get("urgent")) or custody_status in (
+        "partial_upload",
+        "integrity_failure",
+        "rejected_files",
+    )
+
+
 async def process_upload(
     files: List[UploadFile],
     *,
@@ -214,6 +238,8 @@ async def process_upload(
     deadline: str = "",
     expected_file_count: int = 0,
     expected_file_names: Optional[List[str]] = None,
+    upload_manifest: Optional[Dict[str, Any]] = None,
+    request_metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     require_founding_beta_upload_allowed()
     if not files:
@@ -262,10 +288,19 @@ async def process_upload(
         new_lifecycle_entry,
     )
 
+    manifest = dict(upload_manifest or {})
+    meta = dict(request_metadata or {})
+    session_id = str(manifest.get("upload_session_id") or meta.get("upload_session_id") or "")
+    if manifest.get("client_selected_count") and not expected_file_count:
+        expected_file_count = int(manifest.get("client_selected_count") or 0)
+    if manifest.get("filenames") and not expected_file_names:
+        expected_file_names = [str(x) for x in manifest.get("filenames") or [] if str(x).strip()]
+
     received_count = len(files)
     expected_count = int(expected_file_count or 0) or received_count
     expected_names = list(expected_file_names or [])
     lifecycle: List[Dict[str, Any]] = []
+    upload_started_at = _utc_now()
 
     emit_beta_event(
         "beta_upload_started",
@@ -279,7 +314,12 @@ async def process_upload(
 
     for uf in files[:MAX_FILES_PER_REQUEST]:
         original_name = uf.filename or "upload.bin"
-        entry = new_lifecycle_entry(original_name, state=STATE_RECEIVED)
+        entry = new_lifecycle_entry(
+            original_name,
+            state=STATE_RECEIVED,
+            source_session_id=session_id or None,
+            media_type=uf.content_type,
+        )
         lifecycle.append(entry)
         try:
             safe_name = safe_upload_filename(original_name)
@@ -307,11 +347,15 @@ async def process_upload(
                 continue
             dest = uploads_dir / safe_name
             was_duplicate = False
+            duplicate_of_name: Optional[str] = None
             if dest.exists():
                 was_duplicate = True
+                duplicate_of_name = safe_name
                 entry["state"] = STATE_DUPLICATE
+                entry["lifecycle_state"] = STATE_DUPLICATE
                 entry["reason_code"] = REASON_DUPLICATE_RENAMED
                 entry["reason_detail"] = "Duplicate filename — stored under renamed path"
+                entry["duplicate_of"] = duplicate_of_name
                 stem = Path(safe_name).stem
                 ext = Path(safe_name).suffix
                 safe_name = f"{stem}_{uuid.uuid4().hex[:6]}{ext}"
@@ -328,8 +372,18 @@ async def process_upload(
             record.setdefault("files", []).append(file_entry)
             saved.append(file_entry)
             entry["stored_name"] = safe_name
+            entry["sanitized_filename"] = safe_name
             entry["size"] = size
-            entry["state"] = STATE_DUPLICATE if was_duplicate else STATE_PERSISTED
+            entry["size_bytes"] = size
+            entry["extension"] = Path(safe_name).suffix.lower()
+            if was_duplicate:
+                entry["state"] = STATE_DUPLICATE
+                entry["lifecycle_state"] = STATE_DUPLICATE
+                entry["persisted_at"] = _utc_now()
+            else:
+                entry["state"] = STATE_PERSISTED
+                entry["lifecycle_state"] = STATE_PERSISTED
+                entry["persisted_at"] = _utc_now()
         except HTTPException as he:
             entry["state"] = STATE_REJECTED
             entry["reason_code"] = REASON_UNSUPPORTED_EXTENSION
@@ -354,11 +408,40 @@ async def process_upload(
 
     record["file_count"] = len(record.get("files") or [])
     record["total_bytes"] = total_before
-    record["upload_integrity"] = integrity
+
+    from .integrity import (
+        client_ip_from_headers,
+        detect_submission_method,
+        summarize_user_agent,
+    )
+
+    custody = dict(record.get("upload_custody") or {})
+    custody.update(
+        {
+            "source_ip": meta.get("source_ip")
+            or client_ip_from_headers(
+                x_forwarded_for=str(meta.get("x_forwarded_for") or ""),
+                client_host=str(meta.get("client_host") or ""),
+            ),
+            "user_agent_summary": summarize_user_agent(
+                str(meta.get("user_agent") or manifest.get("client_user_agent") or "")
+            ),
+            "upload_session_id": session_id,
+            "submission_method": detect_submission_method(
+                manifest,
+                user_agent=str(meta.get("user_agent") or ""),
+                has_resume_token=bool(manifest.get("resume_token_used")),
+                has_magic_token=bool(token),
+            ),
+            "originating_route": str(manifest.get("route") or meta.get("route") or "/ui/founding-beta"),
+            "newest_upload_at_utc": upload_started_at,
+            "client_manifest": manifest,
+        }
+    )
+    record["upload_custody"] = custody
+    _apply_custody_status(record, integrity, durability_ok=True)
+    integrity = record["upload_integrity"]
     if integrity.get("integrity_mismatch"):
-        record["status"] = "partial_upload"
-        record["review_status"] = "partial_upload"
-        record["urgent"] = True
         emit_beta_event(
             "upload_integrity_mismatch",
             message=f"{intake_id} expected={integrity.get('expected_file_count')} verified={integrity.get('verified_file_count')}",
@@ -381,9 +464,6 @@ async def process_upload(
             integrity.get("received_file_count"),
             integrity.get("persisted_file_count"),
         )
-    else:
-        record["status"] = "pending_review"
-        record["review_status"] = "pending_review"
     _save_intake(intake_id, record)
     _append_index(
         {
@@ -480,11 +560,14 @@ async def process_upload(
         )
         if durability.get("integrity"):
             integrity = durability["integrity"]
-        record["upload_integrity"] = integrity
-        if integrity.get("integrity_mismatch"):
-            record["status"] = "partial_upload"
-            record["review_status"] = "partial_upload"
-            record["urgent"] = True
+        custody["newest_upload_at_utc"] = _utc_now()
+        record["upload_custody"] = custody
+        _apply_custody_status(
+            record,
+            integrity,
+            durability_ok=bool(durability.get("durability_verified", not saved)),
+        )
+        integrity = record["upload_integrity"]
         _save_intake(intake_id, record)
 
     link = _magic_link(intake_id, token)
@@ -502,9 +585,12 @@ async def process_upload(
 
     integrity = record.get("upload_integrity") or {}
     upload_integrity_ok = bool(integrity.get("integrity_ok"))
+    failed_n = int(integrity.get("failed_file_count") or 0)
     customer_may_show_success = (
         upload_integrity_ok
-        and int(integrity.get("verified_file_count") or 0) == int(integrity.get("expected_file_count") or 0)
+        and int(integrity.get("verified_file_count") or 0)
+        == int(integrity.get("expected_file_count") or 0)
+        and failed_n == 0
         and bool(durability.get("durability_verified", not saved))
     )
 
@@ -526,16 +612,22 @@ async def process_upload(
             or integrity.get("verified_file_count")
             or len(saved)
         ),
+        "rejected_file_count": int(integrity.get("rejected_file_count") or 0),
+        "duplicate_file_count": int(integrity.get("duplicate_file_count") or 0),
+        "failed_file_count": failed_n,
         "upload_integrity_ok": upload_integrity_ok,
         "integrity_mismatch": bool(integrity.get("integrity_mismatch")),
+        "custody_status": record.get("custody_status") or integrity.get("custody_status"),
         "customer_may_show_success": customer_may_show_success,
         "missing_files": list(integrity.get("missing_files") or []),
         "rejected_files": list(integrity.get("rejected_files") or []),
+        "file_lifecycle_table": list(integrity.get("file_lifecycle_table") or []),
         "retry_recommendation": integrity.get("retry_recommendation"),
         "durable_receipt_created": bool(durability.get("durable_receipt_created")),
         "durability_verified": bool(durability.get("durability_verified", not saved)),
         "status": record["status"],
         "review_status": record.get("review_status"),
+        "upload_custody": record.get("upload_custody"),
     }
 
 
@@ -612,8 +704,50 @@ def qr_png_for_intake(intake_id: str, token: str) -> Tuple[bytes, str]:
     return _qr_png(link), link
 
 
+def _latest_intake_custody_signal() -> Dict[str, Any]:
+    """Most recent intake custody — drives COTE upload node severity."""
+    from .integrity import STATUS_INTEGRITY_FAILURE, STATUS_PARTIAL_UPLOAD, STATUS_REJECTED_FILES
+    from .integrity import STATUS_VERIFIED_COMPLETE
+    from .storage import all_intake_ids, list_intake_ids, load_intake_record
+
+    ids = list_intake_ids(limit=5) or all_intake_ids(limit=5)
+    for iid in ids:
+        try:
+            rec = load_intake_record(iid, persist_recovery=False)
+        except (FileNotFoundError, ValueError, OSError):
+            continue
+        if not (rec.get("files") or rec.get("file_count")):
+            continue
+        ui = rec.get("upload_integrity") or {}
+        status = str(rec.get("custody_status") or ui.get("custody_status") or "").lower()
+        return {
+            "latest_intake_id": iid,
+            "latest_custody_status": status,
+            "latest_integrity_mismatch": bool(ui.get("integrity_mismatch")),
+        }
+    return {
+        "latest_intake_id": None,
+        "latest_custody_status": "",
+        "latest_integrity_mismatch": False,
+    }
+
+
+def _upload_node_severity(custody_status: str) -> str:
+    """green | amber | red — no fake healthy on mismatch."""
+    s = (custody_status or "").lower()
+    if s == STATUS_INTEGRITY_FAILURE:
+        return "red"
+    if s in (STATUS_PARTIAL_UPLOAD, STATUS_REJECTED_FILES):
+        return "amber"
+    if s == STATUS_VERIFIED_COMPLETE:
+        return "green"
+    return "amber"
+
+
 def intake_flow_metrics() -> Dict[str, Any]:
     """Signals for COTE upload_pipeline node."""
+    from .integrity import STATUS_INTEGRITY_FAILURE, STATUS_PARTIAL_UPLOAD, STATUS_REJECTED_FILES
+
     dash = get_operator_intake_dashboard(limit=30)
     pending = dash.get("pending_review_count", 0)
     uploads = dash.get("uploads_received", 0)
@@ -629,14 +763,25 @@ def intake_flow_metrics() -> Dict[str, Any]:
     pending = max(pending, int(qm.get("queue_depth") or 0))
     urgent = max(urgent, int(qm.get("urgent_count") or 0))
     integrity_mismatch_count = int(qm.get("integrity_mismatch_count") or 0)
+    latest = _latest_intake_custody_signal()
+    custody_status = str(latest.get("latest_custody_status") or "")
+    upload_severity = _upload_node_severity(custody_status)
     activity = _clamp(
         max(uploads / 10.0 + (1.0 if pending else 0.0) * 0.2, float(qm.get("activity") or 0))
     )
     pressure = _clamp(max(pending / 5.0 + urgent / 3.0, float(qm.get("pressure") or 0)))
-    if integrity_mismatch_count:
+    if integrity_mismatch_count or upload_severity in ("amber", "red"):
         pressure = _clamp(max(pressure, 0.58 + integrity_mismatch_count * 0.08))
         urgent = max(urgent, integrity_mismatch_count)
+    if upload_severity == "red":
+        pressure = _clamp(max(pressure, 0.72))
     health = _clamp(0.65 + activity * 0.25 - pressure * 0.2)
+    if upload_severity == "green" and custody_status:
+        health = _clamp(max(health, 0.78))
+    elif upload_severity == "red":
+        health = _clamp(min(health, 0.38))
+    elif upload_severity == "amber":
+        health = _clamp(min(health, 0.58))
     return {
         "uploads_active": uploads > 0,
         "pending_review": pending,
@@ -645,11 +790,16 @@ def intake_flow_metrics() -> Dict[str, Any]:
         "activity": activity,
         "pressure": pressure,
         "health": health,
-        "failed_recent": integrity_mismatch_count > 0,
+        "failed_recent": integrity_mismatch_count > 0
+        or upload_severity == "red"
+        or custody_status in (STATUS_PARTIAL_UPLOAD, STATUS_INTEGRITY_FAILURE, STATUS_REJECTED_FILES),
         "queue_depth": int(qm.get("queue_depth") or pending),
         "uploads_per_hour": float(qm.get("uploads_per_hour") or 0),
         "glow_intensity": float(qm.get("glow_intensity") or activity),
         "backlog_pressure": bool(qm.get("backlog_pressure")),
+        "latest_intake_id": latest.get("latest_intake_id"),
+        "latest_custody_status": custody_status,
+        "upload_node_severity": upload_severity,
     }
 
 

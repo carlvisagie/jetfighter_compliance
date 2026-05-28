@@ -67,9 +67,11 @@ def _queue_row(intake_id: str) -> Optional[Dict[str, Any]]:
     integrity = integrity_summary_for_operator(rec)
     mismatch = bool(integrity.get("integrity_mismatch"))
 
+    custody = rec.get("upload_custody") or {}
     return {
         "intake_id": intake_id,
         "created_utc": rec.get("created_at_utc") or rec.get("created_utc"),
+        "custody_status": rec.get("custody_status") or integrity.get("custody_status"),
         "company": rec.get("company") or "",
         "contact": rec.get("email") or rec.get("phone") or "",
         "file_count": file_count,
@@ -182,6 +184,8 @@ def get_operator_review_queue(*, limit: int = 40, include_archived: bool = False
         r
         for r in pending
         if bool((r.get("upload_integrity") or {}).get("integrity_mismatch"))
+        or str(r.get("custody_status") or "").lower()
+        in ("partial_upload", "integrity_failure", "rejected_files")
     ]
     warning = _visibility_warning(diag, rows, pending)
     block = diag.get("upload_block_reason")

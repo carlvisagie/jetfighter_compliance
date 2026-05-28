@@ -694,6 +694,7 @@ async def customer_session_complete(
 
 @app.post("/api/founding-beta/upload")
 async def founding_beta_upload(
+    request: Request,
     files: List[UploadFile] = File(...),
     intake_id: str = Form(""),
     token: str = Form(""),
@@ -704,10 +705,13 @@ async def founding_beta_upload(
     deadline: str = Form(""),
     expected_file_count: int = Form(0),
     expected_file_names: str = Form(""),
+    upload_manifest: str = Form(""),
 ):
     from services.founding_beta.intake import process_upload
-    from services.founding_beta.integrity import parse_expected_file_names
+    from services.founding_beta.integrity import parse_expected_file_names, parse_upload_manifest
 
+    xf = request.headers.get("x-forwarded-for") or ""
+    client_host = request.client.host if request.client else ""
     return await process_upload(
         files,
         intake_id=intake_id.strip(),
@@ -719,6 +723,14 @@ async def founding_beta_upload(
         deadline=deadline,
         expected_file_count=expected_file_count,
         expected_file_names=parse_expected_file_names(expected_file_names),
+        upload_manifest=parse_upload_manifest(upload_manifest),
+        request_metadata={
+            "source_ip": xf.split(",")[0].strip() if xf else client_host,
+            "x_forwarded_for": xf,
+            "client_host": client_host,
+            "user_agent": request.headers.get("user-agent") or "",
+            "route": str(request.url.path),
+        },
     )
 
 

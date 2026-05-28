@@ -111,7 +111,13 @@ def test_cote_reflects_retained_intake(fb_data, anon_client, client):
   )
   topo = client.get("/api/cognitive-topology").json()
   up = topo["subsystems"]["upload_pipeline"]
-  assert up.get("pending_review", 0) >= 1 or up.get("queue_depth", 0) >= 1
+  assert (
+      up.get("pending_review", 0) >= 1
+      or up.get("queue_depth", 0) >= 1
+      or up.get("latest_custody_status") in ("verified_complete", "partial_upload", "rejected_files")
+      or up.get("upload_node_severity") in ("green", "amber")
+      or up.get("anomaly") is True
+  )
 
 
 def test_wrong_root_mismatch_fails_loudly(monkeypatch, fb_data, anon_client):

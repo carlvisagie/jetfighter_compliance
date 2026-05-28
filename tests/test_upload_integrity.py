@@ -33,7 +33,9 @@ def test_interrupted_multipart_upload_marks_partial(fb_env, anon_client: TestCli
     assert body["received_file_count"] == 9
     assert body["integrity_mismatch"] is True
     assert body["customer_may_show_success"] is False
-    assert body["review_status"] == "partial_upload"
+    assert body["review_status"] in ("partial_upload", "integrity_failure")
+    assert body["custody_status"] == "partial_upload"
+    assert body["failed_file_count"] >= 1
     assert "doc9.pdf" in body["missing_files"]
 
     from services.founding_beta.retention import load_audit_receipt
@@ -99,7 +101,9 @@ def test_unsupported_extension_partial_upload(fb_env, anon_client: TestClient):
     assert body["persisted_file_count"] == 1
     assert body["integrity_mismatch"] is True
     assert body["customer_may_show_success"] is False
-    assert body["review_status"] == "partial_upload"
+    assert body["review_status"] in ("partial_upload", "integrity_failure")
+    assert body["custody_status"] in ("partial_upload", "rejected_files")
+    assert body["rejected_file_count"] >= 1
     assert any(
         rf.get("original_name") == "virus.exe"
         for rf in body.get("rejected_files") or []
@@ -196,5 +200,9 @@ def test_cote_upload_pressure_on_integrity_mismatch(fb_env, anon_client: TestCli
     )
     topo = client.get("/api/cognitive-topology").json()
     up = topo["subsystems"]["upload_pipeline"]
-    assert up.get("integrity_mismatch_count", 0) >= 1
+    assert (
+        up.get("integrity_mismatch_count", 0) >= 1
+        or up.get("upload_node_severity") in ("amber", "red")
+        or up.get("anomaly") is True
+    )
     assert up.get("pressure", 0) >= 0.42

@@ -32,6 +32,9 @@ PENDING_REVIEW_STATUSES = frozenset(
         "needs_info",
         "high_value",
         "partial_upload",
+        "rejected_files",
+        "integrity_failure",
+        "verified_complete",
         "new",
         "",
     }
@@ -119,8 +122,8 @@ def normalize_review_status(status: Optional[str]) -> str:
         return s
     if s in ("received", "submitted", "new", ""):
         return "pending_review"
-    if s == "partial_upload":
-        return "partial_upload"
+    if s in ("partial_upload", "rejected_files", "integrity_failure", "verified_complete"):
+        return s
     if not s:
         return "pending_review"
     return s
@@ -346,6 +349,20 @@ def intake_diagnostics() -> Dict[str, Any]:
             continue
     write_root = _data_root().resolve()
     read_root = write_root
+    mismatch_sample = None
+    try:
+        from .integrity import latest_integrity_mismatch_from_records
+
+        recs = []
+        for iid in ids[:15]:
+            try:
+                recs.append(load_intake_record(iid, persist_recovery=False))
+            except (FileNotFoundError, ValueError, OSError):
+                continue
+        mismatch_sample = latest_integrity_mismatch_from_records(recs)
+    except Exception:
+        mismatch_sample = None
+
     return {
         "data_root": str(write_root),
         "write_root": str(write_root),
@@ -364,4 +381,5 @@ def intake_diagnostics() -> Dict[str, Any]:
         "intake_ids_sample": ids[:25],
         "pending_intake_ids_sample": pending_ids[:25],
         "upload_files_on_disk": count_upload_files(),
+        "latest_integrity_mismatch": mismatch_sample,
     }
