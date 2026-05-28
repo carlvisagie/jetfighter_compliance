@@ -223,6 +223,13 @@ def build_cognitive_topology() -> Dict[str, Any]:
     telem_rows = _tail_telemetry(120)
     telem_stats = _telemetry_stats(telem_rows)
     upload_act, upload_health, upload_conf = _project_upload_signal()
+    fb_flow: Dict[str, Any] = {}
+    try:
+        from .founding_beta.intake import intake_flow_metrics
+
+        fb_flow = intake_flow_metrics()
+    except Exception:
+        fb_flow = {}
     proj_count = (
         sum(1 for p in PROJECTS.iterdir() if p.is_dir()) if PROJECTS.is_dir() else 0
     )
@@ -264,15 +271,25 @@ def build_cognitive_topology() -> Dict[str, Any]:
     else:
         subsystems["observability"] = _merge_state(from_telem("observability", 0.7))
 
+    fb_activity = float(fb_flow.get("activity", 0))
+    fb_pressure = float(fb_flow.get("pressure", 0))
+    fb_health = float(fb_flow.get("health", upload_health))
+    upload_activity = _clamp(max(upload_act, fb_activity))
+    upload_pressure = _clamp(max((1.0 - upload_act) * 0.35, fb_pressure))
+    upload_anomaly = bool(fb_flow.get("failed_recent")) or (
+        upload_act < 0.08 and proj_count > 0
+    )
     subsystems["upload_pipeline"] = _merge_state(
         {
-            "health": upload_health,
-            "pressure": _clamp(1.0 - upload_act) * 0.35,
-            "activity": upload_act,
+            "health": _clamp((upload_health + fb_health) / 2),
+            "pressure": upload_pressure,
+            "activity": upload_activity,
             "confidence": upload_conf,
             "latency": 0.08,
-            "alerts": 0,
-            "anomaly": upload_act < 0.08 and proj_count > 0,
+            "alerts": int(fb_flow.get("pending_review", 0)),
+            "anomaly": upload_anomaly,
+            "flow_active": bool(fb_flow.get("uploads_active")),
+            "pending_review": int(fb_flow.get("pending_review", 0)),
         }
     )
 

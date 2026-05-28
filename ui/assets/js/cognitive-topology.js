@@ -30,8 +30,13 @@
     return { x: CX + radius * Math.cos(a), y: CY + radius * Math.sin(a) };
   }
 
-  function nodeVisualClass(m) {
+  function nodeVisualClass(m, nodeId) {
     if (!m) return 'cote-node--paused';
+    if (nodeId === 'upload_pipeline') {
+      if (m.anomaly && m.health < 0.45) return 'cote-node--failed cote-node--upload-fail';
+      if (m.pending_review > 0) return 'cote-node--pressure cote-node--upload-pending';
+      if (m.flow_active || m.activity > 0.45) return 'cote-node--opportunity cote-node--upload-flow';
+    }
     if (m.paused) return 'cote-node--paused';
     if (m.health < 0.35) return 'cote-node--failed';
     if (m.anomaly || m.health < 0.52) return 'cote-node--unstable';
@@ -177,7 +182,7 @@
       var pos = polar(cfg.angle, RING);
       var m = subs[cfg.id] || { paused: true };
       var g = ns('g');
-      g.setAttribute('class', 'cote-node ' + nodeVisualClass(m));
+      g.setAttribute('class', 'cote-node ' + nodeVisualClass(m, cfg.id));
       g.setAttribute('data-node', cfg.id);
       var pulse = ns('circle');
       pulse.setAttribute('class', 'cote-node-pulse');

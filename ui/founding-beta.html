@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Founding Beta | Free Compliance Paperwork Review</title>
+  <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
+  <link rel="stylesheet" href="/ui/assets/styles/layout.css">
+  <link rel="stylesheet" href="/ui/assets/styles/components.css">
+  <link rel="stylesheet" href="/ui/assets/styles/customer-upload-first.css">
+  <link rel="stylesheet" href="/ui/assets/styles/founding-beta-intake.css">
+</head>
+<body class="kyc-page kyc-friction kyc-upload-first kyc-fb-intake">
+  <header class="kyc-topbar">
+    <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
+    <nav class="kyc-nav" aria-label="Primary">
+      <a href="/ui/shop.html">Home</a>
+    </nav>
+  </header>
+
+  <main class="kyc-main kyc-main--narrow">
+    <section class="kyc-hero kyc-fb-hero" id="fbHero">
+      <span class="kyc-badge">Founding Beta</span>
+      <h1>Free Founding Beta Compliance Paperwork Review</h1>
+      <p>Upload what you have — policies, spreadsheets, screenshots, questionnaires. No perfect paperwork required.</p>
+    </section>
+
+    <article class="kyc-card kyc-card--flat" id="fbUploadCard">
+      <form id="fbForm" class="kyc-form">
+        <input type="hidden" id="fbIntakeId" name="intake_id">
+        <input type="hidden" id="fbToken" name="token">
+
+        <div class="kyc-fb-drop" id="fbDrop">
+          <p><strong>Drag files here</strong> or tap to browse</p>
+          <p class="org-metric-foot">PDF, DOCX, XLSX, ZIP, PNG, JPG, CSV, TXT · up to 50MB each</p>
+          <label class="kyc-btn kyc-btn--primary kyc-upload-cta-primary" style="margin-top:1rem;display:inline-block;">
+            Choose files
+            <input type="file" id="fbFiles" name="files" multiple accept=".pdf,.docx,.xlsx,.zip,.png,.jpg,.jpeg,.csv,.txt" hidden>
+          </label>
+        </div>
+
+        <ul id="fbFileList" class="kyc-progress-list" aria-live="polite"></ul>
+        <div id="fbProgress" class="kyc-fb-progress" hidden></div>
+
+        <div class="kyc-fb-meta">
+          <div class="kyc-field">
+            <label for="fbEmail">Email</label>
+            <input type="email" id="fbEmail" name="email" placeholder="you@company.com" autocomplete="email">
+          </div>
+          <div class="kyc-field">
+            <label for="fbPhone">Phone</label>
+            <input type="tel" id="fbPhone" name="phone" placeholder="+1 …" autocomplete="tel">
+          </div>
+          <p class="org-metric-foot" style="grid-column:1/-1;margin:0;">Provide <strong>email or phone</strong> so we can reach you.</p>
+          <div class="kyc-field">
+            <label for="fbCompany">Company <span class="org-metric-foot">(optional)</span></label>
+            <input type="text" id="fbCompany" name="company" maxlength="200">
+          </div>
+          <div class="kyc-field">
+            <label for="fbDeadline">Deadline <span class="org-metric-foot">(optional)</span></label>
+            <input type="text" id="fbDeadline" name="deadline" placeholder="e.g. RFP due Friday">
+          </div>
+          <div class="kyc-field kyc-field--wide">
+            <label for="fbContext">Context <span class="org-metric-foot">(optional)</span></label>
+            <textarea id="fbContext" name="context" rows="3" maxlength="2000" placeholder="CMMC questionnaire, vendor security form, audit prep…"></textarea>
+          </div>
+        </div>
+
+        <button type="submit" class="kyc-btn kyc-btn--primary kyc-btn--block" id="fbSubmit" style="margin-top:1.25rem;">
+          Submit paperwork for review
+        </button>
+        <p id="fbStatus" class="kyc-status" role="status" aria-live="polite"></p>
+      </form>
+    </article>
+
+    <article class="kyc-card kyc-card--flat kyc-fb-hidden" id="fbConfirmCard">
+      <div class="kyc-fb-confirm">
+        <h2>Received — thank you</h2>
+        <p>Your founding beta intake is in the queue for review.</p>
+        <p class="kyc-intake-id" id="fbConfirmId"></p>
+        <p class="org-metric-foot">Save this ID. Add more files anytime with your magic link.</p>
+        <img id="fbConfirmQr" class="kyc-fb-qr" alt="QR code for upload link" width="220" height="220">
+        <div class="kyc-copy-link-row">
+          <button type="button" class="kyc-btn kyc-btn--secondary" id="fbCopyLink">Copy magic upload link</button>
+        </div>
+        <p class="org-metric-foot" id="fbLinkHint"></p>
+      </div>
+    </article>
+  </main>
+
+  <footer class="kyc-footer">KeepYourContracts.com · Founding beta · Files stay private</footer>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const intakeInput = document.getElementById('fbIntakeId');
+    const tokenInput = document.getElementById('fbToken');
+    if (params.get('intake_id')) intakeInput.value = params.get('intake_id');
+    if (params.get('token')) tokenInput.value = params.get('token');
+
+    const drop = document.getElementById('fbDrop');
+    const fileInput = document.getElementById('fbFiles');
+    const fileList = document.getElementById('fbFileList');
+    const progressBox = document.getElementById('fbProgress');
+    const statusEl = document.getElementById('fbStatus');
+    const form = document.getElementById('fbForm');
+    const uploadCard = document.getElementById('fbUploadCard');
+    const confirmCard = document.getElementById('fbConfirmCard');
+    let selectedFiles = [];
+
+    function renderFileList() {
+      fileList.innerHTML = selectedFiles.map(function (f) {
+        return '<li>' + escapeHtml(f.name) + ' (' + formatSize(f.size) + ')</li>';
+      }).join('');
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function formatSize(n) {
+      if (n < 1024) return n + ' B';
+      if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+      return (n / 1048576).toFixed(1) + ' MB';
+    }
+
+    function addFiles(fileListObj) {
+      Array.from(fileListObj || []).forEach(function (f) {
+        selectedFiles.push(f);
+      });
+      renderFileList();
+    }
+
+    fileInput.addEventListener('change', function () {
+      addFiles(fileInput.files);
+      fileInput.value = '';
+    });
+
+    ['dragenter', 'dragover'].forEach(function (ev) {
+      drop.addEventListener(ev, function (e) {
+        e.preventDefault();
+        drop.classList.add('is-dragover');
+      });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+      drop.addEventListener(ev, function (e) {
+        e.preventDefault();
+        drop.classList.remove('is-dragover');
+        if (ev === 'drop' && e.dataTransfer && e.dataTransfer.files) {
+          addFiles(e.dataTransfer.files);
+        }
+      });
+    });
+
+    function contactOk() {
+      const email = document.getElementById('fbEmail').value.trim();
+      const phone = document.getElementById('fbPhone').value.trim();
+      if (email && email.indexOf('@') > 0) return true;
+      if (phone.replace(/\D/g, '').length >= 7) return true;
+      return false;
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!selectedFiles.length) {
+        statusEl.textContent = 'Add at least one file.';
+        return;
+      }
+      if (!contactOk() && !intakeInput.value) {
+        statusEl.textContent = 'Enter your email or phone so we can follow up.';
+        return;
+      }
+      const fd = new FormData();
+      selectedFiles.forEach(function (f) { fd.append('files', f); });
+      if (intakeInput.value) fd.append('intake_id', intakeInput.value);
+      if (tokenInput.value) fd.append('token', tokenInput.value);
+      fd.append('email', document.getElementById('fbEmail').value);
+      fd.append('phone', document.getElementById('fbPhone').value);
+      fd.append('company', document.getElementById('fbCompany').value);
+      fd.append('context', document.getElementById('fbContext').value);
+      fd.append('deadline', document.getElementById('fbDeadline').value);
+
+      const xhr = new XMLHttpRequest();
+      progressBox.hidden = false;
+      progressBox.innerHTML = '<div class="kyc-fb-progress-item"><span>Uploading…</span><div class="kyc-fb-progress-bar"><div class="kyc-fb-progress-fill" id="fbProgFill"></div></div></div>';
+      const fill = document.getElementById('fbProgFill');
+      statusEl.textContent = 'Uploading securely…';
+      document.getElementById('fbSubmit').disabled = true;
+
+      xhr.upload.addEventListener('progress', function (ev) {
+        if (ev.lengthComputable && fill) {
+          fill.style.width = Math.round((ev.loaded / ev.total) * 100) + '%';
+        }
+      });
+      xhr.addEventListener('load', function () {
+        document.getElementById('fbSubmit').disabled = false;
+        let j = {};
+        try { j = JSON.parse(xhr.responseText); } catch (err) {}
+        if (xhr.status >= 200 && xhr.status < 300 && j.ok) {
+          showConfirm(j);
+          return;
+        }
+        statusEl.textContent = j.detail || j.message || ('Upload failed (' + xhr.status + ')');
+        progressBox.hidden = true;
+      });
+      xhr.addEventListener('error', function () {
+        document.getElementById('fbSubmit').disabled = false;
+        statusEl.textContent = 'Network error — try again.';
+        progressBox.hidden = true;
+      });
+      xhr.open('POST', '/api/founding-beta/upload');
+      xhr.send(fd);
+    });
+
+    function showConfirm(j) {
+      uploadCard.classList.add('kyc-fb-hidden');
+      confirmCard.classList.remove('kyc-fb-hidden');
+      document.getElementById('fbConfirmId').textContent = j.intake_id || '—';
+      intakeInput.value = j.intake_id || '';
+      tokenInput.value = j.token || '';
+      const link = j.magic_link || j.upload_url || '';
+      document.getElementById('fbLinkHint').textContent = link ? 'Magic link ready — bookmark or copy for more uploads.' : '';
+      if (j.qr_png_base64) {
+        document.getElementById('fbConfirmQr').src = 'data:image/png;base64,' + j.qr_png_base64;
+      } else if (j.intake_id && j.token) {
+        document.getElementById('fbConfirmQr').src =
+          '/api/founding-beta/qr.png?intake_id=' + encodeURIComponent(j.intake_id) +
+          '&token=' + encodeURIComponent(j.token);
+      }
+      document.getElementById('fbCopyLink').onclick = function () {
+        if (!link) return;
+        navigator.clipboard.writeText(link).then(function () {
+          document.getElementById('fbLinkHint').textContent = 'Link copied.';
+        });
+      };
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  })();
+  </script>
+</body>
+</html>

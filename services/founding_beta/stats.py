@@ -43,6 +43,17 @@ def get_founding_beta_status(base: Optional[Path] = None) -> Dict[str, Any]:
     mapping_events = [r for r in beta_events if r.get("event_type") == "evidence_mapping_confidence"]
     confusion_events = [r for r in beta_events if r.get("event_type") == "onboarding_confusion"]
 
+    intake_uploads = 0
+    pending_intakes = 0
+    try:
+        from .intake import get_operator_intake_dashboard
+
+        dash = get_operator_intake_dashboard(limit=50)
+        intake_uploads = int(dash.get("uploads_received") or 0)
+        pending_intakes = int(dash.get("pending_review_count") or 0)
+    except Exception:
+        pass
+
     sessions_dir = root / "customer_sessions"
     session_uploads = 0
     if sessions_dir.is_dir():
@@ -89,7 +100,8 @@ def get_founding_beta_status(base: Optional[Path] = None) -> Dict[str, Any]:
         "label": "Founding Beta Mode Active" if active else "Founding Beta Mode Off",
         "messaging": blocks,
         "metrics": {
-            "uploads_received": max(uploads_completed, session_uploads),
+            "uploads_received": max(uploads_completed, session_uploads, intake_uploads),
+            "pending_review": pending_intakes,
             "beta_uploads_started": uploads_started,
             "beta_uploads_completed": uploads_completed,
             "onboarding_completion_rate": completion_rate,

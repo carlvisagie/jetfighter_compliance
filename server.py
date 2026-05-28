@@ -2,7 +2,8 @@
 import logging, json
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Optional
+from typing import List, Optional
+
 try:
     from fastapi import FastAPI
 except Exception as e:
@@ -38,6 +39,13 @@ from drafts.telemetry_fastapi_endpoint import router as telemetry_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 app = FastAPI(title="KeepYourContracts.com  Compliance Control Panel", version="1.0.0")
+
+
+@app.get("/ui/founding-beta")
+@app.get("/ui/founding-beta.html")
+def founding_beta_page():
+    return FileResponse(ROOT / "ui" / "founding-beta.html")
+
 
 app.include_router(telemetry_router)
 
@@ -667,6 +675,43 @@ async def customer_session_complete(
     return complete_session(session_id, session_token, name, email, note)
 
 
+@app.post("/api/founding-beta/upload")
+async def founding_beta_upload(
+    files: List[UploadFile] = File(...),
+    intake_id: str = Form(""),
+    token: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    company: str = Form(""),
+    context: str = Form(""),
+    deadline: str = Form(""),
+):
+    from services.founding_beta.intake import process_upload
+
+    return await process_upload(
+        files,
+        intake_id=intake_id.strip(),
+        token=token.strip(),
+        email=email,
+        phone=phone,
+        company=company,
+        context=context,
+        deadline=deadline,
+    )
+
+
+@app.get("/api/founding-beta/qr.png")
+def founding_beta_qr(intake_id: str = "", token: str = ""):
+    from fastapi.responses import Response
+
+    from services.founding_beta.intake import qr_png_for_intake
+
+    if not intake_id or not token:
+        raise HTTPException(status_code=400, detail="intake_id and token required")
+    png, _link = qr_png_for_intake(intake_id.strip(), token.strip())
+    return Response(content=png, media_type="image/png")
+
+
 @app.get("/api/customer/qr.svg")
 def customer_qr_svg(data: str = "", token: str = "", page: str = "continue"):
     from services.customer_friction import generate_qr_png, resolve_continuation
@@ -1135,6 +1180,15 @@ def operator_organism_state(project_id: str = "", mode: str = ""):
     from services.memory.operator_guidance import get_organism_state_view
 
     return get_organism_state_view(project_id=project_id, mode=mode)
+
+
+@app.get("/api/operator/founding-beta-intake")
+def operator_founding_beta_intake(request: Request):
+    from services.founding_beta.intake import get_operator_intake_dashboard
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return get_operator_intake_dashboard()
 
 
 @app.get("/api/cognitive-topology")

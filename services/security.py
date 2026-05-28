@@ -46,3 +46,20 @@ def parse_session_token(token: str) -> dict:
         raise ValueError("session_expired") from e
     except BadSignature as e:
         raise ValueError("session_invalid") from e
+
+
+_founding_beta_signer = URLSafeSerializer(SETTINGS.intake_token_secret, salt="kyc-founding-beta")
+FOUNDING_BETA_TOKEN_MAX_AGE_SECONDS = 90 * 24 * 3600
+
+
+def make_founding_beta_token(intake_id: str) -> str:
+    return _founding_beta_signer.dumps({"i": intake_id, "ts": int(time.time())})
+
+
+def parse_founding_beta_token(token: str) -> dict:
+    try:
+        return _founding_beta_signer.loads(token, max_age=FOUNDING_BETA_TOKEN_MAX_AGE_SECONDS)
+    except SignatureExpired as e:
+        raise ValueError("founding_beta_expired") from e
+    except BadSignature as e:
+        raise ValueError("founding_beta_invalid") from e
