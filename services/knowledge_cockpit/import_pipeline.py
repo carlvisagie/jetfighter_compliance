@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .paths import CONCEPTS_FILE, KNOWLEDGE_DIR
+from .paths import concepts_file
 from .migration_audit import run_migration_audit
 
 
@@ -49,9 +49,10 @@ def run_import(
         if len(found) >= max_entries:
             break
 
+    cf = concepts_file()
     existing: Dict[str, Any] = {}
-    if CONCEPTS_FILE.is_file():
-        existing = json.loads(CONCEPTS_FILE.read_text(encoding="utf-8"))
+    if cf.is_file():
+        existing = json.loads(cf.read_text(encoding="utf-8"))
     concepts: List[Dict[str, Any]] = list(existing.get("concepts") or [])
     ids = {c.get("id") for c in concepts}
     added = 0
@@ -81,6 +82,6 @@ def run_import(
     }
     if not dry_run and added:
         existing["concepts"] = concepts
-        CONCEPTS_FILE.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+        cf.write_text(json.dumps(existing, indent=2), encoding="utf-8")
         result["written"] = True
     return result

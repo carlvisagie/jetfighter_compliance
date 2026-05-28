@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 
 from services.acquisition.models import utc_now
 
-from .paths import OPERATOR_LEARNING_FILE, RECENT_LOOKUPS_FILE, ensure_knowledge_dir
+from .paths import ensure_knowledge_dir, operator_learning_file, recent_lookups_file
 
 _EVENT_ALIASES = {
     "concept_explained": "explanation_generated",
@@ -32,7 +32,7 @@ def emit_knowledge_event(
     meta = metadata or {}
     canonical = _EVENT_ALIASES.get(event_type, event_type)
     _append_jsonl(
-        RECENT_LOOKUPS_FILE,
+        recent_lookups_file(),
         {
             "event_id": f"KL-{uuid.uuid4().hex[:8]}",
             "event_type": canonical,
@@ -49,7 +49,7 @@ def emit_knowledge_event(
         "overlay_opened",
     ):
         _append_jsonl(
-            OPERATOR_LEARNING_FILE,
+            operator_learning_file(),
             {
                 "event_id": f"KOL-{uuid.uuid4().hex[:8]}",
                 "event_type": canonical,
@@ -86,9 +86,10 @@ def emit_knowledge_event(
 
 def get_recent_lookups(*, limit: int = 20) -> list:
     """Recent operator knowledge events from in-repo jsonl."""
-    if not RECENT_LOOKUPS_FILE.is_file():
+    path = recent_lookups_file()
+    if not path.is_file():
         return []
-    lines = RECENT_LOOKUPS_FILE.read_text(encoding="utf-8").splitlines()
+    lines = path.read_text(encoding="utf-8").splitlines()
     rows = []
     for line in reversed(lines[-500:]):
         line = line.strip()

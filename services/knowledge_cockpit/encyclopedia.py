@@ -7,14 +7,15 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .paths import CONCEPTS_FILE, SOURCES_FILE, CONTROL_MATRIX_FILE, CONTROL_XREF_FILE
+from .paths import concepts_file, control_matrix_file, control_xref_file, sources_file
 
 
 @lru_cache(maxsize=1)
 def _load_concepts_payload() -> Dict[str, Any]:
-    if not CONCEPTS_FILE.is_file():
+    path = concepts_file()
+    if not path.is_file():
         return {"concepts": []}
-    return json.loads(CONCEPTS_FILE.read_text(encoding="utf-8"))
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def list_concepts() -> List[Dict[str, Any]]:
@@ -84,17 +85,19 @@ def match_concepts_in_text(text: str, *, limit: int = 8) -> List[Dict[str, Any]]
 
 @lru_cache(maxsize=1)
 def load_authoritative_sources() -> List[Dict[str, Any]]:
-    if not SOURCES_FILE.is_file():
+    path = sources_file()
+    if not path.is_file():
         return []
-    data = json.loads(SOURCES_FILE.read_text(encoding="utf-8"))
+    data = json.loads(path.read_text(encoding="utf-8"))
     return list(data.get("sources") or [])
 
 
 @lru_cache(maxsize=1)
 def load_control_matrix() -> List[Dict[str, Any]]:
-    if not CONTROL_MATRIX_FILE.is_file():
+    path = control_matrix_file()
+    if not path.is_file():
         return []
-    data = json.loads(CONTROL_MATRIX_FILE.read_text(encoding="utf-8"))
+    data = json.loads(path.read_text(encoding="utf-8"))
     if isinstance(data, list):
         return data
     return list(data.get("rows") or [])
@@ -102,7 +105,8 @@ def load_control_matrix() -> List[Dict[str, Any]]:
 
 @lru_cache(maxsize=1)
 def load_control_xref() -> Dict[str, Any]:
-    if not CONTROL_XREF_FILE.is_file():
+    path = control_xref_file()
+    if not path.is_file():
         return {}
-    data = json.loads(CONTROL_XREF_FILE.read_text(encoding="utf-8"))
+    data = json.loads(path.read_text(encoding="utf-8"))
     return data if isinstance(data, dict) else {}

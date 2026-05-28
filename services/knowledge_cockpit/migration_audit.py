@@ -6,16 +6,21 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .paths import (
-    CONCEPTS_FILE,
-    CONTROL_MATRIX_FILE,
-    KNOWLEDGE_DIR,
-    RELATIONSHIPS_FILE,
-    SOURCES_FILE,
+    concepts_file,
+    control_matrix_file,
+    knowledge_dir,
+    relationships_file,
+    sources_file,
 )
 
 
 def run_migration_audit(base: Optional[Path] = None) -> Dict[str, Any]:
-    root = KNOWLEDGE_DIR if base is None else base / "knowledge_cockpit"
+    root = knowledge_dir() if base is None else base / "knowledge_cockpit"
+    cf = concepts_file() if base is None else root / "concepts.json"
+    rf = relationships_file() if base is None else root / "relationships.json"
+    sf = sources_file() if base is None else root / "authoritative_sources.json"
+    mf = control_matrix_file() if base is None else root / "control_matrix.json"
+
     report: Dict[str, Any] = {
         "ok": True,
         "data_path": str(root),
@@ -27,19 +32,19 @@ def run_migration_audit(base: Optional[Path] = None) -> Dict[str, Any]:
     }
 
     for name, path in (
-        ("concepts", CONCEPTS_FILE if base is None else root / "concepts.json"),
-        ("relationships", RELATIONSHIPS_FILE if base is None else root / "relationships.json"),
-        ("sources", SOURCES_FILE if base is None else root / "authoritative_sources.json"),
-        ("control_matrix", CONTROL_MATRIX_FILE if base is None else root / "control_matrix.json"),
+        ("concepts", cf),
+        ("relationships", rf),
+        ("sources", sf),
+        ("control_matrix", mf),
     ):
         report["files"][name] = {"exists": path.is_file(), "path": str(path)}
 
-    if not CONCEPTS_FILE.is_file():
+    if not cf.is_file():
         report["ok"] = False
         report["recommendations"].append("Run scripts/build_knowledge_cockpit_data.py")
         return report
 
-    data = json.loads(CONCEPTS_FILE.read_text(encoding="utf-8"))
+    data = json.loads(cf.read_text(encoding="utf-8"))
     concepts: List[Dict[str, Any]] = list(data.get("concepts") or [])
     templated = 0
     operational = 0
@@ -60,10 +65,10 @@ def run_migration_audit(base: Optional[Path] = None) -> Dict[str, Any]:
     if len(concepts) < 25:
         report["recommendations"].append("Expand concept seed list for mission coverage.")
 
-    rel = json.loads(RELATIONSHIPS_FILE.read_text(encoding="utf-8")) if RELATIONSHIPS_FILE.is_file() else {}
+    rel = json.loads(rf.read_text(encoding="utf-8")) if rf.is_file() else {}
     report["relationship_count"] = len(rel.get("edges") or [])
 
-    matrix = json.loads(CONTROL_MATRIX_FILE.read_text(encoding="utf-8")) if CONTROL_MATRIX_FILE.is_file() else []
+    matrix = json.loads(mf.read_text(encoding="utf-8")) if mf.is_file() else []
     report["control_matrix_rows"] = len(matrix) if isinstance(matrix, list) else 0
 
     report["import_policy"] = (

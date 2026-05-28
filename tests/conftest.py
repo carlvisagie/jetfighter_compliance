@@ -17,6 +17,22 @@ def ops_password_env(monkeypatch):
     monkeypatch.delenv("ENVIRONMENT", raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _clear_knowledge_cockpit_caches():
+    """Prevent lru_cache from retaining concepts loaded under a patched DATA root."""
+    yield
+    try:
+        from services.knowledge_cockpit import concept_graph, encyclopedia
+
+        encyclopedia._load_concepts_payload.cache_clear()
+        encyclopedia.load_authoritative_sources.cache_clear()
+        encyclopedia.load_control_matrix.cache_clear()
+        encyclopedia.load_control_xref.cache_clear()
+        concept_graph._edges.cache_clear()
+    except Exception:
+        pass
+
+
 @pytest.fixture
 def anon_client():
     """Unauthenticated client (public routes + 403/302 checks)."""

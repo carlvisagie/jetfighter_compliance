@@ -6,14 +6,15 @@ from functools import lru_cache
 from typing import Any, Dict, List
 
 from .encyclopedia import get_concept, list_concepts
-from .paths import RELATIONSHIPS_FILE
+from .paths import relationships_file
 
 
 @lru_cache(maxsize=1)
 def _edges() -> List[Dict[str, str]]:
-    if not RELATIONSHIPS_FILE.is_file():
+    path = relationships_file()
+    if not path.is_file():
         return []
-    data = json.loads(RELATIONSHIPS_FILE.read_text(encoding="utf-8"))
+    data = json.loads(path.read_text(encoding="utf-8"))
     return list(data.get("edges") or [])
 
 
