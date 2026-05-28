@@ -2,11 +2,15 @@
 from __future__ import annotations
 
 import importlib
+import json
 import sys
 import time
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+
+import services.cognitive_topology as ct
 
 
 @pytest.fixture
@@ -113,3 +117,145 @@ def test_control_html_stable_refresh(client):
         r = client.get("/ui/control.html")
         assert r.status_code == 200
         assert "cote-topology-mount" in r.text
+
+
+@pytest.fixture
+def cote_isolated(monkeypatch, tmp_path):
+    """Isolated DATA paths for learning health classification tests."""
+    mem = tmp_path / "memory"
+    mem.mkdir(parents=True)
+    alerts = tmp_path / "alerts"
+    alerts.mkdir(parents=True)
+    projects = tmp_path / "projects"
+    projects.mkdir(parents=True)
+    telem = mem / "telemetry.jsonl"
+    telem.write_text("", encoding="utf-8")
+    learning = mem / "learning_state.json"
+    monkeypatch.setattr(ct, "DATA", tmp_path)
+    monkeypatch.setattr(ct, "PROJECTS", projects)
+    monkeypatch.setattr(ct, "_TELEMETRY", telem)
+    monkeypatch.setattr(ct, "_ALERTS", alerts / "alerts.jsonl")
+    monkeypatch.setattr(ct, "_LEARNING", learning)
+    return {"mem": mem, "learning": learning, "telem": telem}
+
+
+def _write_learning(path: Path, payload: dict) -> None:
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def _learning_subsystem(cote_isolated, monkeypatch) -> dict:
+    monkeypatch.setenv("KYC_SAFE_MODE", "true")
+    out = ct.build_cognitive_topology()
+    return out["subsystems"]["learning"]
+
+
+def test_learning_missing_state_warming_up(cote_isolated, monkeypatch):
+    learn = _learning_subsystem(cote_isolated, monkeypatch)
+    assert learn["learning_status"] == "warming_up"
+    assert learn["health"] >= 0.55
+    assert not any("Learning health degraded" in a for a in ct.build_cognitive_topology()["operator_attention_required"])
+
+
+def test_learning_unreadable_degraded(cote_isolated, monkeypatch):
+    cote_isolated["learning"].write_bytes(b"\xff\xfe")
+    learn = _learning_subsystem(cote_isolated, monkeypatch)
+    assert learn["learning_status"] == "degraded"
+    assert learn["health"] < 0.55
+
+
+def test_learning_corrupt_json_degraded(cote_isolated, monkeypatch):
+    cote_isolated["learning"].write_text("{not-json", encoding="utf-8")
+    learn = _learning_subsystem(cote_isolated, monkeypatch)
+    assert learn["learning_status"] == "degraded"
+
+
+def test_learning_cycle_error_failed(cote_isolated, monkeypatch):
+    _write_learning(
+        cote_isolated["learning"],
+        {
+            "version": 1,
+            "status": "failed",
+            "updated_utc": "2026-05-28T12:00:00Z",
+            "last_cycle_error": "index rebuild failed",
+            "signal_effectiveness": {},
+            "conversion_counts": {},
+        },
+    )
+    learn = _learning_subsystem(cote_isolated, monkeypatch)
+    assert learn["learning_status"] == "failed"
+    assert "index rebuild" in (learn.get("learning_reason") or "")
+
+
+def test_learning_with_signals_healthy(cote_isolated, monkeypatch):
+    _write_learning(
+        cote_isolated["learning"],
+        {
+            "version": 1,
+            "updated_utc": "2026-05-28T12:00:00Z",
+            "signal_effectiveness": {
+                "inquiry_submitted": {"success": 12, "fail": 0, "outcomes": []},
+            },
+            "conversion_counts": {
+                "lead_to_inquiry": 5,
+                "inquiry_to_intake": 3,
+                "intake_to_evidence": 2,
+                "lead_failed": 0,
+            },
+        },
+    )
+    learn = _learning_subsystem(cote_isolated, monkeypatch)
+    assert learn["learning_status"] == "healthy"
+    assert learn["uploads_seen"] >= 2
+    assert learn["health"] >= 0.7
+
+
+def test_mvp_no_history_not_marked_degraded(cote_isolated, monkeypatch):
+    _write_learning(
+        cote_isolated["learning"],
+        {
+            "version": 1,
+            "status": "warming_up",
+            "cycles_completed": 0,
+            "approvals_seen": 0,
+            "uploads_seen": 0,
+            "last_learning_event": None,
+            "updated_utc": "2026-05-28T12:00:00Z",
+            "signal_effectiveness": {},
+            "conversion_counts": {
+                "lead_to_inquiry": 0,
+                "inquiry_to_intake": 0,
+                "intake_to_evidence": 0,
+                "lead_failed": 0,
+            },
+        },
+    )
+    topo = ct.build_cognitive_topology()
+    learn = topo["subsystems"]["learning"]
+    assert learn["learning_status"] == "warming_up"
+    assert learn["health"] >= 0.55
+    assert not any("Learning health degraded" in x for x in topo["operator_attention_required"])
+
+
+def test_learning_telemetry_failures_degraded(cote_isolated, monkeypatch):
+    _write_learning(
+        cote_isolated["learning"],
+        {
+            "version": 1,
+            "updated_utc": "2026-05-28T12:00:00Z",
+            "signal_effectiveness": {"x": {"success": 1, "fail": 0, "outcomes": []}},
+            "conversion_counts": {"intake_to_evidence": 1},
+        },
+    )
+    lines = [
+        json.dumps(
+            {
+                "subsystem": "learning",
+                "event_type": "cycle",
+                "success": False,
+                "observed_at_utc": "2026-05-28T12:00:00Z",
+            }
+        )
+    ]
+    cote_isolated["telem"].write_text("\n".join(lines) + "\n", encoding="utf-8")
+    learn = _learning_subsystem(cote_isolated, monkeypatch)
+    assert learn["learning_status"] in ("degraded", "failed")

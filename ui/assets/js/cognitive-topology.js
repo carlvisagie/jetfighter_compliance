@@ -32,6 +32,13 @@
 
   function nodeVisualClass(m, nodeId) {
     if (!m) return 'cote-node--paused';
+    if (nodeId === 'learning') {
+      var ls = m.learning_status;
+      if (ls === 'failed') return 'cote-node--failed';
+      if (ls === 'degraded') return 'cote-node--unstable';
+      if (ls === 'warming_up') return 'cote-node--warming-up';
+      if (ls === 'healthy') return 'cote-node--healthy';
+    }
     if (nodeId === 'upload_pipeline') {
       if (m.anomaly && m.health < 0.45) return 'cote-node--failed cote-node--upload-fail';
       if (m.pending_review > 0) return 'cote-node--pressure cote-node--upload-pending';
@@ -255,11 +262,28 @@
     var m = (state.data.subsystems && state.data.subsystems[nodeId]) || {};
     var title = nodeId.replace(/_/g, ' ');
     detail.hidden = false;
+    var learningBlock = '';
+    if (nodeId === 'learning' && m.learning_status) {
+      learningBlock =
+        '<div class="cote-detail-learning">' +
+        '<div><span>Status</span><strong>' +
+        escapeHtml(m.learning_status) +
+        '</strong></div>' +
+        '<div class="cote-detail-learning-reason">' +
+        escapeHtml(m.learning_reason || '') +
+        '</div>' +
+        metric('Last event', m.last_learning_event) +
+        metric('Cycles', m.cycles_completed) +
+        metric('Approvals', m.approvals_seen) +
+        metric('Uploads', m.uploads_seen) +
+        '</div>';
+    }
     detail.innerHTML =
       '<strong>' +
       escapeHtml(title.charAt(0).toUpperCase() + title.slice(1)) +
       '</strong>' +
       (m.paused ? ' <em>(paused)</em>' : '') +
+      learningBlock +
       '<div class="cote-detail-metrics">' +
       metric('Health', m.health) +
       metric('Pressure', m.pressure) +

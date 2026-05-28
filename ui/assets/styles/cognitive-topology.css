@@ -89,6 +89,15 @@
   animation: cote-pulse-calm 3.2s ease-in-out infinite;
 }
 
+.cote-node--warming-up .cote-node-body {
+  stroke: rgba(120, 190, 255, 0.85);
+  filter: drop-shadow(0 0 8px rgba(90, 160, 255, 0.4));
+}
+.cote-node--warming-up .cote-node-pulse {
+  stroke: rgba(255, 190, 100, 0.55);
+  animation: cote-warmup-pulse 2.4s ease-in-out infinite;
+}
+
 .cote-node--pressure .cote-node-body {
   stroke: rgba(255, 180, 90, 0.9);
   filter: drop-shadow(0 0 10px rgba(255, 160, 60, 0.45));
@@ -210,6 +219,20 @@
   font-size: 1rem;
 }
 
+.cote-detail-learning {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  background: rgba(80, 140, 220, 0.08);
+  border: 1px solid rgba(120, 180, 255, 0.15);
+}
+
+.cote-detail-learning-reason {
+  font-size: 0.78rem;
+  opacity: 0.85;
+  margin: 0.25rem 0 0.5rem;
+}
+
 .cote-attention {
   margin: 0.5rem 1rem 0;
   padding: 0.5rem 0.75rem;
@@ -259,4 +282,9 @@
   0% { transform: scale(0.95); opacity: 0.3; }
   70% { transform: scale(1.18); opacity: 0.65; }
   100% { transform: scale(1.05); opacity: 0.4; }
+}
+
+@keyframes cote-warmup-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.35; stroke: rgba(255, 190, 100, 0.45); }
+  50% { transform: scale(1.14); opacity: 0.7; stroke: rgba(120, 190, 255, 0.65); }
 }
