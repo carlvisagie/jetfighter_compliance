@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="/ui/assets/styles/ops-dashboard.css">
   <link rel="stylesheet" href="/ui/assets/styles/organism-command.css">
   <link rel="stylesheet" href="/ui/assets/styles/operator-cockpit.css">
+  <link rel="stylesheet" href="/ui/assets/styles/cognitive-topology.css">
 </head>
 <body class="kyc-page kyc-surface-ops" id="org-control-root">
   <header class="kyc-topbar">
@@ -38,6 +39,26 @@
       <button type="button" class="kyc-btn kyc-btn--secondary" id="orgRefresh">Refresh organism</button>
     </div>
   </div>
+
+  <section class="kyc-section cote-section" id="cote-topology-section" aria-label="Cognitive operational topology">
+    <header class="kyc-section-head">
+      <span class="kyc-label-overline">COTE</span>
+      <h2>Operational organism</h2>
+      <p>Perceive stability, pressure, and flow before reading detail. Hover or click a node to inspect.</p>
+    </header>
+    <div id="cote-attention" class="cote-attention" aria-live="polite"></div>
+    <div id="cote-topology-mount" class="cote-mount">
+      <p class="org-metric-foot" style="padding:1rem;">Awakening topology…</p>
+    </div>
+    <div class="cote-legend" aria-hidden="true">
+      <span class="cote-legend-item"><span class="cote-legend-dot" style="background:#6ed4a8"></span> Healthy</span>
+      <span class="cote-legend-item"><span class="cote-legend-dot" style="background:#ffb85c"></span> Pressure</span>
+      <span class="cote-legend-item"><span class="cote-legend-dot" style="background:#ff7864"></span> Unstable</span>
+      <span class="cote-legend-item"><span class="cote-legend-dot" style="background:#6eb8ff"></span> Opportunity</span>
+      <span class="cote-legend-item"><span class="cote-legend-dot" style="background:#6a7080"></span> Paused</span>
+    </div>
+    <div id="cote-topology-detail" class="cote-detail" hidden></div>
+  </section>
 
   <main class="kyc-main kyc-main--ops">
     <section class="kyc-section" style="padding-top:0;" id="operator-cockpit">
@@ -310,6 +331,7 @@
 
   <script src="/ui/assets/js/cockpit-safe-boot.js"></script>
   <script src="/ui/assets/js/cockpit-stabilization.js"></script>
+  <script src="/ui/assets/js/cognitive-topology.js"></script>
   <script src="/ui/assets/js/contextual-knowledge-overlay.js" onerror="reportCockpitScriptError('contextual-knowledge-overlay.js')"></script>
   <script src="/ui/assets/js/organism-intel.js" onerror="reportCockpitScriptError('organism-intel.js')"></script>
   <script src="/ui/assets/js/operator-cockpit.js" onerror="reportCockpitScriptError('operator-cockpit.js')"></script>
@@ -975,6 +997,10 @@
       if (window.CockpitStable && CockpitStable.init) {
         await CockpitStable.init();
       }
+      if (window.CoteTopology && CoteTopology.init) {
+        await CoteTopology.init();
+        CoteTopology.startAutoRefresh(60000);
+      }
       initProjects();
       if (window.OperatorCockpit && OperatorCockpit.init) {
         await OperatorCockpit.init(root);
@@ -985,6 +1011,9 @@
           CockpitStable.renderSafeShell(root);
         }
         await refreshAllSafeMode();
+        if (window.CoteTopology && CoteTopology.refresh) {
+          await CoteTopology.refresh();
+        }
       } else {
         await refreshAll();
         if (window.KnowledgeOverlay && KnowledgeOverlay.initAuto) {
@@ -1002,6 +1031,9 @@
       });
       root.querySelector('#cockpitProject')?.addEventListener('change', sync);
       root.querySelector('#cockpitMode')?.addEventListener('change', sync);
+      document.getElementById('orgRefresh')?.addEventListener('click', function () {
+        if (window.CoteTopology && CoteTopology.refresh) CoteTopology.refresh();
+      });
     } catch (e) {
       console.error('cockpit boot failed', e);
       var health = document.getElementById('health');

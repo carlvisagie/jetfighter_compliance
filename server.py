@@ -1137,6 +1137,16 @@ def operator_organism_state(project_id: str = "", mode: str = ""):
     return get_organism_state_view(project_id=project_id, mode=mode)
 
 
+@app.get("/api/cognitive-topology")
+def cognitive_topology(request: Request):
+    """COTE — lightweight summarized organism topology (no heavy subsystem imports)."""
+    from services.cognitive_topology import build_cognitive_topology
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return build_cognitive_topology()
+
+
 @app.get("/api/operator/customer-friction")
 def operator_customer_friction(days: int = 14):
     from services.customer_friction import get_operator_friction_insights

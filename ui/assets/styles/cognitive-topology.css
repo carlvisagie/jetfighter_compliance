@@ -1,0 +1,247 @@
+/* Cognitive Operational Topology Engine (COTE) */
+.cote-section {
+  padding-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.cote-section .kyc-section-head p {
+  max-width: 52rem;
+}
+
+.cote-mount {
+  position: relative;
+  border-radius: 12px;
+  background: radial-gradient(ellipse 80% 60% at 50% 45%, rgba(32, 48, 72, 0.35), rgba(8, 12, 20, 0.92));
+  border: 1px solid rgba(120, 160, 220, 0.12);
+  overflow: hidden;
+  min-height: 280px;
+}
+
+.cote-mount--safe {
+  background: radial-gradient(ellipse 70% 55% at 50% 50%, rgba(40, 44, 56, 0.4), rgba(10, 12, 18, 0.95));
+}
+
+#cote-topology-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 260px;
+  max-height: 420px;
+}
+
+.cote-core-glow {
+  fill: url(#cote-core-gradient);
+  filter: url(#cote-soft-glow);
+  transform-origin: center;
+  animation: cote-core-breathe 4.5s ease-in-out infinite;
+}
+
+.cote-core-ring {
+  fill: none;
+  stroke: rgba(140, 200, 255, 0.35);
+  stroke-width: 1.5;
+  transform-origin: center;
+  animation: cote-core-breathe 4.5s ease-in-out infinite reverse;
+}
+
+.cote-link {
+  stroke: rgba(100, 150, 210, 0.22);
+  stroke-width: 1;
+  transition: stroke-opacity 0.4s ease;
+}
+
+.cote-node-hit {
+  fill: transparent;
+  cursor: pointer;
+}
+
+.cote-node-body {
+  fill: rgba(30, 42, 62, 0.85);
+  stroke-width: 2;
+  transform-origin: center;
+  transition: stroke 0.35s ease, filter 0.35s ease;
+}
+
+.cote-node-pulse {
+  fill: none;
+  stroke-width: 1.5;
+  opacity: 0.5;
+  transform-origin: center;
+  pointer-events: none;
+}
+
+.cote-node-label {
+  fill: rgba(220, 230, 245, 0.92);
+  font-size: 10px;
+  font-family: system-ui, sans-serif;
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Visual language states */
+.cote-node--healthy .cote-node-body {
+  stroke: rgba(100, 220, 160, 0.75);
+  filter: drop-shadow(0 0 6px rgba(80, 200, 140, 0.35));
+}
+.cote-node--healthy .cote-node-pulse {
+  stroke: rgba(100, 220, 160, 0.45);
+  animation: cote-pulse-calm 3.2s ease-in-out infinite;
+}
+
+.cote-node--pressure .cote-node-body {
+  stroke: rgba(255, 180, 90, 0.9);
+  filter: drop-shadow(0 0 10px rgba(255, 160, 60, 0.45));
+  animation: cote-swell 2.2s ease-in-out infinite;
+}
+.cote-node--pressure .cote-node-pulse {
+  stroke: rgba(255, 180, 90, 0.55);
+  animation: cote-pulse-fast 1.4s ease-in-out infinite;
+}
+
+.cote-node--unstable .cote-node-body {
+  stroke: rgba(255, 120, 100, 0.85);
+  filter: drop-shadow(0 0 8px rgba(255, 80, 60, 0.4));
+  animation: cote-warp 1.8s ease-in-out infinite;
+}
+.cote-node--unstable .cote-node-pulse {
+  stroke: rgba(255, 100, 80, 0.5);
+  animation: cote-flicker 0.9s steps(2) infinite;
+}
+
+.cote-node--failed .cote-node-body {
+  stroke: rgba(90, 100, 110, 0.5);
+  fill: rgba(20, 24, 30, 0.9);
+  filter: none;
+  opacity: 0.55;
+}
+.cote-node--failed .cote-node-pulse {
+  opacity: 0;
+  animation: none;
+}
+
+.cote-node--paused .cote-node-body {
+  stroke: rgba(120, 130, 150, 0.35);
+  fill: rgba(18, 22, 30, 0.92);
+  opacity: 0.5;
+}
+.cote-node--paused .cote-node-pulse {
+  opacity: 0.12;
+  animation: cote-pulse-calm 6s ease-in-out infinite;
+}
+
+.cote-node--opportunity .cote-node-body {
+  stroke: rgba(120, 200, 255, 0.9);
+  filter: drop-shadow(0 0 12px rgba(80, 180, 255, 0.5));
+}
+.cote-node--opportunity .cote-node-pulse {
+  stroke: rgba(120, 200, 255, 0.55);
+  animation: cote-emerge 2.5s ease-out infinite;
+}
+
+.cote-node--uncertain .cote-node-body {
+  stroke: rgba(180, 160, 220, 0.65);
+  stroke-dasharray: 4 3;
+  animation: cote-warp 2.8s ease-in-out infinite;
+}
+
+.cote-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  padding: 0.65rem 1rem 0.85rem;
+  font-size: 0.75rem;
+  color: rgba(200, 210, 225, 0.75);
+  border-top: 1px solid rgba(120, 160, 220, 0.08);
+}
+
+.cote-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.cote-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.cote-detail {
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid rgba(120, 160, 220, 0.1);
+  font-size: 0.85rem;
+  color: rgba(220, 228, 240, 0.9);
+}
+
+.cote-detail[hidden] {
+  display: none;
+}
+
+.cote-detail-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.cote-detail-metrics span {
+  display: block;
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.cote-detail-metrics strong {
+  font-size: 1rem;
+}
+
+.cote-attention {
+  margin: 0.5rem 1rem 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(255, 140, 80, 0.08);
+  border: 1px solid rgba(255, 160, 90, 0.2);
+  font-size: 0.8rem;
+  color: rgba(255, 210, 170, 0.95);
+}
+
+.cote-attention:empty {
+  display: none;
+}
+
+@keyframes cote-core-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.92; }
+  50% { transform: scale(1.04); opacity: 1; }
+}
+
+@keyframes cote-pulse-calm {
+  0%, 100% { transform: scale(1); opacity: 0.35; }
+  50% { transform: scale(1.12); opacity: 0.55; }
+}
+
+@keyframes cote-pulse-fast {
+  0%, 100% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(1.2); opacity: 0.75; }
+}
+
+@keyframes cote-swell {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+@keyframes cote-warp {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  33% { transform: scale(1.03) rotate(0.6deg); }
+  66% { transform: scale(0.98) rotate(-0.5deg); }
+}
+
+@keyframes cote-flicker {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes cote-emerge {
+  0% { transform: scale(0.95); opacity: 0.3; }
+  70% { transform: scale(1.18); opacity: 0.65; }
+  100% { transform: scale(1.05); opacity: 0.4; }
+}
