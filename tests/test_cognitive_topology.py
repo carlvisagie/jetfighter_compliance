@@ -88,9 +88,9 @@ def test_control_html_includes_cote(client):
 
 
 def test_cognitive_topology_module_import_lightweight():
-    for name in list(sys.modules):
-        if name.startswith("services.acquisition."):
-            del sys.modules[name]
+    """Only drop orchestration — do not evict connectors.* from sys.modules (breaks reddit test mocks)."""
+    for name in ("services.acquisition.orchestration",):
+        sys.modules.pop(name, None)
     import services.cognitive_topology as ct
 
     importlib.reload(ct)

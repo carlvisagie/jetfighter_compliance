@@ -5,7 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
-from services.acquisition.connectors.reddit.discovery import _parse_listing, discover_posts
+import services.acquisition.connectors.reddit.discovery as reddit_discovery
+from services.acquisition.connectors.reddit.discovery import _parse_listing
 from services.acquisition.connectors.reddit.resilience import (
     ERROR_RATE_LIMITED,
     normalize_post,
@@ -65,32 +66,27 @@ def test_discover_posts_continues_after_cluster_failure(reddit_env, monkeypatch)
         }
         return fake, None
 
-    monkeypatch.setattr(
-        "services.acquisition.connectors.reddit.discovery.load_discovered_post_ids",
-        lambda base=None: set(),
-    )
-    monkeypatch.setattr("services.acquisition.connectors.reddit.discovery.time.sleep", lambda _: None)
-    with patch("services.acquisition.connectors.reddit.discovery._fetch_json", side_effect=flaky_fetch):
-        rows = discover_posts(
+    monkeypatch.setattr(reddit_discovery, "load_discovered_post_ids", lambda base=None: set())
+    monkeypatch.setattr(reddit_discovery.time, "sleep", lambda _: None)
+    with patch.object(reddit_discovery, "_fetch_json", side_effect=flaky_fetch):
+        rows = reddit_discovery.discover_posts(
             queries=["security questionnaire", "CMMC help"],
             pause_seconds=0,
             base=reddit_env,
         )
     assert len(rows) >= 1
-    diag = getattr(discover_posts, "last_diagnostics", {})
+    diag = getattr(reddit_discovery.discover_posts, "last_diagnostics", {})
     assert diag.get("cluster_errors")
 
 
 def test_rate_limit_recorded(reddit_env, monkeypatch):
-    monkeypatch.setattr(
-        "services.acquisition.connectors.reddit.discovery.load_discovered_post_ids",
-        lambda base=None: set(),
-    )
-    monkeypatch.setattr("services.acquisition.connectors.reddit.discovery.time.sleep", lambda _: None)
-    with patch(
-        "services.acquisition.connectors.reddit.discovery._fetch_json",
+    monkeypatch.setattr(reddit_discovery, "load_discovered_post_ids", lambda base=None: set())
+    monkeypatch.setattr(reddit_discovery.time, "sleep", lambda _: None)
+    with patch.object(
+        reddit_discovery,
+        "_fetch_json",
         return_value=(None, ERROR_RATE_LIMITED),
     ):
-        rows = discover_posts(queries=["test query"], pause_seconds=0, base=reddit_env)
+        rows = reddit_discovery.discover_posts(queries=["test query"], pause_seconds=0, base=reddit_env)
     assert rows == []
-    assert discover_posts.last_diagnostics.get("rate_limited") is True
+    assert reddit_discovery.discover_posts.last_diagnostics.get("rate_limited") is True

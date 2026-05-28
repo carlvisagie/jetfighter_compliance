@@ -7,6 +7,7 @@ import pytest
 
 from services.acquisition.connectors.reddit.author_intent import classify_author_intent
 from services.acquisition.connectors.reddit.classifier import classify_post
+import services.acquisition.connectors.reddit.discovery as reddit_discovery
 from services.acquisition.connectors.reddit import run_reddit_acquisition_cycle
 
 
@@ -68,15 +69,13 @@ def test_cycle_skips_advice_giver(reddit_env, monkeypatch):
             }
         }
 
-    with patch(
-        "services.acquisition.connectors.reddit.discovery._fetch_json",
-        side_effect=lambda url: (fake_listing(), None),
+    with patch.object(
+        reddit_discovery,
+        "_fetch_json",
+        side_effect=lambda url, timeout=25: (fake_listing(), None),
     ):
-        monkeypatch.setattr("services.acquisition.connectors.reddit.discovery.time.sleep", lambda _: None)
-        monkeypatch.setattr(
-            "services.acquisition.connectors.reddit.discovery.load_discovered_post_ids",
-            lambda base=None: set(),
-        )
+        monkeypatch.setattr(reddit_discovery.time, "sleep", lambda _: None)
+        monkeypatch.setattr(reddit_discovery, "load_discovered_post_ids", lambda base=None: set())
         out = run_reddit_acquisition_cycle(
             queries=["CMMC"],
             max_posts=3,
@@ -110,15 +109,13 @@ def test_cycle_queues_advice_seeker(reddit_env, monkeypatch):
             }
         }
 
-    with patch(
-        "services.acquisition.connectors.reddit.discovery._fetch_json",
-        side_effect=lambda url: (fake_listing(), None),
+    with patch.object(
+        reddit_discovery,
+        "_fetch_json",
+        side_effect=lambda url, timeout=25: (fake_listing(), None),
     ):
-        monkeypatch.setattr("services.acquisition.connectors.reddit.discovery.time.sleep", lambda _: None)
-        monkeypatch.setattr(
-            "services.acquisition.connectors.reddit.discovery.load_discovered_post_ids",
-            lambda base=None: set(),
-        )
+        monkeypatch.setattr(reddit_discovery.time, "sleep", lambda _: None)
+        monkeypatch.setattr(reddit_discovery, "load_discovered_post_ids", lambda base=None: set())
         out = run_reddit_acquisition_cycle(
             queries=["CMMC"],
             max_posts=3,
