@@ -1,4 +1,4 @@
-"""Production durable data policy — founding beta paperwork must not use ephemeral disk."""
+"""Production durable data policy — customer intake must not use ephemeral disk."""
 from __future__ import annotations
 
 import logging
@@ -64,10 +64,15 @@ def is_durable_storage_configured() -> bool:
     return True
 
 
-def founding_beta_intake_enabled() -> bool:
-    from services.founding_beta.mode import is_founding_beta_mode
+def intake_pipeline_enabled() -> bool:
+    from services.intake.mode import is_intake_mode
 
-    return is_founding_beta_mode()
+    return is_intake_mode()
+
+
+def founding_beta_intake_enabled() -> bool:
+    """Deprecated alias — use intake_pipeline_enabled."""
+    return intake_pipeline_enabled()
 
 
 def _writable_data_root(path: Path) -> bool:
@@ -91,15 +96,20 @@ def canonical_storage_ready() -> bool:
     return _writable_data_root(root)
 
 
-def founding_beta_upload_allowed() -> bool:
-    if not founding_beta_intake_enabled():
+def intake_upload_allowed() -> bool:
+    if not intake_pipeline_enabled():
         return False
     return canonical_storage_ready()
 
 
+def founding_beta_upload_allowed() -> bool:
+    """Deprecated alias — use intake_upload_allowed."""
+    return intake_upload_allowed()
+
+
 def upload_block_reason() -> Optional[str]:
-    if not founding_beta_intake_enabled():
-        return "founding_beta_intake_disabled"
+    if not intake_pipeline_enabled():
+        return "intake_pipeline_disabled"
     if canonical_storage_ready():
         return None
     if not kyc_data_env_value() and active_data_root() == repo_default_data_dir():
@@ -118,11 +128,11 @@ def upload_block_reason() -> Optional[str]:
 
 def log_storage_boot_status() -> None:
     reason = upload_block_reason()
-    allowed = founding_beta_upload_allowed()
+    allowed = intake_upload_allowed()
     msg = (
         f"data_root={active_data_root()} "
         f"durable_storage_configured={is_durable_storage_configured()} "
-        f"founding_beta_uploads_enabled={allowed}"
+        f"intake_uploads_enabled={allowed}"
     )
     if reason:
         msg += f" upload_block_reason={reason}"
@@ -138,22 +148,22 @@ def log_storage_boot_status() -> None:
     except Exception:
         pass
     if is_production() and not allowed:
-        logger.critical("[storage] founding beta uploads disabled in production: %s", reason)
+        logger.critical("[storage] intake uploads disabled in production: %s", reason)
 
 
 def _log_upload_blocked(reason: str) -> None:
-    logger.critical("founding_beta_upload_blocked reason=%s data_root=%s", reason, DATA)
+    logger.critical("intake_upload_blocked reason=%s data_root=%s", reason, DATA)
     try:
         from services.runtime_boot import log_boot
 
-        log_boot("founding_beta_upload", "blocked", reason[:200])
+        log_boot("intake_upload", "blocked", reason[:200])
     except Exception:
         pass
     try:
         from services.organism_observability.emit import organism_emit
 
         organism_emit(
-            "founding_beta",
+            "intake",
             "intake_storage_unavailable",
             message=reason,
             metadata={"data_root": str(DATA.resolve()), "reason": reason},
@@ -162,7 +172,7 @@ def _log_upload_blocked(reason: str) -> None:
         pass
 
 
-def require_founding_beta_upload_allowed() -> None:
+def require_intake_upload_allowed() -> None:
     reason = upload_block_reason()
     if reason is None:
         return
@@ -172,6 +182,11 @@ def require_founding_beta_upload_allowed() -> None:
         detail=_PUBLIC_UPLOAD_DETAIL,
         headers={"X-KYC-Error-Code": "durable_storage_required"},
     )
+
+
+def require_founding_beta_upload_allowed() -> None:
+    """Deprecated alias — use require_intake_upload_allowed."""
+    require_intake_upload_allowed()
 
 
 def reject_demo_order_in_production(order_id: str) -> None:
@@ -196,6 +211,7 @@ def get_storage_status() -> Dict[str, Any]:
     reason = upload_block_reason()
     kyc = resolved_kyc_data_path()
     root = active_data_root()
+    allowed = intake_upload_allowed()
     return {
         "ok": True,
         "environment": os.getenv("ENVIRONMENT", "development"),
@@ -204,12 +220,14 @@ def get_storage_status() -> Dict[str, Any]:
         "kyc_data_path": str(kyc) if kyc else None,
         "durable_storage_configured": is_durable_storage_configured(),
         "data_root_ephemeral_in_production": is_data_root_ephemeral_in_production(),
-        "founding_beta_intake_enabled": founding_beta_intake_enabled(),
-        "founding_beta_uploads_enabled": founding_beta_upload_allowed(),
+        "intake_pipeline_enabled": intake_pipeline_enabled(),
+        "intake_uploads_enabled": allowed,
+        "founding_beta_intake_enabled": intake_pipeline_enabled(),
+        "founding_beta_uploads_enabled": allowed,
         "upload_block_reason": reason,
         "operator_message": (
             None
-            if founding_beta_upload_allowed()
+            if allowed
             else "Durable paperwork storage not configured — uploads disabled."
         ),
     }

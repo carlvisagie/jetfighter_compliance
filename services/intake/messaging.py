@@ -38,6 +38,7 @@ def intake_messaging_blocks() -> Dict[str, Any]:
     }
 
 
+
 def intake_outreach_snippet(*, include_route: bool = False, route_url: str = "") -> str:
     """Short Reddit/public paste block for intake validation."""
     parts: List[str] = [
@@ -52,3 +53,6 @@ def intake_outreach_snippet(*, include_route: bool = False, route_url: str = "")
     if include_route and route_url:
         parts.extend(["", f"If you want to try the intake: {route_url}"])
     return "\n".join(parts)
+
+
+beta_outreach_snippet = intake_outreach_snippet

@@ -36,11 +36,11 @@ def startup_warnings() -> List[str]:
             warnings.append("OPS_PASSWORD unset — internal UI/API require login or X-Ops-Key")
         if SETTINGS.intake_token_secret == _DEV_INTAKE_SECRET:
             warnings.append("CRITICAL: rotate INTAKE_TOKEN_SECRET before accepting real clients")
-        from .durable_storage import founding_beta_upload_allowed, upload_block_reason
+        from .durable_storage import intake_upload_allowed, upload_block_reason
 
-        if not founding_beta_upload_allowed():
+        if not intake_upload_allowed():
             warnings.append(
-                "CRITICAL: founding beta uploads disabled — "
+                "CRITICAL: intake uploads disabled — "
                 + (upload_block_reason() or "configure KYC_DATA on persistent disk")
             )
     return warnings
@@ -101,7 +101,8 @@ def readiness_checks() -> Dict[str, Any]:
         "smtp_status": smtp_env_status(),
         "environment": os.getenv("ENVIRONMENT", "development"),
         "durable_storage_configured": storage["durable_storage_configured"],
-        "founding_beta_uploads_enabled": storage["founding_beta_uploads_enabled"],
+        "intake_uploads_enabled": storage["intake_uploads_enabled"],
+        "founding_beta_uploads_enabled": storage.get("founding_beta_uploads_enabled"),
     }
 
 

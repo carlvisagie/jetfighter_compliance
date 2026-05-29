@@ -48,18 +48,28 @@ def parse_session_token(token: str) -> dict:
         raise ValueError("session_invalid") from e
 
 
-_founding_beta_signer = URLSafeSerializer(SETTINGS.intake_token_secret, salt="kyc-founding-beta")
-FOUNDING_BETA_TOKEN_MAX_AGE_SECONDS = 90 * 24 * 3600
+_intake_token_signer = URLSafeSerializer(SETTINGS.intake_token_secret, salt="kyc-founding-beta")
+INTAKE_TOKEN_MAX_AGE_SECONDS = 90 * 24 * 3600
+
+
+def make_intake_token(intake_id: str) -> str:
+    return _intake_token_signer.dumps({"i": intake_id, "ts": int(time.time())})
+
+
+def parse_intake_token(token: str) -> dict:
+    try:
+        return _intake_token_signer.loads(token, max_age=INTAKE_TOKEN_MAX_AGE_SECONDS)
+    except SignatureExpired as e:
+        raise ValueError("intake_token_expired") from e
+    except BadSignature as e:
+        raise ValueError("intake_token_invalid") from e
 
 
 def make_founding_beta_token(intake_id: str) -> str:
-    return _founding_beta_signer.dumps({"i": intake_id, "ts": int(time.time())})
+    """Deprecated alias — use make_intake_token."""
+    return make_intake_token(intake_id)
 
 
 def parse_founding_beta_token(token: str) -> dict:
-    try:
-        return _founding_beta_signer.loads(token, max_age=FOUNDING_BETA_TOKEN_MAX_AGE_SECONDS)
-    except SignatureExpired as e:
-        raise ValueError("founding_beta_expired") from e
-    except BadSignature as e:
-        raise ValueError("founding_beta_invalid") from e
+    """Deprecated alias — use parse_intake_token."""
+    return parse_intake_token(token)

@@ -8,7 +8,9 @@ import pytest
 from services.durable_storage import (
     founding_beta_upload_allowed,
     get_storage_status,
+    intake_upload_allowed,
     is_durable_storage_configured,
+    require_intake_upload_allowed,
 )
 from services.founding_beta.storage import intakes_root
 
@@ -100,3 +102,24 @@ def test_no_ephemeral_fallback_writes_in_production(prod_env, anon_client, monke
     intakes = tmp_path / "intakes"
     if intakes.is_dir():
         assert list(intakes.iterdir()) == []
+
+
+def test_require_intake_upload_allowed_exported():
+    """Regression: intake.py imports this at module load; startup recovery must not ImportError."""
+    assert callable(require_intake_upload_allowed)
+    assert intake_upload_allowed() is False or intake_upload_allowed() is True
+
+
+def test_startup_recovery_completes_without_import_error(fb_env, caplog):
+    import logging
+
+    caplog.set_level(logging.INFO, logger="services.intake.retention")
+    from services.intake.retention import scan_retention_at_startup
+
+    report = scan_retention_at_startup(force=True)
+    recovery = report.get("startup_recovery") or {}
+    assert "error" not in recovery, recovery.get("error")
+    assert recovery.get("ok") is True
+    assert any(
+        "[retention] startup recovery completed" in rec.message for rec in caplog.records
+    )

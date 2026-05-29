@@ -644,6 +644,10 @@ def scan_retention_at_startup(*, force: bool = False) -> Dict[str, Any]:
 
         recovery = recover_uncommitted_intakes(limit=500)
         report["startup_recovery"] = recovery
+        logger.info(
+            "[retention] startup recovery completed recovered=%s",
+            recovery.get("recovered_count", 0),
+        )
     except Exception as exc:
         report["startup_recovery"] = {"ok": False, "error": str(exc)}
         logger.critical("[retention] startup recovery failed: %s", exc)

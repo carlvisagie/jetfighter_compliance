@@ -223,10 +223,10 @@ def start_session() -> Dict[str, str]:
 
 async def upload_to_session(session_id: str, session_token: str, file: UploadFile) -> Dict[str, Any]:
     """Deprecated shim — all customer paperwork writes canonical durable intake only."""
-    from services.durable_storage import require_founding_beta_upload_allowed
-    from services.founding_beta.intake import process_upload
+    from services.durable_storage import require_intake_upload_allowed
+    from services.intake.intake import process_upload
 
-    require_founding_beta_upload_allowed()
+    require_intake_upload_allowed()
     validate_session_access(session_id, session_token)
     _mark_first_interaction(session_id)
     sess = _load_session(session_id)
@@ -309,7 +309,7 @@ def complete_session(
             detail="Upload paperwork first. Use /ui/founding-beta if this page did not redirect.",
         )
 
-    from services.founding_beta.intake import _load_intake, _save_intake
+    from services.intake.intake import _load_intake, _save_intake
 
     rec = _load_intake(iid)
     if not (rec.get("files") or rec.get("file_count")):
