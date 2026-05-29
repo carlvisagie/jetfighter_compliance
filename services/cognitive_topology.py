@@ -435,15 +435,16 @@ def _learning_node_payload(
     }
 
 
-def _boost_learning_from_founding_beta(
+def _boost_learning_from_intake(
     learn: Dict[str, Any], telem_rows: List[Dict[str, Any]]
 ) -> Dict[str, Any]:
-    """Raise learning health when founding-beta classification/operator events are consistent."""
+    """Raise learning health when intake classification/operator events are consistent."""
     if learn.get("learning_status") in ("failed", "degraded"):
         return learn
     good = 0
     for row in telem_rows:
-        if str(row.get("subsystem") or "") != "founding_beta":
+        subsystem = str(row.get("subsystem") or "")
+        if subsystem not in ("intake", "founding_beta"):
             continue
         et = str(row.get("event_type") or "")
         if et in (
@@ -461,7 +462,7 @@ def _boost_learning_from_founding_beta(
     out["confidence"] = _clamp(float(out.get("confidence", 0.5)) + boost * 0.6)
     if out.get("learning_status") == "warming_up" and good >= 2:
         out["learning_status"] = "healthy"
-        out["learning_reason"] = "founding beta learning loop active"
+        out["learning_reason"] = "intake learning loop active"
     return out
 
 
@@ -541,19 +542,19 @@ def build_cognitive_topology() -> Dict[str, Any]:
     telem_rows = _tail_telemetry(120)
     telem_stats = _telemetry_stats(telem_rows)
     upload_act, upload_health, upload_conf = _project_upload_signal()
-    fb_flow: Dict[str, Any] = {}
+    intake_flow: Dict[str, Any] = {}
     try:
-        from .founding_beta.intake import intake_flow_metrics
+        from .intake.intake import intake_flow_metrics
 
-        fb_flow = intake_flow_metrics()
+        intake_flow = intake_flow_metrics()
     except Exception:
-        fb_flow = {}
+        intake_flow = {}
     proj_count = (
         sum(1 for p in PROJECTS.iterdir() if p.is_dir()) if PROJECTS.is_dir() else 0
     )
     alert_count, alert_pressure = _alerts_signal()
     learn = _assess_learning_node(telem_rows)
-    learn = _boost_learning_from_founding_beta(learn, telem_rows)
+    learn = _boost_learning_from_intake(learn, telem_rows)
 
     safe = is_safe_mode()
     acq_paused = safe or not manual_acquisition_enabled()
@@ -590,50 +591,58 @@ def build_cognitive_topology() -> Dict[str, Any]:
     else:
         subsystems["observability"] = _merge_state(from_telem("observability", 0.7))
 
-    fb_activity = float(fb_flow.get("activity", 0))
-    fb_pressure = float(fb_flow.get("pressure", 0))
-    fb_health = float(fb_flow.get("health", upload_health))
-    fb_glow = float(fb_flow.get("glow_intensity", fb_activity))
-    fb_backlog = bool(fb_flow.get("backlog_pressure"))
-    fb_urgent = int(fb_flow.get("urgent_count", 0))
-    fb_integrity = int(fb_flow.get("integrity_mismatch_count", 0))
-    upload_severity = str(fb_flow.get("upload_node_severity") or "amber")
-    latest_custody = str(fb_flow.get("latest_custody_status") or "")
-    upload_activity = _clamp(max(upload_act, fb_activity, fb_glow * 0.85))
-    upload_pressure = _clamp(max((1.0 - upload_act) * 0.35, fb_pressure))
-    if fb_backlog or fb_urgent > 0 or fb_integrity > 0:
-        upload_pressure = _clamp(max(upload_pressure, 0.42 + fb_integrity * 0.12))
+    flow = intake_flow
+    flow_activity = float(flow.get("activity", 0))
+    flow_pressure = float(flow.get("pressure", 0))
+    flow_health = float(flow.get("health", upload_health))
+    flow_glow = float(flow.get("glow_intensity", flow_activity))
+    flow_backlog = bool(flow.get("backlog_pressure"))
+    flow_urgent = int(flow.get("urgent_count", 0))
+    flow_integrity = int(flow.get("integrity_mismatch_count", 0))
+    forensic_proof_ok = bool(flow.get("forensic_proof_ok", True))
+    upload_severity = str(flow.get("upload_node_severity") or "amber")
+    latest_custody = str(flow.get("latest_custody_status") or "")
+    upload_activity = _clamp(max(upload_act, flow_activity, flow_glow * 0.85))
+    upload_pressure = _clamp(max((1.0 - upload_act) * 0.35, flow_pressure))
+    if flow_backlog or flow_urgent > 0 or flow_integrity > 0:
+        upload_pressure = _clamp(max(upload_pressure, 0.42 + flow_integrity * 0.12))
+    if not forensic_proof_ok:
+        upload_pressure = _clamp(max(upload_pressure, 0.75))
+        flow_health = _clamp(min(flow_health, 0.32))
+        upload_severity = "red"
     if upload_severity == "red":
         upload_pressure = _clamp(max(upload_pressure, 0.72))
-        fb_health = _clamp(min(fb_health, 0.38))
+        flow_health = _clamp(min(flow_health, 0.38))
     elif upload_severity == "amber":
-        upload_pressure = _clamp(max(upload_pressure, 0.44 + fb_integrity * 0.1))
-        fb_health = _clamp(min(fb_health, 0.55))
+        upload_pressure = _clamp(max(upload_pressure, 0.44 + flow_integrity * 0.1))
+        flow_health = _clamp(min(flow_health, 0.55))
     elif upload_severity == "green" and latest_custody:
-        fb_health = _clamp(max(fb_health, 0.78))
-    upload_anomaly = bool(fb_flow.get("failed_recent")) or fb_integrity > 0 or upload_severity in (
+        flow_health = _clamp(max(flow_health, 0.78))
+    upload_anomaly = bool(flow.get("failed_recent")) or flow_integrity > 0 or not forensic_proof_ok or upload_severity in (
         "amber",
         "red",
     ) or (upload_act < 0.08 and proj_count > 0)
     subsystems["upload_pipeline"] = _merge_state(
         {
-            "health": _clamp((upload_health + fb_health) / 2),
+            "health": _clamp((upload_health + flow_health) / 2),
             "pressure": upload_pressure,
             "activity": upload_activity,
             "confidence": upload_conf,
             "latency": 0.08,
-            "alerts": int(fb_flow.get("pending_review", 0)),
+            "alerts": int(flow.get("pending_review", 0)),
             "anomaly": upload_anomaly,
-            "flow_active": bool(fb_flow.get("uploads_active")),
-            "pending_review": int(fb_flow.get("pending_review", 0)),
-            "queue_depth": int(fb_flow.get("queue_depth", 0)),
-            "urgent_count": fb_urgent,
-            "integrity_mismatch_count": fb_integrity,
-            "uploads_per_hour": float(fb_flow.get("uploads_per_hour", 0)),
-            "backlog_pressure": fb_backlog,
+            "flow_active": bool(flow.get("uploads_active")),
+            "pending_review": int(flow.get("pending_review", 0)),
+            "queue_depth": int(flow.get("queue_depth", 0)),
+            "urgent_count": flow_urgent,
+            "integrity_mismatch_count": flow_integrity,
+            "uploads_per_hour": float(flow.get("uploads_per_hour", 0)),
+            "backlog_pressure": flow_backlog,
             "upload_node_severity": upload_severity,
             "latest_custody_status": latest_custody,
-            "latest_intake_id": fb_flow.get("latest_intake_id"),
+            "latest_intake_id": flow.get("latest_intake_id"),
+            "forensic_proof_ok": forensic_proof_ok,
+            "forensic_proof": flow.get("forensic_proof") or {},
         }
     )
 
@@ -721,15 +730,15 @@ def build_cognitive_topology() -> Dict[str, Any]:
     system_health = subsystems["system_health"]["health"]
 
     attention: List[str] = []
-    fb_pending = int(fb_flow.get("pending_review", 0) or fb_flow.get("queue_depth", 0))
-    if fb_pending > 0:
-        if fb_urgent > 0:
+    intake_pending = int(flow.get("pending_review", 0) or flow.get("queue_depth", 0))
+    if intake_pending > 0:
+        if flow_urgent > 0:
             attention.append(
-                f"NEW PAPERWORK: {fb_pending} founding beta intake(s) pending ({fb_urgent} urgent)."
+                f"NEW PAPERWORK: {intake_pending} customer intake(s) pending ({flow_urgent} urgent)."
             )
         else:
             attention.append(
-                f"NEW PAPERWORK: {fb_pending} founding beta paperwork review(s) pending."
+                f"NEW PAPERWORK: {intake_pending} customer paperwork review(s) pending."
             )
     if safe:
         attention.append("Safe mode active — intelligence modules paused; core intake/upload paths remain.")

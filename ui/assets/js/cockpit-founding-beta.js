@@ -323,6 +323,85 @@
     box.textContent = '';
   }
 
+  function applyDiagnosticsResponse(d) {
+    if (!d) return;
+    state.diagnostics = d.diagnostics || d;
+    computeRetentionCritical();
+    updateVisibilityWarning();
+  }
+
+  function updateEvidenceIntegrityPanel(proof) {
+    var el = document.getElementById('evidence-integrity-status');
+    if (!el) return;
+    if (!proof) {
+      el.innerHTML = '<p class="fb-queue-atlas__warn">Evidence proof unavailable.</p>';
+      return;
+    }
+    var ok = proof.ok === true;
+    el.className = 'fb-queue-atlas' + (ok ? '' : ' fb-queue-atlas--warn');
+    var indicator = ok
+      ? '<span style="color:#64dc9e">● GREEN</span>'
+      : '<span style="color:#ff7864">● NOT OK</span>';
+    el.innerHTML =
+      '<div class="fb-queue-atlas__grid">' +
+      '<div><span class="kyc-metric-label">Status</span><strong>' +
+      indicator +
+      '</strong></div>' +
+      '<div><span class="kyc-metric-label">Registered</span><strong>' +
+      int(proof.registered_files || proof.total_files || 0) +
+      '</strong></div>' +
+      '<div><span class="kyc-metric-label">Verified</span><strong>' +
+      int(proof.verified_files || 0) +
+      '</strong></div>' +
+      '<div><span class="kyc-metric-label">Missing</span><strong>' +
+      int(proof.missing_files || 0) +
+      '</strong></div>' +
+      '<div><span class="kyc-metric-label">Recovered</span><strong>' +
+      int(proof.recovered_files || 0) +
+      '</strong></div>' +
+      '<div><span class="kyc-metric-label">Corrupted</span><strong>' +
+      int(proof.corrupt_files || 0) +
+      '</strong></div>' +
+      '<div><span class="kyc-metric-label">Pending</span><strong>' +
+      int(proof.pending_files || 0) +
+      '</strong></div>' +
+      '<div><span class="kyc-metric-label">Orphaned</span><strong>' +
+      int(proof.orphaned_files || 0) +
+      '</strong></div>' +
+      '</div>' +
+      (ok
+        ? ''
+        : '<p class="fb-queue-atlas__warn">Integrity problems detected — review reconcile and queue.</p>');
+  }
+
+  function refreshEvidenceProof(apiFn) {
+    return apiFn('/api/operator/integrity/proof')
+      .then(function (proof) {
+        updateEvidenceIntegrityPanel(proof);
+        if (!proof.ok) {
+          var banner = document.getElementById('fb-integrity-banner');
+          if (banner) {
+            banner.hidden = false;
+            banner.classList.remove('fb-integrity-banner--hidden');
+            banner.innerHTML =
+              '<strong>Evidence integrity proof failed</strong>' +
+              '<span class="fb-integrity-banner__detail">' +
+              'missing=' +
+              int(proof.missing_files || 0) +
+              ' orphaned=' +
+              int(proof.orphaned_files || 0) +
+              ' corrupt=' +
+              int(proof.corrupt_files || 0) +
+              '</span>';
+          }
+        }
+        return proof;
+      })
+      .catch(function () {
+        updateEvidenceIntegrityPanel(null);
+      });
+  }
+
   function scrollToQueue() {
     var el = document.getElementById('founding-beta-intake-panel');
     if (el) {
@@ -369,14 +448,25 @@
           applyError(err);
           throw err;
         }),
+      refreshEvidenceProof(apiFn),
     ]).then(function (results) {
       return results[2];
     });
   }
 
+  var _evidenceProofTimer = null;
+  function startEvidenceProofPolling(apiFn) {
+    if (_evidenceProofTimer) return;
+    _evidenceProofTimer = window.setInterval(function () {
+      refreshEvidenceProof(apiFn);
+    }, 30000);
+  }
+
   global.CockpitFoundingBeta = {
     refresh: refresh,
     refreshStorage: refreshStorage,
+    refreshEvidenceProof: refreshEvidenceProof,
+    startEvidenceProofPolling: startEvidenceProofPolling,
     getState: function () {
       return state;
     },

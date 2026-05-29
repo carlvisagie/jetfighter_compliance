@@ -179,9 +179,14 @@ async def _boot_worker():
     log_storage_boot_status()
 
     try:
-        from services.founding_beta.retention import scan_retention_at_startup
+        from services.intake.retention import scan_retention_at_startup
+        from services.intake.storage import legacy_migration_status
 
         scan_retention_at_startup()
+        legacy_migration_status()
+        from services.intake.forensic_reconcile import run_forensic_reconciliation
+
+        run_forensic_reconciliation()
     except Exception as exc:
         logging.critical("[retention] startup scan failed: %s", exc)
 
@@ -692,8 +697,8 @@ async def customer_session_complete(
     return complete_session(session_id, session_token, name, email, note)
 
 
-@app.post("/api/founding-beta/upload")
-async def founding_beta_upload(
+@app.post("/api/intake/upload")
+async def intake_upload(
     request: Request,
     files: List[UploadFile] = File(...),
     intake_id: str = Form(""),
@@ -707,8 +712,8 @@ async def founding_beta_upload(
     expected_file_names: str = Form(""),
     upload_manifest: str = Form(""),
 ):
-    from services.founding_beta.intake import process_upload
-    from services.founding_beta.integrity import parse_expected_file_names, parse_upload_manifest
+    from services.intake.intake import process_upload
+    from services.intake.integrity import parse_expected_file_names, parse_upload_manifest
 
     xf = request.headers.get("x-forwarded-for") or ""
     client_host = request.client.host if request.client else ""
@@ -726,7 +731,7 @@ async def founding_beta_upload(
         upload_manifest=parse_upload_manifest(upload_manifest),
         request_metadata={
             "source_ip": xf.split(",")[0].strip() if xf else client_host,
-            "x_forwarded_for": xf,
+            "x-forwarded_for": xf,
             "client_host": client_host,
             "user_agent": request.headers.get("user-agent") or "",
             "route": str(request.url.path),
@@ -734,16 +739,54 @@ async def founding_beta_upload(
     )
 
 
-@app.get("/api/founding-beta/qr.png")
-def founding_beta_qr(intake_id: str = "", token: str = ""):
+@app.post("/api/founding-beta/upload")
+async def founding_beta_upload(
+    request: Request,
+    files: List[UploadFile] = File(...),
+    intake_id: str = Form(""),
+    token: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    company: str = Form(""),
+    context: str = Form(""),
+    deadline: str = Form(""),
+    expected_file_count: int = Form(0),
+    expected_file_names: str = Form(""),
+    upload_manifest: str = Form(""),
+):
+    """Legacy route — delegates to canonical POST /api/intake/upload."""
+    return await intake_upload(
+        request,
+        files,
+        intake_id,
+        token,
+        email,
+        phone,
+        company,
+        context,
+        deadline,
+        expected_file_count,
+        expected_file_names,
+        upload_manifest,
+    )
+
+
+@app.get("/api/intake/qr.png")
+def intake_qr(intake_id: str = "", token: str = ""):
     from fastapi.responses import Response
 
-    from services.founding_beta.intake import qr_png_for_intake
+    from services.intake.intake import qr_png_for_intake
 
     if not intake_id or not token:
         raise HTTPException(status_code=400, detail="intake_id and token required")
     png, _link = qr_png_for_intake(intake_id.strip(), token.strip())
     return Response(content=png, media_type="image/png")
+
+
+@app.get("/api/founding-beta/qr.png")
+def founding_beta_qr(intake_id: str = "", token: str = ""):
+    """Legacy route — delegates to canonical GET /api/intake/qr.png."""
+    return intake_qr(intake_id, token)
 
 
 @app.get("/api/customer/qr.svg")
@@ -1218,26 +1261,32 @@ def operator_organism_state(project_id: str = "", mode: str = ""):
 
 @app.get("/api/operator/founding-beta-intake")
 def operator_founding_beta_intake(request: Request):
-    """Deprecated — use GET /api/operator/founding-beta/queue (includes dashboard)."""
-    from services.founding_beta.queue import get_operator_review_queue
+    """Deprecated — use GET /api/operator/intake/queue (includes dashboard)."""
+    from services.intake.queue import get_operator_review_queue
     from services.production import require_ops_access
     from fastapi.responses import JSONResponse
 
     require_ops_access(request)
     q = get_operator_review_queue(limit=40)
     return JSONResponse(
-        content={**q, "deprecated": True, "use": "/api/operator/founding-beta/queue"},
-        headers={"Deprecation": "true", "Link": '</api/operator/founding-beta/queue>; rel="successor-version"'},
+        content={**q, "deprecated": True, "use": "/api/operator/intake/queue"},
+        headers={"Deprecation": "true", "Link": '</api/operator/intake/queue>; rel="successor-version"'},
     )
 
 
-@app.get("/api/operator/founding-beta/queue")
-def operator_founding_beta_queue(request: Request, limit: int = 40):
-    from services.founding_beta.queue import get_operator_review_queue
+@app.get("/api/operator/intake/queue")
+def operator_intake_queue(request: Request, limit: int = 40):
+    from services.intake.queue import get_operator_review_queue
     from services.production import require_ops_access
 
     require_ops_access(request)
     return get_operator_review_queue(limit=min(max(limit, 1), 100))
+
+
+@app.get("/api/operator/founding-beta/queue")
+def operator_founding_beta_queue(request: Request, limit: int = 40):
+    """Legacy route — delegates to GET /api/operator/intake/queue."""
+    return operator_intake_queue(request, limit)
 
 
 @app.get("/api/operator/telemetry-status")
@@ -1252,7 +1301,7 @@ def operator_telemetry_status(request: Request):
 
 @app.get("/api/operator/storage-status")
 def operator_storage_status(request: Request):
-    """Operator: durable storage + founding beta upload gate (no secrets)."""
+    """Operator: durable storage + intake upload gate (no secrets)."""
     from services.durable_storage import get_storage_status
     from services.production import require_ops_access
 
@@ -1260,15 +1309,15 @@ def operator_storage_status(request: Request):
     return get_storage_status()
 
 
-@app.get("/api/operator/founding-beta/diagnostics")
-def operator_founding_beta_diagnostics(request: Request):
+@app.get("/api/operator/intake/diagnostics")
+def operator_intake_diagnostics(request: Request):
     """Operator diagnostics — data paths and intake inventory (no secrets)."""
-    from services.founding_beta.queue import get_operator_review_queue
-    from services.founding_beta.storage import intake_diagnostics
+    from services.intake.queue import get_operator_review_queue
+    from services.intake.storage import intake_diagnostics
     from services.production import require_ops_access
 
     require_ops_access(request)
-    from services.founding_beta.retention import retention_diagnostics_overlay
+    from services.intake.retention import retention_diagnostics_overlay
 
     diag = intake_diagnostics()
     diag.update(retention_diagnostics_overlay())
@@ -1283,45 +1332,107 @@ def operator_founding_beta_diagnostics(request: Request):
     }
 
 
-@app.get("/api/operator/founding-beta/reconcile")
-def operator_founding_beta_reconcile(request: Request, limit: int = 100):
-    from services.founding_beta.reconcile import reconcile_fleet
+@app.get("/api/operator/founding-beta/diagnostics")
+def operator_founding_beta_diagnostics(request: Request):
+    """Legacy route — delegates to GET /api/operator/intake/diagnostics."""
+    return operator_intake_diagnostics(request)
+
+
+@app.get("/api/operator/intake/reconcile")
+def operator_intake_reconcile(request: Request, limit: int = 100):
+    from services.intake.reconcile import reconcile_fleet
     from services.production import require_ops_access
 
     require_ops_access(request)
     return reconcile_fleet(limit=min(max(limit, 1), 500))
 
 
-@app.get("/api/operator/founding-beta/reconcile/{intake_id}")
-def operator_founding_beta_reconcile_intake(request: Request, intake_id: str):
-    from services.founding_beta.reconcile import reconcile_intake
+@app.get("/api/operator/founding-beta/reconcile")
+def operator_founding_beta_reconcile(request: Request, limit: int = 100):
+    return operator_intake_reconcile(request, limit)
+
+
+@app.get("/api/operator/intake/reconcile/{intake_id}")
+def operator_intake_reconcile_intake(request: Request, intake_id: str):
+    from services.intake.reconcile import reconcile_intake
     from services.production import require_ops_access
 
     require_ops_access(request)
     return reconcile_intake(intake_id.strip())
 
 
-@app.get("/api/operator/founding-beta/intake/{intake_id}/audit")
-def operator_founding_beta_intake_audit(request: Request, intake_id: str):
-    from services.founding_beta.retention import get_intake_audit
+@app.get("/api/operator/founding-beta/reconcile/{intake_id}")
+def operator_founding_beta_reconcile_intake(request: Request, intake_id: str):
+    return operator_intake_reconcile_intake(request, intake_id)
+
+
+@app.get("/api/operator/intake/{intake_id}/audit")
+def operator_intake_audit(request: Request, intake_id: str):
+    from services.intake.retention import get_intake_audit
     from services.production import require_ops_access
 
     require_ops_access(request)
     return get_intake_audit(intake_id.strip())
 
 
-@app.get("/api/operator/founding-beta/retention-check/{intake_id}")
-def operator_founding_beta_retention_check(request: Request, intake_id: str):
-    from services.founding_beta.retention import retention_check
+@app.get("/api/operator/founding-beta/intake/{intake_id}/audit")
+def operator_founding_beta_intake_audit(request: Request, intake_id: str):
+    return operator_intake_audit(request, intake_id)
+
+
+@app.get("/api/operator/intake/retention-check/{intake_id}")
+def operator_intake_retention_check(request: Request, intake_id: str):
+    from services.intake.retention import retention_check
     from services.production import require_ops_access
 
     require_ops_access(request)
     return retention_check(intake_id.strip())
 
 
-@app.post("/api/operator/founding-beta/action")
-async def operator_founding_beta_action(request: Request):
-    from services.founding_beta.operator_actions import apply_operator_action
+@app.get("/api/operator/founding-beta/retention-check/{intake_id}")
+def operator_founding_beta_retention_check(request: Request, intake_id: str):
+    return operator_intake_retention_check(request, intake_id)
+
+
+@app.get("/api/operator/integrity/reconcile")
+def operator_integrity_reconcile(request: Request, limit: int = 200):
+    from services.intake.forensic_reconcile import run_forensic_reconciliation
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return run_forensic_reconciliation(limit=min(max(limit, 1), 500))
+
+
+@app.get("/api/operator/integrity/proof")
+def operator_integrity_proof(request: Request, limit: int = 500):
+    from services.intake.forensic_reconcile import build_integrity_proof
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return build_integrity_proof(limit=min(max(limit, 1), 2000))
+
+
+@app.get("/api/operator/integrity/timeline/{intake_id}")
+def operator_integrity_timeline(request: Request, intake_id: str):
+    from services.intake.custody_timeline import build_custody_timeline
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return build_custody_timeline(intake_id.strip())
+
+
+@app.post("/api/operator/integrity/recover/{intake_id}")
+def operator_integrity_recover(request: Request, intake_id: str):
+    from services.intake.forensic_recovery import recover_intake_forensic
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return recover_intake_forensic(intake_id.strip())
+
+
+@app.post("/api/operator/intake/action")
+async def operator_intake_action(request: Request):
+    from services.intake.operator_actions import apply_operator_action
     from services.production import require_ops_access
 
     require_ops_access(request)
@@ -1332,6 +1443,11 @@ async def operator_founding_beta_action(request: Request):
     if not intake_id:
         raise HTTPException(status_code=400, detail="intake_id required")
     return apply_operator_action(intake_id, action, operator_note=note)
+
+
+@app.post("/api/operator/founding-beta/action")
+async def operator_founding_beta_action(request: Request):
+    return await operator_intake_action(request)
 
 
 @app.get("/api/cognitive-topology")

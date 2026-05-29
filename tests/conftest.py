@@ -53,7 +53,7 @@ def fb_env(durable_intake_root, monkeypatch):
     """Durable intake root + founding-beta learning hook path."""
     mem = durable_intake_root / "memory"
     monkeypatch.setattr(
-        "services.founding_beta.learning_hooks._LEARNING",
+        "services.intake.learning_hooks._LEARNING",
         mem / "learning_state.json",
     )
     return durable_intake_root

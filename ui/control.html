@@ -71,6 +71,17 @@
   ></div>
   <div id="fb-visibility-warning" class="fb-visibility-warning" role="alert" hidden></div>
 
+  <section class="kyc-section" id="evidence-integrity-panel" style="padding-top:0;">
+    <header class="kyc-section-head">
+      <span class="kyc-label-overline">Forensic</span>
+      <h2>Evidence Integrity</h2>
+      <p>Fleet-wide proof — green only when all problem counts are zero.</p>
+    </header>
+    <div id="evidence-integrity-status" class="fb-queue-atlas" aria-live="polite">
+      <p class="kyc-loading">Loading evidence integrity proof…</p>
+    </div>
+  </section>
+
   <section class="kyc-section cote-section" id="cote-topology-section" aria-label="Cognitive operational topology">
     <header class="kyc-section-head">
       <span class="kyc-label-overline">COTE</span>
@@ -96,11 +107,11 @@
 
   <section class="kyc-section" id="founding-beta-intake-panel" style="padding-top:0;">
     <header class="kyc-section-head">
-      <span class="kyc-label-overline">Founding Beta</span>
-      <h2>Founding Beta Queue</h2>
+      <span class="kyc-label-overline">Intake</span>
+      <h2>Intake Queue</h2>
       <p>Operational review queue — <a href="/ui/founding-beta" target="_blank" rel="noopener">public intake</a></p>
     </header>
-    <div id="founding-beta-intake-insights"><p class="kyc-loading">Loading founding beta queue…</p></div>
+    <div id="intake-queue-insights"><p class="kyc-loading">Loading intake queue…</p></div>
   </section>
 
   <main class="kyc-main kyc-main--ops">
@@ -506,6 +517,9 @@
         window.CockpitFoundingBeta && CockpitFoundingBeta.refresh
           ? await CockpitFoundingBeta.refresh(api)
           : await api('/api/operator/founding-beta/queue');
+      if (window.CockpitFoundingBeta && CockpitFoundingBeta.startEvidenceProofPolling) {
+        CockpitFoundingBeta.startEvidenceProofPolling(api);
+      }
       const dash = q.dashboard || {};
       const queue = q.queue || [];
       if (q.visibility_warning) {
