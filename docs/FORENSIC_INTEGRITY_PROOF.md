@@ -2,8 +2,8 @@
 
 **Generated:** 2026-05-29  
 **Environment:** Local isolated `KYC_DATA` (TestClient) — production URL not exercised in this run  
-**Commit under test:** `438fe9e` (startup recovery import fix) + working tree forensic modules  
-**Status:** **NOT COMPLETE** — full test suite not green (660 passed, 6 failed)
+**Commit under test:** `fd9722b` (local + production public path)  
+**Status:** Local proof complete (666/666); **production operator proof PARTIAL** (public upload only).
 
 ---
 
@@ -150,43 +150,112 @@ Index row deletion on `FB-f5c1c5fb99e1`:
 
 ## Production verification
 
-| Check | Status |
-|-------|--------|
-| Render startup `[retention] startup recovery completed` | **Expected after `438fe9e` deploy** — not re-verified in this run |
-| Live `GET /api/operator/integrity/proof` | **NOT RUN** — requires `OPS_PASSWORD` against `https://compliance.keepyourcontracts.com` |
-| Live corruption drill | **NOT RUN** |
+**Executed:** 2026-05-29 (session)  
+**Target:** `https://compliance.keepyourcontracts.com`  
+**Expected commit:** `fd9722bac80d3b5307b38801c25d723ab810dc2a`  
+**GitHub CI:** KYC Guardrails **passed** on `fd9722b` (2026-05-29T15:28:12Z)
 
-**Production proof command (operator):**
+### Deploy confidence (indirect — no Render API workspace)
 
-```bash
-# After ops login
-curl -s -b cookies.txt https://compliance.keepyourcontracts.com/api/operator/integrity/proof | jq .
-python scripts/prove_forensic_integrity.py  # local only unless KYC_DATA points at prod volume (read-only audit)
+| Signal | Observation |
+|--------|---------------|
+| GitHub `main` | `fd9722b` — forensic engine complete |
+| CI guardrails | Green on push |
+| `render.yaml` | `autoDeploy: true` |
+| `/api/operator/integrity/proof` | **403** (route exists; not 404) |
+| `/api/operator/integrity/reconcile` | **403** |
+| Upload response | `verified_file_count`, `custody_status`, `durable_receipt_created` present (post-`7e2dffd` contract) |
+| `/health/ready` | `durable_storage_configured=true`, `intake_uploads_enabled=true` |
+
+Render deploy SHA not exposed in HTTP headers; treat as **likely deployed** pending Render dashboard confirmation.
+
+### Production proof steps
+
+| Step | Requirement | Result |
+|------|-------------|--------|
+| 1 | `/api/operator/storage-status` | **BLOCKED** — 403 without `OPS_PASSWORD` / `OPS_API_KEY` |
+| 2 | `/api/operator/integrity/proof` | **BLOCKED** — 403 without ops auth |
+| 3 | `/api/operator/founding-beta/diagnostics` | **BLOCKED** — 403 without ops auth |
+| 4 | Public upload one test file | **PASS** — see intake below |
+| 5 | Queue visibility | **NOT VERIFIED** — requires ops session |
+| 6 | Proof endpoint sees file | **NOT VERIFIED** — requires ops session |
+| 7 | Audit receipt exists | **NOT VERIFIED** — requires `GET /api/operator/intake/{id}/audit` |
+| 8 | Retention-check passes | **NOT VERIFIED** — requires ops session |
+| 9 | Cockpit / COTE shows intake | **NOT VERIFIED** — `/api/cognitive-topology` protected |
+
+### Production upload (step 4 — verified)
+
 ```
+POST https://compliance.keepyourcontracts.com/api/founding-beta/upload
+email: forensic-proof-prod@keepyourcontracts.com
+file: prod-forensic-proof.pdf (%PDF-1.4 prod forensic proof)
+```
+
+| Field | Value |
+|-------|-------|
+| **intake_id** | `FB-cfea103a466d` |
+| HTTP status | 200 |
+| `verified_file_count` | 1 |
+| `custody_status` | `verified_complete` |
+| `customer_may_show_success` | true |
+| `durable_receipt_created` | true |
+| `integrity_mismatch` | false |
+
+Secondary probe upload: `FB-ba6760a59bc9` (same fields, confirms repeatability).
+
+### Operator proof command (requires credentials)
+
+```powershell
+$env:OPS_PASSWORD = '<your-render-ops-password>'
+$env:PROD_BASE_URL = 'https://compliance.keepyourcontracts.com'
+python scripts/prove_production_forensic.py
+```
+
+Or with API key:
+
+```powershell
+$env:OPS_API_KEY = '<render-ops-api-key>'
+python scripts/prove_production_forensic.py
+```
+
+### Production proof result summary
+
+| Check | Result |
+|-------|--------|
+| **proof result** | **PARTIAL** — public upload + health OK; operator proof endpoints unreachable without credentials |
+| **retention result** | **NOT RUN** |
+| **queue result** | **NOT RUN** |
+| **cockpit result** | **NOT RUN** |
+
+### Startup recovery log
+
+`[retention] startup recovery completed` — **not confirmed** in this session (Render logs require dashboard/API access; prior production error was `require_intake_upload_allowed` ImportError, fixed in `438fe9e`, included in `fd9722b`).
 
 ---
 
 ## Known risks
 
-1. **Full suite not green** — 6 failures block “complete” declaration.
-2. **Proof endpoint gap** — deleting `intake.json` alone may not flip `proof.ok` until reconciliation runs; operator could see green proof while metadata is missing.
-3. **Production not exercised** — all step proofs are TestClient + temp `KYC_DATA`.
-4. **Registry derived lag** — registry can show `verified` while disk is corrupt until `run_forensic_reconciliation` or proof rebuild runs.
-5. **Browser refresh / redeploy mid-upload** — covered by forensic tests (22/23 pass); not validated on live Render.
+1. **Operator proof incomplete** — `OPS_PASSWORD` / `OPS_API_KEY` not available in automation environment; steps 1–3, 5–9 unverified on live fleet.
+2. **Deploy SHA unconfirmed** — indirect signals only; verify in Render deploy history for `fd9722b`.
+3. **Safe mode on production** (`KYC_SAFE_MODE=true` in `render.yaml`) — startup forensic reconcile may be skipped; proof endpoint still callable when authenticated.
+4. **Test uploads on production disk** — `FB-cfea103a466d` and `FB-ba6760a59bc9` are real intakes on `/var/data`; operator should archive or mark reviewed.
+5. **Registry derived lag** — registry can show `verified` while disk is corrupt until reconciliation runs.
+6. **Browser refresh / redeploy mid-upload** — covered by forensic tests; not validated on live Render.
 
 ---
 
 ## Remaining uncertainties
 
-- Whether Render logs show `[retention] startup recovery completed` post-`438fe9e` (import fix pushed; deploy confirmation pending).
-- Whether live fleet `integrity/proof` is green on production data.
-- Whether `test_wrong_root_mismatch_fails_loudly` failure indicates a real read/write root guard regression.
+- Whether Render logs show `[retention] startup recovery completed` post-`fd9722b`.
+- Whether live fleet `integrity/proof` is green on production data (requires ops auth).
 - Complete destroy-matrix coverage vs production disk latency and multi-instance concurrency.
 
 ---
 
 ## Conclusion
 
-**Forensic engine behavior is proven locally** for upload → registry → audit → lifecycle → proof green → corruption → incident → COTE red → index recovery → audit tamper detection.
+**Forensic engine behavior is proven locally** (666/666 tests, proof phase steps 1–14).
 
-**Platform is NOT declared complete:** full test suite has 6 failures; production proof not executed; one forensic test documents a proof-endpoint blind spot on `intake.json` deletion.
+**Production:** Public upload path verified on `https://compliance.keepyourcontracts.com` (`FB-cfea103a466d`). Operator endpoints (proof, queue, retention, cockpit) require `OPS_PASSWORD` — not exercised in this automation run.
+
+**Not declared production-complete** until operator-authenticated proof steps 1–9 pass and Render logs confirm `[retention] startup recovery completed`.
