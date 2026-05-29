@@ -126,7 +126,7 @@ def test_wrong_root_mismatch_fails_loudly(monkeypatch, fb_data, anon_client):
   other = fb_data / "other"
   other.mkdir()
   monkeypatch.setattr(
-      "services.founding_beta.retention.resolved_read_root",
+      "services.intake.retention.resolved_read_root",
       lambda: other.resolve(),
   )
   r = anon_client.post(

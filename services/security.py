@@ -52,24 +52,15 @@ _intake_token_signer = URLSafeSerializer(SETTINGS.intake_token_secret, salt="kyc
 INTAKE_TOKEN_MAX_AGE_SECONDS = 90 * 24 * 3600
 
 
-def make_intake_token(intake_id: str) -> str:
+def make_founding_beta_token(intake_id: str) -> str:
+    """Upload magic-link token for founding-beta / intake paperwork (FB-* ids)."""
     return _intake_token_signer.dumps({"i": intake_id, "ts": int(time.time())})
 
 
-def parse_intake_token(token: str) -> dict:
+def parse_founding_beta_token(token: str) -> dict:
     try:
         return _intake_token_signer.loads(token, max_age=INTAKE_TOKEN_MAX_AGE_SECONDS)
     except SignatureExpired as e:
         raise ValueError("intake_token_expired") from e
     except BadSignature as e:
         raise ValueError("intake_token_invalid") from e
-
-
-def make_founding_beta_token(intake_id: str) -> str:
-    """Deprecated alias — use make_intake_token."""
-    return make_intake_token(intake_id)
-
-
-def parse_founding_beta_token(token: str) -> dict:
-    """Deprecated alias — use parse_intake_token."""
-    return parse_intake_token(token)

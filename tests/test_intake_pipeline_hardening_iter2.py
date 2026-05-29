@@ -131,7 +131,7 @@ def test_telemetry_failure_does_not_block_commit(fb_env, anon_client: TestClient
     def fail_emit(*args, **kwargs):
         return False
 
-    monkeypatch.setattr("services.founding_beta.intake.emit_beta_event", fail_emit)
+    monkeypatch.setattr("services.intake.intake.emit_intake_event", fail_emit)
     r = anon_client.post(
         "/api/founding-beta/upload",
         files=[_pdf("tel.pdf")],
@@ -153,9 +153,9 @@ def test_hash_mismatch_detected_on_retention_check(fb_env, anon_client: TestClie
         data={"email": "hash@example.com", "expected_file_count": "1"},
     )
     iid = r.json()["intake_id"]
-    from services.founding_beta.intake import _intake_dir
+    from services.intake.storage import intake_dir
 
-    path = _intake_dir(iid) / "uploads" / "hash.pdf"
+    path = intake_dir(iid) / "uploads" / "hash.pdf"
     path.write_bytes(b"CORRUPTED")
     check = client.get(f"/api/operator/founding-beta/retention-check/{iid}").json()
     assert check.get("hash_mismatch_detected") is True
@@ -191,9 +191,9 @@ def test_cote_integrity_failure_on_hash_mismatch(fb_env, anon_client: TestClient
         data={"email": "cotehash@example.com", "expected_file_count": "1"},
     )
     iid = r.json()["intake_id"]
-    from services.founding_beta.intake import _intake_dir
+    from services.intake.storage import intake_dir
 
-    (_intake_dir(iid) / "uploads" / "cotehash.pdf").write_bytes(b"BAD")
+    (intake_dir(iid) / "uploads" / "cotehash.pdf").write_bytes(b"BAD")
     from services.founding_beta.reconcile import recover_uncommitted_intakes
 
     recover_uncommitted_intakes(limit=20)

@@ -184,9 +184,10 @@ async def _boot_worker():
 
         scan_retention_at_startup()
         legacy_migration_status()
-        from services.intake.forensic_reconcile import run_forensic_reconciliation
+        if not is_safe_mode():
+            from services.intake.forensic_reconcile import run_forensic_reconciliation
 
-        run_forensic_reconciliation()
+            run_forensic_reconciliation()
     except Exception as exc:
         logging.critical("[retention] startup scan failed: %s", exc)
 
@@ -1409,7 +1410,7 @@ def operator_integrity_proof(request: Request, limit: int = 500):
     from services.production import require_ops_access
 
     require_ops_access(request)
-    return build_integrity_proof(limit=min(max(limit, 1), 2000))
+    return build_integrity_proof(limit=min(max(limit, 1), 2000), use_cache=False)
 
 
 @app.get("/api/operator/integrity/timeline/{intake_id}")

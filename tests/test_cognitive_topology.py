@@ -239,6 +239,9 @@ def test_mvp_no_history_not_marked_degraded(cote_isolated, monkeypatch):
 
 
 def test_learning_telemetry_failures_degraded(cote_isolated, monkeypatch):
+    from datetime import datetime, timezone
+
+    recent = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     _write_learning(
         cote_isolated["learning"],
         {
@@ -254,7 +257,7 @@ def test_learning_telemetry_failures_degraded(cote_isolated, monkeypatch):
                 "subsystem": "learning",
                 "event_type": "cycle",
                 "success": False,
-                "observed_at_utc": "2026-05-28T12:00:00Z",
+                "observed_at_utc": recent,
             }
         )
     ]

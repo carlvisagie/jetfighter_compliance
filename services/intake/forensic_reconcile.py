@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,7 +15,10 @@ from .evidence_registry import (
     STATUS_ORPHANED,
     STATUS_RECOVERED,
     STATUS_VERIFIED,
-    build_registry_from_disk,
+    build_canonical_evidence_state,
+    build_registry_from_canonical,
+    compare_derived_to_canonical,
+    derive_evidence_registry_for_intake,
     load_registry,
     lookup_by_intake,
 )
@@ -30,6 +34,8 @@ _SEVERITY_MEDIUM = "medium"
 _SEVERITY_LOW = "low"
 
 _STARTUP_RECONCILE: Optional[Dict[str, Any]] = None
+_PROOF_CACHE: Optional[tuple[float, Dict[str, Any]]] = None
+_PROOF_CACHE_TTL_SEC = 45.0
 
 
 def _utc_now() -> str:
@@ -58,6 +64,19 @@ class IntegrityDisagreement:
         return asdict(self)
 
 
+def _emit_integrity_telemetry(disagreement: IntegrityDisagreement) -> None:
+    try:
+        from .telemetry import emit_intake_event
+
+        emit_intake_event(
+            "integrity_incident_detected",
+            message=disagreement.issue_code,
+            metadata=disagreement.to_dict(),
+        )
+    except Exception:
+        pass
+
+
 def append_integrity_incident(disagreement: IntegrityDisagreement) -> Dict[str, Any]:
     row = disagreement.to_dict()
     path = integrity_incidents_path()
@@ -66,6 +85,7 @@ def append_integrity_incident(disagreement: IntegrityDisagreement) -> Dict[str, 
     assert_canonical_write_path(path)
     with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    _emit_integrity_telemetry(disagreement)
     if disagreement.severity == _SEVERITY_CRITICAL:
         logger.critical(
             "[forensic] integrity incident %s intake=%s evidence=%s %s",
@@ -110,7 +130,7 @@ def _queue_intake_ids(*, limit: int = 200) -> set[str]:
     try:
         from .queue import get_operator_review_queue
 
-        q = get_operator_review_queue(limit=limit)
+        q = get_operator_review_queue(limit=limit, persist_recovery=False)
         return {str(r.get("intake_id") or "") for r in q.get("queue") or [] if r.get("intake_id")}
     except Exception:
         return set()
@@ -128,8 +148,7 @@ def _cote_signal() -> Dict[str, Any]:
 def _reconcile_intake_files(intake_id: str) -> List[IntegrityDisagreement]:
     disagreements: List[IntegrityDisagreement] = []
     now = _utc_now()
-    idir = intake_dir(intake_id)
-    uploads = idir / "uploads"
+    canonical = build_canonical_evidence_state(intake_id)
     on_disk = hash_uploads_on_disk(intake_id)
     registry_rows = lookup_by_intake(intake_id)
     registry_by_stored = {str(r.get("stored_filename") or ""): r for r in registry_rows}
@@ -139,27 +158,66 @@ def _reconcile_intake_files(intake_id: str) -> List[IntegrityDisagreement]:
     commit_complete = intake_commit_complete(intake_id)
     queue_ids = _queue_intake_ids()
 
-    for stored, sha in on_disk.items():
-        reg = registry_by_stored.get(stored)
-        if not reg:
+    for mismatch in compare_derived_to_canonical(intake_id):
+        code = str(mismatch.get("issue_code") or "registry_canonical_mismatch")
+        d = IntegrityDisagreement(
+            subsystem="evidence_registry",
+            intake_id=intake_id,
+            evidence_id=None,
+            issue_code=code,
+            detail=json.dumps(mismatch, ensure_ascii=False),
+            detected_at=now,
+            severity=_SEVERITY_CRITICAL,
+        )
+        disagreements.append(d)
+        append_integrity_incident(d)
+
+    for cf in canonical.get("files") or []:
+        stored = str(cf.get("stored_filename") or "")
+        sha = cf.get("sha256")
+        if cf.get("current_status") == STATUS_CORRUPT:
             d = IntegrityDisagreement(
-                subsystem="evidence_registry",
+                subsystem="audit_receipt",
                 intake_id=intake_id,
                 evidence_id=None,
-                issue_code="disk_file_not_in_registry",
-                detail=f"File {stored} on disk without registry entry",
+                issue_code="hash_mismatch_corrupt",
+                detail=f"Canonical corrupt hash for {stored}",
                 detected_at=now,
                 severity=_SEVERITY_CRITICAL,
             )
             disagreements.append(d)
             append_integrity_incident(d)
-        elif reg.get("current_status") == STATUS_VERIFIED and receipt:
+        elif cf.get("current_status") == STATUS_MISSING:
+            d = IntegrityDisagreement(
+                subsystem="filesystem",
+                intake_id=intake_id,
+                evidence_id=None,
+                issue_code="audit_file_missing_on_disk",
+                detail=f"Audit receipt lists {stored} but file missing on disk",
+                detected_at=now,
+                severity=_SEVERITY_HIGH,
+            )
+            disagreements.append(d)
+            append_integrity_incident(d)
+        elif not registry_by_stored.get(stored):
+            d = IntegrityDisagreement(
+                subsystem="evidence_registry",
+                intake_id=intake_id,
+                evidence_id=None,
+                issue_code="disk_file_not_in_registry",
+                detail=f"File {stored} on disk without derived registry entry",
+                detected_at=now,
+                severity=_SEVERITY_CRITICAL,
+            )
+            disagreements.append(d)
+            append_integrity_incident(d)
+        elif stored in on_disk and receipt:
             expected = (receipt.get("file_hashes") or {}).get(stored)
-            if expected and expected != sha:
+            if expected and sha and expected != sha:
                 d = IntegrityDisagreement(
                     subsystem="audit_receipt",
                     intake_id=intake_id,
-                    evidence_id=str(reg.get("evidence_id") or ""),
+                    evidence_id=str(registry_by_stored.get(stored, {}).get("evidence_id") or ""),
                     issue_code="hash_mismatch_corrupt",
                     detail=f"Audit hash mismatch for {stored}",
                     detected_at=now,
@@ -170,7 +228,7 @@ def _reconcile_intake_files(intake_id: str) -> List[IntegrityDisagreement]:
 
     for reg in registry_rows:
         stored = str(reg.get("stored_filename") or "")
-        if stored and stored not in on_disk:
+        if stored and stored not in on_disk and reg.get("current_status") not in (STATUS_MISSING, STATUS_RECOVERED):
             d = IntegrityDisagreement(
                 subsystem="filesystem",
                 intake_id=intake_id,
@@ -184,17 +242,17 @@ def _reconcile_intake_files(intake_id: str) -> List[IntegrityDisagreement]:
             append_integrity_incident(d)
 
     if on_disk and not receipt:
-        disagreements.append(
-            IntegrityDisagreement(
-                subsystem="audit_receipt",
-                intake_id=intake_id,
-                evidence_id=None,
-                issue_code="files_without_audit_receipt",
-                detail=f"{len(on_disk)} file(s) on disk without audit receipt",
-                detected_at=now,
-                severity=_SEVERITY_HIGH,
-            )
+        d = IntegrityDisagreement(
+            subsystem="audit_receipt",
+            intake_id=intake_id,
+            evidence_id=None,
+            issue_code="files_without_audit_receipt",
+            detail=f"{len(on_disk)} file(s) on disk without audit receipt",
+            detected_at=now,
+            severity=_SEVERITY_HIGH,
         )
+        disagreements.append(d)
+        append_integrity_incident(d)
 
     if on_disk and not ij_exists:
         d = IntegrityDisagreement(
@@ -210,17 +268,17 @@ def _reconcile_intake_files(intake_id: str) -> List[IntegrityDisagreement]:
         append_integrity_incident(d)
 
     if on_disk and commit_complete and not index_row:
-        disagreements.append(
-            IntegrityDisagreement(
-                subsystem="index",
-                intake_id=intake_id,
-                evidence_id=None,
-                issue_code="committed_not_in_index",
-                detail="Commit complete but intake missing from index",
-                detected_at=now,
-                severity=_SEVERITY_HIGH,
-            )
+        d = IntegrityDisagreement(
+            subsystem="index",
+            intake_id=intake_id,
+            evidence_id=None,
+            issue_code="committed_not_in_index",
+            detail="Commit complete but intake missing from index",
+            detected_at=now,
+            severity=_SEVERITY_HIGH,
         )
+        disagreements.append(d)
+        append_integrity_incident(d)
 
     if on_disk and ij_exists and intake_id not in queue_ids:
         try:
@@ -243,17 +301,17 @@ def _reconcile_intake_files(intake_id: str) -> List[IntegrityDisagreement]:
             pass
 
     if receipt and on_disk and not audit_hashes_match(intake_id, on_disk=on_disk):
-        disagreements.append(
-            IntegrityDisagreement(
-                subsystem="audit_receipt",
-                intake_id=intake_id,
-                evidence_id=None,
-                issue_code="audit_hash_mismatch",
-                detail="On-disk hashes do not match audit receipt",
-                detected_at=now,
-                severity=_SEVERITY_CRITICAL,
-            )
+        d = IntegrityDisagreement(
+            subsystem="audit_receipt",
+            intake_id=intake_id,
+            evidence_id=None,
+            issue_code="audit_hash_mismatch",
+            detail="On-disk hashes do not match audit receipt",
+            detected_at=now,
+            severity=_SEVERITY_CRITICAL,
         )
+        disagreements.append(d)
+        append_integrity_incident(d)
 
     return disagreements
 
@@ -262,9 +320,10 @@ def run_forensic_reconciliation(*, limit: int = 200, rebuild_registry: bool = Tr
     """
     Compare disk, audit, registry, index, queue, COTE — report only, no auto-repair.
     """
-    global _STARTUP_RECONCILE
+    global _STARTUP_RECONCILE, _PROOF_CACHE
+    _PROOF_CACHE = None
     if rebuild_registry:
-        build_registry_from_disk(limit=limit)
+        build_registry_from_canonical(limit=limit)
 
     disk_ids = list_intake_ids(limit=limit)
     index_ids = set(index_intake_ids(tail_lines=max(limit, 500)))
@@ -338,13 +397,29 @@ def last_forensic_reconciliation() -> Optional[Dict[str, Any]]:
     return dict(_STARTUP_RECONCILE) if _STARTUP_RECONCILE else None
 
 
-def build_integrity_proof(*, limit: int = 500, sample_limit: int = 20) -> Dict[str, Any]:
-    """Fleet-wide visibility proof — ok only when all problem counts are zero."""
-    registry = load_registry(tail_lines=50000)
-    registry_by_key: Dict[tuple[str, str], Dict[str, Any]] = {}
-    for row in registry:
-        key = (str(row.get("intake_id") or ""), str(row.get("stored_filename") or ""))
-        registry_by_key[key] = row
+def _proof_record_incident(
+    intake_id: str,
+    issue_code: str,
+    detail: str,
+    *,
+    severity: str = _SEVERITY_HIGH,
+    evidence_id: Optional[str] = None,
+    subsystem: str = "proof",
+) -> None:
+    """Proof is read-only — incidents are recorded during reconcile, not on every proof poll."""
+    del intake_id, issue_code, detail, severity, evidence_id, subsystem
+
+
+def build_integrity_proof(
+    *, limit: int = 500, sample_limit: int = 20, use_cache: bool = True
+) -> Dict[str, Any]:
+    """Fleet-wide visibility proof — ok only when canonical state has zero problems."""
+    global _PROOF_CACHE
+    now_mono = time.monotonic()
+    if use_cache and _PROOF_CACHE is not None:
+        cached_at, cached = _PROOF_CACHE
+        if now_mono - cached_at < _PROOF_CACHE_TTL_SEC:
+            return dict(cached)
 
     verified_files = 0
     missing_files = 0
@@ -353,6 +428,8 @@ def build_integrity_proof(*, limit: int = 500, sample_limit: int = 20) -> Dict[s
     recovered_files = 0
     registered_files = 0
     pending_files = 0
+    missing_audit_files = 0
+    structural_problems = 0
 
     sample_verified: List[str] = []
     sample_missing: List[str] = []
@@ -364,71 +441,141 @@ def build_integrity_proof(*, limit: int = 500, sample_limit: int = 20) -> Dict[s
     unindexed_files = 0
     index_ids = set(index_intake_ids(tail_lines=max(limit, 500)))
     seen_disk: set[tuple[str, str]] = set()
+    registry = load_registry(tail_lines=50000)
+    registry_by_key: Dict[tuple[str, str], Dict[str, Any]] = {}
+    for row in registry:
+        key = (str(row.get("intake_id") or ""), str(row.get("stored_filename") or ""))
+        registry_by_key[key] = row
 
     for intake_id in list_intake_ids(limit=limit):
-        uploads = intake_dir(intake_id) / "uploads"
-        if not uploads.is_dir():
-            continue
+        canonical = build_canonical_evidence_state(intake_id)
         on_disk = hash_uploads_on_disk(intake_id)
-        receipt = load_audit_receipt(intake_id)
         commit_complete = intake_commit_complete(intake_id)
+        ij_exists = intake_json_path(intake_id).is_file()
+
+        if on_disk and not canonical.get("audit_receipt_exists"):
+            missing_audit_files += len(on_disk)
+            _proof_record_incident(
+                intake_id,
+                "files_without_audit_receipt",
+                f"{len(on_disk)} file(s) on disk without audit receipt",
+                subsystem="audit_receipt",
+            )
+
+        if on_disk and not ij_exists:
+            structural_problems += 1
+            _proof_record_incident(
+                intake_id,
+                "files_without_intake_json",
+                "Files on disk without intake.json",
+                severity=_SEVERITY_CRITICAL,
+                subsystem="intake_json",
+            )
+
         if on_disk and commit_complete and intake_id not in index_ids:
             unindexed_files += len(on_disk)
             if len(sample_unindexed) < sample_limit:
                 sample_unindexed.append(intake_id)
+            _proof_record_incident(
+                intake_id,
+                "committed_not_in_index",
+                "Commit complete but intake missing from index",
+                subsystem="index",
+            )
 
-        for stored, sha in on_disk.items():
-            seen_disk.add((intake_id, stored))
-            reg = registry_by_key.get((intake_id, stored))
-            expected = (receipt or {}).get("file_hashes", {}).get(stored) if receipt else None
-            corrupt = bool(expected and expected != sha)
-            if not reg:
+        for cf in canonical.get("files") or []:
+            stored = str(cf.get("stored_filename") or "")
+            if not stored:
+                continue
+            key = (intake_id, stored)
+            if cf.get("on_disk"):
+                seen_disk.add(key)
+            status = str(cf.get("current_status") or "")
+            reg = registry_by_key.get(key)
+            if status == STATUS_CORRUPT:
+                corrupt_files += 1
+                if len(sample_corrupt) < sample_limit:
+                    sample_corrupt.append(f"{intake_id}:{stored}")
+                _proof_record_incident(
+                    intake_id,
+                    "hash_mismatch_corrupt",
+                    f"Canonical corrupt hash for {stored}",
+                    severity=_SEVERITY_CRITICAL,
+                    subsystem="audit_receipt",
+                )
+            elif status == STATUS_MISSING:
+                missing_files += 1
+                if len(sample_missing) < sample_limit:
+                    sample_missing.append(f"{intake_id}:{stored}")
+                _proof_record_incident(
+                    intake_id,
+                    "audit_file_missing_on_disk",
+                    f"Audit lists {stored} but file missing on disk",
+                    subsystem="filesystem",
+                )
+            elif status == STATUS_VERIFIED:
+                verified_files += 1
+                if len(sample_verified) < sample_limit:
+                    sample_verified.append(f"{intake_id}:{stored}")
+            elif not reg:
                 orphaned_files += 1
                 if len(sample_orphaned) < sample_limit:
                     sample_orphaned.append(f"{intake_id}:{stored}")
+                _proof_record_incident(
+                    intake_id,
+                    "disk_file_not_in_registry",
+                    f"File {stored} on disk without derived registry entry",
+                    severity=_SEVERITY_CRITICAL,
+                    subsystem="evidence_registry",
+                )
             elif reg.get("current_status") == STATUS_RECOVERED:
                 recovered_files += 1
                 if len(sample_recovered) < sample_limit:
                     sample_recovered.append(f"{intake_id}:{stored}")
-            elif corrupt or reg.get("current_status") == STATUS_CORRUPT:
-                corrupt_files += 1
-                if len(sample_corrupt) < sample_limit:
-                    sample_corrupt.append(f"{intake_id}:{stored}")
-            elif reg.get("current_status") == STATUS_VERIFIED:
-                verified_files += 1
-                if len(sample_verified) < sample_limit:
-                    sample_verified.append(f"{intake_id}:{stored}")
-            elif reg.get("current_status") == STATUS_MISSING:
-                missing_files += 1
-                if len(sample_missing) < sample_limit:
-                    sample_missing.append(f"{intake_id}:{stored}")
-            elif reg.get("current_status") == STATUS_ORPHANED:
-                orphaned_files += 1
-                if len(sample_orphaned) < sample_limit:
-                    sample_orphaned.append(f"{intake_id}:{stored}")
             else:
                 registered_files += 1
                 pending_files += 1
 
+        for mismatch in compare_derived_to_canonical(intake_id):
+            orphaned_files += 1
+            stored = str(mismatch.get("stored_filename") or "")
+            if len(sample_orphaned) < sample_limit and stored:
+                sample_orphaned.append(f"{intake_id}:{stored}")
+            _proof_record_incident(
+                intake_id,
+                str(mismatch.get("issue_code") or "registry_canonical_mismatch"),
+                json.dumps(mismatch, ensure_ascii=False),
+                severity=_SEVERITY_CRITICAL,
+                subsystem="evidence_registry",
+            )
+
     for row in registry:
         key = (str(row.get("intake_id") or ""), str(row.get("stored_filename") or ""))
-        if key not in seen_disk and row.get("current_status") not in (STATUS_RECOVERED,):
+        if key not in seen_disk and row.get("current_status") not in (STATUS_RECOVERED, STATUS_MISSING):
             missing_files += 1
-            iid = key[0]
             if len(sample_missing) < sample_limit:
-                sample_missing.append(f"{iid}:{key[1]}")
+                sample_missing.append(f"{key[0]}:{key[1]}")
+            _proof_record_incident(
+                key[0],
+                "registry_file_missing_on_disk",
+                f"Registry entry for {key[1]} but file missing on disk",
+                subsystem="filesystem",
+            )
 
-    total_files = len(seen_disk) + sum(
-        1 for r in registry if (str(r.get("intake_id") or ""), str(r.get("stored_filename") or "")) not in seen_disk
-    )
+    total_files = len(seen_disk) + missing_files
     problem = (
-        missing_files + orphaned_files + unindexed_files + corrupt_files
+        missing_files
+        + orphaned_files
+        + unindexed_files
+        + corrupt_files
+        + missing_audit_files
+        + structural_problems
     )
-    incidents = load_integrity_incidents(tail=200)
+    incidents = load_integrity_incidents(tail=500)
     incident_count = len(incidents)
 
-    ok = problem == 0 and incident_count == 0
-    return {
+    ok = problem == 0
+    result = {
         "ok": ok,
         "total_files": total_files,
         "verified_files": verified_files,
@@ -439,6 +586,7 @@ def build_integrity_proof(*, limit: int = 500, sample_limit: int = 20) -> Dict[s
         "unindexed_files": unindexed_files,
         "corrupt_files": corrupt_files,
         "recovered_files": recovered_files,
+        "missing_audit_files": missing_audit_files,
         "integrity_incident_count": incident_count,
         "samples": {
             "verified": sample_verified,
@@ -450,6 +598,11 @@ def build_integrity_proof(*, limit: int = 500, sample_limit: int = 20) -> Dict[s
         },
         "proof_at_utc": _utc_now(),
     }
+    if ok:
+        _PROOF_CACHE = (now_mono, result)
+    else:
+        _PROOF_CACHE = None
+    return result
 
 
 def guard_disk_file_visibility(intake_id: str, stored_filename: str, *, context: str = "upload") -> None:

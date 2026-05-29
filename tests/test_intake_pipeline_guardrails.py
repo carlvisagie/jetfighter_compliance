@@ -11,6 +11,7 @@ SERVER_PY = ROOT / "server.py"
 
 ALLOWED_CUSTOMER_FILE_UPLOAD_ROUTES = frozenset(
     {
+        "/api/intake/upload",
         "/api/founding-beta/upload",
         "/api/customer/session/upload",  # shim only — proxies to canonical
         "/api/evidence/register",  # post-kickoff project evidence

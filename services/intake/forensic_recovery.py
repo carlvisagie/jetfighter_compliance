@@ -7,8 +7,8 @@ from typing import Any, Dict, List, Optional
 
 from .evidence_registry import (
     STATUS_RECOVERED,
+    derive_evidence_registry_for_intake,
     lookup_by_intake,
-    register_verified_files_for_intake,
     update_evidence_status,
 )
 from .retention import hash_uploads_on_disk, load_audit_receipt, require_upload_durability_verified
@@ -115,11 +115,8 @@ def recover_intake_forensic(intake_id: str) -> Dict[str, Any]:
     committed = bool(durability.get("durability_verified"))
     _commit_intake_state(intake_id, record, integrity=integrity, committed=committed)
 
-    registered = register_verified_files_for_intake(
-        intake_id,
-        saved_files=files_on_record,
-        audit_receipt_ref=str((idir / "intake_audit.json").resolve()) if audit else None,
-    )
+    derive_evidence_registry_for_intake(intake_id, write=True)
+    registered = lookup_by_intake(intake_id)
     for row in lookup_by_intake(intake_id):
         eid = str(row.get("evidence_id") or "")
         if eid and row.get("current_status") != STATUS_RECOVERED:

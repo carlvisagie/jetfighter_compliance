@@ -13,7 +13,7 @@ from fastapi import HTTPException, UploadFile
 
 from services.production import safe_upload_filename
 from services.public_url import get_public_base_url
-from services.security import make_intake_token, parse_intake_token
+from services.security import make_founding_beta_token, parse_founding_beta_token
 
 from .storage import (
     all_intake_ids,
@@ -165,7 +165,7 @@ def _commit_intake_state(
 
 def validate_intake_access(intake_id: str, token: str) -> Dict[str, Any]:
     try:
-        info = parse_intake_token(token)
+        info = parse_founding_beta_token(token)
     except ValueError as e:
         code = str(e)
         if code == "intake_token_expired":
@@ -361,7 +361,7 @@ async def process_upload(
             deadline=deadline,
         )
         intake_id = record["intake_id"]
-        token = make_intake_token(intake_id)
+        token = make_founding_beta_token(intake_id)
 
     commit_lock = _intake_commit_lock(intake_id)
     commit_lock.acquire()
@@ -635,12 +635,9 @@ async def _process_upload_locked(
                 metadata={"verified_file_count": durability.get("verified_file_count")},
             )
             append_transaction_event(intake_id, PHASE_AUDIT_WRITTEN, metadata={"audit": True})
-            from .evidence_registry import register_verified_files_for_intake
+            from .evidence_registry import derive_evidence_registry_for_intake
 
-            register_verified_files_for_intake(
-                intake_id,
-                saved_files=list(record.get("files") or []),
-            )
+            derive_evidence_registry_for_intake(intake_id, write=True)
         else:
             append_transaction_event(
                 intake_id,
@@ -875,7 +872,7 @@ def get_operator_intake_dashboard(limit: int = 20) -> Dict[str, Any]:
                 "file_count": rec.get("file_count", 0),
             }
         )
-        tok = make_intake_token(str(iid))
+        tok = make_founding_beta_token(str(iid))
         links.append(
             {
                 "intake_id": iid,

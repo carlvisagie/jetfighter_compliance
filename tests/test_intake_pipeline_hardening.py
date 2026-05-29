@@ -159,7 +159,7 @@ def test_queue_rebuild_after_simulated_restart(fb_env, anon_client: TestClient, 
 
 
 def test_durability_failure_marks_integrity_failure(fb_env, anon_client: TestClient, monkeypatch):
-    from services.founding_beta import retention as ret
+    from services.intake import retention as ret
 
     original = ret.verify_intake_durability
 

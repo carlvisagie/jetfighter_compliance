@@ -45,9 +45,9 @@ def _risk_score(
     return round(min(1.0, score), 3)
 
 
-def _queue_row(intake_id: str) -> Optional[Dict[str, Any]]:
+def _queue_row(intake_id: str, *, persist_recovery: bool = True) -> Optional[Dict[str, Any]]:
     try:
-        rec = load_intake_record(intake_id, persist_recovery=True)
+        rec = load_intake_record(intake_id, persist_recovery=persist_recovery)
     except (FileNotFoundError, ValueError, OSError):
         return None
 
@@ -162,13 +162,18 @@ def _visibility_warning(diag: Dict[str, Any], rows: List[Dict[str, Any]], pendin
     return None
 
 
-def get_operator_review_queue(*, limit: int = 40, include_archived: bool = False) -> Dict[str, Any]:
+def get_operator_review_queue(
+    *,
+    limit: int = 40,
+    include_archived: bool = False,
+    persist_recovery: bool = True,
+) -> Dict[str, Any]:
     sync_index_from_filesystem(max_rows=max(limit, 100))
     diag = intake_diagnostics()
     rows: List[Dict[str, Any]] = []
 
     for iid in all_intake_ids(limit=max(limit * 3, 200)):
-        item = _queue_row(iid)
+        item = _queue_row(iid, persist_recovery=persist_recovery)
         if not item:
             continue
         if not include_archived and item.get("review_status") == "archived":

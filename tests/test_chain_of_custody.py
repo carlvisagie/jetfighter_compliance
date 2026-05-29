@@ -89,7 +89,7 @@ def test_retention_check_compares_counts(fb_env, anon_client: TestClient, client
 
 
 def test_oversized_file_rejected_visible(fb_env, anon_client: TestClient, monkeypatch):
-    from services.founding_beta import intake as intake_mod
+    from services.intake import intake as intake_mod
 
     monkeypatch.setattr(intake_mod, "MAX_FILE_BYTES", 64)
     big = b"x" * 128
