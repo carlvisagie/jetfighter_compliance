@@ -1339,6 +1339,33 @@ def operator_founding_beta_reconcile_intake(request: Request, intake_id: str):
     return operator_intake_reconcile_intake(request, intake_id)
 
 
+@app.get("/api/operator/intake/{intake_id}/files")
+def operator_intake_files_list(request: Request, intake_id: str):
+    from services.intake.operator_files import list_intake_files_for_operator
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return list_intake_files_for_operator(intake_id.strip())
+
+
+@app.get("/api/operator/intake/{intake_id}/files/{filename}/download")
+def operator_intake_file_download(request: Request, intake_id: str, filename: str):
+    from services.intake.operator_files import serve_intake_file
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return serve_intake_file(intake_id.strip(), filename, mode="download")
+
+
+@app.get("/api/operator/intake/{intake_id}/files/{filename}/view")
+def operator_intake_file_view(request: Request, intake_id: str, filename: str):
+    from services.intake.operator_files import serve_intake_file
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return serve_intake_file(intake_id.strip(), filename, mode="view")
+
+
 @app.get("/api/operator/intake/{intake_id}/audit")
 def operator_intake_audit(request: Request, intake_id: str):
     from services.intake.retention import get_intake_audit

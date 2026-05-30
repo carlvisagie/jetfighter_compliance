@@ -509,6 +509,89 @@
     }
   }
 
+  function buildDocumentsSection(row) {
+    var docs = row.documents || [];
+    if (!docs.length) {
+      var lifecycle = (row.upload_integrity && row.upload_integrity.file_lifecycle_table) || [];
+      if (!lifecycle.length) {
+        return (
+          '<section class="fb-queue-documents" aria-label="Uploaded documents">' +
+          '<h4 class="fb-queue-documents__title">Documents</h4>' +
+          '<p class="org-metric-foot fb-queue-documents__empty">No file metadata on this intake yet.</p></section>'
+        );
+      }
+    }
+    var rows = docs.length ? docs : [];
+    if (!rows.length && row.upload_integrity && row.upload_integrity.file_lifecycle_table) {
+      rows = row.upload_integrity.file_lifecycle_table.map(function (lf) {
+        var stored = lf.sanitized_filename || lf.stored_name || lf.original_filename || '';
+        return {
+          original_filename: lf.original_filename || stored,
+          stored_filename: stored,
+          extension: lf.extension || '',
+          size_human: lf.size_bytes != null ? lf.size_bytes + ' B' : '—',
+          status: lf.lifecycle_state || 'unknown',
+          sha256_short: (lf.sha256 || '').slice(0, 12) || '—',
+          accessible: false,
+          access_error: 'Reload queue — document URLs require operator files API.',
+        };
+      });
+    }
+    var body = rows
+      .map(function (doc) {
+        var statusClass =
+          doc.status === 'verified' || doc.status === 'on_disk_unindexed'
+            ? ' fb-doc-status--ok'
+            : doc.status === 'rejected' || doc.status === 'failed'
+              ? ' fb-doc-status--bad'
+              : '';
+        var actions = '';
+        if (doc.accessible && doc.view_url && doc.download_url) {
+          actions =
+            '<a class="btn secondary fb-doc-btn" href="' +
+            escapeHtml(doc.view_url) +
+            '" target="_blank" rel="noopener">View</a> ' +
+            '<a class="btn secondary fb-doc-btn" href="' +
+            escapeHtml(doc.download_url) +
+            '" target="_blank" rel="noopener">Download</a>';
+        } else {
+          actions =
+            '<span class="fb-doc-unavailable" role="status">' +
+            escapeHtml(doc.access_error || 'File unavailable — see lifecycle or retention-check.') +
+            '</span>';
+        }
+        return (
+          '<tr><td class="fb-doc-name">' +
+          escapeHtml(doc.original_filename || doc.stored_filename) +
+          '</td><td>' +
+          escapeHtml(doc.extension || '—') +
+          '</td><td>' +
+          escapeHtml(doc.size_human || '—') +
+          '</td><td><span class="fb-doc-status' +
+          statusClass +
+          '">' +
+          escapeHtml(doc.status || '—') +
+          '</span></td><td class="fb-sha"><code>' +
+          escapeHtml(doc.sha256_short || '—') +
+          '</code></td><td class="fb-doc-actions">' +
+          actions +
+          '</td></tr>'
+        );
+      })
+      .join('');
+    return (
+      '<section class="fb-queue-documents" aria-label="Uploaded documents">' +
+      '<h4 class="fb-queue-documents__title">Documents (' +
+      rows.length +
+      ')</h4>' +
+      '<table class="fb-documents-table"><thead><tr>' +
+      '<th>Filename</th><th>Type</th><th>Size</th><th>Status</th><th>SHA256</th><th>Access</th>' +
+      '</tr></thead><tbody>' +
+      body +
+      '</tbody></table></section>'
+    );
+  }
+
   async function loadFoundingBetaIntake() {
     const el = document.getElementById('intake-queue-insights');
     if (!el) return;
@@ -684,6 +767,7 @@
           escapeHtml(row.suggested_next_action || '') +
           '</p>' +
           integrityBanner +
+          buildDocumentsSection(row) +
           lifecycleTable +
           missing +
           '<div class="kyc-btn-row fb-queue-actions">' +

@@ -9,6 +9,7 @@ from .classification import (
     load_classification,
 )
 from .integrity import integrity_summary_for_operator
+from .operator_files import documents_for_queue_row
 from .storage import (
     all_intake_ids,
     intake_diagnostics,
@@ -99,6 +100,7 @@ def _queue_row(intake_id: str, *, persist_recovery: bool = True) -> Optional[Dic
         "context_preview": (rec.get("context") or "")[:160],
         "recovered_from_disk": bool(rec.get("recovered_from_disk")),
         "upload_integrity": integrity,
+        "documents": documents_for_queue_row(intake_id),
     }
 
 

@@ -301,3 +301,70 @@
   font-size: 0.8rem;
   padding: 0.35rem 0.65rem;
 }
+
+.fb-queue-documents {
+  margin: 0.85rem 0 0.5rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid rgba(100, 160, 255, 0.35);
+  background: rgba(8, 20, 48, 0.55);
+}
+
+.fb-queue-documents__title {
+  margin: 0 0 0.55rem;
+  font-size: 0.95rem;
+  color: #9ec4ff;
+  letter-spacing: 0.02em;
+}
+
+.fb-documents-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.fb-documents-table th,
+.fb-documents-table td {
+  padding: 0.35rem 0.45rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+  vertical-align: top;
+}
+
+.fb-documents-table th {
+  color: rgba(180, 210, 255, 0.85);
+  font-weight: 600;
+}
+
+.fb-doc-name {
+  word-break: break-word;
+  max-width: 14rem;
+}
+
+.fb-doc-actions {
+  white-space: nowrap;
+}
+
+.fb-doc-btn {
+  margin-right: 0.25rem;
+  margin-bottom: 0.2rem;
+}
+
+.fb-doc-status--ok {
+  color: #64dc9e;
+}
+
+.fb-doc-status--bad {
+  color: #ff9a9a;
+}
+
+.fb-doc-unavailable {
+  display: block;
+  font-size: 0.78rem;
+  color: rgba(255, 200, 120, 0.95);
+  max-width: 16rem;
+}
+
+.fb-queue-documents__empty {
+  margin: 0;
+}
