@@ -1303,13 +1303,28 @@ def operator_intake_diagnostics(request: Request):
     require_ops_access(request)
     from services.intake.retention import retention_diagnostics_overlay
 
-    diag = intake_diagnostics()
-    diag.update(retention_diagnostics_overlay())
     q = get_operator_review_queue(limit=10)
+    queue_depth = int(q.get("queue_depth") or 0)
+    diag = intake_diagnostics()
+    diag.update(retention_diagnostics_overlay(queue_depth=queue_depth))
+    from services.intake.inventory import verify_inventory_agreement
+
+    agreement = verify_inventory_agreement(
+        inventory=diag.get("inventory"),
+        queue_depth=queue_depth,
+        retention_scan=diag.get("retention_scan"),
+        diagnostics=diag,
+    )
+    live_scan_status = agreement.get("live_scan_status") or ("healthy" if agreement.get("ok") else "degraded")
+    if agreement.get("ok"):
+        live_scan_status = "healthy"
     return {
-        "ok": True,
+        "ok": agreement.get("ok", True),
+        "live_scan_status": live_scan_status,
+        "inventory_agreement": agreement,
         "diagnostics": diag,
-        "queue_depth": q.get("queue_depth"),
+        "queue_depth": queue_depth,
+        "pending_review_count": diag.get("pending_review_count"),
         "queue_rows_generated": q.get("queue_rows_generated"),
         "visibility_warning": q.get("visibility_warning"),
         "newest_intake_id": (q.get("queue") or [{}])[0].get("intake_id") if q.get("queue") else None,

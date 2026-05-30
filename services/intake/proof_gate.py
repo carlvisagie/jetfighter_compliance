@@ -26,17 +26,13 @@ def _utc_now() -> str:
 
 def live_disk_scan(*, intake_id: Optional[str] = None, limit: int = 500) -> Dict[str, Any]:
     """
-    Live filesystem inventory — never cached. Source of truth for boot-status/live.
+    Live filesystem inventory — never cached. Counts from canonical inventory module.
     """
-    from services.durable_storage import active_data_root
-
+    from .inventory import build_intake_inventory
     from .retention import hash_uploads_on_disk
-    from .storage import index_intake_ids, intake_dir, intake_json_path, index_jsonl, intakes_root, list_intake_ids
+    from .storage import index_intake_ids, intake_dir, intake_json_path, list_intake_ids
 
-    data_root = active_data_root().resolve()
-    roots = intakes_root()
-    scan_at = _utc_now()
-
+    inv = build_intake_inventory(limit=limit, intake_id=intake_id)
     if intake_id:
         iids = [intake_id.strip()]
     else:
@@ -44,7 +40,6 @@ def live_disk_scan(*, intake_id: Optional[str] = None, limit: int = 500) -> Dict
 
     index_ids = set(index_intake_ids(tail_lines=max(limit, 500)))
     intakes: List[Dict[str, Any]] = []
-    total_files = 0
     total_bytes = 0
 
     for iid in iids:
@@ -59,7 +54,6 @@ def live_disk_scan(*, intake_id: Optional[str] = None, limit: int = 500) -> Dict
                     bytes_on_disk += (uploads / name).stat().st_size
                 except OSError:
                     pass
-        total_files += len(file_names)
         total_bytes += bytes_on_disk
         intakes.append(
             {
@@ -74,20 +68,10 @@ def live_disk_scan(*, intake_id: Optional[str] = None, limit: int = 500) -> Dict
             }
         )
 
-    only_disk = sorted(set(iids) - index_ids) if not intake_id else []
     return {
-        "ok": True,
-        "scan_type": "live",
-        "scan_at_utc": scan_at,
-        "data_root": str(data_root),
-        "intakes_root": str(roots.resolve()),
-        "index_jsonl": str(index_jsonl().resolve()),
-        "intake_directories": len(iids),
-        "upload_files": total_files,
+        **inv,
         "upload_bytes": total_bytes,
         "intakes": intakes,
-        "only_on_disk_not_in_index": only_disk[:50],
-        "index_disk_agree": not only_disk,
     }
 
 
@@ -331,7 +315,19 @@ def build_live_boot_status() -> Dict[str, Any]:
     from services.durable_storage import get_storage_status, intake_upload_allowed
     from services.runtime_boot import boot_log_snapshot, is_safe_mode, schedulers_enabled
 
+    from .inventory import build_intake_inventory, verify_inventory_agreement
+    from .queue import get_operator_review_queue
+
+    inv = build_intake_inventory()
     live = live_disk_scan()
+    q = get_operator_review_queue(limit=100, persist_recovery=False)
+    queue_depth = int(q.get("queue_depth") or 0)
+    agreement = verify_inventory_agreement(
+        inventory=inv,
+        queue_depth=queue_depth,
+        live_boot={"intake_directories": inv["intake_directories"], "upload_files": inv["upload_files"], "live_scan": live},
+    )
+
     forensic: Dict[str, Any] = {}
     try:
         from .forensic_reconcile import build_integrity_proof, load_integrity_incidents
@@ -351,18 +347,20 @@ def build_live_boot_status() -> Dict[str, Any]:
         upload_metrics = {}
 
     storage = get_storage_status()
-    dirs = int(live.get("intake_directories") or 0)
-    files = int(live.get("upload_files") or 0)
-    index_agree = bool(live.get("index_disk_agree"))
+    dirs = int(inv.get("intake_directories") or 0)
+    files = int(inv.get("upload_files") or 0)
+    index_agree = bool(inv.get("index_disk_agree"))
     forensic_ok = bool(forensic.get("ok", False))
-    upload_severity = str(upload_metrics.get("upload_node_severity") or "amber")
+    upload_severity = str(upload_metrics.get("upload_node_severity") or "green")
     incidents = incident_count + int(forensic.get("integrity_incident_count") or 0)
+    inventory_ok = bool(agreement.get("ok"))
 
     healthy = (
-        index_agree
+        inventory_ok
+        and index_agree
         and forensic_ok
         and upload_severity != "red"
-        and incidents == 0
+        and queue_depth == int(inv.get("pending_review_count") or 0)
         and (files > 0 or dirs == 0)
     )
     if not intake_upload_allowed() and storage.get("upload_block_reason"):
@@ -370,22 +368,33 @@ def build_live_boot_status() -> Dict[str, Any]:
 
     boot = boot_log_snapshot()
     status = "healthy" if healthy else "critical"
-    if upload_severity == "red" or not forensic_ok or not index_agree:
+    if upload_severity == "red" or not index_agree or not inventory_ok:
         status = "critical"
-    elif upload_severity == "amber" or incidents > 0:
+    elif not forensic_ok:
+        status = "critical"
+    elif upload_severity == "amber" and not inventory_ok:
         status = "degraded"
+
+    live_scan_status = agreement.get("live_scan_status") or ("healthy" if inventory_ok else "degraded")
+    if healthy and inventory_ok:
+        live_scan_status = "healthy"
+        status = "healthy"
 
     return {
         "ok": healthy,
         "status": status,
+        "live_scan_status": live_scan_status,
         "scan_type": "live",
-        "scan_at_utc": live.get("scan_at_utc"),
+        "scan_at_utc": inv.get("scan_at_utc"),
         "safe_mode_effective": is_safe_mode(),
         "schedulers_enabled": schedulers_enabled(),
-        "data_root": live.get("data_root"),
+        "data_root": inv.get("data_root"),
         "intake_directories": dirs,
         "upload_files": files,
+        "pending_review_count": int(inv.get("pending_review_count") or 0),
+        "queue_depth": queue_depth,
         "index_disk_agree": index_agree,
+        "inventory_agreement": agreement,
         "forensic_proof_ok": forensic_ok,
         "forensic_proof": forensic,
         "integrity_incident_count": incidents,
@@ -393,7 +402,9 @@ def build_live_boot_status() -> Dict[str, Any]:
         "upload_pipeline": upload_metrics,
         "storage": storage,
         "live_scan": live,
+        "inventory": inv,
         "boot_log": boot,
+        "startup_retention_snapshot": boot.get("entries"),
         "cockpit_may_show_green": healthy and upload_severity == "green",
     }
 

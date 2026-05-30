@@ -389,12 +389,9 @@ def sync_index_from_filesystem(*, max_rows: int = 200) -> int:
 
 
 def count_upload_files() -> int:
-    total = 0
-    for iid in list_intake_ids(limit=300):
-        uploads = intake_dir(iid) / "uploads"
-        if uploads.is_dir():
-            total += sum(1 for p in uploads.iterdir() if p.is_file())
-    return total
+    from .inventory import build_intake_inventory
+
+    return int(build_intake_inventory(limit=500).get("upload_files") or 0)
 
 
 def legacy_migration_status() -> Dict[str, Any]:
@@ -427,17 +424,13 @@ def legacy_migration_status() -> Dict[str, Any]:
 def intake_diagnostics() -> Dict[str, Any]:
     from services.durable_storage import get_storage_status
 
+    from .inventory import build_intake_inventory
+
     storage = get_storage_status()
     root = intakes_root()
-    ids = list_intake_ids(limit=200)
-    pending_ids: List[str] = []
-    for iid in ids[:50]:
-        try:
-            rec = load_intake_record(iid, persist_recovery=False)
-            if is_pending_review(rec.get("review_status")):
-                pending_ids.append(iid)
-        except (FileNotFoundError, ValueError, OSError):
-            continue
+    inv = build_intake_inventory(limit=200)
+    ids = list(inv.get("intake_ids_sample") or [])
+    pending_ids = list(inv.get("pending_intake_ids_sample") or [])
     write_root = _data_root().resolve()
     read_root = write_root
     mismatch_sample = None
@@ -454,6 +447,9 @@ def intake_diagnostics() -> Dict[str, Any]:
     except Exception:
         mismatch_sample = None
 
+    dirs = int(inv.get("intake_directories") or 0)
+    files = int(inv.get("upload_files") or 0)
+
     return {
         "data_root": str(write_root),
         "write_root": str(write_root),
@@ -469,10 +465,14 @@ def intake_diagnostics() -> Dict[str, Any]:
         "index_jsonl": str(index_jsonl().resolve()),
         "index_exists": index_jsonl().is_file(),
         "index_size_bytes": index_jsonl().stat().st_size if index_jsonl().is_file() else 0,
-        "intake_directories_found": len(ids),
-        "intake_ids_sample": ids[:25],
-        "pending_intake_ids_sample": pending_ids[:25],
-        "upload_files_on_disk": count_upload_files(),
+        "intake_directories_found": dirs,
+        "intake_directories": dirs,
+        "intake_ids_sample": ids,
+        "pending_intake_ids_sample": pending_ids,
+        "pending_review_count": int(inv.get("pending_review_count") or 0),
+        "upload_files_on_disk": files,
+        "upload_files": files,
+        "inventory": inv,
         "latest_integrity_mismatch": mismatch_sample,
         "legacy_migration": legacy_migration_status(),
     }

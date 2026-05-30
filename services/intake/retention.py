@@ -694,12 +694,19 @@ def last_startup_retention_scan() -> Optional[Dict[str, Any]]:
     return dict(_STARTUP_SCAN) if _STARTUP_SCAN else None
 
 
-def retention_diagnostics_overlay() -> Dict[str, Any]:
-    """Extra fields for operator intake diagnostics."""
+def retention_diagnostics_overlay(*, queue_depth: Optional[int] = None) -> Dict[str, Any]:
+    """Extra fields for operator intake diagnostics — live inventory, not boot cache."""
     from .integrity import latest_integrity_mismatch_from_records
+    from .inventory import build_intake_inventory, verify_inventory_agreement
     from .storage import all_intake_ids
 
-    scan = last_startup_retention_scan() or scan_retention_at_startup()
+    inv = build_intake_inventory()
+    startup = last_startup_retention_scan()
+    agreement = verify_inventory_agreement(
+        inventory=inv,
+        queue_depth=queue_depth,
+        retention_scan=inv,
+    )
     recent_records: List[Dict[str, Any]] = []
     for iid in all_intake_ids(limit=15):
         try:
@@ -707,10 +714,15 @@ def retention_diagnostics_overlay() -> Dict[str, Any]:
         except (FileNotFoundError, ValueError, OSError):
             continue
     mismatch = latest_integrity_mismatch_from_records(recent_records)
+    live_scan_status = agreement.get("live_scan_status") or ("healthy" if agreement.get("ok") else "degraded")
     return {
         "write_root": str(resolved_write_root()),
         "read_root": str(resolved_read_root()),
         "roots_match": resolved_write_root() == resolved_read_root(),
-        "retention_scan": scan,
+        "inventory": inv,
+        "retention_scan": dict(inv),
+        "startup_retention_snapshot": startup,
+        "inventory_agreement": agreement,
+        "live_scan_status": live_scan_status,
         "latest_integrity_mismatch": mismatch,
     }
