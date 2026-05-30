@@ -162,3 +162,46 @@ Cannot verify raw-disk-scan, queue, retention-check, or live boot status without
 - `services/intake/intake.py` — wired into `process_upload`
 - `server.py` — live endpoints
 - `tests/test_upload_immutability.py` — destructive matrix
+- `services/intake/inventory.py` — single inventory truth + agreement verifier
+- `tests/test_inventory_agreement.py` — cross-endpoint count agreement
+- `scripts/verify_production_inventory.py` — production inventory checker
+
+---
+
+## Inventory agreement fix (2026-05-30, commit `2b66fd3`)
+
+### Root cause of diagnostics disagreement
+
+| Source | What it reported | Why |
+|--------|------------------|-----|
+| `retention_scan.intake_directories` | `0` | **Cached boot snapshot** (`last_startup_retention_scan()`) from container start when disk was empty |
+| `intake_directories_found` | `1` | **Live** `list_intake_ids()` at request time |
+| `queue_depth` | `2` | Live queue from pending-review intakes on disk |
+| `live_scan_status` | `degraded` | Stale boot counts + amber/incident heuristics even when live disk and queue agreed |
+
+### Fix
+
+One module — `build_intake_inventory()` — feeds every operator-facing count. `retention_scan` is now live (`scan_type: live`). Boot snapshot moved to `startup_retention_snapshot` (audit only). `verify_inventory_agreement()` fails if any endpoint disagrees.
+
+### Tests added (`tests/test_inventory_agreement.py`)
+
+| Test | Purpose |
+|------|---------|
+| `test_inventory_agreement_after_single_upload` | All endpoints match after 1-file upload |
+| `test_inventory_agreement_thirteen_files` | 13-file batch agreement |
+| `test_retention_scan_not_stale_startup_snapshot` | `retention_scan` is live, not boot cache |
+| `test_no_degraded_when_proof_gate_passed` | `live_scan_status=healthy` when gate passes |
+| `test_queue_depth_equals_pending_review` | Queue depth = `pending_review_count` |
+
+**Local run:** 5 passed; full `tests/` suite: 710 passed (1 unrelated cognitive_topology flake).
+
+### Production verification
+
+```powershell
+$env:OPS_PASSWORD = "<Render dashboard OPS_PASSWORD>"
+python scripts/verify_production_inventory.py
+```
+
+After deploy of `2b66fd3`, expect `"ok": true`, `"live_scan_status": "healthy"`, identical `intake_directories` and `upload_files` across inventory, retention_scan, diagnostics, raw-disk-scan, and live boot.
+
+**Automated run from agent (2026-05-30):** `401 ops_auth_failed` — local `OPS_PASSWORD` does not match production. Carl must run the script after deploy with dashboard credentials.
