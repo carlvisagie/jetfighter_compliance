@@ -130,6 +130,72 @@ def build_custody_timeline(intake_id: str) -> Dict[str, Any]:
             }
         )
 
+    try:
+        from services.communications.search import search_communications
+        from services.communications.delay import build_delay_report
+
+        comm_rows = search_communications(intake_id=intake_id, limit=500).get("communications") or []
+        for comm in comm_rows:
+            events.append(
+                {
+                    "event": "communication",
+                    "at_utc": comm.get("timestamp"),
+                    "source": "communications_ledger",
+                    "marker_type": "message",
+                    "communication_id": comm.get("communication_id"),
+                    "metadata": {
+                        "channel": comm.get("channel"),
+                        "direction": comm.get("direction"),
+                        "subject": (comm.get("subject") or "")[:120],
+                        "delay_relevance": comm.get("delay_relevance"),
+                        "delay_category": comm.get("delay_category"),
+                        "body_preview": (comm.get("body") or "")[:200],
+                    },
+                }
+            )
+
+        delay_report = build_delay_report(intake_id=intake_id)
+        for attr in delay_report.get("attributions") or []:
+            if attr.get("delay_relevance") == "no":
+                continue
+            events.append(
+                {
+                    "event": "client_delay_segment",
+                    "at_utc": attr.get("opened_at_utc"),
+                    "source": "delay_attribution",
+                    "marker_type": "delay",
+                    "delay_event_id": attr.get("delay_event_id"),
+                    "metadata": {
+                        "narrative": attr.get("narrative"),
+                        "delay_days": attr.get("delay_days"),
+                        "closed_at_utc": attr.get("closed_at_utc"),
+                        "opening_communication_id": attr.get("opening_communication_id"),
+                        "closing_communication_id": attr.get("closing_communication_id"),
+                        "evidence_communication_ids": [
+                            x
+                            for x in [
+                                attr.get("opening_communication_id"),
+                                attr.get("closing_communication_id"),
+                            ]
+                            if x
+                        ],
+                    },
+                }
+            )
+            if attr.get("closed_at_utc"):
+                events.append(
+                    {
+                        "event": "client_delay_closed",
+                        "at_utc": attr.get("closed_at_utc"),
+                        "source": "delay_attribution",
+                        "marker_type": "delay_end",
+                        "delay_event_id": attr.get("delay_event_id"),
+                        "metadata": {"narrative": attr.get("narrative")},
+                    }
+                )
+    except Exception:
+        pass
+
     def _sort_key(e: Dict[str, Any]) -> str:
         return str(e.get("at_utc") or "")
 

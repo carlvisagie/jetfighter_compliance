@@ -376,6 +376,26 @@ def run_forensic_reconciliation(*, limit: int = 200, rebuild_registry: bool = Tr
             )
         )
 
+    try:
+        from services.communications.reconcile import reconcile_communications_ledger
+
+        comm_report = reconcile_communications_ledger()
+        if not comm_report.get("ok"):
+            for inc in comm_report.get("incidents") or []:
+                d = IntegrityDisagreement(
+                    subsystem="communications_ledger",
+                    intake_id=None,
+                    evidence_id=str(inc.get("communication_id") or ""),
+                    issue_code=str(inc.get("issue_code") or "communication_integrity"),
+                    detail=str(inc.get("detail") or ""),
+                    detected_at=_utc_now(),
+                    severity=str(inc.get("severity") or _SEVERITY_HIGH),
+                )
+                disagreements.append(d)
+                append_integrity_incident(d)
+    except Exception:
+        pass
+
     critical_count = sum(1 for d in disagreements if d.severity == _SEVERITY_CRITICAL)
     report = {
         "ok": len(disagreements) == 0,
@@ -574,7 +594,20 @@ def build_integrity_proof(
     incidents = load_integrity_incidents(tail=500)
     incident_count = len(incidents)
 
-    ok = problem == 0
+    communications_ok = True
+    communications_record_count = 0
+    communications_hash_mismatches = 0
+    try:
+        from services.communications.reconcile import reconcile_communications_ledger
+
+        comm_report = reconcile_communications_ledger()
+        communications_ok = comm_report.get("ok", True)
+        communications_record_count = comm_report.get("record_count", 0)
+        communications_hash_mismatches = comm_report.get("hash_mismatch_count", 0)
+    except Exception:
+        pass
+
+    ok = problem == 0 and communications_ok
     result = {
         "ok": ok,
         "total_files": total_files,
@@ -588,6 +621,9 @@ def build_integrity_proof(
         "recovered_files": recovered_files,
         "missing_audit_files": missing_audit_files,
         "integrity_incident_count": incident_count,
+        "communications_ledger_ok": communications_ok,
+        "communications_record_count": communications_record_count,
+        "communications_hash_mismatches": communications_hash_mismatches,
         "samples": {
             "verified": sample_verified,
             "missing": sample_missing,

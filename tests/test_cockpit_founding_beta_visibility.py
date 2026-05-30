@@ -10,6 +10,8 @@ def test_control_html_cockpit_paperwork_visibility(client):
     text = r.text
     assert "fb-paperwork-banner" in text
     assert "founding-beta-intake-panel" in text
+    assert "intake-queue-insights" in text
+    assert "founding-beta-intake-insights" not in text
     assert "fb-queue-atlas" in text
     assert "cockpit-founding-beta.js" in text
     assert "/api/operator/founding-beta/queue" in text
