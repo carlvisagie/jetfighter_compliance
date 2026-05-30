@@ -1403,6 +1403,106 @@ def operator_integrity_recover(request: Request, intake_id: str):
     return recover_intake_forensic(intake_id.strip())
 
 
+@app.post("/api/operator/communications/log")
+async def operator_communications_log(request: Request):
+    from services.communications.ledger import append_communication
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    body = await request.json()
+    try:
+        rec = append_communication(body, recorded_by=str(body.get("recorded_by") or "operator"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True, "communication": rec}
+
+
+@app.get("/api/operator/communications/search")
+def operator_communications_search(
+    request: Request,
+    company_id: str = "",
+    company: str = "",
+    intake_id: str = "",
+    project_id: str = "",
+    document_id: str = "",
+    delay_event_id: str = "",
+    delay_relevance: str = "",
+    contact: str = "",
+    date_from: str = "",
+    date_to: str = "",
+    channel: str = "",
+    limit: int = 200,
+):
+    from services.communications.search import search_communications
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return search_communications(
+        company_id=company_id,
+        company=company,
+        intake_id=intake_id,
+        project_id=project_id,
+        document_id=document_id,
+        delay_event_id=delay_event_id,
+        delay_relevance=delay_relevance,
+        contact=contact,
+        date_from=date_from,
+        date_to=date_to,
+        channel=channel,
+        limit=limit,
+    )
+
+
+@app.get("/api/operator/communications/context")
+def operator_communications_context(request: Request, intake_id: str = "", reason: str = "", limit: int = 50):
+    from services.communications.context import get_contextual_communications
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return get_contextual_communications(intake_id=intake_id.strip(), reason=reason, limit=limit)
+
+
+@app.get("/api/operator/communications/delay-report/{intake_id}")
+def operator_communications_delay_report(request: Request, intake_id: str, project_id: str = ""):
+    from services.communications.delay import build_delay_report
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return build_delay_report(intake_id=intake_id.strip(), project_id=project_id.strip())
+
+
+@app.get("/api/operator/communications/export/forensic")
+def operator_communications_export_forensic(
+    request: Request,
+    intake_id: str = "",
+    project_id: str = "",
+    company_id: str = "",
+    include_delay_report: bool = True,
+):
+    from services.communications.export import export_communications_forensic
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return export_communications_forensic(
+        intake_id=intake_id.strip(),
+        project_id=project_id.strip(),
+        company_id=company_id.strip(),
+        include_delay_report=include_delay_report,
+    )
+
+
+@app.get("/api/operator/communications/{communication_id}")
+def operator_communication_get(request: Request, communication_id: str):
+    from services.communications.ledger import get_communication
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    rec = get_communication(communication_id.strip())
+    if not rec:
+        raise HTTPException(status_code=404, detail="communication not found")
+    return {"ok": True, "communication": rec}
+
+
 @app.post("/api/operator/intake/action")
 async def operator_intake_action(request: Request):
     from services.intake.operator_actions import apply_operator_action
