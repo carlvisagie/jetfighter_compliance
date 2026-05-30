@@ -19,7 +19,6 @@ from services.config import ROOT, DATA, LOGS, SETTINGS, PROJECTS
 from services.security import make_intake_token, parse_intake_token, make_continuation_token
 from services.adapters.generic import extract_generic
 from services.public_url import get_public_base_url
-from services.stripe_hook import verify_stripe_signature, parse_checkout_completed
 from services.production import (
     startup_warnings,
     readiness_checks,
@@ -380,33 +379,6 @@ def kickoff(order_id: str, email: str, name: str, skus: list):
         "continuation_url": continuation_url,
         "continuation_token": continuation_token,
     }
-
-# ---------- LEGACY INACTIVE: Stripe Payment Links → kickoff (tests: tests/test_stripe_webhook.py) ----------
-@app.post("/webhooks/stripe")
-async def stripe_webhook(request: Request):
-    raw = await request.body()
-    sig = request.headers.get("Stripe-Signature", "")
-    secret = SETTINGS.stripe_webhook_secret
-    if not secret:
-        raise HTTPException(status_code=503, detail="STRIPE_WEBHOOK_SECRET not configured")
-    if not verify_stripe_signature(raw, sig, secret):
-        raise HTTPException(status_code=401, detail="Invalid Stripe signature")
-    try:
-        event = json.loads(raw.decode("utf-8"))
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
-    event_type = event.get("type", "")
-    if event_type != "checkout.session.completed":
-        return {"ok": True, "ignored": event_type}
-    order_id, email, name, skus = parse_checkout_completed(event)
-    if not email:
-        raise HTTPException(status_code=400, detail="Missing customer email on checkout session")
-    res = kickoff(order_id, email, name or email, skus)
-    try:
-        enqueue("post_payment", {"order_id": order_id, "email": email, "name": name, "skus": skus, "source": "stripe"})
-    except Exception as e:
-        logging.warning("Stripe kickoff enqueue failed for %s: %s", order_id, e)
-    return res
 
 # ---------- Onboarding kickoff (direct; no Shopify) ----------
 @app.post("/events/payment/test")

@@ -150,4 +150,5 @@ def test_github_guardrails_workflow_exists():
     content = wf.read_text(encoding="utf-8")
     assert "test_public_ui_exposure" in content
     assert "test_kyc_guardrails" in content
+    assert "test_stripe_ban_guardrail" in content
     assert "pytest tests/" in content

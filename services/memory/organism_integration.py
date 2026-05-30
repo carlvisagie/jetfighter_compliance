@@ -256,17 +256,6 @@ ENGINE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "duplicate_truth_risk": "low",
         "fix_needed": "",
     },
-    "stripe_webhook": {
-        "label": "Stripe webhook (legacy)",
-        "paths": ["server.py (/webhooks/stripe)", "services/stripe_hook.py"],
-        "classification": "legacy_inactive",
-        "reads": [],
-        "writes": ["kickoff via payment path when active"],
-        "read_before": False,
-        "write_after": False,
-        "orphan_risk": "low",
-        "duplicate_truth_risk": "low",
-    },
     "organism_sqlite": {
         "label": "organism/ sqlite subsystem",
         "paths": ["organism/"],

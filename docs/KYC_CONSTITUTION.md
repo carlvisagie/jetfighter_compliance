@@ -92,7 +92,7 @@ Enforcement: `tests/test_public_ui_exposure.py`, `tests/test_ops_route_auth.py`,
 
 | System | Status |
 |--------|--------|
-| `POST /webhooks/stripe` | Test-only; not launch path |
+| Stripe webhook | **Removed** — banned; see `STRIPE_PURGE_AUDIT.md` |
 | Shopify integration docs | Historical |
 | Cloudflare tunnel rebuild docs | Historical |
 | `organism/` sqlite subsystem | Outside production truth |
@@ -142,6 +142,7 @@ Only the repository owner may:
 
 - Relax IRON LAW for a specific engine (document exception in integration audit)
 - Add customer-facing pricing or compliance claims
-- Re-enable Stripe/Shopify as production path
+- Reintroduce Stripe (banned — PayPal is payment path)
+- Re-enable Shopify as production path
 
 Agents may propose amendments via PR + audit doc update; they may not silently amend this constitution.

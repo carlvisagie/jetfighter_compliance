@@ -37,7 +37,6 @@ class Settings(BaseModel):
     smtp_from_email: str = os.getenv("SMTP_FROM_EMAIL") or os.getenv("SMTP_FROM") or ""
     public_base_url: str = os.getenv("PUBLIC_BASE_URL","http://127.0.0.1:8080")
     intake_token_secret: str = os.getenv("INTAKE_TOKEN_SECRET","dev-dev-dev-dev-dev")
-    stripe_webhook_secret: str = Field(default=os.getenv("STRIPE_WEBHOOK_SECRET", ""))
     environment: str = os.getenv("ENVIRONMENT", "development")
 
 SETTINGS = Settings()

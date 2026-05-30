@@ -35,7 +35,7 @@ Not a marketing program. See [`CONTROLLED_ONBOARDING_ACQUISITION.md`](./CONTROLL
 
 ## Inactive for launch (legacy)
 
-Stripe webhooks, Shopify, and Cloudflare Tunnel rebuild/cutover docs are **not** part of this path. Legacy backend route `POST /webhooks/stripe` remains for automated tests only.
+Stripe, Shopify, and Cloudflare Tunnel rebuild/cutover are **removed or banned** — not part of this path. PayPal is the payment path. See [`STRIPE_PURGE_AUDIT.md`](./STRIPE_PURGE_AUDIT.md).
 
 ---
 

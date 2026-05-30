@@ -135,7 +135,6 @@ def get_observability_dashboard(
 
     invisible = [
         {"id": "organism_sqlite", "reason": "Legacy sqlite subsystem — not telemetry-wired"},
-        {"id": "stripe_webhook", "reason": "Legacy inactive path"},
     ]
     try:
         import importlib.util

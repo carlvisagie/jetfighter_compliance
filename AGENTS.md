@@ -70,7 +70,7 @@ Support layers (email transport, health probes, static export) may be **outside*
 8. **Do not add** mocked discovery domains as production leads (`example.com`, etc.).
 9. **Do not bypass** or delete guardrail tests to “make CI green.”
 10. **Do not alter** customer-facing pricing/claims without explicit owner approval.
-11. **Do not touch** Stripe / Shopify / Cloudflare legacy paths unless explicitly instructed.
+11. **Do not reintroduce Stripe** — banned; PayPal is the payment path. See [`docs/STRIPE_PURGE_AUDIT.md`](docs/STRIPE_PURGE_AUDIT.md).
 12. **Do not add** new docs that contradict canonical docs — update these files instead.
 
 ---
@@ -107,7 +107,7 @@ CI runs the same checks in [`.github/workflows/kyc_guardrails.yml`](.github/work
 
 Primary onboarding: `POST /api/inquiry/submit` → `kickoff()` → intake/upload URLs (+ email when SMTP configured).
 
-**Inactive for launch:** Stripe webhooks, Shopify, Cloudflare tunnel cutover — retained for tests only.
+**Inactive for launch:** Shopify, Cloudflare tunnel cutover. **Stripe is banned** — see [`docs/STRIPE_PURGE_AUDIT.md`](docs/STRIPE_PURGE_AUDIT.md).
 
 ---
 

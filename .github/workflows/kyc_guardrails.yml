@@ -32,7 +32,7 @@ jobs:
           OPS_PASSWORD: ci-test-ops-password
           OPS_SECRET: ci-test-ops-secret
         run: |
-          python -m pytest tests/test_kyc_guardrails.py -q --tb=short
+          python -m pytest tests/test_kyc_guardrails.py tests/test_stripe_ban_guardrail.py -q --tb=short
 
       - name: Public UI exposure
         env:
