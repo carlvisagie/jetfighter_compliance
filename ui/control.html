@@ -71,6 +71,26 @@
   ></div>
   <div id="fb-visibility-warning" class="fb-visibility-warning" role="alert" hidden></div>
 
+  <div id="fb-doc-preview" class="fb-doc-preview fb-doc-preview--hidden" hidden role="dialog" aria-modal="true" aria-labelledby="fb-doc-preview-title">
+    <div class="fb-doc-preview__backdrop" id="fb-doc-preview-backdrop"></div>
+    <div class="fb-doc-preview__panel">
+      <header class="fb-doc-preview__head">
+        <div>
+          <span class="kyc-label-overline">Document preview</span>
+          <h3 id="fb-doc-preview-title" class="fb-doc-preview__title">—</h3>
+          <p id="fb-doc-preview-meta" class="org-metric-foot"></p>
+        </div>
+        <div class="fb-doc-preview__actions">
+          <a id="fb-doc-preview-download" class="btn secondary" href="#" target="_blank" rel="noopener">Download</a>
+          <button type="button" class="btn secondary" id="fb-doc-preview-close">Close</button>
+        </div>
+      </header>
+      <div id="fb-doc-preview-body" class="fb-doc-preview__body">
+        <p class="kyc-loading">Loading preview…</p>
+      </div>
+    </div>
+  </div>
+
   <section class="kyc-section" id="evidence-integrity-panel" style="padding-top:0;">
     <header class="kyc-section-head">
       <span class="kyc-label-overline">Forensic</span>
@@ -547,13 +567,26 @@
               : '';
         var actions = '';
         if (doc.accessible && doc.view_url && doc.download_url) {
+          var previewBtn =
+            doc.previewable !== false && doc.preview_mode !== 'none'
+              ? '<button type="button" class="btn primary fb-doc-btn fb-doc-preview-btn" ' +
+                'data-preview-url="' +
+                escapeHtml(doc.preview_url || doc.view_url) +
+                '" data-download-url="' +
+                escapeHtml(doc.download_url) +
+                '" data-filename="' +
+                escapeHtml(doc.original_filename || doc.stored_filename) +
+                '" data-media-type="' +
+                escapeHtml(doc.media_type || '') +
+                '" data-preview-mode="' +
+                escapeHtml(doc.preview_mode || 'pdf') +
+                '">Preview</button> '
+              : '<span class="fb-doc-unavailable">Preview not supported for this file type — use Download.</span> ';
           actions =
-            '<a class="btn secondary fb-doc-btn" href="' +
-            escapeHtml(doc.view_url) +
-            '" target="_blank" rel="noopener">View</a> ' +
+            previewBtn +
             '<a class="btn secondary fb-doc-btn" href="' +
             escapeHtml(doc.download_url) +
-            '" target="_blank" rel="noopener">Download</a>';
+            '" download target="_blank" rel="noopener">Download</a>';
         } else {
           actions =
             '<span class="fb-doc-unavailable" role="status">' +
@@ -590,6 +623,112 @@
       body +
       '</tbody></table></section>'
     );
+  }
+
+  function closeDocumentPreview() {
+    var modal = document.getElementById('fb-doc-preview');
+    var body = document.getElementById('fb-doc-preview-body');
+    if (!modal) return;
+    modal.hidden = true;
+    modal.classList.add('fb-doc-preview--hidden');
+    if (body) body.innerHTML = '';
+    document.body.classList.remove('fb-doc-preview-open');
+  }
+
+  function openDocumentPreview(doc) {
+    var modal = document.getElementById('fb-doc-preview');
+    var title = document.getElementById('fb-doc-preview-title');
+    var meta = document.getElementById('fb-doc-preview-meta');
+    var body = document.getElementById('fb-doc-preview-body');
+    var dl = document.getElementById('fb-doc-preview-download');
+    if (!modal || !body) return;
+
+    var previewUrl = doc.preview_url || doc.view_url;
+    var mode = doc.preview_mode || 'pdf';
+    var name = doc.filename || doc.original_filename || 'Document';
+
+    modal.hidden = false;
+    modal.classList.remove('fb-doc-preview--hidden');
+    document.body.classList.add('fb-doc-preview-open');
+    if (title) title.textContent = name;
+    if (meta) {
+      meta.textContent =
+        (doc.media_type || 'unknown type') +
+        (doc.status ? ' · ' + doc.status : '') +
+        (doc.sha256_short ? ' · sha ' + doc.sha256_short : '');
+    }
+    if (dl) {
+      dl.href = doc.download_url || '#';
+      dl.hidden = !doc.download_url;
+    }
+    body.innerHTML = '<p class="kyc-loading">Loading preview…</p>';
+
+    if (!previewUrl) {
+      body.innerHTML =
+        '<p class="fb-doc-unavailable">' +
+        escapeHtml(doc.access_error || 'Preview unavailable — file path or auth blocked.') +
+        '</p>';
+      return;
+    }
+
+    if (mode === 'image') {
+      body.innerHTML =
+        '<img class="fb-doc-preview__img" src="' +
+        escapeHtml(previewUrl) +
+        '" alt="' +
+        escapeHtml(name) +
+        '">';
+      return;
+    }
+
+    if (mode === 'text') {
+      fetch(previewUrl, { credentials: 'same-origin' })
+        .then(function (r) {
+          if (!r.ok) {
+            return r.json().catch(function () { return { detail: r.statusText }; }).then(function (j) {
+              throw new Error(typeof j.detail === 'object' ? (j.detail.message || JSON.stringify(j.detail)) : (j.detail || r.statusText));
+            });
+          }
+          return r.text();
+        })
+        .then(function (text) {
+          body.innerHTML = '<pre class="fb-doc-preview__text">' + escapeHtml(text.slice(0, 200000)) + '</pre>';
+        })
+        .catch(function (err) {
+          body.innerHTML =
+            '<p class="fb-doc-unavailable">Could not preview text: ' + escapeHtml(String(err.message || err)) + '</p>';
+        });
+      return;
+    }
+
+    if (mode === 'pdf') {
+      body.innerHTML =
+        '<iframe class="fb-doc-preview__iframe" src="' +
+        escapeHtml(previewUrl) +
+        '" title="' +
+        escapeHtml(name) +
+        '"></iframe>';
+      return;
+    }
+
+    body.innerHTML =
+      '<p class="fb-doc-unavailable">Inline preview is not supported for this file type. Use Download.</p>';
+  }
+
+  function wireDocumentPreviewButtons(root) {
+    if (!root) return;
+    root.querySelectorAll('.fb-doc-preview-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        openDocumentPreview({
+          preview_url: btn.getAttribute('data-preview-url'),
+          view_url: btn.getAttribute('data-preview-url'),
+          download_url: btn.getAttribute('data-download-url'),
+          filename: btn.getAttribute('data-filename'),
+          media_type: btn.getAttribute('data-media-type'),
+          preview_mode: btn.getAttribute('data-preview-mode') || 'pdf',
+        });
+      });
+    });
   }
 
   async function loadFoundingBetaIntake() {
@@ -787,6 +926,7 @@
           fbQueueAction(iid, act, btn);
         });
       });
+      wireDocumentPreviewButtons(el);
       if (window.CoteTopology && CoteTopology.refresh) {
         await CoteTopology.refresh();
       }
@@ -1423,6 +1563,11 @@
       document.getElementById('orgRefresh')?.addEventListener('click', function () {
         if (window.CoteTopology && CoteTopology.refresh) CoteTopology.refresh();
         loadFoundingBetaIntake();
+      });
+      document.getElementById('fb-doc-preview-close')?.addEventListener('click', closeDocumentPreview);
+      document.getElementById('fb-doc-preview-backdrop')?.addEventListener('click', closeDocumentPreview);
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeDocumentPreview();
       });
     } catch (e) {
       console.error('cockpit boot failed', e);

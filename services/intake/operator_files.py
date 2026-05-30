@@ -77,7 +77,10 @@ def _document_row(
     urls = _file_urls(intake_id, stored_name)
     ext = extension or Path(stored_name).suffix.lower()
     mt = media_type or mimetypes.guess_type(stored_name)[0] or "application/octet-stream"
+    if (ext == ".pdf" or stored_name.lower().endswith(".pdf")) and mt == "application/octet-stream":
+        mt = "application/pdf"
     accessible = access_error is None
+    preview_mode = _preview_mode(mt, ext)
     return {
         "original_filename": original_name or stored_name,
         "stored_filename": stored_name,
@@ -89,10 +92,25 @@ def _document_row(
         "sha256": sha256,
         "sha256_short": (sha256 or "")[:12] or "—",
         "view_url": urls["view_url"] if accessible else None,
+        "preview_url": urls["view_url"] if accessible else None,
         "download_url": urls["download_url"] if accessible else None,
+        "previewable": accessible and preview_mode != "none",
+        "preview_mode": preview_mode,
         "accessible": accessible,
         "access_error": access_error,
     }
+
+
+def _preview_mode(media_type: str, extension: str) -> str:
+    mt = (media_type or "").lower()
+    ext = (extension or "").lower()
+    if mt == "application/pdf" or ext == ".pdf":
+        return "pdf"
+    if mt.startswith("image/"):
+        return "image"
+    if mt.startswith("text/") or ext in {".txt", ".csv", ".json", ".md", ".log", ".xml"}:
+        return "text"
+    return "none"
 
 
 def list_intake_files_for_operator(intake_id: str) -> Dict[str, Any]:
@@ -216,12 +234,18 @@ def serve_intake_file(
         )
 
     media_type = mimetypes.guess_type(fname)[0] or "application/octet-stream"
+    if fname.lower().endswith(".pdf"):
+        media_type = "application/pdf"
     if mode == "download":
         return FileResponse(path, media_type=media_type, filename=fname)
     return FileResponse(
         path,
         media_type=media_type,
-        headers={"Content-Disposition": f'inline; filename="{fname}"'},
+        headers={
+            "Content-Disposition": f'inline; filename="{fname}"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 

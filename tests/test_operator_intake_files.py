@@ -43,8 +43,10 @@ def test_queue_card_includes_documents_with_urls(fb_env, anon_client: TestClient
         assert doc.get("status")
         assert doc.get("sha256_short")
         assert doc.get("accessible") is True
-        assert doc["view_url"].startswith(f"/api/operator/intake/{iid}/files/")
-        assert doc["view_url"].endswith("/view")
+        assert doc.get("previewable") is True
+        assert doc.get("preview_mode") == "pdf"
+        assert doc["preview_url"].startswith(f"/api/operator/intake/{iid}/files/")
+        assert doc["preview_url"].endswith("/view")
         assert doc["download_url"].endswith("/download")
 
 
@@ -134,7 +136,9 @@ def test_control_html_renders_documents_section(client: TestClient):
     text = r.text
     assert "fb-queue-documents" in text
     assert "buildDocumentsSection" in text
-    assert "Documents (" in text or "Documents</h4>" in text
+    assert "fb-doc-preview" in text
+    assert "openDocumentPreview" in text
+    assert "Preview</button>" in text or "Preview</button> " in text
 
 
 def test_path_traversal_blocked(fb_env, anon_client: TestClient, client: TestClient):
