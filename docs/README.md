@@ -70,4 +70,4 @@ See [`CONTROLLED_ONBOARDING_ACQUISITION.md`](./CONTROLLED_ONBOARDING_ACQUISITION
 
 See [`AGENTS.md`](./AGENTS.md) and [`PRODUCTION_ENGINEERING_DOCTRINE.md`](./PRODUCTION_ENGINEERING_DOCTRINE.md).
 
-Historical integration notes (Stripe, Shopify, tunnel cutover) remain in archived `docs/KYC_*.md` files for reference only — they are **not** part of the current launch path.
+Historical integration notes (legacy card processor, Shopify, tunnel cutover) are in [`archive/legacy/stripe/`](../archive/legacy/stripe/) — **not** part of the current launch path.

@@ -1,7 +1,7 @@
 """
 Stripe ban guardrail — fails if active Stripe code is reintroduced.
 
-PayPal is the payment path. See docs/STRIPE_PURGE_AUDIT.md.
+PayPal is the payment path. See docs/STRIPE_FINAL_STATUS.md.
 """
 
 from __future__ import annotations
@@ -21,10 +21,67 @@ PRODUCTION_SCAN_ROOTS = (
     ROOT / "requirements.txt",
 )
 
-# Allowed only in this guardrail test and the purge audit doc.
+# Allowed only in this guardrail test and the final status doc.
 ALLOWLIST_FILES = {
     ROOT / "tests" / "test_stripe_ban_guardrail.py",
-    ROOT / "docs" / "STRIPE_PURGE_AUDIT.md",
+    ROOT / "docs" / "STRIPE_FINAL_STATUS.md",
+}
+
+QUARANTINE_EXCLUDE_PARTS = frozenset(
+    {
+        ".git",
+        "__pycache__",
+        ".pytest_cache",
+        ".venv",
+        "node_modules",
+        "data",
+        "bin",
+    }
+)
+
+_TEXT_SUFFIXES = frozenset(
+    {
+        ".py",
+        ".html",
+        ".js",
+        ".css",
+        ".yaml",
+        ".yml",
+        ".txt",
+        ".json",
+        ".jsonl",
+        ".md",
+        ".ps1",
+        ".sh",
+        ".toml",
+        ".ini",
+        ".cfg",
+        ".xml",
+    }
+)
+
+
+def _under_archive(path: Path) -> bool:
+    parts = path.resolve().parts
+    archive_parts = (ROOT / "archive" / "legacy" / "stripe").resolve().parts
+    if len(parts) >= len(archive_parts) and parts[: len(archive_parts)] == archive_parts:
+        return True
+    return False
+
+
+def _quarantine_excluded(path: Path) -> bool:
+    if _under_archive(path):
+        return True
+    return any(part in QUARANTINE_EXCLUDE_PARTS for part in path.parts)
+
+QUARANTINE_ALLOWLIST = ALLOWLIST_FILES | {
+    ROOT / "tests" / "test_organism_integration.py",
+    ROOT / "tests" / "test_kyc_guardrails.py",
+    ROOT / ".github" / "workflows" / "kyc_guardrails.yml",
+    ROOT / "AGENTS.md",
+    ROOT / "docs" / "LAUNCH_PATH.md",
+    ROOT / "docs" / "KYC_CONSTITUTION.md",
+    ROOT / "docs" / "README.md",
 }
 
 FORBIDDEN_PATTERNS = [
@@ -94,3 +151,31 @@ def test_stripe_hook_module_removed():
 
 def test_stripe_webhook_test_removed():
     assert not (ROOT / "tests" / "test_stripe_webhook.py").is_file()
+
+
+def _repo_wide_stripe_hits() -> list[str]:
+    """Return paths outside archive with stripe-like content (excluding allowlist)."""
+    hits: list[str] = []
+    rx = re.compile(r"stripe", re.I)
+    allow = {p.resolve() for p in QUARANTINE_ALLOWLIST}
+    for path in ROOT.rglob("*"):
+        if not path.is_file():
+            continue
+        if _quarantine_excluded(path):
+            continue
+        if path.resolve() in allow:
+            continue
+        if path.suffix.lower() not in _TEXT_SUFFIXES:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if rx.search(text):
+            hits.append(str(path.relative_to(ROOT)))
+    return sorted(set(hits))
+
+
+def test_no_stripe_outside_archive_except_allowlist():
+    hits = _repo_wide_stripe_hits()
+    assert not hits, "Stripe references outside archive/legacy/stripe:\n" + "\n".join(hits)

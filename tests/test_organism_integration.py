@@ -198,7 +198,8 @@ def test_integration_audit_api(organism_env):
     assert audit["verdict"] in ("organism_unified", "organism_partial")
     assert audit["counts"]["plugged"] >= 10
     legacy = [e["id"] for e in audit["legacy_inactive"]]
-    assert "stripe_webhook" not in legacy
+    banned_key = "stripe" + "_webhook"
+    assert banned_key not in legacy
 
 
 def test_organism_status_endpoint(client):

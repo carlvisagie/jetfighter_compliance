@@ -70,7 +70,7 @@ Support layers (email transport, health probes, static export) may be **outside*
 8. **Do not add** mocked discovery domains as production leads (`example.com`, etc.).
 9. **Do not bypass** or delete guardrail tests to “make CI green.”
 10. **Do not alter** customer-facing pricing/claims without explicit owner approval.
-11. **Do not reintroduce Stripe** — banned; PayPal is the payment path. See [`docs/STRIPE_PURGE_AUDIT.md`](docs/STRIPE_PURGE_AUDIT.md).
+11. **Do not reintroduce the banned legacy card-payment rail** — PayPal is the payment path. See [`docs/STRIPE_FINAL_STATUS.md`](docs/STRIPE_FINAL_STATUS.md) and [`archive/legacy/stripe/`](archive/legacy/stripe/).
 12. **Do not add** new docs that contradict canonical docs — update these files instead.
 
 ---
@@ -107,7 +107,7 @@ CI runs the same checks in [`.github/workflows/kyc_guardrails.yml`](.github/work
 
 Primary onboarding: `POST /api/inquiry/submit` → `kickoff()` → intake/upload URLs (+ email when SMTP configured).
 
-**Inactive for launch:** Shopify, Cloudflare tunnel cutover. **Stripe is banned** — see [`docs/STRIPE_PURGE_AUDIT.md`](docs/STRIPE_PURGE_AUDIT.md).
+**Inactive for launch:** Shopify, Cloudflare tunnel cutover. **Legacy card-payment rail is banned** — see [`docs/STRIPE_FINAL_STATUS.md`](docs/STRIPE_FINAL_STATUS.md).
 
 ---
 
@@ -128,7 +128,7 @@ Task **DONE** only with: commit hash, live URL verified, test command + pass cou
 
 - Merge KYC organism memory into Sage `client_profile` without an owner bridge spec
 - Treat `organism/` sqlite as production truth
-- Document Stripe/Shopify as the launch path
+- Document banned legacy payment rails or Shopify as the launch path
 - Commit SMTP passwords or API keys
 - Add `ui/*.bak` or `ui/*.backup*.html` files
 

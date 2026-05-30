@@ -4,7 +4,7 @@
 **Canonical agent docs:** [`../AGENTS.md`](../AGENTS.md), [`KYC_CONSTITUTION.md`](./KYC_CONSTITUTION.md)  
 **Verify:** `powershell -File scripts/verify-render-production.ps1` and `scripts/verify-production-live.ps1`
 
-> **Agent rule:** This is the only approved production onboarding path. Do not document or wire Stripe/Shopify/Cloudflare tunnel as launch without owner instruction.
+> **Agent rule:** This is the only approved production onboarding path. Do not document or wire legacy card processors, Shopify, or Cloudflare tunnel as launch without owner instruction.
 
 ## Customer flow
 
@@ -35,7 +35,7 @@ Not a marketing program. See [`CONTROLLED_ONBOARDING_ACQUISITION.md`](./CONTROLL
 
 ## Inactive for launch (legacy)
 
-Stripe, Shopify, and Cloudflare Tunnel rebuild/cutover are **removed or banned** — not part of this path. PayPal is the payment path. See [`STRIPE_PURGE_AUDIT.md`](./STRIPE_PURGE_AUDIT.md).
+Legacy card-payment integration, Shopify, and Cloudflare Tunnel rebuild/cutover are **removed or banned** — not part of this path. PayPal is the payment path. See [`STRIPE_FINAL_STATUS.md`](./STRIPE_FINAL_STATUS.md) and [`../archive/legacy/stripe/`](../archive/legacy/stripe/).
 
 ---
 
