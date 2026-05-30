@@ -664,6 +664,28 @@ def scan_retention_at_startup(*, force: bool = False) -> Dict[str, Any]:
     except Exception:
         pass
 
+    try:
+        from .proof_gate import build_live_boot_status, detect_cockpit_zero_after_recent_success, live_disk_scan
+
+        report["live_scan"] = live_disk_scan()
+        live_boot = build_live_boot_status()
+        report["live_boot_status"] = live_boot.get("status")
+        report["healthy"] = bool(live_boot.get("ok"))
+        report["forensic_proof_ok"] = bool(live_boot.get("forensic_proof_ok"))
+        if not report["healthy"]:
+            emit_sev1_data_loss_suspected(
+                "Startup reconciliation: upload visibility not healthy",
+                detail={
+                    "index_disk_agree": report["index_disk_agree"],
+                    "live_boot_status": report.get("live_boot_status"),
+                    "upload_files": file_count,
+                },
+            )
+        detect_cockpit_zero_after_recent_success()
+    except Exception as exc:
+        report["live_scan_error"] = str(exc)
+        report["healthy"] = False
+
     _STARTUP_SCAN = report
     return report
 

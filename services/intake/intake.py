@@ -115,7 +115,15 @@ def _save_intake(intake_id: str, data: Dict[str, Any]) -> None:
 def _append_index(row: Dict[str, Any]) -> None:
     row = dict(row)
     row.setdefault("committed_at_utc", _utc_now())
-    upsert_index_row(row)
+    try:
+        upsert_index_row(row)
+    except OSError as exc:
+        logger.critical("index write failed intake=%s: %s", row.get("intake_id"), exc)
+        raise HTTPException(
+            status_code=500,
+            detail="Your files could not be indexed for operator review. Please try again.",
+            headers={"X-KYC-Error-Code": "index_write_failed"},
+        ) from exc
 
 
 def _commit_intake_state(
@@ -782,6 +790,21 @@ async def _process_upload_locked(
             headers={"X-KYC-Error-Code": "upload_durability_failed"},
         )
 
+    proof_gate: Dict[str, Any] = {}
+    verified_n = int(
+        durability.get("verified_file_count")
+        or integrity.get("verified_file_count")
+        or len(saved)
+    )
+    if saved and durability.get("durability_verified"):
+        from .proof_gate import require_upload_proof_gate
+
+        proof_gate = require_upload_proof_gate(
+            intake_id,
+            saved_files=list(record.get("files") or []),
+            verified_file_count=verified_n,
+        )
+
     integrity = record.get("upload_integrity") or {}
     upload_integrity_ok = bool(integrity.get("integrity_ok"))
     failed_n = int(integrity.get("failed_file_count") or 0)
@@ -791,6 +814,7 @@ async def _process_upload_locked(
         == int(integrity.get("expected_file_count") or 0)
         and failed_n == 0
         and bool(durability.get("durability_verified", not saved))
+        and bool(proof_gate.get("proof_gate_passed", not saved))
     )
 
     return {
@@ -818,6 +842,13 @@ async def _process_upload_locked(
         "integrity_mismatch": bool(integrity.get("integrity_mismatch")),
         "custody_status": record.get("custody_status") or integrity.get("custody_status"),
         "customer_may_show_success": customer_may_show_success,
+        "proof_gate_passed": bool(proof_gate.get("proof_gate_passed", not saved)),
+        "data_root": proof_gate.get("data_root"),
+        "write_path": proof_gate.get("write_path"),
+        "live_scan_confirmed": proof_gate.get("live_scan_confirmed"),
+        "queue_or_archive_visible": proof_gate.get("queue_or_archive_visible"),
+        "retention_visible": proof_gate.get("retention_visible"),
+        "file_access_verified": proof_gate.get("file_access_verified"),
         "missing_files": list(integrity.get("missing_files") or []),
         "rejected_files": list(integrity.get("rejected_files") or []),
         "file_lifecycle_table": list(integrity.get("file_lifecycle_table") or []),

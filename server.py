@@ -233,8 +233,19 @@ def ops_boot_status():
         "KYC_SAFE_MODE_raw": os.getenv("KYC_SAFE_MODE"),
         "safe_mode_effective": is_safe_mode(),
         "schedulers_enabled": schedulers_enabled(),
+        "scan_type": "boot_snapshot",
         **boot_log_snapshot(),
     }
+
+
+@app.get("/api/ops/boot-status/live")
+def ops_boot_status_live(request: Request):
+    """Live disk scan + forensic proof — NOT the cached boot snapshot."""
+    from services.intake.proof_gate import build_live_boot_status
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return build_live_boot_status()
 
 
 @app.get("/health/ready")
@@ -1332,6 +1343,19 @@ def operator_intake_reconcile_intake(request: Request, intake_id: str):
 
     require_ops_access(request)
     return reconcile_intake(intake_id.strip())
+
+
+@app.get("/api/operator/intake/raw-disk-scan")
+def operator_intake_raw_disk_scan(request: Request, intake_id: str = ""):
+    """Live filesystem scan — never cached."""
+    from services.intake.proof_gate import live_disk_scan
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    iid = intake_id.strip()
+    if iid:
+        return live_disk_scan(intake_id=iid)
+    return live_disk_scan()
 
 
 @app.get("/api/operator/founding-beta/reconcile/{intake_id}")

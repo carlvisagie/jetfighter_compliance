@@ -607,7 +607,7 @@ def build_integrity_proof(
     except Exception:
         pass
 
-    ok = problem == 0 and communications_ok
+    ok = problem == 0 and communications_ok and incident_count == 0
     result = {
         "ok": ok,
         "total_files": total_files,
