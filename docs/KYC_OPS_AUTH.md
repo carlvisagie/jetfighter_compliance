@@ -1,42 +1,47 @@
 # KYC operator authentication
 
-Internal UI and APIs require an operator session or `X-Ops-Key`. **No alternate auth routes.**
+Internal UI and APIs require an operator session or `X-Ops-Key`. **No alternate auth routes** (Bearer, `X-OPS-PASSWORD`, etc.).
 
-## Canonical contract
+## Server contract
 
 | Mode | Client | Server check |
 |------|--------|--------------|
-| **API key** | Header `X-Ops-Key: <OPS_API_KEY>` | `OPS_API_KEY` env on server |
 | **Session** | `POST /api/ops/login` `{"password":"<OPS_PASSWORD>"}` → cookie `kyc_ops_session` | `OPS_PASSWORD` env on server |
+| **API key** | Header `X-Ops-Key: <OPS_API_KEY>` | `OPS_API_KEY` env on server |
 
-**Not supported:** `Authorization: Bearer`, `X-OPS-PASSWORD`, `X-OPS-API-KEY`, or custom headers.
+## Production scripts (password only)
 
-## Environment
+All production HTTP scripts use `scripts/lib/ops_client.py` — **one path**:
 
-| Variable | Purpose |
-|----------|---------|
-| `OPS_PASSWORD` | Password for `/ui/login.html` and `POST /api/ops/login` |
-| `OPS_SECRET` | Session cookie signing (falls back to `INTAKE_TOKEN_SECRET`) |
-| `OPS_API_KEY` | Header auth for scripts (`X-Ops-Key`) — preferred for automation |
+1. Load `OPS_PASSWORD` (and optional `PROD_BASE_URL`) from repo-root **`.ops_env`** only (gitignored).
+2. `GET /api/public/build-info` on branded + Render URLs — commits must match (when `verify_deploy=True`).
+3. `GET /api/ops/session` — server must have `password_configured`.
+4. `POST /api/ops/login` → session cookie on the shared `httpx.Client`.
+5. `GET /api/ops/auth-check` — must return 200 with `auth_mode: session_cookie`.
 
-## Script helper
-
-All production scripts use `scripts/lib/ops_client.py`:
+If `OPS_API_KEY` is set in the environment, scripts **fail fast** with `scripts_use_ops_password_only`. Do not put `OPS_API_KEY` in `.ops_env`.
 
 ```python
 from scripts.lib.ops_client import authenticate_production, OpsAuthError
 
 client, headers, diag = authenticate_production()
-# session mode: headers={}; use same client (cookies)
-# api_key mode: headers={"X-Ops-Key": "..."}
+# headers is always {}; cookies live on client
 ```
 
-Flow:
+Example `.ops_env` (repo root, never commit):
 
-1. `GET /api/public/build-info` on branded + Render URLs — commits must match
-2. `GET /api/ops/session` — verify server auth config
-3. Authenticate (API key preferred if `OPS_API_KEY` set, else session login)
-4. `GET /api/ops/auth-check` — must return 200
+```
+OPS_PASSWORD=your-render-dashboard-password
+PROD_BASE_URL=https://compliance.keepyourcontracts.com
+```
+
+## Environment (server / UI)
+
+| Variable | Purpose |
+|----------|---------|
+| `OPS_PASSWORD` | Password for `/ui/login.html` and `POST /api/ops/login` |
+| `OPS_SECRET` | Session cookie signing (falls back to `INTAKE_TOKEN_SECRET`) |
+| `OPS_API_KEY` | Header auth (`X-Ops-Key`) — **not used by production scripts** |
 
 ## Endpoints
 

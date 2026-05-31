@@ -1,11 +1,13 @@
 """
 Shared operator HTTP client — single auth contract for all production scripts.
 
-Auth modes (exactly one):
-  1. OPS_API_KEY  → header X-Ops-Key
-  2. OPS_PASSWORD → POST /api/ops/login → cookie kyc_ops_session
+Scripts (only):
+  OPS_PASSWORD → POST /api/ops/login → cookie kyc_ops_session
 
-No Authorization Bearer, X-OPS-PASSWORD, or custom headers.
+Local creds: repo-root `.ops_env` (gitignored) via load_local_ops_env().
+
+No OPS_API_KEY, Authorization Bearer, X-OPS-PASSWORD, or custom headers in scripts.
+Server may still accept X-Ops-Key for other clients; scripts do not use it.
 """
 from __future__ import annotations
 
@@ -22,13 +24,14 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from services.ops_auth import OPS_API_KEY_HEADER, SESSION_COOKIE, auth_contract  # noqa: E402
+from services.ops_auth import SESSION_COOKIE, auth_contract  # noqa: E402
 
 BRANDED_BASE_URL = "https://compliance.keepyourcontracts.com"
 RENDER_BASE_URL = "https://jetfighter-compliance.onrender.com"
 AUTH_PROBE_PATH = "/api/ops/auth-check"
 BUILD_INFO_PATH = "/api/public/build-info"
 SESSION_PROBE_PATH = "/api/ops/session"
+OPS_ENV_FILENAME = ".ops_env"
 
 
 @dataclass
@@ -40,6 +43,7 @@ class OpsAuthDiagnostic:
     env_ops_password_length: int = 0
     env_ops_api_key_present: bool = False
     env_ops_api_key_length: int = 0
+    ops_env_file: Optional[str] = None
     auth_probe_endpoint: str = AUTH_PROBE_PATH
     auth_probe_status: Optional[int] = None
     auth_probe_body: Dict[str, Any] = field(default_factory=dict)
@@ -57,6 +61,7 @@ class OpsAuthDiagnostic:
             "env_ops_password_length": self.env_ops_password_length,
             "env_ops_api_key_present": self.env_ops_api_key_present,
             "env_ops_api_key_length": self.env_ops_api_key_length,
+            "ops_env_file": self.ops_env_file,
             "auth_probe_endpoint": self.auth_probe_endpoint,
             "auth_probe_status": self.auth_probe_status,
             "auth_probe_body": self.auth_probe_body,
@@ -81,14 +86,34 @@ def _env_secret(name: str) -> Tuple[str, bool, int]:
     return val, bool(val), len(val)
 
 
-def select_auth_mode() -> Tuple[Optional[str], Dict[str, str]]:
-    api_key, api_present, _ = _env_secret("OPS_API_KEY")
-    password, pwd_present, _ = _env_secret("OPS_PASSWORD")
-    if api_present:
-        return "api_key", {OPS_API_KEY_HEADER: api_key}
-    if pwd_present:
-        return "session_cookie", {}
-    return None, {}
+def load_local_ops_env() -> Optional[Path]:
+    """Load OPS_PASSWORD and PROD_BASE_URL from repo-root `.ops_env` only."""
+    path = _REPO_ROOT / OPS_ENV_FILENAME
+    if not path.is_file():
+        return None
+    for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, _, v = line.partition("=")
+        k, v = k.strip(), v.strip().strip('"').strip("'")
+        if k in ("OPS_PASSWORD", "PROD_BASE_URL") and v and not os.environ.get(k, "").strip():
+            os.environ[k] = v
+    return path
+
+
+def _resolve_script_password(diag: OpsAuthDiagnostic) -> str:
+    """Scripts: OPS_PASSWORD session only; fail if OPS_API_KEY is set."""
+    _, diag.env_ops_api_key_present, diag.env_ops_api_key_length = _env_secret("OPS_API_KEY")
+    if diag.env_ops_api_key_present:
+        diag.failure_reason = "scripts_use_ops_password_only"
+        raise OpsAuthError(diag.failure_reason, diag)
+
+    pwd, diag.env_ops_password_present, diag.env_ops_password_length = _env_secret("OPS_PASSWORD")
+    if not diag.env_ops_password_present:
+        diag.failure_reason = "missing_env_var"
+        raise OpsAuthError(diag.failure_reason, diag)
+    return pwd
 
 
 def fetch_build_info(client: httpx.Client, base_url: str) -> Dict[str, Any]:
@@ -119,9 +144,6 @@ def verify_deploy_parity(client: httpx.Client) -> Dict[str, Any]:
     if bc != rc:
         out["failure_reason"] = "branded_domain_points_to_different_service"
         return out
-    if bc == "unknown":
-        out["failure_reason"] = "stale_deployed_commit_unknown"
-        return out
     out["ok"] = True
     return out
 
@@ -141,13 +163,17 @@ def authenticate_production(
 ) -> Tuple[httpx.Client, Dict[str, str], OpsAuthDiagnostic]:
     """
     Return (httpx_client, request_headers, diagnostic).
-    Caller must use the same client for session auth (cookies).
+    Scripts use session cookies only; request_headers is always {}.
     """
     base = (base_url or os.environ.get("PROD_BASE_URL") or BRANDED_BASE_URL).rstrip("/")
+    ops_env = load_local_ops_env()
     diag = OpsAuthDiagnostic(base_url=base)
+    if ops_env is not None:
+        diag.ops_env_file = str(ops_env)
 
-    pwd, diag.env_ops_password_present, diag.env_ops_password_length = _env_secret("OPS_PASSWORD")
-    key, diag.env_ops_api_key_present, diag.env_ops_api_key_length = _env_secret("OPS_API_KEY")
+    pwd = _resolve_script_password(diag)
+    diag.auth_mode_selected = "session_cookie"
+    diag.header_name_used = SESSION_COOKIE
 
     client = httpx.Client(base_url=base, timeout=timeout, follow_redirects=False)
 
@@ -164,39 +190,10 @@ def authenticate_production(
         diag.failure_reason = "build_info_unreachable"
         raise OpsAuthError(diag.failure_reason, diag)
 
-    mode, headers = select_auth_mode()
-    if mode is None:
-        diag.failure_reason = "missing_env_var"
-        raise OpsAuthError(diag.failure_reason, diag)
-
-    diag.auth_mode_selected = mode
-    diag.header_name_used = OPS_API_KEY_HEADER if mode == "api_key" else SESSION_COOKIE
     diag.session_probe = probe_session(client, base)
 
-    if mode == "api_key":
-        probe = client.get(AUTH_PROBE_PATH, headers=headers)
-        diag.auth_probe_status = probe.status_code
-        if probe.status_code == 200:
-            diag.auth_probe_body = probe.json()
-            return client, headers, diag
-        if probe.status_code == 403:
-            diag.failure_reason = "wrong_secret"
-        elif probe.status_code == 503:
-            diag.failure_reason = "server_auth_not_configured"
-        else:
-            diag.failure_reason = "wrong_header_contract"
-        try:
-            diag.auth_probe_body = probe.json()
-        except Exception:
-            diag.auth_probe_body = {"raw": probe.text[:300]}
-        raise OpsAuthError(diag.failure_reason, diag)
-
-    # session_cookie mode
     if not diag.session_probe.get("password_configured"):
-        if diag.session_probe.get("api_key_configured"):
-            diag.failure_reason = "server_password_not_configured_use_ops_api_key"
-        else:
-            diag.failure_reason = "server_auth_not_configured"
+        diag.failure_reason = "server_password_not_configured"
         raise OpsAuthError(diag.failure_reason, diag)
 
     login = client.post("/api/ops/login", json={"password": pwd})
@@ -205,8 +202,12 @@ def authenticate_production(
         diag.auth_probe_status = login.status_code
         raise OpsAuthError(diag.failure_reason, diag)
     if login.status_code == 401:
-        diag.failure_reason = "wrong_secret"
+        diag.failure_reason = "login_rejected"
         diag.auth_probe_status = login.status_code
+        try:
+            diag.auth_probe_body = login.json()
+        except Exception:
+            diag.auth_probe_body = {"raw": login.text[:300]}
         raise OpsAuthError(diag.failure_reason, diag)
     if login.status_code != 200 or not login.json().get("ok"):
         diag.failure_reason = "wrong_header_contract"

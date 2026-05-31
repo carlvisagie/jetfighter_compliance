@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Production forensic proof — requires OPS_PASSWORD or OPS_API_KEY via scripts.lib.ops_client."""
+"""Production forensic proof — OPS_PASSWORD via scripts.lib.ops_client (.ops_env)."""
 from __future__ import annotations
 
 import json

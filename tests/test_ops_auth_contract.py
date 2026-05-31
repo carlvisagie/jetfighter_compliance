@@ -16,6 +16,7 @@ PRODUCTION_HTTP_SCRIPTS = [
     "scripts/prove_production_forensic.py",
     "scripts/archive_test_intakes.py",
     "scripts/investigate_prod_uploads.py",
+    "scripts/run_prod_inventory_now.py",
 ]
 
 FORBIDDEN_AUTH_PATTERNS = (
@@ -42,6 +43,34 @@ def test_production_scripts_no_manual_x_ops_key_assignment():
         text = (root / rel).read_text(encoding="utf-8")
         assert 'headers["X-Ops-Key"]' not in text, f"{rel} must not manually set X-Ops-Key"
         assert "headers['X-Ops-Key']" not in text, f"{rel} must not manually set X-Ops-Key"
+
+
+def test_production_scripts_no_inline_env_loaders():
+    root = Path(__file__).resolve().parents[1]
+    for rel in PRODUCTION_HTTP_SCRIPTS:
+        text = (root / rel).read_text(encoding="utf-8")
+        assert ".kyc_ops_env" not in text, f"{rel} must not load alternate env files"
+        assert "jetfighter_compliance" not in text, f"{rel} must not load path-specific .env"
+
+
+def test_ops_client_rejects_ops_api_key(monkeypatch):
+    from scripts.lib.ops_client import OpsAuthError, authenticate_production
+
+    monkeypatch.setenv("OPS_API_KEY", "script-should-not-use-this")
+    monkeypatch.delenv("OPS_PASSWORD", raising=False)
+    with pytest.raises(OpsAuthError) as exc:
+        authenticate_production(verify_deploy=False, base_url="http://127.0.0.1:1")
+    assert exc.value.reason == "scripts_use_ops_password_only"
+
+
+def test_ops_client_missing_password_points_to_ops_env(monkeypatch):
+    from scripts.lib.ops_client import OpsAuthError, authenticate_production
+
+    monkeypatch.delenv("OPS_API_KEY", raising=False)
+    monkeypatch.delenv("OPS_PASSWORD", raising=False)
+    with pytest.raises(OpsAuthError) as exc:
+        authenticate_production(verify_deploy=False, base_url="http://127.0.0.1:1")
+    assert exc.value.reason == "missing_env_var"
 
 
 def test_build_info_public_no_secrets(anon_client: TestClient):
