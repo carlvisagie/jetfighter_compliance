@@ -992,7 +992,7 @@ def _upload_node_severity(custody_status: str) -> str:
     return "amber"
 
 
-def intake_flow_metrics() -> Dict[str, Any]:
+def intake_flow_metrics(*, lightweight: bool = False) -> Dict[str, Any]:
     """Signals for COTE upload_pipeline node."""
     from .integrity import STATUS_INTEGRITY_FAILURE, STATUS_PARTIAL_UPLOAD, STATUS_REJECTED_FILES
 
@@ -1015,10 +1015,16 @@ def intake_flow_metrics() -> Dict[str, Any]:
     custody_status = str(latest.get("latest_custody_status") or "")
     forensic_proof: Dict[str, Any] = {}
     try:
-        from .forensic_reconcile import build_integrity_proof, load_integrity_incidents
+        if lightweight:
+            from .forensic_reconcile import load_integrity_incidents, summarize_integrity_proof_for_cote
 
-        forensic_proof = build_integrity_proof(limit=200)
-        incident_count = len(load_integrity_incidents(tail=100))
+            forensic_proof = summarize_integrity_proof_for_cote()
+            incident_count = int(forensic_proof.get("integrity_incident_count") or 0)
+        else:
+            from .forensic_reconcile import build_integrity_proof, load_integrity_incidents
+
+            forensic_proof = build_integrity_proof(limit=200)
+            incident_count = len(load_integrity_incidents(tail=100))
         if not forensic_proof.get("ok") or incident_count > 0:
             integrity_mismatch_count = max(
                 integrity_mismatch_count,
@@ -1026,6 +1032,7 @@ def intake_flow_metrics() -> Dict[str, Any]:
                 + int(forensic_proof.get("orphaned_files") or 0)
                 + int(forensic_proof.get("corrupt_files") or 0)
                 + int(forensic_proof.get("unindexed_files") or 0)
+                + int(forensic_proof.get("ghost_intake_count") or 0)
                 + incident_count,
             )
     except Exception:

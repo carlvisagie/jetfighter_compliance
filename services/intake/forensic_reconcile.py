@@ -417,6 +417,55 @@ def last_forensic_reconciliation() -> Optional[Dict[str, Any]]:
     return dict(_STARTUP_RECONCILE) if _STARTUP_RECONCILE else None
 
 
+def summarize_integrity_proof_for_cote() -> Dict[str, Any]:
+    """
+    Fast integrity signal for COTE polling — proof cache or startup snapshot only.
+    Full fleet proof stays on /api/ops/boot-status/live and operator proof endpoints.
+    """
+    now_mono = time.monotonic()
+    if _PROOF_CACHE is not None:
+        cached_at, cached = _PROOF_CACHE
+        if now_mono - cached_at < _PROOF_CACHE_TTL_SEC:
+            return dict(cached)
+
+    from .retention import last_startup_retention_scan
+
+    startup = last_startup_retention_scan()
+    reconcile = last_forensic_reconciliation()
+    incidents = load_integrity_incidents(tail=100)
+    incident_count = len(incidents)
+
+    ghost_count = 0
+    ghost_intakes: List[Dict[str, Any]] = []
+    forensic_ok = True
+    index_disk_agree = True
+    source = "none"
+
+    if startup:
+        ghost_count = int(startup.get("ghost_intake_count") or 0)
+        ghost_intakes = list(startup.get("ghost_intakes") or [])[:25]
+        forensic_ok = bool(startup.get("forensic_proof_ok", True))
+        index_disk_agree = bool(startup.get("index_disk_agree", True))
+        if not bool(startup.get("healthy", True)):
+            forensic_ok = False
+        source = "startup_retention_scan"
+    elif reconcile:
+        forensic_ok = bool(reconcile.get("ok", True))
+        ghost_count = int(reconcile.get("ghost_intake_count") or 0)
+        source = "forensic_reconciliation"
+
+    ok = forensic_ok and ghost_count == 0 and incident_count == 0 and index_disk_agree
+    return {
+        "ok": ok,
+        "ghost_intake_count": ghost_count,
+        "ghost_intakes": ghost_intakes,
+        "integrity_incident_count": incident_count,
+        "missing_files": ghost_count,
+        "source": source,
+        "proof_at_utc": _utc_now(),
+    }
+
+
 def _proof_record_incident(
     intake_id: str,
     issue_code: str,

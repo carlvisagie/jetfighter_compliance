@@ -546,7 +546,7 @@ def build_cognitive_topology() -> Dict[str, Any]:
     try:
         from .intake.intake import intake_flow_metrics
 
-        intake_flow = intake_flow_metrics()
+        intake_flow = intake_flow_metrics(lightweight=True)
     except Exception:
         intake_flow = {}
     proj_count = (
