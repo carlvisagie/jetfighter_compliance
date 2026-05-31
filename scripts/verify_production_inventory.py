@@ -3,35 +3,29 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
+from pathlib import Path
 
-import httpx
+_REPO = Path(__file__).resolve().parents[1]
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
 
-BASE = os.environ.get("PROD_BASE_URL", "https://compliance.keepyourcontracts.com")
-OPS_PASSWORD = os.environ.get("OPS_PASSWORD", "")
-OPS_API_KEY = os.environ.get("OPS_API_KEY", "")
+from scripts.lib.ops_client import OpsAuthError, authenticate_production  # noqa: E402
 
 
 def main() -> int:
-    out: dict = {"base_url": BASE, "ok": False}
-    headers: dict[str, str] = {}
+    out: dict = {"ok": False}
+    client = None
+    try:
+        client, headers, auth_diag = authenticate_production()
+        out["auth_diagnostic"] = auth_diag.as_dict()
+    except OpsAuthError as exc:
+        out["auth_diagnostic"] = exc.diagnostic.as_dict()
+        out["error"] = exc.reason
+        print(json.dumps(out, indent=2))
+        return 1
 
-    with httpx.Client(base_url=BASE, timeout=90.0, follow_redirects=False) as client:
-        if OPS_API_KEY:
-            headers["X-Ops-Key"] = OPS_API_KEY
-        elif OPS_PASSWORD:
-            login = client.post("/api/ops/login", json={"password": OPS_PASSWORD})
-            if login.status_code != 200 or not login.json().get("ok"):
-                out["error"] = "ops_auth_failed"
-                out["auth_status"] = login.status_code
-                print(json.dumps(out, indent=2))
-                return 1
-        else:
-            out["error"] = "Set OPS_PASSWORD or OPS_API_KEY"
-            print(json.dumps(out, indent=2))
-            return 1
-
+    try:
         diag = client.get("/api/operator/intake/diagnostics", headers=headers)
         live = client.get("/api/ops/boot-status/live", headers=headers)
         scan = client.get("/api/operator/intake/raw-disk-scan", headers=headers)
@@ -48,7 +42,7 @@ def main() -> int:
         db = diag.json()
         d = db.get("diagnostics") or {}
         inv = d.get("inventory") or {}
-        rs = d.get("retention_scan") or d.get("retention_scan") or {}
+        rs = d.get("retention_scan") or {}
 
         counts = {
             "inventory.intake_directories": int(inv.get("intake_directories") or 0),
@@ -82,7 +76,9 @@ def main() -> int:
             for k, v in counts.items()
             if k.endswith("intake_directories") or k.endswith("intake_directories_found")
         }
-        file_values = {k: v for k, v in counts.items() if k.endswith("upload_files") or k.endswith("upload_files_on_disk")}
+        file_values = {
+            k: v for k, v in counts.items() if k.endswith("upload_files") or k.endswith("upload_files_on_disk")
+        }
 
         if dir_values and len(set(dir_values.values())) > 1:
             disagreements.append({"field": "intake_directories", "values": dir_values})
@@ -104,9 +100,12 @@ def main() -> int:
         out["inventory_agreement"] = db.get("inventory_agreement")
         out["disagreements"] = disagreements
         out["ok"] = len(disagreements) == 0 and live_status != "degraded"
+    finally:
+        if client is not None:
+            client.close()
 
-        print(json.dumps(out, indent=2))
-        return 0 if out["ok"] else 1
+    print(json.dumps(out, indent=2))
+    return 0 if out["ok"] else 1
 
 
 if __name__ == "__main__":

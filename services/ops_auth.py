@@ -8,7 +8,7 @@ import hmac
 import os
 import re
 import time
-from typing import Optional, Set
+from typing import Any, Dict, Optional, Set
 from urllib.parse import quote
 
 from fastapi import Request
@@ -17,6 +17,12 @@ from itsdangerous import BadSignature, URLSafeTimedSerializer
 
 SESSION_COOKIE = "kyc_ops_session"
 SESSION_MAX_AGE_SECONDS = 7 * 24 * 3600
+OPS_API_KEY_HEADER = "X-Ops-Key"
+
+# Canonical operator auth contract (scripts + server must match):
+# 1. API key: header X-Ops-Key = OPS_API_KEY env value
+# 2. Session: POST /api/ops/login {"password": "<OPS_PASSWORD>"} → cookie kyc_ops_session
+# No Authorization Bearer, X-OPS-PASSWORD, or alternate headers.
 
 # Customer-facing UI (always open)
 PUBLIC_UI_EXACT: Set[str] = {
@@ -74,6 +80,8 @@ PUBLIC_API_EXACT: Set[str] = {
     "/api/ops/boot-status",
 }
 
+PUBLIC_API_PREFIXES = PUBLIC_API_PREFIXES + ("/api/public/",)
+
 # Operator / organism / intelligence APIs
 PROTECTED_API_PREFIXES = (
     "/api/memory/",
@@ -115,7 +123,10 @@ def verify_ops_password(password: str) -> bool:
     expected = os.getenv("OPS_PASSWORD", "").strip()
     if not expected:
         return False
-    return hmac.compare_digest(password.encode("utf-8"), expected.encode("utf-8"))
+    provided = (password or "").strip()
+    if not provided:
+        return False
+    return hmac.compare_digest(provided.encode("utf-8"), expected.encode("utf-8"))
 
 
 def create_session_token() -> str:
@@ -132,14 +143,42 @@ def verify_session_token(token: str) -> bool:
         return False
 
 
-def _valid_api_key(request: Request) -> bool:
-    import os as _os
+def ops_api_key_configured() -> bool:
+    return _os_api_key_configured()
 
-    expected = _os.getenv("OPS_API_KEY", "")
+
+def _read_api_key_header(request: Request) -> str:
+    return (request.headers.get(OPS_API_KEY_HEADER) or request.headers.get("x-ops-key") or "").strip()
+
+
+def _valid_api_key(request: Request) -> bool:
+    expected = os.getenv("OPS_API_KEY", "").strip()
     if not expected:
         return False
-    provided = request.headers.get("X-Ops-Key") or request.headers.get("x-ops-key") or ""
+    provided = _read_api_key_header(request)
+    if not provided:
+        return False
     return hmac.compare_digest(provided.encode(), expected.encode())
+
+
+def describe_request_auth_mode(request: Request) -> str:
+    if _valid_api_key(request):
+        return "api_key"
+    token = request.cookies.get(SESSION_COOKIE, "")
+    if verify_session_token(token):
+        return "session_cookie"
+    return "none"
+
+
+def auth_contract() -> Dict[str, str]:
+    return {
+        "api_key_header": OPS_API_KEY_HEADER,
+        "api_key_env": "OPS_API_KEY",
+        "password_env": "OPS_PASSWORD",
+        "session_cookie": SESSION_COOKIE,
+        "login_endpoint": "POST /api/ops/login",
+        "auth_check_endpoint": "GET /api/ops/auth-check",
+    }
 
 
 def is_authenticated(request: Request) -> bool:

@@ -107,21 +107,30 @@ def readiness_checks() -> Dict[str, Any]:
 
 
 def require_ops_access(request: Request) -> None:
-    """Ops routes: valid session cookie or X-Ops-Key (production requires OPS_API_KEY when no session)."""
-    from .ops_auth import is_authenticated, ops_password_configured
+    """Ops routes: session cookie or X-Ops-Key — same contract as ops_auth_middleware."""
+    from .ops_auth import (
+        auth_contract,
+        is_authenticated,
+        ops_api_key_configured,
+        ops_password_configured,
+    )
 
     if is_authenticated(request):
         return
-    if not is_production():
-        if ops_password_configured():
-            raise HTTPException(status_code=403, detail="Unauthorized")
-        return
-    expected = os.getenv("OPS_API_KEY", "")
-    if not expected:
-        raise HTTPException(status_code=403, detail="Test routes disabled in production")
-    provided = request.headers.get("X-Ops-Key") or request.headers.get("x-ops-key")
-    if not provided or not _timing_safe_equal(provided, expected):
-        raise HTTPException(status_code=403, detail="Invalid or missing X-Ops-Key")
+    if not ops_password_configured() and not ops_api_key_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="OPS_PASSWORD or OPS_API_KEY not configured on server",
+        )
+    contract = auth_contract()
+    raise HTTPException(
+        status_code=403,
+        detail=(
+            "Unauthorized — authenticate via "
+            f"{contract['login_endpoint']} (cookie {contract['session_cookie']}) "
+            f"or header {contract['api_key_header']}"
+        ),
+    )
 
 
 def _timing_safe_equal(a: str, b: str) -> bool:

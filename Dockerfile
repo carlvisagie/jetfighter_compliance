@@ -7,6 +7,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+ARG KYC_GIT_COMMIT=unknown
+ENV KYC_GIT_COMMIT=${KYC_GIT_COMMIT}
+
 ENV PORT=10000
 
 EXPOSE 10000

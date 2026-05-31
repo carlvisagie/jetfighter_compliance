@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Archive test intakes on production (or any KYC host). Requires OPS_PASSWORD or OPS_API_KEY."""
+"""Archive test intakes on production (or any KYC host). Uses scripts.lib.ops_client."""
 from __future__ import annotations
 
 import json
-import os
 import sys
+from pathlib import Path
 
-import httpx
+_REPO = Path(__file__).resolve().parents[1]
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
 
-BASE = os.environ.get("PROD_BASE_URL", "https://compliance.keepyourcontracts.com")
-OPS_PASSWORD = os.environ.get("OPS_PASSWORD", "")
-OPS_API_KEY = os.environ.get("OPS_API_KEY", "")
+from scripts.lib.ops_client import OpsAuthError, authenticate_production  # noqa: E402
 
 DEFAULT_IDS = [
     "FB-cfea103a466d",
@@ -25,19 +25,15 @@ def main() -> int:
         print(json.dumps({"error": "No intake IDs provided"}, indent=2))
         return 1
 
-    headers: dict[str, str] = {"Content-Type": "application/json"}
-    with httpx.Client(base_url=BASE, timeout=60.0, follow_redirects=False) as client:
-        if OPS_API_KEY:
-            headers["X-Ops-Key"] = OPS_API_KEY
-        elif OPS_PASSWORD:
-            login = client.post("/api/ops/login", json={"password": OPS_PASSWORD})
-            if login.status_code != 200 or not login.json().get("ok"):
-                print(json.dumps({"error": "ops login failed", "status": login.status_code}, indent=2))
-                return 1
-        else:
-            print(json.dumps({"error": "Set OPS_PASSWORD or OPS_API_KEY"}, indent=2))
-            return 1
+    client = None
+    try:
+        client, headers, auth_diag = authenticate_production()
+    except OpsAuthError as exc:
+        print(json.dumps({"error": exc.reason, "auth_diagnostic": exc.diagnostic.as_dict()}, indent=2))
+        return 1
 
+    headers = {**headers, "Content-Type": "application/json"}
+    try:
         results = []
         for iid in ids:
             r = client.post(
@@ -62,7 +58,8 @@ def main() -> int:
         still_visible = [iid for iid in ids if iid in active_ids]
 
         out = {
-            "base_url": BASE,
+            "base_url": auth_diag.base_url,
+            "auth_diagnostic": auth_diag.as_dict(),
             "archived": results,
             "still_in_active_queue": still_visible,
             "queue_depth": qbody.get("queue_depth"),
@@ -70,6 +67,9 @@ def main() -> int:
         }
         print(json.dumps(out, indent=2))
         return 0 if out["ok"] else 1
+    finally:
+        if client is not None:
+            client.close()
 
 
 if __name__ == "__main__":

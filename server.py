@@ -112,12 +112,46 @@ async def ops_logout():
 
 @app.get("/api/ops/session")
 def ops_session(request: Request):
-    from services.ops_auth import is_authenticated, ops_password_configured
+    from services.ops_auth import (
+        auth_contract,
+        is_authenticated,
+        ops_api_key_configured,
+        ops_password_configured,
+    )
 
     return {
         "ok": True,
         "authenticated": is_authenticated(request),
         "password_configured": ops_password_configured(),
+        "api_key_configured": ops_api_key_configured(),
+        "auth_contract": auth_contract(),
+    }
+
+
+@app.get("/api/public/build-info")
+def public_build_info():
+    from services.build_info import public_build_info as _public_build_info
+
+    return {"ok": True, **_public_build_info()}
+
+
+@app.get("/api/ops/auth-check")
+def ops_auth_check(request: Request):
+    from services.build_info import public_build_info, service_name
+    from services.durable_storage import active_data_root
+    from services.ops_auth import describe_request_auth_mode
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    mode = describe_request_auth_mode(request)
+    pub = public_build_info()
+    return {
+        "ok": True,
+        "auth_mode": mode,
+        "service": service_name(),
+        "environment": pub["environment"],
+        "git_commit": pub["git_commit"],
+        "data_root": str(active_data_root().resolve()),
     }
 
 
