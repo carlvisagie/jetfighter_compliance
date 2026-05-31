@@ -361,13 +361,17 @@ def build_integrity_report(
     duplicate_count = state_counts["duplicate_file_count"]
     failed_count = state_counts["failed_file_count"]
 
+    # Over-delivery (received > expected, all verified) is not an integrity failure.
+    # integrity_ok requires every received file to be verified with nothing missing/rejected.
     integrity_ok = (
         batch_complete
-        and expected == received_file_count == persisted_count
+        and received_file_count >= expected
+        and persisted_count >= expected
         and not rejected
         and failed_count == 0
         and not missing_names
-        and verified_count == persisted_count == expected
+        and verified_count >= expected
+        and verified_count == persisted_count
     )
 
     retry = None if integrity_ok else RETRY_RECOMMENDATION
@@ -424,9 +428,11 @@ def build_integrity_report(
         "duplicate_file_count": duplicate_count,
         "failed_file_count": failed_count,
         "integrity_ok": integrity_ok,
+        # Only flag mismatch when files are UNDER-delivered or unverified,
+        # not when more files arrived than declared and all are verified.
         "integrity_mismatch": not integrity_ok
         or (not batch_complete and expected > verified_count)
-        or (batch_complete and expected != verified_count),
+        or (batch_complete and expected > verified_count),
         "missing_files": missing_files,
         "rejected_files": rejected_files,
         "expected_files": expected_files,
