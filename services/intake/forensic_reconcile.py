@@ -594,6 +594,26 @@ def build_integrity_proof(
     incidents = load_integrity_incidents(tail=500)
     incident_count = len(incidents)
 
+    from .inventory import detect_ghost_intakes
+
+    ghost_intakes = detect_ghost_intakes(limit=limit)
+    for ghost in ghost_intakes:
+        structural_problems += 1
+        iid = str(ghost.get("intake_id") or "")
+        append_integrity_incident(
+            IntegrityDisagreement(
+                subsystem="ghost_intake",
+                intake_id=iid or None,
+                evidence_id=None,
+                issue_code="ghost_intake_sev1",
+                detail=str(ghost.get("reasons")),
+                detected_at=_utc_now(),
+                severity=_SEVERITY_CRITICAL,
+            )
+        )
+        if len(sample_missing) < sample_limit:
+            sample_missing.append(f"{iid}:ghost")
+
     communications_ok = True
     communications_record_count = 0
     communications_hash_mismatches = 0
@@ -607,7 +627,7 @@ def build_integrity_proof(
     except Exception:
         pass
 
-    ok = problem == 0 and communications_ok and incident_count == 0
+    ok = problem == 0 and communications_ok and incident_count == 0 and len(ghost_intakes) == 0
     result = {
         "ok": ok,
         "total_files": total_files,
@@ -620,6 +640,8 @@ def build_integrity_proof(
         "corrupt_files": corrupt_files,
         "recovered_files": recovered_files,
         "missing_audit_files": missing_audit_files,
+        "ghost_intake_count": len(ghost_intakes),
+        "ghost_intakes": ghost_intakes[:25],
         "integrity_incident_count": incident_count,
         "communications_ledger_ok": communications_ok,
         "communications_record_count": communications_record_count,

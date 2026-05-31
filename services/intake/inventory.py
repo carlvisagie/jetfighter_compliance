@@ -22,6 +22,49 @@ from .storage import (
 )
 
 
+def detect_ghost_intakes(*, limit: int = 500) -> List[Dict[str, Any]]:
+    """
+    SEV-1: pending/review intakes whose metadata or audit claims files but uploads/ is empty.
+    """
+    from .retention import hash_uploads_on_disk, load_audit_receipt
+
+    ghosts: List[Dict[str, Any]] = []
+    for iid in list_intake_ids(limit=limit):
+        try:
+            rec = load_intake_record(iid, persist_recovery=False)
+        except (FileNotFoundError, ValueError, OSError):
+            continue
+        if not is_pending_review(rec.get("review_status")):
+            continue
+        ui = rec.get("upload_integrity") or {}
+        verified = int(ui.get("verified_file_count") or 0)
+        persisted = int(ui.get("persisted_file_count") or 0)
+        meta_count = int(rec.get("file_count") or len(rec.get("files") or []))
+        on_disk = hash_uploads_on_disk(iid)
+        disk_count = len(on_disk)
+        audit = load_audit_receipt(iid)
+        reasons: List[str] = []
+        if disk_count == 0 and max(verified, persisted, meta_count) > 0:
+            reasons.append("metadata_claims_files_disk_empty")
+        if audit and disk_count == 0:
+            reasons.append("audit_receipt_without_files")
+        if verified > 0 and not audit:
+            reasons.append("verified_without_audit_receipt")
+        if reasons:
+            ghosts.append(
+                {
+                    "intake_id": iid,
+                    "reasons": reasons,
+                    "verified_file_count": verified,
+                    "persisted_file_count": persisted,
+                    "metadata_file_count": meta_count,
+                    "on_disk_file_count": disk_count,
+                    "audit_receipt_exists": audit is not None,
+                }
+            )
+    return ghosts
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -164,6 +207,18 @@ def verify_inventory_agreement(
         )
 
     ok = len(disagreements) == 0 and bool(inv.get("index_disk_agree", True))
+    ghosts = detect_ghost_intakes()
+    if ghosts:
+        disagreements.append(
+            {
+                "source": "ghost_intakes",
+                "field": "upload_files",
+                "ghost_count": len(ghosts),
+                "ghosts": ghosts[:25],
+            }
+        )
+        ok = False
+    live_scan_status = "healthy" if ok and not ghosts else "critical"
     return {
         "ok": ok,
         "scan_at_utc": inv.get("scan_at_utc"),
@@ -173,5 +228,7 @@ def verify_inventory_agreement(
             "pending_review_count": canonical_pending,
         },
         "disagreements": disagreements,
-        "live_scan_status": "healthy" if ok else "degraded",
+        "ghost_intakes": ghosts,
+        "ghost_intake_count": len(ghosts),
+        "live_scan_status": live_scan_status,
     }

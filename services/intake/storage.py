@@ -56,8 +56,10 @@ def intakes_root() -> Path:
 
 def assert_canonical_write_path(path: Path) -> None:
     """All intake writes must land under canonical intakes/ — never legacy founding_beta/intakes."""
+    from .durable_root import assert_durable_write_path
+
     canonical = intakes_root().resolve()
-    resolved = path.resolve()
+    resolved = assert_durable_write_path(path)
     if resolved != canonical and canonical not in resolved.parents:
         raise ValueError(
             f"Refusing non-canonical write: {resolved} (required under {canonical})"
@@ -125,7 +127,34 @@ def atomic_write_bytes(path: Path, data: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_bytes(data)
+    _fsync_written_file(tmp)
     tmp.replace(path)
+    _fsync_written_file(path)
+    if not path.is_file() or path.stat().st_size != len(data):
+        raise OSError(f"Durable write verification failed for {path}")
+
+
+def _fsync_written_file(path: Path) -> None:
+    import os
+
+    try:
+        fd = os.open(str(path), os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    except OSError:
+        pass
+    try:
+        parent = path.parent
+        if parent.is_dir():
+            fd = os.open(str(parent), os.O_RDONLY)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+    except OSError:
+        pass
 
 
 def atomic_write_json(path: Path, data: Dict[str, Any]) -> None:

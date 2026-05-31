@@ -212,6 +212,9 @@ def get_storage_status() -> Dict[str, Any]:
     kyc = resolved_kyc_data_path()
     root = active_data_root()
     allowed = intake_upload_allowed()
+    from services.intake.durable_root import mount_status_for_operator
+
+    mount = mount_status_for_operator()
     return {
         "ok": True,
         "environment": os.getenv("ENVIRONMENT", "development"),
@@ -220,6 +223,7 @@ def get_storage_status() -> Dict[str, Any]:
         "kyc_data_path": str(kyc) if kyc else None,
         "durable_storage_configured": is_durable_storage_configured(),
         "data_root_ephemeral_in_production": is_data_root_ephemeral_in_production(),
+        "mount_probe": mount,
         "intake_pipeline_enabled": intake_pipeline_enabled(),
         "intake_uploads_enabled": allowed,
         "founding_beta_intake_enabled": intake_pipeline_enabled(),

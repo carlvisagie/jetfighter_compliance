@@ -15,8 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 def assert_quarantine_write_path(path: Path) -> None:
+    from .durable_root import assert_durable_write_path
+
     root = quarantine_root().resolve()
-    resolved = path.resolve()
+    resolved = assert_durable_write_path(path)
     if resolved != root and root not in resolved.parents:
         raise ValueError(f"Refusing non-quarantine write: {resolved} (required under {root})")
 

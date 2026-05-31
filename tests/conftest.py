@@ -39,6 +39,9 @@ def durable_intake_root(monkeypatch, tmp_path):
 
     assert is_durable_storage_configured() is True
     assert founding_beta_upload_allowed() is True
+    from services.intake.durable_root import initialize_mount_probe
+
+    initialize_mount_probe()
     return root
 
 

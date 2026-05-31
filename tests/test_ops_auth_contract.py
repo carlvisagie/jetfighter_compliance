@@ -66,6 +66,7 @@ def test_ops_client_rejects_ops_api_key(monkeypatch):
 def test_ops_client_missing_password_points_to_ops_env(monkeypatch):
     from scripts.lib.ops_client import OpsAuthError, authenticate_production
 
+    monkeypatch.setattr("scripts.lib.ops_client.load_local_ops_env", lambda: None)
     monkeypatch.delenv("OPS_API_KEY", raising=False)
     monkeypatch.delenv("OPS_PASSWORD", raising=False)
     with pytest.raises(OpsAuthError) as exc:

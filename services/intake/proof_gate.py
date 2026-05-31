@@ -96,6 +96,28 @@ def _queue_or_archive_visible(intake_id: str) -> bool:
     return False
 
 
+def _operator_file_endpoints_ok(intake_id: str, saved_files: List[Dict[str, Any]]) -> tuple[bool, List[str]]:
+    """Verify download/view delivery paths return readable files (same as HTTP 200 endpoints)."""
+    from .operator_files import resolve_intake_upload_path
+
+    failures: List[str] = []
+    for entry in saved_files:
+        name = str(entry.get("name") or "")
+        if not name:
+            continue
+        try:
+            path = resolve_intake_upload_path(intake_id, name)
+            if not path.is_file() or path.stat().st_size <= 0:
+                failures.append(f"{name}:not_readable")
+                continue
+            with path.open("rb") as fh:
+                if not fh.read(1):
+                    failures.append(f"{name}:empty")
+        except Exception:
+            failures.append(name)
+    return len(failures) == 0 and bool(saved_files), failures
+
+
 def _file_access_verified(intake_id: str, saved_files: List[Dict[str, Any]]) -> tuple[bool, List[str]]:
     from .operator_files import resolve_intake_upload_path
 
@@ -163,8 +185,11 @@ def evaluate_upload_proof_gate(
 
     retention = retention_check(intake_id)
     retention_visible = (
-        bool(retention.get("upload_files_found"))
+        bool(retention.get("ok"))
+        and bool(retention.get("upload_files_found"))
         and bool(retention.get("file_hashes_match"))
+        and bool(retention.get("audit_receipt_exists"))
+        and not bool(retention.get("ghost_intake"))
         and int(retention.get("upload_file_count") or 0) >= verified_file_count
     )
 
@@ -185,6 +210,7 @@ def evaluate_upload_proof_gate(
         file_list_failures = [str(exc)]
 
     file_access_verified, access_failures = _file_access_verified(intake_id, saved_files)
+    download_view_ok, endpoint_failures = _operator_file_endpoints_ok(intake_id, saved_files)
 
     integrity_ok = _intake_integrity_proof_ok(intake_id)
 
@@ -206,6 +232,8 @@ def evaluate_upload_proof_gate(
         "retention_visible": retention_visible,
         "file_list_resolves": file_list_ok,
         "file_access_verified": file_access_verified,
+        "download_view_endpoints_ok": download_view_ok,
+        "audit_receipt_exists": bool(retention.get("audit_receipt_exists")),
         "integrity_proof_passed": integrity_ok,
         "quarantine_mirror_ok": quarantine_ok,
     }
@@ -230,6 +258,7 @@ def evaluate_upload_proof_gate(
             "retention": [] if retention_visible else ["retention_check_failed"],
             "file_list": file_list_failures,
             "file_access": access_failures,
+            "download_view": endpoint_failures,
             "integrity": [] if integrity_ok else ["integrity_disagreement"],
             "quarantine": [] if quarantine_ok else [quarantine_detail.get("error") or "quarantine_mirror_failed"],
         },
@@ -315,7 +344,7 @@ def build_live_boot_status() -> Dict[str, Any]:
     from services.durable_storage import get_storage_status, intake_upload_allowed
     from services.runtime_boot import boot_log_snapshot, is_safe_mode, schedulers_enabled
 
-    from .inventory import build_intake_inventory, verify_inventory_agreement
+    from .inventory import build_intake_inventory, detect_ghost_intakes, verify_inventory_agreement
     from .queue import get_operator_review_queue
 
     inv = build_intake_inventory()
@@ -355,13 +384,17 @@ def build_live_boot_status() -> Dict[str, Any]:
     incidents = incident_count + int(forensic.get("integrity_incident_count") or 0)
     inventory_ok = bool(agreement.get("ok"))
 
+    ghosts = detect_ghost_intakes(limit=200)
+    ghost_count = len(ghosts)
+
     healthy = (
         inventory_ok
         and index_agree
         and forensic_ok
         and upload_severity != "red"
         and queue_depth == int(inv.get("pending_review_count") or 0)
-        and (files > 0 or dirs == 0)
+        and ghost_count == 0
+        and (int(inv.get("upload_files") or 0) > 0 or int(inv.get("pending_review_count") or 0) == 0)
     )
     if not intake_upload_allowed() and storage.get("upload_block_reason"):
         healthy = False
@@ -376,7 +409,11 @@ def build_live_boot_status() -> Dict[str, Any]:
         status = "degraded"
 
     live_scan_status = agreement.get("live_scan_status") or ("healthy" if inventory_ok else "degraded")
-    if healthy and inventory_ok:
+    if ghost_count > 0:
+        live_scan_status = "critical"
+        status = "critical"
+        healthy = False
+    elif healthy and inventory_ok:
         live_scan_status = "healthy"
         status = "healthy"
 
@@ -398,6 +435,8 @@ def build_live_boot_status() -> Dict[str, Any]:
         "forensic_proof_ok": forensic_ok,
         "forensic_proof": forensic,
         "integrity_incident_count": incidents,
+        "ghost_intake_count": ghost_count,
+        "ghost_intakes": ghosts[:25],
         "upload_node_severity": upload_severity,
         "upload_pipeline": upload_metrics,
         "storage": storage,

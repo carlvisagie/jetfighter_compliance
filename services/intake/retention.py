@@ -112,21 +112,23 @@ def hash_uploads_on_disk(intake_id: str) -> Dict[str, str]:
 def audit_hashes_match(intake_id: str, *, on_disk: Optional[Dict[str, str]] = None) -> bool:
     """True when on-disk upload hashes match the durable audit receipt."""
     receipt = load_audit_receipt(intake_id)
-    if not receipt:
-        return True
     disk = on_disk if on_disk is not None else hash_uploads_on_disk(intake_id)
+    if not receipt:
+        return len(disk) == 0
+    if not disk:
+        return False
     if receipt.get("file_hashes"):
         for name, expected in (receipt.get("file_hashes") or {}).items():
             actual = disk.get(name)
             if actual is None or actual != expected:
                 return False
-        return bool(disk) or not receipt.get("file_hashes")
+        return True
     for entry in receipt.get("files_written") or []:
         name = str(entry.get("name") or "")
         exp = str(entry.get("sha256") or "")
         if exp and disk.get(name) != exp:
             return False
-    return True
+    return bool(disk)
 
 
 def build_audit_receipt(
@@ -392,6 +394,25 @@ def require_upload_durability_verified(
         write_audit_receipt(intake_id, receipt)
         detail["audit_receipt_path"] = str(audit_receipt_path(intake_id).resolve())
         detail["durable_receipt_created"] = True
+        from .durable_root import durable_data_root, mount_status_for_operator
+        from .hash_ledger import append_hash_ledger
+
+        mount_status_for_operator()
+        root = str(durable_data_root())
+        for entry in saved_files:
+            name = str(entry.get("name") or "")
+            if not name:
+                continue
+            dest = intake_dir(intake_id) / "uploads" / name
+            if dest.is_file():
+                append_hash_ledger(
+                    intake_id=intake_id,
+                    stored_filename=name,
+                    sha256=str(entry.get("sha256") or sha256_file(dest)),
+                    size_bytes=int(entry.get("size") or dest.stat().st_size),
+                    data_root=root,
+                    write_path=str(dest.resolve()),
+                )
         return {
             "durability_verified": True,
             "durable_receipt_created": True,
@@ -508,8 +529,6 @@ def retention_check(intake_id: str) -> Dict[str, Any]:
     receipt = load_audit_receipt(intake_id)
     on_disk = hash_uploads_on_disk(intake_id)
 
-    file_hashes_match = audit_hashes_match(intake_id, on_disk=on_disk)
-
     clf_path = classification_path(intake_id)
     record: Dict[str, Any] = {}
     try:
@@ -524,20 +543,40 @@ def retention_check(intake_id: str) -> Dict[str, Any]:
     rejected = int(ui.get("rejected_file_count") or 0)
     duplicate = int(ui.get("duplicate_file_count") or 0)
     failed = int(ui.get("failed_file_count") or 0)
+    meta_count = int(record.get("file_count") or len(record.get("files") or []))
     disk_count = len(on_disk)
     counts_match = (
         expected == received == persisted == verified == disk_count and failed == 0
     )
+    ghost_intake = (
+        is_pending_review(record.get("review_status"))
+        and (
+            (verified > 0 or persisted > 0 or meta_count > 0 or receipt is not None)
+            and disk_count == 0
+        )
+    )
+    file_hashes_match = audit_hashes_match(intake_id, on_disk=on_disk) and not ghost_intake
+    upload_files_found = disk_count > 0
+    ok = (
+        idir.is_dir()
+        and ij.is_file()
+        and upload_files_found
+        and receipt is not None
+        and file_hashes_match
+        and counts_match
+        and not ghost_intake
+    )
     return {
-        "ok": True,
+        "ok": ok,
         "intake_id": intake_id,
         "write_root": str(resolved_write_root()),
         "read_root": str(resolved_read_root()),
         "intake_dir_exists": idir.is_dir(),
         "intake_json_exists": ij.is_file(),
-        "upload_files_found": len(on_disk) > 0,
+        "upload_files_found": upload_files_found,
         "upload_file_count": disk_count,
-        "file_hashes_match": file_hashes_match and (not receipt or bool(on_disk)),
+        "file_hashes_match": file_hashes_match,
+        "ghost_intake": ghost_intake,
         "classification_exists": clf_path.is_file(),
         "audit_receipt_exists": receipt is not None,
         "queue_visible": _queue_contains_intake(intake_id),
@@ -564,6 +603,12 @@ def retention_check(intake_id: str) -> Dict[str, Any]:
 def scan_retention_at_startup(*, force: bool = False) -> Dict[str, Any]:
     """Count disk inventory; CRITICAL log when index and filesystem disagree."""
     global _STARTUP_SCAN
+    try:
+        from .durable_root import initialize_mount_probe
+
+        initialize_mount_probe()
+    except Exception as exc:
+        logger.critical("[durable_root] mount probe init failed: %s", exc)
     if _STARTUP_SCAN is not None and not force:
         return dict(_STARTUP_SCAN)
     disk_ids = set(list_intake_ids(limit=500))
@@ -666,12 +711,22 @@ def scan_retention_at_startup(*, force: bool = False) -> Dict[str, Any]:
 
     try:
         from .proof_gate import build_live_boot_status, detect_cockpit_zero_after_recent_success, live_disk_scan
+        from .inventory import detect_ghost_intakes
 
         report["live_scan"] = live_disk_scan()
         live_boot = build_live_boot_status()
         report["live_boot_status"] = live_boot.get("status")
         report["healthy"] = bool(live_boot.get("ok"))
         report["forensic_proof_ok"] = bool(live_boot.get("forensic_proof_ok"))
+        ghosts = detect_ghost_intakes(limit=200)
+        report["ghost_intakes"] = ghosts
+        report["ghost_intake_count"] = len(ghosts)
+        if ghosts:
+            emit_sev1_data_loss_suspected(
+                f"Ghost intakes detected at startup: {len(ghosts)}",
+                detail={"ghosts": ghosts[:25]},
+            )
+            report["healthy"] = False
         if not report["healthy"]:
             emit_sev1_data_loss_suspected(
                 "Startup reconciliation: upload visibility not healthy",

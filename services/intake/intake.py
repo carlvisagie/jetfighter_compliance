@@ -796,7 +796,12 @@ async def _process_upload_locked(
         or integrity.get("verified_file_count")
         or len(saved)
     )
-    if saved and durability.get("durability_verified"):
+    upload_integrity_for_gate = record.get("upload_integrity") or integrity
+    if (
+        saved
+        and durability.get("durability_verified")
+        and bool(upload_integrity_for_gate.get("integrity_ok"))
+    ):
         from .proof_gate import require_upload_proof_gate
 
         proof_gate = require_upload_proof_gate(

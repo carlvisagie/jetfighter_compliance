@@ -70,6 +70,10 @@ def main() -> int:
             counts["raw_disk_scan.intake_directories"] = int(sb.get("intake_directories") or 0)
             counts["raw_disk_scan.upload_files"] = int(sb.get("upload_files") or 0)
 
+        out["inventory_agreement"] = db.get("inventory_agreement")
+        out["ghost_intake_count"] = (db.get("inventory_agreement") or {}).get("ghost_intake_count")
+        out["ghost_intakes"] = (db.get("inventory_agreement") or {}).get("ghost_intakes")
+
         disagreements: list[dict] = []
         dir_values = {
             k: v
@@ -93,13 +97,14 @@ def main() -> int:
             )
 
         live_status = db.get("live_scan_status")
-        if live_status == "degraded" and db.get("inventory_agreement", {}).get("ok"):
-            disagreements.append({"field": "live_scan_status", "value": live_status, "agreement_ok": True})
+        ghost_count = int((db.get("inventory_agreement") or {}).get("ghost_intake_count") or 0)
+        if ghost_count > 0:
+            disagreements.append({"field": "ghost_intakes", "count": ghost_count})
 
         out["counts"] = counts
         out["inventory_agreement"] = db.get("inventory_agreement")
         out["disagreements"] = disagreements
-        out["ok"] = len(disagreements) == 0 and live_status != "degraded"
+        out["ok"] = len(disagreements) == 0 and live_status == "healthy" and ghost_count == 0
     finally:
         if client is not None:
             client.close()
