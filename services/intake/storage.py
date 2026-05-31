@@ -300,27 +300,10 @@ def load_intake_record(intake_id: str, *, persist_recovery: bool = True) -> Dict
                 rec = normalize_intake_record(data, intake_id=intake_id)
                 if rec.get("review_status") != data.get("review_status"):
                     atomic_write_json(path, rec)
-                from .inventory import ghost_intake_reasons
-
-                reasons = ghost_intake_reasons(intake_id, record=rec)
-                if reasons:
-                    rec["ghost_intake"] = True
-                    rec["ghost_intake_reasons"] = reasons
-                    if is_pending_review(rec.get("review_status")):
-                        rec["review_status"] = "integrity_failure"
-                        rec["custody_status"] = "integrity_failure"
                 return rec
         except (json.JSONDecodeError, OSError) as exc:
             logger.warning("intake.json corrupt for %s: %s", intake_id, exc)
     rec = recover_intake_from_disk(intake_id)
-    from .inventory import ghost_intake_reasons
-
-    reasons = ghost_intake_reasons(intake_id, record=rec)
-    if reasons:
-        rec["ghost_intake"] = True
-        rec["ghost_intake_reasons"] = reasons
-        rec["review_status"] = "integrity_failure"
-        rec["custody_status"] = "integrity_failure"
     if persist_recovery:
         try:
             atomic_write_json(path, rec)

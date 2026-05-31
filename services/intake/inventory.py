@@ -82,6 +82,24 @@ def ghost_intake_reasons(intake_id: str, *, record: Optional[Dict[str, Any]] = N
     if max_index_file_count(intake_id) > 0:
         reasons.append("index_claims_files_disk_empty")
 
+    from .transactions import intake_commit_complete
+
+    queue_visible = False
+    try:
+        from .queue import get_operator_review_queue
+
+        q = get_operator_review_queue(limit=200, persist_recovery=False)
+        queue_visible = intake_id in {r.get("intake_id") for r in q.get("queue") or []}
+    except Exception:
+        queue_visible = False
+
+    if (
+        queue_visible
+        and not intake_commit_complete(intake_id)
+        and int(record.get("file_count") or 0) == 0
+    ):
+        reasons.append("queue_visible_uncommitted_no_payload")
+
     custody = record.get("upload_custody") or {}
     if custody.get("newest_upload_at_utc") and not meta_count:
         reasons.append("custody_upload_timestamp_without_files")
