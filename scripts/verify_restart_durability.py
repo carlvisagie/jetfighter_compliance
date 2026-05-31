@@ -25,6 +25,9 @@ BASE = "https://compliance.keepyourcontracts.com"
 FN = "restart-durability-proof.pdf"
 
 
+RESTART_SERVICE_NAMES = ("kyc-backend", "jetfighter_compliance", "jetfighter-compliance")
+
+
 def _restart_render() -> dict:
     import os
 
@@ -52,7 +55,7 @@ def _restart_render() -> dict:
                 svc = row.get("service") if isinstance(row, dict) else None
                 if not isinstance(svc, dict):
                     continue
-                if svc.get("name") == "kyc-backend":
+                if svc.get("name") in RESTART_SERVICE_NAMES:
                     sid = svc.get("id")
                     break
             if sid:
@@ -65,7 +68,7 @@ def _restart_render() -> dict:
             if not cursor:
                 break
         if not sid:
-            return {"ok": False, "reason": "service id not found for kyc-backend"}
+            return {"ok": False, "reason": f"service id not found for {RESTART_SERVICE_NAMES}"}
         rr = hc.post(f"/v1/services/{sid}/restart")
         return {"ok": rr.status_code in (200, 202), "service_id": sid, "status": rr.status_code}
     finally:
