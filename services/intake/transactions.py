@@ -37,6 +37,8 @@ def append_transaction_event(
     ok: bool = True,
     metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
+    from .storage import durable_append_jsonl
+
     entry = {
         "at_utc": _utc_now(),
         "intake_id": intake_id,
@@ -46,8 +48,7 @@ def append_transaction_event(
     }
     path = transaction_log_path(intake_id)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    durable_append_jsonl(path, entry)
     return entry
 
 

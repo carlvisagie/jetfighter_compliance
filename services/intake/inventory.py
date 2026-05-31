@@ -17,14 +17,93 @@ from .storage import (
     intake_json_path,
     intakes_root,
     is_pending_review,
+    latest_index_row,
     list_intake_ids,
     load_intake_record,
+    max_index_file_count,
 )
+
+
+def ghost_intake_reasons(intake_id: str, *, record: Optional[Dict[str, Any]] = None) -> List[str]:
+    """
+    SEV-1 reasons when a pending intake has no payload on disk but evidence says files existed.
+    """
+    from .file_durability import list_durability_sidecars, sidecar_orphan_reasons
+    from .hash_ledger import ledger_entries_for_intake
+    from .quarantine import load_quarantine_manifest
+    from .retention import hash_uploads_on_disk, load_audit_receipt
+    from .transactions import (
+        PHASE_AUDIT_WRITTEN,
+        PHASE_FILES_PERSISTED,
+        PHASE_HASH_VERIFIED,
+        load_transaction_log,
+    )
+
+    if record is None:
+        try:
+            record = load_intake_record(intake_id, persist_recovery=False)
+        except (FileNotFoundError, ValueError, OSError):
+            record = {}
+
+    if not is_pending_review(record.get("review_status")):
+        return []
+
+    on_disk = hash_uploads_on_disk(intake_id)
+    disk_count = len(on_disk)
+    if disk_count > 0:
+        return []
+
+    reasons: List[str] = list(sidecar_orphan_reasons(intake_id))
+
+    ui = record.get("upload_integrity") or {}
+    verified = int(ui.get("verified_file_count") or 0)
+    persisted = int(ui.get("persisted_file_count") or 0)
+    meta_count = int(record.get("file_count") or len(record.get("files") or []))
+    audit = load_audit_receipt(intake_id)
+
+    if verified > 0 or persisted > 0 or meta_count > 0:
+        reasons.append("metadata_claims_files_disk_empty")
+    if audit:
+        reasons.append("audit_receipt_without_files")
+    if verified > 0 and not audit:
+        reasons.append("verified_without_audit_receipt")
+
+    if ledger_entries_for_intake(intake_id):
+        reasons.append("hash_ledger_without_files")
+
+    manifest = load_quarantine_manifest(intake_id)
+    if manifest and int(manifest.get("file_count") or 0) > 0:
+        reasons.append("quarantine_manifest_without_files")
+
+    phases = {str(r.get("phase")) for r in load_transaction_log(intake_id)}
+    if phases & {PHASE_FILES_PERSISTED, PHASE_HASH_VERIFIED, PHASE_AUDIT_WRITTEN}:
+        reasons.append("transaction_log_claims_persisted_disk_empty")
+
+    if max_index_file_count(intake_id) > 0:
+        reasons.append("index_claims_files_disk_empty")
+
+    custody = record.get("upload_custody") or {}
+    if custody.get("newest_upload_at_utc") and not meta_count:
+        reasons.append("custody_upload_timestamp_without_files")
+
+    # Sidecar records prove write occurred even if metadata stripped
+    for sc in list_durability_sidecars(intake_id):
+        name = str(sc.get("filename") or "")
+        if name and not (intake_dir(intake_id) / "uploads" / name).is_file():
+            tag = f"durability_sidecar_proves_write:{name}"
+            if tag not in reasons:
+                reasons.append(tag)
+
+    return reasons
+
+
+def is_ghost_intake(intake_id: str, *, record: Optional[Dict[str, Any]] = None) -> bool:
+    return len(ghost_intake_reasons(intake_id, record=record)) > 0
 
 
 def detect_ghost_intakes(*, limit: int = 500) -> List[Dict[str, Any]]:
     """
-    SEV-1: pending/review intakes whose metadata or audit claims files but uploads/ is empty.
+    SEV-1: pending/review intakes whose metadata, ledger, or audit claims files but uploads/ is empty.
     """
     from .retention import hash_uploads_on_disk, load_audit_receipt
 
@@ -36,32 +115,22 @@ def detect_ghost_intakes(*, limit: int = 500) -> List[Dict[str, Any]]:
             continue
         if not is_pending_review(rec.get("review_status")):
             continue
-        ui = rec.get("upload_integrity") or {}
-        verified = int(ui.get("verified_file_count") or 0)
-        persisted = int(ui.get("persisted_file_count") or 0)
-        meta_count = int(rec.get("file_count") or len(rec.get("files") or []))
+        reasons = ghost_intake_reasons(iid, record=rec)
+        if not reasons:
+            continue
         on_disk = hash_uploads_on_disk(iid)
-        disk_count = len(on_disk)
-        audit = load_audit_receipt(iid)
-        reasons: List[str] = []
-        if disk_count == 0 and max(verified, persisted, meta_count) > 0:
-            reasons.append("metadata_claims_files_disk_empty")
-        if audit and disk_count == 0:
-            reasons.append("audit_receipt_without_files")
-        if verified > 0 and not audit:
-            reasons.append("verified_without_audit_receipt")
-        if reasons:
-            ghosts.append(
-                {
-                    "intake_id": iid,
-                    "reasons": reasons,
-                    "verified_file_count": verified,
-                    "persisted_file_count": persisted,
-                    "metadata_file_count": meta_count,
-                    "on_disk_file_count": disk_count,
-                    "audit_receipt_exists": audit is not None,
-                }
-            )
+        ui = rec.get("upload_integrity") or {}
+        ghosts.append(
+            {
+                "intake_id": iid,
+                "reasons": reasons,
+                "verified_file_count": int(ui.get("verified_file_count") or 0),
+                "persisted_file_count": int(ui.get("persisted_file_count") or 0),
+                "metadata_file_count": int(rec.get("file_count") or len(rec.get("files") or [])),
+                "on_disk_file_count": len(on_disk),
+                "audit_receipt_exists": load_audit_receipt(iid) is not None,
+            }
+        )
     return ghosts
 
 
@@ -93,12 +162,14 @@ def build_intake_inventory(*, limit: int = 500, intake_id: Optional[str] = None)
     pending_review_count = 0
     pending_ids: List[str] = []
 
+    from .file_durability import is_upload_payload_file
+
     for iid in disk_ids:
         if intake_json_path(iid).is_file():
             intake_json_count += 1
         uploads = intake_dir(iid) / "uploads"
         if uploads.is_dir():
-            file_count += sum(1 for p in uploads.iterdir() if p.is_file())
+            file_count += sum(1 for p in uploads.iterdir() if p.is_file() and is_upload_payload_file(p.name))
         try:
             rec = load_intake_record(iid, persist_recovery=False)
             if is_pending_review(rec.get("review_status")):
@@ -206,7 +277,6 @@ def verify_inventory_agreement(
             None,
         )
 
-    ok = len(disagreements) == 0 and bool(inv.get("index_disk_agree", True))
     ghosts = detect_ghost_intakes()
     if ghosts:
         disagreements.append(
@@ -217,7 +287,8 @@ def verify_inventory_agreement(
                 "ghosts": ghosts[:25],
             }
         )
-        ok = False
+
+    ok = len(disagreements) == 0 and bool(inv.get("index_disk_agree", True))
     live_scan_status = "healthy" if ok and not ghosts else "critical"
     return {
         "ok": ok,

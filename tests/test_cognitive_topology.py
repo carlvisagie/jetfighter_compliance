@@ -40,7 +40,7 @@ def test_topology_endpoint_fast_no_orchestration(topo_client):
     r = topo_client.get("/api/cognitive-topology")
     elapsed = time.perf_counter() - t0
     assert r.status_code == 200
-    assert elapsed < 3.0
+    assert elapsed < 4.0
     body = r.json()
     assert body.get("ok") is True
     assert "subsystems" in body

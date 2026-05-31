@@ -58,6 +58,45 @@ def test_retention_no_false_positive_without_receipt(fb_env):
     assert audit_hashes_match(iid, on_disk=hash_uploads_on_disk(iid)) is True
 
 
+def test_ghost_detected_via_hash_ledger_when_metadata_stripped(fb_env, anon_client: TestClient):
+    r = anon_client.post(
+        "/api/founding-beta/upload",
+        files=[_pdf("ledger-ghost.pdf")],
+        data={"email": "ledger@example.com", "expected_file_count": "1"},
+    )
+    assert r.status_code == 200, r.text
+    iid = r.json()["intake_id"]
+    uploads = intake_dir(iid) / "uploads"
+    (uploads / "ledger-ghost.pdf").unlink(missing_ok=True)
+    audit_receipt_path(iid).unlink(missing_ok=True)
+    intake_json_path(iid).write_text(
+        json.dumps(
+            {
+                "intake_id": iid,
+                "review_status": "pending_review",
+                "files": [],
+                "file_count": 0,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    ghosts = detect_ghost_intakes()
+    assert any(g["intake_id"] == iid for g in ghosts)
+    retention = retention_check(iid)
+    assert retention["ghost_intake"] is True
+    assert retention["ok"] is False
+
+
+def test_fresh_intake_without_upload_not_ghost(fb_env):
+    from services.intake.intake import create_intake
+
+    rec = create_intake(email="fresh@example.com")
+    iid = rec["intake_id"]
+    ghosts = detect_ghost_intakes()
+    assert all(g["intake_id"] != iid for g in ghosts)
+
+
 def test_retention_fails_when_receipt_missing_files(fb_env, anon_client: TestClient):
     r = anon_client.post(
         "/api/founding-beta/upload",

@@ -163,12 +163,17 @@ def atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
 
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(data, indent=2)
+    encoded = payload.encode("utf-8")
     last_err: Optional[Exception] = None
     for attempt in range(8):
         tmp = path.with_suffix(path.suffix + f".tmp.{attempt}")
         try:
-            tmp.write_text(payload, encoding="utf-8")
+            tmp.write_bytes(encoded)
+            _fsync_written_file(tmp)
             tmp.replace(path)
+            _fsync_written_file(path)
+            if not path.is_file() or path.stat().st_size != len(encoded):
+                raise OSError(f"Durable JSON write verification failed for {path}")
             return
         except OSError as exc:
             last_err = exc
@@ -181,6 +186,22 @@ def atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
                     pass
     if last_err:
         raise last_err
+
+
+def durable_append_jsonl(path: Path, row: Dict[str, Any]) -> None:
+    """Append one JSON line with fsync — index, transaction log, hash ledger."""
+    import os
+
+    assert_canonical_write_path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    line = json.dumps(row, ensure_ascii=False) + "\n"
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(line)
+        fh.flush()
+        try:
+            os.fsync(fh.fileno())
+        except OSError:
+            pass
 
 
 def normalize_review_status(status: Optional[str]) -> str:
@@ -215,6 +236,8 @@ def normalize_intake_record(data: Dict[str, Any], *, intake_id: str = "") -> Dic
 
 def recover_intake_from_disk(intake_id: str) -> Dict[str, Any]:
     """Rebuild intake metadata from directory + uploads when intake.json is missing."""
+    from .file_durability import is_upload_payload_file
+
     idir = intake_dir(intake_id)
     if not idir.is_dir():
         raise FileNotFoundError(intake_id)
@@ -223,7 +246,7 @@ def recover_intake_from_disk(intake_id: str) -> Dict[str, Any]:
     total_bytes = 0
     if uploads.is_dir():
         for p in sorted(uploads.iterdir()):
-            if not p.is_file():
+            if not p.is_file() or not is_upload_payload_file(p.name):
                 continue
             try:
                 size = p.stat().st_size
@@ -277,10 +300,27 @@ def load_intake_record(intake_id: str, *, persist_recovery: bool = True) -> Dict
                 rec = normalize_intake_record(data, intake_id=intake_id)
                 if rec.get("review_status") != data.get("review_status"):
                     atomic_write_json(path, rec)
+                from .inventory import ghost_intake_reasons
+
+                reasons = ghost_intake_reasons(intake_id, record=rec)
+                if reasons:
+                    rec["ghost_intake"] = True
+                    rec["ghost_intake_reasons"] = reasons
+                    if is_pending_review(rec.get("review_status")):
+                        rec["review_status"] = "integrity_failure"
+                        rec["custody_status"] = "integrity_failure"
                 return rec
         except (json.JSONDecodeError, OSError) as exc:
             logger.warning("intake.json corrupt for %s: %s", intake_id, exc)
     rec = recover_intake_from_disk(intake_id)
+    from .inventory import ghost_intake_reasons
+
+    reasons = ghost_intake_reasons(intake_id, record=rec)
+    if reasons:
+        rec["ghost_intake"] = True
+        rec["ghost_intake_reasons"] = reasons
+        rec["review_status"] = "integrity_failure"
+        rec["custody_status"] = "integrity_failure"
     if persist_recovery:
         try:
             atomic_write_json(path, rec)
@@ -376,10 +416,17 @@ def all_intake_ids(*, limit: int = 500) -> List[str]:
 
 
 def append_index_row(row: Dict[str, Any]) -> None:
-    path = index_jsonl()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    durable_append_jsonl(index_jsonl(), row)
+
+
+def max_index_file_count(intake_id: str) -> int:
+    """Highest file_count ever recorded in index tail for this intake."""
+    best = 0
+    for candidate in _iter_index_rows(tail_lines=5000):
+        if str(candidate.get("intake_id") or "") != intake_id:
+            continue
+        best = max(best, int(candidate.get("file_count") or 0))
+    return best
 
 
 def sync_index_from_filesystem(*, max_rows: int = 200) -> int:

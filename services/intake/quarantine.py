@@ -74,6 +74,10 @@ def mirror_intake_uploads(intake_id: str) -> Dict[str, Any]:
     for src in sorted(canonical_uploads.iterdir()):
         if not src.is_file():
             continue
+        from .file_durability import is_upload_payload_file
+
+        if not is_upload_payload_file(src.name):
+            continue
         dest = quarantine_uploads / src.name
         assert_quarantine_write_path(dest)
         shutil.copy2(src, dest)
@@ -95,7 +99,17 @@ def mirror_intake_uploads(intake_id: str) -> Dict[str, Any]:
     }
     manifest_path = qdir / MANIFEST_FILENAME
     assert_quarantine_write_path(manifest_path)
-    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    payload = json.dumps(manifest, indent=2).encode("utf-8")
+    tmp = manifest_path.with_suffix(".tmp")
+    tmp.write_bytes(payload)
+    from .durable_root import _fsync_path
+
+    _fsync_path(tmp)
+    tmp.replace(manifest_path)
+    _fsync_path(manifest_path)
+    for entry in mirrored:
+        dest = quarantine_uploads / str(entry["name"])
+        _fsync_path(dest)
     logger.info("Quarantine mirror intake=%s files=%s", intake_id, len(mirrored))
     return {
         "ok": True,

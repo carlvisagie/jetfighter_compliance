@@ -23,8 +23,12 @@ def _validate_intake_id(intake_id: str) -> str:
 
 
 def _validate_filename(filename: str) -> str:
+    from .file_durability import is_upload_payload_file
+
     name = (filename or "").strip().replace("\\", "/")
     if not name or "/" in name or ".." in name or name.startswith("."):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    if not is_upload_payload_file(name):
         raise HTTPException(status_code=400, detail="Invalid filename")
     return name
 
@@ -124,8 +128,10 @@ def list_intake_files_for_operator(intake_id: str) -> Dict[str, Any]:
     uploads = _uploads_dir(iid)
     on_disk: Dict[str, Path] = {}
     if uploads.is_dir():
+        from .file_durability import is_upload_payload_file
+
         for p in sorted(uploads.iterdir()):
-            if p.is_file():
+            if p.is_file() and is_upload_payload_file(p.name):
                 on_disk[p.name] = p
 
     lifecycle_by_stored: Dict[str, Dict[str, Any]] = {}

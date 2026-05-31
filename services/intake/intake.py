@@ -510,7 +510,9 @@ async def _process_upload_locked(
                 ext = Path(safe_name).suffix
                 safe_name = f"{stem}_{uuid.uuid4().hex[:6]}{ext}"
                 dest = uploads_dir / safe_name
-            atomic_write_bytes(dest, content)
+            from .file_durability import write_upload_with_durability_markers
+
+            write_upload_with_durability_markers(dest, content, intake_id=intake_id)
             total_before += size
             file_entry = {
                 "name": safe_name,

@@ -43,7 +43,9 @@ def recover_intake_forensic(intake_id: str) -> Dict[str, Any]:
         return {"ok": False, "error": "intake_dir_missing", "intake_id": intake_id}
 
     uploads = idir / "uploads"
-    disk_names = sorted(p.name for p in uploads.iterdir() if p.is_file()) if uploads.is_dir() else []
+    disk_names = sorted(
+        p.name for p in uploads.iterdir() if p.is_file() and not p.name.endswith(".durability.json")
+    ) if uploads.is_dir() else []
     if not disk_names:
         return {"ok": False, "error": "no_files_on_disk", "intake_id": intake_id}
 

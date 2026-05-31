@@ -96,12 +96,14 @@ def sha256_file(path: Path) -> str:
 
 
 def hash_uploads_on_disk(intake_id: str) -> Dict[str, str]:
+    from .file_durability import is_upload_payload_file
+
     uploads = intake_dir(intake_id) / "uploads"
     out: Dict[str, str] = {}
     if not uploads.is_dir():
         return out
     for p in sorted(uploads.iterdir()):
-        if p.is_file():
+        if p.is_file() and is_upload_payload_file(p.name):
             try:
                 out[p.name] = sha256_file(p)
             except OSError as exc:
@@ -111,9 +113,15 @@ def hash_uploads_on_disk(intake_id: str) -> Dict[str, str]:
 
 def audit_hashes_match(intake_id: str, *, on_disk: Optional[Dict[str, str]] = None) -> bool:
     """True when on-disk upload hashes match the durable audit receipt."""
+    from .file_durability import sidecar_orphan_reasons
+    from .hash_ledger import ledger_entries_for_intake
+
     receipt = load_audit_receipt(intake_id)
     disk = on_disk if on_disk is not None else hash_uploads_on_disk(intake_id)
+    ledger = ledger_entries_for_intake(intake_id)
     if not receipt:
+        if ledger or sidecar_orphan_reasons(intake_id):
+            return False
         return len(disk) == 0
     if not disk:
         return False
@@ -189,32 +197,14 @@ def build_audit_receipt(
 
 
 def write_audit_receipt(intake_id: str, receipt: Dict[str, Any]) -> Path:
-    import time
+    from .storage import atomic_write_json
 
     path = audit_receipt_path(intake_id)
     from .storage import assert_canonical_write_path
 
     assert_canonical_write_path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(receipt, indent=2)
-    last_err: Optional[Exception] = None
-    for attempt in range(8):
-        tmp = path.with_suffix(f".tmp.{attempt}")
-        try:
-            tmp.write_text(payload, encoding="utf-8")
-            tmp.replace(path)
-            return path
-        except OSError as exc:
-            last_err = exc
-            time.sleep(0.02 * (attempt + 1))
-        finally:
-            if tmp.is_file() and not path.is_file():
-                try:
-                    tmp.unlink(missing_ok=True)
-                except OSError:
-                    pass
-    if last_err:
-        raise last_err
+    atomic_write_json(path, receipt)
     return path
 
 
@@ -524,6 +514,8 @@ def _cote_reflects_intake(intake_id: str) -> bool:
 
 def retention_check(intake_id: str) -> Dict[str, Any]:
     """Operator retention proof — disk vs index vs queue vs COTE."""
+    from .inventory import is_ghost_intake
+
     idir = intake_dir(intake_id)
     ij = intake_json_path(intake_id)
     receipt = load_audit_receipt(intake_id)
@@ -548,13 +540,7 @@ def retention_check(intake_id: str) -> Dict[str, Any]:
     counts_match = (
         expected == received == persisted == verified == disk_count and failed == 0
     )
-    ghost_intake = (
-        is_pending_review(record.get("review_status"))
-        and (
-            (verified > 0 or persisted > 0 or meta_count > 0 or receipt is not None)
-            and disk_count == 0
-        )
-    )
+    ghost_intake = is_ghost_intake(intake_id, record=record)
     file_hashes_match = audit_hashes_match(intake_id, on_disk=on_disk) and not ghost_intake
     upload_files_found = disk_count > 0
     ok = (
@@ -623,7 +609,9 @@ def scan_retention_at_startup(*, force: bool = False) -> Dict[str, Any]:
             intake_json_count += 1
         uploads = intake_dir(iid) / "uploads"
         if uploads.is_dir():
-            file_count += sum(1 for p in uploads.iterdir() if p.is_file())
+            from .file_durability import is_upload_payload_file
+
+            file_count += sum(1 for p in uploads.iterdir() if p.is_file() and is_upload_payload_file(p.name))
 
     report = {
         "write_root": str(resolved_write_root()),
@@ -710,22 +698,39 @@ def scan_retention_at_startup(*, force: bool = False) -> Dict[str, Any]:
         pass
 
     try:
-        from .proof_gate import build_live_boot_status, detect_cockpit_zero_after_recent_success, live_disk_scan
+        from .hash_ledger import ledger_orphans
         from .inventory import detect_ghost_intakes
+
+        orphans = ledger_orphans(limit=500)
+        report["hash_ledger_orphans"] = orphans[:25]
+        report["hash_ledger_orphan_count"] = len(orphans)
+        if orphans:
+            emit_sev1_data_loss_suspected(
+                f"Hash ledger orphans: {len(orphans)} file(s) missing on disk",
+                detail={"samples": orphans[:5]},
+            )
+        ghosts = detect_ghost_intakes(limit=200)
+        report["ghost_intakes"] = ghosts
+        report["ghost_intake_count"] = len(ghosts)
+        if ghosts:
+            emit_sev1_data_loss_suspected(
+                f"Ghost intakes at startup: {len(ghosts)}",
+                detail={"ghosts": ghosts[:10]},
+            )
+    except Exception as exc:
+        report["hash_ledger_orphan_count"] = 0
+        report["ghost_intake_count"] = 0
+        logger.warning("startup ghost/ledger scan failed: %s", exc)
+
+    try:
+        from .proof_gate import build_live_boot_status, detect_cockpit_zero_after_recent_success, live_disk_scan
 
         report["live_scan"] = live_disk_scan()
         live_boot = build_live_boot_status()
         report["live_boot_status"] = live_boot.get("status")
         report["healthy"] = bool(live_boot.get("ok"))
         report["forensic_proof_ok"] = bool(live_boot.get("forensic_proof_ok"))
-        ghosts = detect_ghost_intakes(limit=200)
-        report["ghost_intakes"] = ghosts
-        report["ghost_intake_count"] = len(ghosts)
-        if ghosts:
-            emit_sev1_data_loss_suspected(
-                f"Ghost intakes detected at startup: {len(ghosts)}",
-                detail={"ghosts": ghosts[:25]},
-            )
+        if int(report.get("ghost_intake_count") or 0) > 0:
             report["healthy"] = False
         if not report["healthy"]:
             emit_sev1_data_loss_suspected(

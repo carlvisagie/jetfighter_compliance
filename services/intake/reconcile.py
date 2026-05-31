@@ -54,6 +54,10 @@ def reconcile_intake(intake_id: str) -> Dict[str, Any]:
         issues.append("files_on_disk_without_audit_receipt")
     if file_count > 0 and disk_files == 0:
         issues.append("intake_json_claims_files_but_disk_empty")
+    from .inventory import is_ghost_intake
+
+    if is_ghost_intake(intake_id, record=record):
+        issues.append("ghost_intake_sev1")
     if disk_files > 0 and verified > 0 and verified != disk_files:
         issues.append("verified_count_disk_mismatch")
     if expected and received and expected != received:
@@ -137,7 +141,11 @@ def recover_uncommitted_intakes(*, limit: int = 200) -> Dict[str, Any]:
         uploads = intake_dir(iid) / "uploads"
         if not uploads.is_dir():
             continue
-        disk_names = sorted(p.name for p in uploads.iterdir() if p.is_file())
+        from .file_durability import is_upload_payload_file
+
+        disk_names = sorted(
+            p.name for p in uploads.iterdir() if p.is_file() and is_upload_payload_file(p.name)
+        )
         if not disk_names:
             continue
         if intake_commit_complete(iid):
