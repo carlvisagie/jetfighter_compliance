@@ -614,6 +614,16 @@ def build_integrity_proof(
         if len(sample_missing) < sample_limit:
             sample_missing.append(f"{iid}:ghost")
 
+    from .retention import expected_payload_file_count
+
+    expected_files_fleet = 0
+    for intake_id in list_intake_ids(limit=limit):
+        expected_files_fleet += expected_payload_file_count(intake_id)
+    if total_files == 0 and expected_files_fleet > 0:
+        structural_problems += 1
+        if len(sample_missing) < sample_limit:
+            sample_missing.append("fleet:expected_files_without_payload")
+
     communications_ok = True
     communications_record_count = 0
     communications_hash_mismatches = 0
@@ -627,10 +637,17 @@ def build_integrity_proof(
     except Exception:
         pass
 
-    ok = problem == 0 and communications_ok and incident_count == 0 and len(ghost_intakes) == 0
+    ok = (
+        problem == 0
+        and communications_ok
+        and incident_count == 0
+        and len(ghost_intakes) == 0
+        and not (total_files == 0 and expected_files_fleet > 0)
+    )
     result = {
         "ok": ok,
         "total_files": total_files,
+        "expected_files_fleet": expected_files_fleet,
         "verified_files": verified_files,
         "registered_files": registered_files,
         "pending_files": pending_files,

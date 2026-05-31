@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .durable_root import assert_durable_write_path, durable_data_root
-from .storage import atomic_write_bytes, atomic_write_json, intake_dir
+from .storage import atomic_write_json, intake_dir
 
 DURABILITY_SIDECAR_SUFFIX = ".durability.json"
 
@@ -37,6 +37,45 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def durable_write_upload_payload(dest: Path, data: bytes) -> Dict[str, Any]:
+    """
+    Durable upload payload write — must complete before customer success.
+
+    Sequence: write temp → fsync temp → rename → fsync file → fsync parent dir
+    → reopen → re-hash → verify size.
+    """
+    from .storage import _fsync_written_file, assert_canonical_write_path
+
+    assert_canonical_write_path(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    expected_sha = sha256_bytes(data)
+    tmp = dest.with_suffix(dest.suffix + ".tmp")
+    tmp.write_bytes(data)
+    _fsync_written_file(tmp)
+    tmp.replace(dest)
+    _fsync_written_file(dest)
+
+    resolved = dest.resolve()
+    if not resolved.is_file():
+        raise OSError(f"Durable upload missing after rename: {resolved}")
+    if resolved.stat().st_size != len(data):
+        raise OSError(f"Post-write size mismatch for {resolved}")
+
+    with resolved.open("rb") as fh:
+        read_back = fh.read()
+    actual_sha = sha256_bytes(read_back)
+    if actual_sha != expected_sha:
+        raise OSError(f"Post-write hash mismatch for {resolved}")
+    if read_back != data:
+        raise OSError(f"Post-write content mismatch for {resolved}")
+
+    return {
+        "absolute_path": str(resolved),
+        "size_bytes": len(data),
+        "sha256": actual_sha,
+    }
+
+
 def write_upload_with_durability_markers(
     dest: Path,
     data: bytes,
@@ -46,14 +85,9 @@ def write_upload_with_durability_markers(
     """
     Write upload bytes under canonical uploads/ with fsync + sidecar + read-back hash verify.
     """
-    atomic_write_bytes(dest, data)
+    written = durable_write_upload_payload(dest, data)
     resolved = dest.resolve()
-    sha = sha256_bytes(data)
-    actual = sha256_file(resolved)
-    if sha != actual:
-        raise OSError(f"Post-write hash mismatch for {resolved}")
-    if resolved.stat().st_size != len(data):
-        raise OSError(f"Post-write size mismatch for {resolved}")
+    sha = written["sha256"]
 
     sidecar = {
         "intake_id": intake_id,

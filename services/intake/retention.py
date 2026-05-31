@@ -111,6 +111,36 @@ def hash_uploads_on_disk(intake_id: str) -> Dict[str, str]:
     return out
 
 
+def expected_payload_file_count(
+    intake_id: str, *, receipt: Optional[Dict[str, Any]] = None
+) -> int:
+    """How many upload payload files this intake is expected to have on disk."""
+    rec = receipt if receipt is not None else load_audit_receipt(intake_id)
+    if rec:
+        file_hashes = rec.get("file_hashes") or {}
+        if file_hashes:
+            return len(file_hashes)
+        files_written = rec.get("files_written") or []
+        if files_written:
+            return len(files_written)
+        return max(
+            int(rec.get("verified_file_count") or 0),
+            int(rec.get("persisted_file_count") or 0),
+        )
+    record: Dict[str, Any] = {}
+    try:
+        record = load_intake_record(intake_id, persist_recovery=False)
+    except (FileNotFoundError, ValueError, OSError):
+        record = {}
+    ui = record.get("upload_integrity") or {}
+    return max(
+        int(ui.get("verified_file_count") or 0),
+        int(ui.get("persisted_file_count") or 0),
+        int(ui.get("expected_file_count") or 0),
+        int(record.get("file_count") or len(record.get("files") or [])),
+    )
+
+
 def audit_hashes_match(intake_id: str, *, on_disk: Optional[Dict[str, str]] = None) -> bool:
     """True when on-disk upload hashes match the durable audit receipt."""
     from .file_durability import sidecar_orphan_reasons
@@ -119,8 +149,13 @@ def audit_hashes_match(intake_id: str, *, on_disk: Optional[Dict[str, str]] = No
     receipt = load_audit_receipt(intake_id)
     disk = on_disk if on_disk is not None else hash_uploads_on_disk(intake_id)
     ledger = ledger_entries_for_intake(intake_id)
+    expected_count = expected_payload_file_count(intake_id, receipt=receipt)
+    if expected_count > 0 and not disk:
+        return False
     if not receipt:
         if ledger or sidecar_orphan_reasons(intake_id):
+            return False
+        if expected_count > 0:
             return False
         return len(disk) == 0
     if not disk:
@@ -541,7 +576,10 @@ def retention_check(intake_id: str) -> Dict[str, Any]:
         expected == received == persisted == verified == disk_count and failed == 0
     )
     ghost_intake = is_ghost_intake(intake_id, record=record)
+    expected_on_disk = max(expected, verified, persisted, meta_count)
     file_hashes_match = audit_hashes_match(intake_id, on_disk=on_disk) and not ghost_intake
+    if expected_on_disk > 0 and disk_count == 0:
+        file_hashes_match = False
     upload_files_found = disk_count > 0
     ok = (
         idir.is_dir()
@@ -551,6 +589,7 @@ def retention_check(intake_id: str) -> Dict[str, Any]:
         and file_hashes_match
         and counts_match
         and not ghost_intake
+        and not (expected_on_disk > 0 and disk_count == 0)
     )
     return {
         "ok": ok,
