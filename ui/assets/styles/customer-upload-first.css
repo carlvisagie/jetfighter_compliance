@@ -357,3 +357,73 @@
   color: #0f172a;
   text-decoration: underline;
 }
+
+/* First-sale service cards — pricing visible, upload-first CTAs */
+.kyc-services {
+  margin-top: 2.5rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--kyc-border, #e2e8f0);
+}
+
+.kyc-services__heading {
+  font-size: 1.35rem;
+  margin: 0 0 0.5rem;
+}
+
+.kyc-services__lead {
+  color: var(--kyc-text-muted, #475569);
+  font-size: 1rem;
+  line-height: 1.55;
+  max-width: 42rem;
+  margin: 0 0 1.5rem;
+}
+
+.kyc-services__grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+@media (min-width: 720px) {
+  .kyc-services__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.kyc-service-card {
+  padding: 1.25rem 1.15rem;
+  border-radius: 12px;
+  border: 1px solid var(--kyc-border, #e2e8f0);
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.kyc-service-card__title {
+  font-size: 1.05rem;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.kyc-service-card__price {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f766e;
+  margin: 0;
+}
+
+.kyc-service-card__desc {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--kyc-text-muted, #475569);
+  margin: 0 0 0.5rem;
+  flex: 1;
+}
+
+.kyc-service-card .kyc-upload-cta-primary {
+  font-size: 0.85rem;
+  min-height: 48px;
+  max-width: 100%;
+  text-transform: none;
+  letter-spacing: 0;
+}

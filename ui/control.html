@@ -507,18 +507,38 @@
       document.getElementById('org-pulse-label').textContent = String(e.message || e);
     }
   }
-  async function fbQueueAction(intakeId, action, btn) {
+  async function fbQueueAction(intakeId, action, btn, extra) {
     if (!intakeId || !action) return;
+    if (action === 'kickoff_project') {
+      if (!window.confirm('Confirm the customer has paid via PayPal before starting the project.')) {
+        return;
+      }
+    }
     if (btn) {
       btn.disabled = true;
       btn.textContent = '…';
     }
     try {
-      await api('/api/operator/founding-beta/action', {
+      var payload = { intake_id: intakeId, action: action };
+      if (extra && extra.product_id) payload.product_id = extra.product_id;
+      var result = await api('/api/operator/founding-beta/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ intake_id: intakeId, action: action }),
+        body: JSON.stringify(payload),
       });
+      if (action === 'send_payment_link') {
+        var mail = (result && result.email_result) || {};
+        if (mail.sent) {
+          alert('Payment link email sent to customer.');
+        } else if (mail.skipped) {
+          alert('Payment link recorded — SMTP not configured, email skipped. Send PayPal link manually:\n' + (result.paypal_url || ''));
+        } else {
+          alert('Payment link saved but email may have failed. Check SMTP or send manually:\n' + (result.paypal_url || ''));
+        }
+      }
+      if (action === 'kickoff_project' && result && result.project_id) {
+        alert('Project created: ' + result.project_id);
+      }
       await loadFoundingBetaIntake();
       if (window.CoteTopology && CoteTopology.refresh) {
         CoteTopology.refresh();
@@ -861,6 +881,32 @@
               : '') +
             '</div>'
           : '';
+        const payment = row.payment || {};
+        const paymentLine = payment.payment_link_sent_at_utc
+          ? '<p class="org-metric-foot fb-queue-payment"><strong>Payment link sent:</strong> ' +
+            escapeHtml(payment.product_title || payment.product_id || '—') +
+            ' · ' +
+            escapeHtml(payment.price_display || '') +
+            ' · ' +
+            escapeHtml(payment.payment_link_sent_at_utc) +
+            '</p>'
+          : '';
+        const projectLine = row.project_id
+          ? '<p class="org-metric-foot"><strong>Project:</strong> <code>' +
+            escapeHtml(row.project_id) +
+            '</code></p>'
+          : '';
+        const paymentSelect =
+          '<label class="fb-queue-payment-select">Service for payment link ' +
+          '<select data-fb-product aria-label="Select service">' +
+          '<option value="">— select —</option>' +
+          '<option value="cmmc_l1">CMMC Level 1 Fast-Track ($3,500)</option>' +
+          '<option value="cmmc_l2">CMMC Level 2 Readiness ($8,000)</option>' +
+          '<option value="eu_dpp">EU DPP Pilot ($6,000)</option>' +
+          '</select></label>';
+        const kickoffBtn = row.project_id
+          ? ''
+          : '<button type="button" class="btn primary" data-fb-action="kickoff_project">Kickoff project</button>';
         cards +=
           '<article class="fb-queue-card' +
           (row.urgent_flag ? ' fb-queue-card--urgent' : '') +
@@ -906,12 +952,17 @@
           escapeHtml(row.suggested_next_action || '') +
           '</p>' +
           integrityBanner +
+          paymentLine +
+          projectLine +
           buildDocumentsSection(row) +
           lifecycleTable +
           missing +
           '<div class="kyc-btn-row fb-queue-actions">' +
           '<button type="button" class="btn primary" data-fb-action="approve_review">Approve review</button>' +
           '<button type="button" class="btn secondary" data-fb-action="request_more_info">Request more info</button>' +
+          paymentSelect +
+          '<button type="button" class="btn secondary" data-fb-action="send_payment_link">Send payment link</button>' +
+          kickoffBtn +
           '<button type="button" class="btn secondary" data-fb-action="mark_high_value">Mark high value</button>' +
           '<button type="button" class="btn secondary" data-fb-action="archive">Archive</button>' +
           '<a class="btn secondary" href="/ui/founding-beta" target="_blank" rel="noopener">Open intake</a>' +
@@ -923,7 +974,16 @@
           const card = btn.closest('.fb-queue-card');
           const iid = card && card.getAttribute('data-intake');
           const act = btn.getAttribute('data-fb-action');
-          fbQueueAction(iid, act, btn);
+          var extra = {};
+          if (act === 'send_payment_link') {
+            const sel = card && card.querySelector('[data-fb-product]');
+            extra.product_id = sel && sel.value;
+            if (!extra.product_id) {
+              alert('Select a service before sending the payment link.');
+              return;
+            }
+          }
+          fbQueueAction(iid, act, btn, extra);
         });
       });
       wireDocumentPreviewButtons(el);

@@ -101,6 +101,8 @@ def _queue_row(intake_id: str, *, persist_recovery: bool = True) -> Optional[Dic
         "recovered_from_disk": bool(rec.get("recovered_from_disk")),
         "upload_integrity": integrity,
         "documents": documents_for_queue_row(intake_id),
+        "project_id": rec.get("project_id") or "",
+        "payment": rec.get("payment") or {},
     }
 
 

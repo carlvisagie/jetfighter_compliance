@@ -16,6 +16,7 @@ VALID_ACTIONS = frozenset(
         "request_more_info",
         "mark_high_value",
         "archive",
+        "send_payment_link",
         "kickoff_project",
     }
 )
@@ -40,6 +41,7 @@ def apply_operator_action(
     action: str,
     *,
     operator_note: str = "",
+    product_id: str = "",
 ) -> Dict[str, Any]:
     action = (action or "").strip().lower()
     if action not in VALID_ACTIONS:
@@ -47,6 +49,9 @@ def apply_operator_action(
             status_code=400,
             detail=f"Invalid action. Use one of: {', '.join(sorted(VALID_ACTIONS))}",
         )
+
+    if action == "send_payment_link":
+        return _send_payment_link(intake_id, product_id, operator_note=operator_note)
 
     if action == "kickoff_project":
         from .kickoff import kickoff_project_from_intake
@@ -88,4 +93,89 @@ def apply_operator_action(
         "action": action,
         "review_status": new_status,
         "classification": clf,
+    }
+
+
+def _send_payment_link(
+    intake_id: str,
+    product_id: str,
+    *,
+    operator_note: str = "",
+) -> Dict[str, Any]:
+    from datetime import datetime, timezone
+
+    from .payment_email import send_payment_link_email
+    from .payment_products import get_payment_product
+
+    product = get_payment_product(product_id)
+    if not product:
+        raise HTTPException(
+            status_code=400,
+            detail="product_id required — use cmmc_l1, cmmc_l2, or eu_dpp",
+        )
+
+    rec = _load_intake(intake_id)
+    email = (rec.get("email") or "").strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Intake missing valid customer email")
+
+    company = (rec.get("company") or "").strip()
+    name = company or email.split("@")[0] or "Customer"
+
+    mail = send_payment_link_email(
+        to_email=email,
+        customer_name=name,
+        company=company,
+        product_id=product["id"],
+    )
+
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    payment = dict(rec.get("payment") or {})
+    payment.update(
+        {
+            "product_id": product["id"],
+            "product_title": product.get("title"),
+            "price_display": product.get("price_display"),
+            "paypal_url": product.get("paypal_url"),
+            "payment_link_sent_at_utc": now,
+            "payment_link_email": mail,
+        }
+    )
+    rec["payment"] = payment
+    if operator_note:
+        rec["operator_note"] = operator_note.strip()[:1000]
+    if rec.get("review_status") not in ("archived",):
+        rec["review_status"] = rec.get("review_status") or "approved"
+        if rec.get("review_status") == "pending_review":
+            rec["review_status"] = "approved"
+    rec["status"] = rec.get("review_status") or rec.get("status")
+    _save_intake(intake_id, rec)
+
+    emit_intake_event(
+        "operator_payment_link_sent",
+        message=f"Payment link sent for {product.get('title')}",
+        metadata={
+            "intake_id": intake_id,
+            "product_id": product["id"],
+            "email": email,
+            "email_sent": bool(mail.get("sent")),
+            "email_skipped": bool(mail.get("skipped")),
+        },
+    )
+    record_intake_learning(
+        "operator_payment_link_sent",
+        intake_id=intake_id,
+        success=bool(mail.get("ok") or mail.get("skipped")),
+        extra={"product_id": product["id"], "last_intake_id": intake_id},
+    )
+
+    return {
+        "ok": True,
+        "intake_id": intake_id,
+        "action": "send_payment_link",
+        "product_id": product["id"],
+        "product_title": product.get("title"),
+        "paypal_url": product.get("paypal_url"),
+        "email_result": mail,
+        "payment": payment,
     }

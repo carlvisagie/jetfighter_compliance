@@ -1613,14 +1613,25 @@ async def operator_intake_action(request: Request):
     intake_id = str(body.get("intake_id") or "").strip()
     action = str(body.get("action") or "").strip()
     note = str(body.get("operator_note") or "")
+    product_id = str(body.get("product_id") or "").strip()
     if not intake_id:
         raise HTTPException(status_code=400, detail="intake_id required")
-    return apply_operator_action(intake_id, action, operator_note=note)
+    return apply_operator_action(intake_id, action, operator_note=note, product_id=product_id)
 
 
 @app.post("/api/operator/founding-beta/action")
 async def operator_founding_beta_action(request: Request):
     return await operator_intake_action(request)
+
+
+@app.get("/api/operator/payment-products")
+def operator_payment_products(request: Request):
+    """First-sale catalog for operator payment-link workflow."""
+    from services.intake.payment_products import list_payment_products
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return {"ok": True, "products": list_payment_products()}
 
 
 @app.get("/api/cognitive-topology")
