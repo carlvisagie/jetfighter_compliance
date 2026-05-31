@@ -1,30 +1,24 @@
 {
   "version": 1,
-  "updated_utc": "2026-05-31T20:49:29Z",
+  "updated_utc": "2026-05-31T21:20:44Z",
   "subsystem_health": {
     "intake": {
       "success_rate": 1.0,
-      "events": 411,
+      "events": 383,
       "failures": 0,
       "status": "healthy"
     },
     "acquisition_organism": {
       "success_rate": 1.0,
-      "events": 61,
+      "events": 55,
       "failures": 0,
       "status": "healthy"
     },
     "operational_alerts": {
       "success_rate": 1.0,
-      "events": 8,
+      "events": 26,
       "failures": 0,
       "status": "healthy"
-    },
-    "email": {
-      "success_rate": 0.5,
-      "events": 8,
-      "failures": 4,
-      "status": "unhealthy"
     },
     "job_queue": {
       "success_rate": 1.0,
@@ -37,12 +31,24 @@
       "events": 11,
       "failures": 1,
       "status": "healthy"
+    },
+    "email": {
+      "success_rate": 0.5,
+      "events": 22,
+      "failures": 11,
+      "status": "unhealthy"
+    },
+    "reddit_acquisition": {
+      "success_rate": 1.0,
+      "events": 2,
+      "failures": 0,
+      "status": "healthy"
     }
   },
   "repeated_failures": [
     {
       "key": "email:smtp_unconfigured",
-      "count": 4,
+      "count": 11,
       "suggestion": "Review email:smtp_unconfigured failures"
     }
   ],
@@ -50,13 +56,14 @@
     "intake": 1.0,
     "acquisition_organism": 1.0,
     "operational_alerts": 1.0,
-    "email": 0.5,
     "job_queue": 1.0,
-    "evidence_intelligence": 0.909
+    "evidence_intelligence": 0.909,
+    "email": 0.5,
+    "reddit_acquisition": 1.0
   },
   "conversion_patterns": {},
   "failure_patterns": {
-    "email:smtp_unconfigured": 4,
+    "email:smtp_unconfigured": 11,
     "evidence_intelligence:evidence_mapping_failure": 1
   },
   "bottleneck_patterns": {},

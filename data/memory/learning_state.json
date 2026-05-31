@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "updated_utc": "2026-05-31T20:49:29Z",
+  "updated_utc": "2026-05-31T21:20:44Z",
   "signal_effectiveness": {
     "intake:intake_received": {
-      "success": 59,
+      "success": 83,
       "fail": 0,
       "outcomes": [
         "intake_received",
@@ -29,7 +29,7 @@
       ]
     },
     "intake:intake_classified": {
-      "success": 54,
+      "success": 78,
       "fail": 0,
       "outcomes": [
         "intake_classified",
@@ -55,7 +55,7 @@
       ]
     },
     "intake:missing_documents_detected": {
-      "success": 54,
+      "success": 78,
       "fail": 0,
       "outcomes": [
         "missing_documents_detected",
@@ -81,9 +81,19 @@
       ]
     },
     "intake:operator_payment_link_sent": {
-      "success": 10,
+      "success": 25,
       "fail": 0,
       "outcomes": [
+        "operator_payment_link_sent",
+        "operator_payment_link_sent",
+        "operator_payment_link_sent",
+        "operator_payment_link_sent",
+        "operator_payment_link_sent",
+        "operator_payment_link_sent",
+        "operator_payment_link_sent",
+        "operator_payment_link_sent",
+        "operator_payment_link_sent",
+        "operator_payment_link_sent",
         "operator_payment_link_sent",
         "operator_payment_link_sent",
         "operator_payment_link_sent",
@@ -175,7 +185,7 @@
   },
   "segment_performance": {
     "intake": {
-      "success": 162,
+      "success": 249,
       "fail": 0
     }
   },

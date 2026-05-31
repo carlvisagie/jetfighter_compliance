@@ -61,3 +61,12 @@ services:
         value: KeepYourContracts
       - key: DATABASE_URL
         sync: false
+      # Reddit autonomous posting — register a "script" app at reddit.com/prefs/apps
+      - key: REDDIT_CLIENT_ID
+        sync: false
+      - key: REDDIT_CLIENT_SECRET
+        sync: false
+      - key: REDDIT_USERNAME
+        sync: false
+      - key: REDDIT_PASSWORD
+        sync: false

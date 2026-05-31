@@ -140,11 +140,16 @@ def test_approve_and_invite_generates_invite_url(acq_intake_env, monkeypatch):
 
     result = approve_and_invite_lead("LD-APPR-001")
     assert result["ok"] is True
-    assert result["status"] == "approved_for_outreach"
+    # Status is approved_for_outreach if email sent, approved_pending_send if SMTP not configured
+    assert result["status"] in ("approved_for_outreach", "approved_pending_send")
     assert "LD-APPR-001" in result["invite_url"]
     assert "/ui/shop" in result["invite_url"]
-    assert result["email_draft"]["subject"]
-    assert "LD-APPR-001" in result["email_draft"]["cta_url"]
+    assert "LD-APPR-001" in result["upload_url"]
+    # email_draft is only present when email was NOT sent (manual fallback indicator)
+    assert result.get("email_sent") is not None  # field always present
+    if not result["email_sent"]:
+        assert result["email_draft"] is not None  # fallback draft present when SMTP fails
+        assert result["email_draft"]["subject"]
 
 
 def test_approve_rejected_lead_is_refused(acq_intake_env):
@@ -253,6 +258,85 @@ def test_invitation_email_no_contact_name():
 # ---------------------------------------------------------------------------
 # Alert: acquisition_conversion
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Auto payment link dispatch
+# ---------------------------------------------------------------------------
+
+def test_auto_payment_picks_cmmc_l1_for_ssp(monkeypatch):
+    """SSP document → cmmc_l1 auto-selected when confidence is high enough."""
+    import services.intake.auto_payment as _ap
+
+    calls = []
+    monkeypatch.setattr(_ap, "_send_payment_link", lambda iid, pid, **kw: calls.append(pid) or {"ok": True, "product_id": pid})
+    monkeypatch.setattr(_ap, "_load_intake", lambda iid: {"email": "test@company.com", "payment": {}})
+
+    from services.intake.auto_payment import auto_send_payment_link
+    clf = {"primary_category": "SSP", "confidence_score": 0.82, "file_types": ["SSP"]}
+    result = auto_send_payment_link("FB-TEST-001", clf)
+    assert result.get("ok") is True
+    assert calls[0] == "cmmc_l1"
+
+
+def test_auto_payment_upgrades_to_l2_for_network_diagram(monkeypatch):
+    """Network diagram → cmmc_l2 auto-selected."""
+    import services.intake.auto_payment as _ap
+
+    calls = []
+    monkeypatch.setattr(_ap, "_send_payment_link", lambda iid, pid, **kw: calls.append(pid) or {"ok": True, "product_id": pid})
+    monkeypatch.setattr(_ap, "_load_intake", lambda iid: {"email": "test@company.com", "payment": {}})
+
+    from services.intake.auto_payment import auto_send_payment_link
+    clf = {"primary_category": "Network diagram", "confidence_score": 0.75, "file_types": ["Network diagram"]}
+    auto_send_payment_link("FB-TEST-002", clf)
+    assert calls[0] == "cmmc_l2"
+
+
+def test_auto_payment_skips_low_confidence(monkeypatch):
+    """Low confidence → no payment sent."""
+    import services.intake.auto_payment as _ap
+
+    sent = []
+    monkeypatch.setattr(_ap, "_send_payment_link", lambda *a, **kw: sent.append(True) or {})
+    monkeypatch.setattr(_ap, "_load_intake", lambda iid: {"email": "test@company.com", "payment": {}})
+    monkeypatch.setattr("services.alerts.engine.raise_alert", lambda *a, **kw: {"ok": True})
+
+    from services.intake.auto_payment import auto_send_payment_link
+    result = auto_send_payment_link("FB-TEST-003", {"primary_category": "SSP", "confidence_score": 0.40})
+    assert result.get("skipped") is True
+    assert result.get("reason") == "low_confidence_or_unknown_category"
+    assert len(sent) == 0
+
+
+def test_auto_payment_skips_if_already_sent(monkeypatch):
+    """If payment already exists, do not re-send."""
+    import services.intake.auto_payment as _ap
+
+    sent = []
+    monkeypatch.setattr(_ap, "_send_payment_link", lambda *a, **kw: sent.append(True) or {})
+    monkeypatch.setattr(_ap, "_load_intake", lambda iid: {
+        "email": "test@company.com",
+        "payment": {"payment_link_generated_at_utc": "2026-05-31T12:00:00Z"},
+    })
+
+    from services.intake.auto_payment import auto_send_payment_link
+    result = auto_send_payment_link("FB-TEST-004", {"primary_category": "SSP", "confidence_score": 0.9})
+    assert result.get("skipped") is True
+    assert result.get("reason") == "payment_already_exists"
+    assert len(sent) == 0
+
+
+def test_auto_payment_skips_no_email(monkeypatch):
+    """No email address → skip."""
+    import services.intake.auto_payment as _ap
+
+    monkeypatch.setattr(_ap, "_load_intake", lambda iid: {"email": "", "payment": {}})
+
+    from services.intake.auto_payment import auto_send_payment_link
+    result = auto_send_payment_link("FB-TEST-005", {"primary_category": "SSP", "confidence_score": 0.9})
+    assert result.get("skipped") is True
+    assert result.get("reason") == "no_email"
+
 
 def test_acquisition_conversion_alert_emitted(monkeypatch):
     raised = {}

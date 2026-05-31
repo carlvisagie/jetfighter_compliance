@@ -23,6 +23,14 @@ _FEDERAL_BURDEN_HINT = (
 )
 
 
+def _reddit_auto_post_enabled() -> bool:
+    try:
+        from .connectors.reddit.poster import reddit_configured
+        return reddit_configured()
+    except Exception:
+        return False
+
+
 def _append_intel(filename: str, record: Dict[str, Any], base: Optional[Path] = None) -> None:
     root = ensure_intel_dirs(base)
     path = root / filename
@@ -523,7 +531,13 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
         "hottest_targets": hottest,
         "live_connectors": [
             {"id": "usaspending_live", "status": "active", "lawful": True},
-            {"id": "reddit_live", "status": "active", "lawful": True, "operator_review": True, "auto_post": False},
+            {
+                "id": "reddit_live",
+                "status": "active",
+                "lawful": True,
+                "auto_post": _reddit_auto_post_enabled(),
+                "note": "Autonomous post when REDDIT_CLIENT_ID/SECRET/USERNAME/PASSWORD are set.",
+            },
         ],
         "upload_conversion": conv,
         "best_channels": [{"channel": k, "targets": v} for k, v in best_channels],
@@ -584,20 +598,27 @@ def approve_and_invite_lead(
         base_url=base_url or get_public_base_url(),
     )
     invite_url = route["primary_url"]
-    upload_url = route["primary_url"].replace("/ui/shop", "/ui/founding-beta")
-    # If already shop URL, also build direct upload URL
-    from ..email_utils import build_invitation_email_text
+    # Direct upload URL bypasses shop page — drops the prospect straight into the upload form
+    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-    email_draft = build_invitation_email_text(
+    _parsed = urlparse(invite_url)
+    upload_url = urlunparse(_parsed._replace(path="/ui/founding-beta"))
+
+    from ..email_utils import send_invitation_email
+
+    # Attempt autonomous email send — system sends without operator touching anything
+    email_result = send_invitation_email(
+        to_email=target.contact_email,
         company_name=target.company_name,
         contact_name=target.contact_name,
         invite_url=invite_url,
         upload_url=upload_url,
     )
+    email_sent = bool(email_result.get("sent"))
 
     prev_status = target.status
     if target.status in ("new", "reviewed"):
-        target.status = "approved_for_outreach"
+        target.status = "approved_for_outreach" if email_sent else "approved_pending_send"
     target.updated_utc = utc_now()
     target.inquiry_routed_link = invite_url
 
@@ -614,6 +635,8 @@ def approve_and_invite_lead(
         lead_id=lead_id,
         metadata={
             "invite_url": invite_url,
+            "email_sent": email_sent,
+            "email_skipped_reason": email_result.get("reason") or email_result.get("error") or "",
             "prev_status": prev_status,
             "company": target.company_name,
         },
@@ -628,5 +651,11 @@ def approve_and_invite_lead(
         "status": target.status,
         "invite_url": invite_url,
         "upload_url": upload_url,
-        "email_draft": email_draft,
+        "email_sent": email_sent,
+        "email_result": {k: v for k, v in email_result.items() if k != "draft"},
+        # Only include the draft if email was NOT sent — so operator can manually follow up
+        "email_draft": email_result.get("draft") if not email_sent else None,
+        "smtp_note": "" if email_sent else (
+            email_result.get("reason") or email_result.get("error") or "smtp_unconfigured"
+        ),
     }

@@ -1324,12 +1324,23 @@
           const pid = btn.getAttribute('data-post-id');
           if (!pid) return;
           btn.disabled = true;
-          const res = await redditDecide(pid, 'approve');
-          if (res.paste_on_reddit) {
-            try { await navigator.clipboard.writeText(res.paste_on_reddit); } catch (e) {}
-            alert('Approved. Reply copied to clipboard — paste on Reddit manually.');
-          } else {
-            alert('Approved. Post the organism draft on Reddit manually.');
+          btn.textContent = 'Posting…';
+          try {
+            const res = await redditDecide(pid, 'approve');
+            if (res.auto_posted) {
+              btn.textContent = '✓ Posted';
+              // No clipboard needed — system posted it
+            } else if (res.paste_on_reddit) {
+              try { await navigator.clipboard.writeText(res.paste_on_reddit); } catch (e) {}
+              btn.textContent = '✓ Approved (manual)';
+              alert('Reddit credentials not set up — reply copied to clipboard. Paste on Reddit manually.\n\n' + (res.notice || ''));
+            } else {
+              btn.textContent = '✓ Approved';
+              alert(res.notice || 'Approved.');
+            }
+          } catch (err) {
+            btn.disabled = false;
+            btn.textContent = 'APPROVE';
           }
           await loadRedditAcquisitionIntelligence();
         });
@@ -1447,23 +1458,32 @@
         const panel = document.getElementById('acq-invite-result');
         const emailDraft = res.email_draft || {};
         const inviteUrl = res.invite_url || '';
+        const emailSent = !!res.email_sent;
+        const smtpNote = res.smtp_note || '';
         let msg = '<div class="kyc-card kyc-card--flat" style="margin:0.5rem 0;padding:0.75rem;">' +
-          '<strong>' + escapeHtml(company) + '</strong> approved.<br>' +
-          (inviteUrl ? '<a href="' + escapeHtml(inviteUrl) + '" target="_blank" rel="noopener">Invite link ↗</a> ' +
-            '<button type="button" class="btn secondary" onclick="navigator.clipboard.writeText(\'' + escapeHtml(inviteUrl) + '\')">Copy link</button><br>' : '') +
-          (emailDraft.subject ? '<details style="margin-top:0.5rem;"><summary>Email draft</summary><pre style="font-size:0.8rem;white-space:pre-wrap;">' +
+          '<strong>' + escapeHtml(company) + '</strong> approved. ';
+        if (emailSent) {
+          msg += '<span style="color:#6ef;">✓ Outreach email sent automatically.</span><br>';
+        } else {
+          msg += '<span style="color:#fa0;">⚠ Email not sent (' + escapeHtml(smtpNote) + '). Fix SMTP or send manually:</span><br>';
+        }
+        msg += (inviteUrl ? '<a href="' + escapeHtml(inviteUrl) + '" target="_blank" rel="noopener">Invite link ↗</a> ' +
+            '<button type="button" class="btn secondary" onclick="navigator.clipboard.writeText(\'' + escapeHtml(inviteUrl) + '\')">Copy link</button><br>' : '');
+        if (!emailSent && emailDraft.subject) {
+          msg += '<details style="margin-top:0.5rem;"><summary>Manual email fallback</summary><pre style="font-size:0.8rem;white-space:pre-wrap;">' +
             'Subject: ' + escapeHtml(emailDraft.subject || '') + '\n\n' + escapeHtml(emailDraft.body || '') +
             '</pre><button type="button" class="btn secondary" onclick="navigator.clipboard.writeText(' +
             JSON.stringify('Subject: ' + (emailDraft.subject || '') + '\n\n' + (emailDraft.body || '')) +
-            ')">Copy email</button></details>' : '') +
-          '</div>';
+            ')">Copy for manual send</button></details>';
+        }
+        msg += '</div>';
         if (panel) {
           panel.innerHTML = msg;
         } else {
           const el = document.getElementById('acquisition-intelligence-insights');
           if (el) el.insertAdjacentHTML('afterbegin', '<div id="acq-invite-result">' + msg + '</div>');
         }
-        btn.textContent = '✓ Approved';
+        btn.textContent = emailSent ? '✓ Approved — Email Sent' : '✓ Approved (SMTP failed)';
       } else {
         btn.disabled = false;
         btn.textContent = 'Approve & Invite';

@@ -835,6 +835,27 @@ async def _process_upload_locked(
                     "missing_documents_detected",
                     intake_id=intake_id,
                 )
+
+            # Autonomous payment link dispatch — no operator touch required
+            try:
+                from .auto_payment import auto_send_payment_link
+
+                auto_result = auto_send_payment_link(intake_id, clf)
+                emit_intake_event(
+                    "auto_payment_link_dispatched",
+                    message=intake_id,
+                    metadata={
+                        "intake_id": intake_id,
+                        "product_id": auto_result.get("product_id"),
+                        "email_sent": auto_result.get("email_sent") or auto_result.get("email_result", {}).get("sent"),
+                        "skipped": auto_result.get("skipped"),
+                        "reason": auto_result.get("reason"),
+                        "auto_triggered": True,
+                    },
+                )
+            except Exception as exc:
+                logger.warning("Auto payment link dispatch skipped: %s", exc)
+
         except Exception as exc:
             logger.warning("Founding beta classification skipped: %s", exc)
 

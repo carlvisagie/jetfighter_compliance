@@ -653,7 +653,9 @@ def approve_draft(
     operator_note: str = "",
     base: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """Operator APPROVE — paste organism draft on Reddit manually."""
+    """Operator APPROVE — organism posts autonomously via Reddit API, or copies text if credentials absent."""
+    from .poster import post_reddit_comment, reddit_configured
+
     drafts = _load_jsonl(DRAFT_REPLIES_JSONL, base, limit=500)
     match = next((d for d in drafts if d.get("post_id") == post_id), None)
     if not match:
@@ -661,15 +663,38 @@ def approve_draft(
     rec = dict(match)
     draft = rec.get("draft_reply") or {}
     paste_text = draft.get("public_reply_text") or draft.get("body", "")
-    rec["status"] = "approved_for_manual_post"
+    subreddit = rec.get("subreddit", "")
+
+    # Attempt autonomous post
+    post_result: Dict[str, Any] = {}
+    auto_posted = False
+    if reddit_configured() and paste_text:
+        post_result = post_reddit_comment(
+            post_id=post_id,
+            subreddit=subreddit,
+            comment_text=paste_text,
+            thread_fullname=rec.get("thread_fullname") or f"t3_{post_id}",
+            base_path=str(base) if base else None,
+        )
+        auto_posted = bool(post_result.get("ok"))
+
+    rec["status"] = "posted" if auto_posted else "approved_pending_manual_post"
     rec["approved_utc"] = utc_now()
-    rec["auto_post"] = False
+    rec["auto_post"] = auto_posted
+    rec["post_result"] = post_result
     _append_jsonl(APPROVED_REPLIES_JSONL, rec, base)
-    _update_draft_status(post_id, "approved", base, approved_utc=utc_now())
+    _update_draft_status(
+        post_id,
+        "posted" if auto_posted else "approved",
+        base,
+        approved_utc=utc_now(),
+        auto_posted=auto_posted,
+        comment_id=post_result.get("comment_id"),
+    )
     learning.record_outcome(
         "operator_approved",
         post_id=post_id,
-        subreddit=rec.get("subreddit", ""),
+        subreddit=subreddit,
         metadata={
             "variant": draft.get("variant"),
             "stage": (rec.get("organism_plan") or {}).get("engagement_stage"),
@@ -677,6 +702,7 @@ def approve_draft(
             "prey_score": rec.get("prey_score"),
             "discovery_source_cluster": rec.get("discovery_source_cluster"),
             "discovery_ecosystem": rec.get("discovery_ecosystem"),
+            "auto_posted": auto_posted,
         },
         base=base,
     )
@@ -687,25 +713,44 @@ def approve_draft(
             metadata={"variant": draft.get("variant")},
             base=base,
         )
-    telemetry.emit("reddit_reply_approved", post_id=post_id, metadata={"manual_post_only": True}, base=base)
+    telemetry.emit(
+        "reddit_reply_posted" if auto_posted else "reddit_reply_approved",
+        post_id=post_id,
+        metadata={"auto_posted": auto_posted, "comment_id": post_result.get("comment_id")},
+        base=base,
+    )
     try:
         from ...social_intelligence import record_engagement_outcome
 
         record_engagement_outcome(
             "operator_approved",
-            post={"post_id": post_id, "subreddit": rec.get("subreddit", ""), "author": ""},
+            post={"post_id": post_id, "subreddit": subreddit, "author": ""},
             plan=rec.get("organism_plan"),
             phrasing=(draft.get("public_reply_text") or ""),
             base=base,
         )
     except Exception:
         pass
+
+    if auto_posted:
+        return {
+            "ok": True,
+            "auto_posted": True,
+            "comment_id": post_result.get("comment_id"),
+            "approved": rec,
+            "notice": f"Posted autonomously on r/{subreddit}.",
+        }
+    # Credentials not set up — fall back to manual copy
     return {
         "ok": True,
+        "auto_posted": False,
         "approved": rec,
         "paste_on_reddit": paste_text,
         "route_for_reference": draft.get("operator_route_copy") or rec.get("route_url", ""),
-        "notice": "Copy the text below and post on Reddit yourself. The organism does not auto-post.",
+        "notice": (
+            post_result.get("detail") or
+            "Reddit credentials not configured — add REDDIT_CLIENT_ID/SECRET/USERNAME/PASSWORD to Render to enable auto-posting."
+        ),
     }
 
 
