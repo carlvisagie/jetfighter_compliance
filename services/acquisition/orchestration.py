@@ -516,7 +516,8 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
         "doctrine": {
             "positioning": "burden_removal",
             "message": messaging.CORE_HEADLINE + " " + messaging.CORE_SUBLINE,
-            "primary_route": "/ui/inquiry.html",
+            "primary_route": "/ui/shop.html",
+            "upload_route": "/ui/founding-beta",
             "success_metric": "real_paperwork_submitted",
         },
         "hottest_targets": hottest,
@@ -546,5 +547,86 @@ def _learning_summary(winners: List[Dict], failures: List[Dict], conv: Dict) -> 
     if failures:
         parts.append(f"Watch failures: {failures[-1].get('reason', 'unknown')}.")
     if not parts:
-        parts.append("Collecting real upload telemetry — run discovery cycle and route traffic to inquiry.")
+        parts.append("Collecting real upload telemetry — run discovery cycle and route traffic to shop/upload.")
     return " ".join(parts)
+
+
+def approve_and_invite_lead(
+    lead_id: str,
+    *,
+    base: Optional[Path] = None,
+    base_url: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Operator approves a lead — system builds a tracked upload URL and drafts the outreach."""
+    from .storage import load_all_leads, rewrite_leads_csv, leads_dir, LEAD_JSONL
+    import json as _json
+
+    leads, _ = load_all_leads(base)
+    target: Optional[Lead] = None
+    for lead in leads:
+        if lead.lead_id == lead_id:
+            target = lead
+            break
+    if target is None:
+        return {"ok": False, "error": "lead_not_found", "lead_id": lead_id}
+
+    if target.status in ("rejected", "do_not_contact"):
+        return {"ok": False, "error": "lead_not_eligible", "lead_id": lead_id, "status": target.status}
+
+    from .routing import build_upload_route, get_public_base_url
+
+    route = build_upload_route(
+        lead_id=lead_id,
+        segment=target.segment or "compliance-heavy",
+        campaign_id="operator-approved",
+        message_variant="invite",
+        destination="shop",
+        base_url=base_url or get_public_base_url(),
+    )
+    invite_url = route["primary_url"]
+    upload_url = route["primary_url"].replace("/ui/shop", "/ui/founding-beta")
+    # If already shop URL, also build direct upload URL
+    from ..email_utils import build_invitation_email_text
+
+    email_draft = build_invitation_email_text(
+        company_name=target.company_name,
+        contact_name=target.contact_name,
+        invite_url=invite_url,
+        upload_url=upload_url,
+    )
+
+    prev_status = target.status
+    if target.status in ("new", "reviewed"):
+        target.status = "approved_for_outreach"
+    target.updated_utc = utc_now()
+    target.inquiry_routed_link = invite_url
+
+    # Persist updated lead
+    path = leads_dir(base) / LEAD_JSONL
+    with path.open("w", encoding="utf-8") as f:
+        for lead in leads:
+            f.write(_json.dumps(lead.to_dict(), ensure_ascii=False) + "\n")
+    rewrite_leads_csv(leads)
+
+    # Telemetry
+    telemetry.emit(
+        event_type="lead_approved_for_outreach",
+        lead_id=lead_id,
+        metadata={
+            "invite_url": invite_url,
+            "prev_status": prev_status,
+            "company": target.company_name,
+        },
+    )
+
+    return {
+        "ok": True,
+        "lead_id": lead_id,
+        "company_name": target.company_name,
+        "contact_name": target.contact_name,
+        "contact_email": target.contact_email,
+        "status": target.status,
+        "invite_url": invite_url,
+        "upload_url": upload_url,
+        "email_draft": email_draft,
+    }

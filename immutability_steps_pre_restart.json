@@ -1,0 +1,72 @@
+{
+  "ts": "20260531T055020Z",
+  "base": "https://compliance.keepyourcontracts.com",
+  "intake_id": "FB-9b02b8f7f031",
+  "filename": "immutability-proof.pdf",
+  "email": "immut-proof-20260531T055020Z@keepyourcontracts.com",
+  "steps": {
+    "1_upload": {
+      "pass": true,
+      "status": 200,
+      "intake_id": "FB-9b02b8f7f031",
+      "body_keys": [
+        "ok",
+        "intake_id",
+        "token",
+        "upload_url",
+        "magic_link",
+        "qr_png_base64",
+        "files_saved",
+        "errors",
+        "file_count",
+        "expected_file_count",
+        "received_file_count",
+        "persisted_file_count",
+        "verified_file_count",
+        "rejected_file_count",
+        "duplicate_file_count"
+      ]
+    },
+    "2_proof_gate": {
+      "pass": true,
+      "proof_gate_passed": true,
+      "live_scan_confirmed": true,
+      "verified_file_count": 1
+    },
+    "3_queue_visibility": {
+      "pass": true,
+      "status": 200,
+      "in_queue": true,
+      "queue_depth": 5
+    },
+    "4_retention_visibility": {
+      "pass": true,
+      "status": 200,
+      "file_hashes_match": true,
+      "ok": true
+    },
+    "5_raw_disk_visibility": {
+      "pass": true,
+      "status": 200,
+      "found": true,
+      "intake_id": "FB-9b02b8f7f031",
+      "filename": "immutability-proof.pdf"
+    },
+    "6_download_endpoint": {
+      "pass": true,
+      "status": 200,
+      "bytes": 27
+    },
+    "7_view_endpoint": {
+      "pass": true,
+      "status": 200,
+      "bytes": 27,
+      "content_type": "application/pdf"
+    },
+    "8_restart_pre": {
+      "pass": true,
+      "boot_started_at": null,
+      "scan_type": "boot_snapshot"
+    }
+  }
+}

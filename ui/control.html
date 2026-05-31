@@ -1206,17 +1206,25 @@
         '</ul>';
       html += '<p class="org-metric-foot"><strong>What the organism is learning:</strong> ' + escapeHtml(j.what_organism_is_learning || '') + '</p>';
       if (hottest.length) {
-        html += '<p class="org-metric-foot"><strong>Hottest targets:</strong></p><ul class="guidance-list">';
+        html += '<p class="org-metric-foot"><strong>Hottest targets — approve to generate invite link:</strong></p><ul class="guidance-list" id="acq-targets-list">';
         hottest.forEach(function (t) {
           const draft = (t.message_draft && t.message_draft.headline) ? t.message_draft.headline : (t.suggested_message || '').slice(0, 80);
-          html += '<li style="margin-bottom:0.75rem;"><strong>' + escapeHtml(t.company_name || '') + '</strong><br>' +
+          const leadId = t.lead_id || '';
+          const isApproved = t.status === 'approved_for_outreach' || t.status === 'contacted';
+          const isConverted = t.status === 'intake_completed';
+          const statusBadge = isConverted
+            ? '<span class="org-metric-foot" style="color:#6ef;"> ✓ INTAKE RECEIVED</span>'
+            : isApproved ? '<span class="org-metric-foot" style="color:#af6;"> ✓ APPROVED</span>' : '';
+          html += '<li style="margin-bottom:0.9rem;" data-lead-id="' + escapeHtml(leadId) + '">' +
+            '<strong>' + escapeHtml(t.company_name || '') + '</strong>' + statusBadge + '<br>' +
             'Source: ' + escapeHtml(t.source || '') + ' · Pain: ' + escapeHtml(t.pain_signal || t.signal_level || '') + '<br>' +
             'Qualification: ' + (t.qualification_score || 0) + '% · Fit: ' + (t.fit_score || 0) + '<br>' +
             (t.likely_paperwork_prediction ? '<span class="org-metric-foot">' + escapeHtml(t.likely_paperwork_prediction) + '</span><br>' : '') +
-            (t.likely_outreach_angle ? '<span class="org-metric-foot">' + escapeHtml(t.likely_outreach_angle) + '</span><br>' : '') +
-            (t.why_might_upload_paperwork ? '<span class="org-metric-foot">' + escapeHtml(t.why_might_upload_paperwork) + '</span><br>' : '') +
-            'Draft: <em>' + escapeHtml(draft) + '</em> (' + escapeHtml(t.outreach_status || 'draft_only') + ')<br>' +
-            (t.route_url ? '<a href="' + escapeHtml(t.route_url) + '" target="_blank" rel="noopener">Upload-first route</a>' : '') +
+            'Draft: <em>' + escapeHtml(draft) + '</em><br>' +
+            (leadId && !isConverted
+              ? '<button type="button" class="btn secondary acq-approve-btn" data-lead-id="' + escapeHtml(leadId) + '" data-company="' + escapeHtml(t.company_name || '') + '" style="margin-top:0.35rem;">Approve &amp; Invite</button> '
+              : '') +
+            (t.invite_url ? '<a href="' + escapeHtml(t.invite_url) + '" target="_blank" rel="noopener" class="org-metric-foot">Invite link ↗</a>' : '') +
             '</li>';
         });
         html += '</ul>';
@@ -1420,6 +1428,54 @@
       if (el) el.innerHTML = formatAcquisitionError(e, 'Reddit discovery failed.');
     }
   }
+  // Approve & Invite lead — event delegation on the targets list
+  document.addEventListener('click', async function (e) {
+    const btn = e.target.closest('.acq-approve-btn');
+    if (!btn) return;
+    const leadId = btn.dataset.leadId;
+    const company = btn.dataset.company || leadId;
+    if (!leadId) return;
+    btn.disabled = true;
+    btn.textContent = 'Approving…';
+    try {
+      const res = await api('/api/operator/acquisition-intelligence/approve-lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead_id: leadId }),
+      });
+      if (res && res.ok) {
+        const panel = document.getElementById('acq-invite-result');
+        const emailDraft = res.email_draft || {};
+        const inviteUrl = res.invite_url || '';
+        let msg = '<div class="kyc-card kyc-card--flat" style="margin:0.5rem 0;padding:0.75rem;">' +
+          '<strong>' + escapeHtml(company) + '</strong> approved.<br>' +
+          (inviteUrl ? '<a href="' + escapeHtml(inviteUrl) + '" target="_blank" rel="noopener">Invite link ↗</a> ' +
+            '<button type="button" class="btn secondary" onclick="navigator.clipboard.writeText(\'' + escapeHtml(inviteUrl) + '\')">Copy link</button><br>' : '') +
+          (emailDraft.subject ? '<details style="margin-top:0.5rem;"><summary>Email draft</summary><pre style="font-size:0.8rem;white-space:pre-wrap;">' +
+            'Subject: ' + escapeHtml(emailDraft.subject || '') + '\n\n' + escapeHtml(emailDraft.body || '') +
+            '</pre><button type="button" class="btn secondary" onclick="navigator.clipboard.writeText(' +
+            JSON.stringify('Subject: ' + (emailDraft.subject || '') + '\n\n' + (emailDraft.body || '')) +
+            ')">Copy email</button></details>' : '') +
+          '</div>';
+        if (panel) {
+          panel.innerHTML = msg;
+        } else {
+          const el = document.getElementById('acquisition-intelligence-insights');
+          if (el) el.insertAdjacentHTML('afterbegin', '<div id="acq-invite-result">' + msg + '</div>');
+        }
+        btn.textContent = '✓ Approved';
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Approve & Invite';
+        alert('Approval failed: ' + ((res && res.error) || 'unknown'));
+      }
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Approve & Invite';
+      alert('Network error: ' + err.message);
+    }
+  });
+
   document.getElementById('redditIntelRunBtn')?.addEventListener('click', function () { runRedditDiscovery(false); });
   document.getElementById('redditBetaBroadBtn')?.addEventListener('click', function () { runRedditDiscovery(true); });
   document.getElementById('acquisitionIntelRunBtn')?.addEventListener('click', async function () {

@@ -726,6 +726,7 @@ async def intake_upload(
     company: str = Form(""),
     context: str = Form(""),
     deadline: str = Form(""),
+    ref: str = Form(""),
     expected_file_count: int = Form(0),
     expected_file_names: str = Form(""),
     upload_manifest: str = Form(""),
@@ -744,6 +745,7 @@ async def intake_upload(
         company=company,
         context=context,
         deadline=deadline,
+        ref=ref.strip(),
         expected_file_count=expected_file_count,
         expected_file_names=parse_expected_file_names(expected_file_names),
         upload_manifest=parse_upload_manifest(upload_manifest),
@@ -768,6 +770,7 @@ async def founding_beta_upload(
     company: str = Form(""),
     context: str = Form(""),
     deadline: str = Form(""),
+    ref: str = Form(""),
     expected_file_count: int = Form(0),
     expected_file_names: str = Form(""),
     upload_manifest: str = Form(""),
@@ -783,6 +786,7 @@ async def founding_beta_upload(
         company,
         context,
         deadline,
+        ref,
         expected_file_count,
         expected_file_names,
         upload_manifest,
@@ -1750,6 +1754,23 @@ async def operator_acquisition_intelligence_run(body: dict = Body(default={})):
             "error_detail": str(e)[:500],
             "operator_message": f"Acquisition runtime error: {str(e)[:200]}",
         }
+
+
+@app.post("/api/operator/acquisition-intelligence/approve-lead")
+async def operator_acquisition_approve_lead(body: dict = Body(default={})):
+    """Operator approves a lead — system generates tracked invite URL and outreach draft."""
+    from services.runtime_boot import module_pause_response
+    from services.runtime_blocking import run_blocking
+
+    paused = module_pause_response("acquisition")
+    if paused is not None:
+        return paused
+    from services.acquisition.orchestration import approve_and_invite_lead
+
+    lead_id = str(body.get("lead_id") or "").strip()
+    if not lead_id:
+        return {"ok": False, "error": "lead_id required"}
+    return await run_blocking(approve_and_invite_lead, lead_id)
 
 
 @app.get("/api/operator/operational-alerts")

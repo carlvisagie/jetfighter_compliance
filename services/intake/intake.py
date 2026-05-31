@@ -328,6 +328,39 @@ def _safe_emit_intake_event(
     return ok
 
 
+def _link_intake_to_lead(intake_id: str, record: Dict[str, Any]) -> None:
+    """When an intake has a lead_id, update that lead's status and emit an acquisition_conversion alert."""
+    lead_id = record.get("lead_id") or ""
+    if not lead_id:
+        return
+    try:
+        from services.acquisition.storage import leads_dir, load_all_leads, rewrite_leads_csv, LEAD_JSONL
+        from services.acquisition.models import utc_now as lead_utc_now
+        import json
+
+        leads, _ = load_all_leads()
+        changed = False
+        for lead in leads:
+            if lead.lead_id == lead_id and lead.status not in ("intake_completed", "rejected", "do_not_contact"):
+                lead.status = "intake_completed"
+                lead.updated_utc = lead_utc_now()
+                changed = True
+                break
+        if changed:
+            rewrite_leads_csv(leads)
+            # Rewrite the JSONL in-place with updated lead
+            path = leads_dir() / LEAD_JSONL
+            with path.open("w", encoding="utf-8") as f:
+                for lead in leads:
+                    f.write(json.dumps(lead.to_dict(), ensure_ascii=False) + "\n")
+
+        # Emit conversion alert regardless of whether status changed
+        from services.alerts.engine import alert_acquisition_conversion
+        alert_acquisition_conversion(lead_id=lead_id, intake_id=intake_id)
+    except Exception as exc:
+        logger.warning("_link_intake_to_lead skipped: %s", exc)
+
+
 async def process_upload(
     files: List[UploadFile],
     *,
@@ -338,6 +371,7 @@ async def process_upload(
     company: str = "",
     context: str = "",
     deadline: str = "",
+    ref: str = "",
     expected_file_count: int = 0,
     expected_file_names: Optional[List[str]] = None,
     upload_manifest: Optional[Dict[str, Any]] = None,
@@ -370,6 +404,10 @@ async def process_upload(
         )
         intake_id = record["intake_id"]
         token = make_founding_beta_token(intake_id)
+
+    # Acquisition attribution: store lead_id when a ref=LD-xxx param was passed
+    if ref and str(ref).startswith("LD-") and not record.get("lead_id"):
+        record["lead_id"] = str(ref).strip()[:64]
 
     commit_lock = _intake_commit_lock(intake_id)
     commit_lock.acquire()
@@ -723,6 +761,7 @@ async def _process_upload_locked(
             "file_count": record["file_count"],
             "urgent": record.get("urgent"),
             "committed": committed,
+            "lead_id": record.get("lead_id") or "",
         },
     )
     emit_intake_event(
@@ -730,6 +769,26 @@ async def _process_upload_locked(
         message=intake_id,
         metadata={"intake_id": intake_id, "extensions": ext_counts},
     )
+
+    # Notify operator on every intake upload (CRITICAL for first-ever submission)
+    if committed and saved:
+        try:
+            from services.alerts import alert_first_paperwork_submission
+
+            alert_first_paperwork_submission(
+                email=record.get("email") or "",
+                name=record.get("company") or record.get("email") or intake_id,
+                project_id=intake_id,
+                upload_count=len(saved),
+                file_types=list(ext_counts.keys()),
+                source="founding-beta-upload",
+                lead_id=record.get("lead_id") or "",
+            )
+        except Exception as exc:
+            logger.warning("Operator paperwork alert skipped: %s", exc)
+
+    # Acquisition funnel attribution: mark conversion when intake came from a lead
+    _link_intake_to_lead(intake_id, record)
     if record.get("urgent"):
         emit_intake_event(
             "operator_review_needed",

@@ -157,28 +157,32 @@ def alert_first_paperwork_submission(
     continuation_url: str = "",
     route_url: str = "",
     pain_signals: Optional[List[str]] = None,
+    lead_id: str = "",
 ) -> Dict[str, Any]:
     """CRITICAL — first real customer paperwork. Operator must know immediately."""
     if not is_real_customer_email(email):
         return {"ok": True, "skipped": True, "reason": "not_real_customer"}
 
     state = load_state()
+    ctx: Dict[str, Any] = {
+        "company": name,
+        "source": source,
+        "upload_count": upload_count,
+        "file_types": file_types,
+        "project_id": project_id,
+        "continuation_url": continuation_url,
+        "route_url": route_url,
+        "fit_score": fit_score,
+        "pain_signals": pain_signals or [],
+    }
+    if lead_id:
+        ctx["lead_id"] = lead_id
     if state.get("first_paperwork_alert_sent"):
         return raise_alert(
             "paperwork_submitted",
             title="Paperwork submitted",
             body=f"{name or email} completed upload-first onboarding.",
-            context={
-                "company": name,
-                "source": source,
-                "upload_count": upload_count,
-                "file_types": file_types,
-                "project_id": project_id,
-                "continuation_url": continuation_url,
-                "route_url": route_url,
-                "fit_score": fit_score,
-                "pain_signals": pain_signals or [],
-            },
+            context=ctx,
             dedupe_key=f"paperwork:{project_id}",
         )
 
@@ -189,22 +193,14 @@ def alert_first_paperwork_submission(
     ).strftime("%Y-%m-%dT%H:%M:%SZ")
     save_state(state)
 
+    ctx["company"] = name or email.split("@")[0]
+    ctx["source"] = source or "upload-first"
     return raise_alert(
         "first_paperwork_submission",
         title="FIRST REAL PAPERWORK SUBMISSION",
         body="A real customer submitted paperwork via upload-first onboarding.",
         severity=Severity.CRITICAL,
-        context={
-            "company": name or email.split("@")[0],
-            "source": source or "upload-first",
-            "upload_count": upload_count,
-            "file_types": file_types,
-            "project_id": project_id,
-            "continuation_url": continuation_url,
-            "route_url": route_url,
-            "fit_score": fit_score,
-            "pain_signals": pain_signals or [],
-        },
+        context=ctx,
         dedupe_key="first_paperwork_ever",
         force=True,
     )
@@ -230,6 +226,17 @@ def alert_high_fit_target(target: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             "route_url": target.get("route_url"),
         },
         dedupe_key=f"high_fit:{target.get('target_id') or target.get('lead_id')}",
+    )
+
+
+def alert_acquisition_conversion(*, lead_id: str, intake_id: str) -> Optional[Dict[str, Any]]:
+    """Fired when a prospect who came from acquisition uploads their paperwork."""
+    return raise_alert(
+        "acquisition_conversion",
+        title=f"Acquisition lead converted to intake: {lead_id}",
+        body=f"Lead {lead_id} submitted paperwork — intake {intake_id} is ready for review.",
+        context={"lead_id": lead_id, "intake_id": intake_id},
+        dedupe_key=f"acq_conv:{lead_id}:{intake_id}",
     )
 
 

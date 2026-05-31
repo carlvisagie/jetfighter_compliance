@@ -13,6 +13,8 @@
   var tokenInput = document.getElementById('fbToken');
   if (params.get('intake_id') && intakeInput) intakeInput.value = params.get('intake_id');
   if (params.get('token') && tokenInput) tokenInput.value = params.get('token');
+  // Acquisition lead attribution — ref=LD-xxx passed from acquisition engine routing
+  var refLeadId = params.get('ref') || '';
 
   var drop = document.getElementById('fbDrop');
   var fileInput = document.getElementById('fbFiles');
@@ -185,6 +187,7 @@
       fd.append('company', document.getElementById('fbCompany').value);
       fd.append('context', document.getElementById('fbContext').value);
       fd.append('deadline', document.getElementById('fbDeadline').value);
+      if (refLeadId) fd.append('ref', refLeadId);
       fd.append('expected_file_count', String(selectedFiles.length));
       fd.append(
         'expected_file_names',

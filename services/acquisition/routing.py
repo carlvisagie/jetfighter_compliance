@@ -22,19 +22,19 @@ def build_upload_route(
     campaign_id: str = "upload-first",
     message_variant: str = "A",
     experiment_id: str = "",
-    destination: str = "inquiry",
+    destination: str = "shop",
     base_url: Optional[str] = None,
 ) -> Dict[str, str]:
-    """Primary acquisition destination: upload-first onboarding."""
+    """Primary acquisition destination: shop (upload-first onboarding with prices)."""
     base = (base_url or get_public_base_url()).rstrip("/")
-    dest = destination if destination in UPLOAD_FIRST_PATHS else "inquiry"
+    dest = destination if destination in UPLOAD_FIRST_PATHS else "shop"
 
     if dest == "inquiry" and lead_id:
         url = build_inquiry_link(lead_id, segment, base_url=base)
-    elif dest == "shop":
-        url = f"{base}{UPLOAD_FIRST_PATHS['shop']}"
+    elif dest == "upload":
+        url = f"{base}/ui/founding-beta"
     else:
-        url = f"{base}{UPLOAD_FIRST_PATHS['inquiry']}"
+        url = f"{base}{UPLOAD_FIRST_PATHS['shop']}"
 
     params = {"utm_campaign": campaign_id, "utm_content": message_variant}
     if lead_id:

@@ -1,0 +1,108 @@
+﻿{
+  "ok": true,
+  "auth_diagnostic": {
+    "base_url": "https://compliance.keepyourcontracts.com",
+    "auth_mode_selected": "session_cookie",
+    "header_name_used": "kyc_ops_session",
+    "env_ops_password_present": true,
+    "env_ops_password_length": 12,
+    "env_ops_api_key_present": false,
+    "env_ops_api_key_length": 0,
+    "ops_env_file": "E:\\JetFighter_Compliance\\.ops_env",
+    "auth_probe_endpoint": "/api/ops/auth-check",
+    "auth_probe_status": 200,
+    "auth_probe_body": {
+      "ok": true,
+      "auth_mode": "session_cookie",
+      "service": "jetfighter-compliance",
+      "environment": "production",
+      "git_commit": "unknown",
+      "data_root": "/var/data"
+    },
+    "failure_reason": null,
+    "build_info": {
+      "ok": true,
+      "service": "jetfighter-compliance",
+      "git_commit": "unknown",
+      "environment": "production",
+      "url": "https://compliance.keepyourcontracts.com"
+    },
+    "deploy_parity": {
+      "branded": {
+        "ok": true,
+        "service": "jetfighter-compliance",
+        "git_commit": "unknown",
+        "environment": "production",
+        "url": "https://compliance.keepyourcontracts.com"
+      },
+      "render": {
+        "ok": true,
+        "service": "jetfighter-compliance",
+        "git_commit": "unknown",
+        "environment": "production",
+        "url": "https://jetfighter-compliance.onrender.com"
+      },
+      "ok": true,
+      "branded_commit": "unknown",
+      "render_commit": "unknown"
+    },
+    "session_probe": {
+      "ok": true,
+      "authenticated": false,
+      "password_configured": true,
+      "api_key_configured": true,
+      "auth_contract": {
+        "api_key_header": "X-Ops-Key",
+        "api_key_env": "OPS_API_KEY",
+        "password_env": "OPS_PASSWORD",
+        "session_cookie": "kyc_ops_session",
+        "login_endpoint": "POST /api/ops/login",
+        "auth_check_endpoint": "GET /api/ops/auth-check"
+      }
+    },
+    "auth_contract": {
+      "api_key_header": "X-Ops-Key",
+      "api_key_env": "OPS_API_KEY",
+      "password_env": "OPS_PASSWORD",
+      "session_cookie": "kyc_ops_session",
+      "login_endpoint": "POST /api/ops/login",
+      "auth_check_endpoint": "GET /api/ops/auth-check"
+    }
+  },
+  "diagnostics_status": 200,
+  "live_boot_status": 200,
+  "raw_scan_status": 200,
+  "inventory_agreement": {
+    "ok": true,
+    "scan_at_utc": "2026-05-31T07:01:10Z",
+    "canonical": {
+      "intake_directories": 2,
+      "upload_files": 0,
+      "pending_review_count": 2
+    },
+    "disagreements": [],
+    "live_scan_status": "healthy"
+  },
+  "ghost_intake_count": null,
+  "ghost_intakes": null,
+  "counts": {
+    "inventory.intake_directories": 2,
+    "inventory.upload_files": 0,
+    "inventory.pending_review_count": 2,
+    "retention_scan.intake_directories": 2,
+    "retention_scan.upload_files": 0,
+    "diagnostics.intake_directories_found": 2,
+    "diagnostics.upload_files_on_disk": 0,
+    "diagnostics.pending_review_count": 2,
+    "queue_depth": 2,
+    "live_scan_status": "healthy",
+    "live_boot.intake_directories": 2,
+    "live_boot.upload_files": 0,
+    "live_boot.queue_depth": 2,
+    "live_boot.live_scan_status": "healthy",
+    "live_boot.status": "critical",
+    "raw_disk_scan.intake_directories": 2,
+    "raw_disk_scan.upload_files": 0
+  },
+  "disagreements": []
+}

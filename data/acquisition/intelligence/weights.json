@@ -5,7 +5,7 @@
   "urgency_keyword": 4.0,
   "business_email": 2.0,
   "intake_completed": 12.0,
-  "inquiry_only": -2.0,
+  "inquiry_only": -6.0,
   "abandoned_intake": -5.0,
   "high_documentation_score": 5.0,
   "conversion_success": 15.0

@@ -1,0 +1,166 @@
+{
+  "base": "https://compliance.keepyourcontracts.com",
+  "immutability_intake_id": "FB-9b02b8f7f031",
+  "mismatch_intake_id": "FB-308fe2280bb9",
+  "filename": "immutability-proof.pdf",
+  "matrix": {
+    "1_upload": "PASS",
+    "2_proof_gate": "PASS",
+    "3_queue_visibility": "PASS",
+    "4_retention_visibility": "PASS",
+    "5_raw_disk_visibility": "PASS",
+    "6_download_endpoint": "PASS",
+    "7_view_endpoint": "PASS",
+    "8_restart_pre": "PASS",
+    "8_force_render_restart": "FAIL",
+    "9_inventory_agreement": "PASS",
+    "10_file_still_exists": "PASS",
+    "11_integrity_mismatch_sim": "PASS",
+    "12_forensic_incident": "PASS",
+    "13_operator_sees_incident": "PASS"
+  },
+  "steps": {
+    "1_upload": {
+      "pass": true,
+      "status": 200,
+      "intake_id": "FB-9b02b8f7f031",
+      "body_keys": [
+        "ok",
+        "intake_id",
+        "token",
+        "upload_url",
+        "magic_link",
+        "qr_png_base64",
+        "files_saved",
+        "errors",
+        "file_count",
+        "expected_file_count",
+        "received_file_count",
+        "persisted_file_count",
+        "verified_file_count",
+        "rejected_file_count",
+        "duplicate_file_count"
+      ]
+    },
+    "2_proof_gate": {
+      "pass": true,
+      "proof_gate_passed": true,
+      "live_scan_confirmed": true,
+      "verified_file_count": 1
+    },
+    "3_queue_visibility": {
+      "pass": true,
+      "status": 200,
+      "in_queue": true,
+      "queue_depth": 5
+    },
+    "4_retention_visibility": {
+      "pass": true,
+      "status": 200,
+      "file_hashes_match": true,
+      "ok": true
+    },
+    "5_raw_disk_visibility": {
+      "pass": true,
+      "status": 200,
+      "found": true,
+      "intake_id": "FB-9b02b8f7f031",
+      "filename": "immutability-proof.pdf"
+    },
+    "6_download_endpoint": {
+      "pass": true,
+      "status": 200,
+      "bytes": 27
+    },
+    "7_view_endpoint": {
+      "pass": true,
+      "status": 200,
+      "bytes": 27,
+      "content_type": "application/pdf"
+    },
+    "8_restart_pre": {
+      "pass": true,
+      "boot_started_at": null,
+      "scan_type": "boot_snapshot"
+    },
+    "8_force_render_restart": {
+      "pass": false,
+      "method": null,
+      "reason": "RENDER_API_KEY not set locally",
+      "fallback": "no_render_api_key; durable disk persistence verified via repeated live scans (container restart not triggered from this host)"
+    },
+    "9_inventory_agreement": {
+      "pass": true,
+      "ok": true,
+      "disagreements": [],
+      "live_scan_status": "healthy"
+    },
+    "10_file_still_exists": {
+      "pass": true,
+      "found_on_disk": true,
+      "file_count": 1,
+      "retention_ok": true,
+      "file_hashes_match": true
+    },
+    "11_integrity_mismatch_sim": {
+      "pass": true,
+      "intake_id": "FB-308fe2280bb9",
+      "integrity_mismatch": true,
+      "review_status": "partial_upload",
+      "upload_integrity_ok": false
+    },
+    "12_forensic_incident": {
+      "pass": true,
+      "reconcile_ok": false,
+      "disagreement_count": 1,
+      "integrity_incident_count": 0,
+      "intake_reconcile": {
+        "ok": false,
+        "intake_id": "FB-308fe2280bb9",
+        "issues": [
+          "expected_received_mismatch"
+        ],
+        "integrity_failure": true,
+        "disk_file_count": 1,
+        "intake_json_exists": true,
+        "audit_receipt_exists": true,
+        "index_row_exists": true,
+        "index_committed": true,
+        "commit_complete": true,
+        "queue_visible": true,
+        "cote_matches_storage": true,
+        "custody_status": "partial_upload",
+        "count_breakdown": {
+          "expected_file_count": 2,
+          "received_file_count": 1,
+          "persisted_file_count": 1,
+          "verified_file_count": 1,
+          "failed_file_count": 1,
+          "on_disk_file_count": 1,
+          "intake_json_file_count": 1
+        },
+        "transaction_phases": [
+          "intake_committed",
+          "index_committed",
+          "upload_received",
+          "files_persisted",
+          "hash_verified",
+          "audit_written",
+          "intake_committed",
+          "index_committed",
+          "classification_complete"
+        ],
+        "pending_review": true
+      }
+    },
+    "13_operator_sees_incident": {
+      "pass": true,
+      "upload_node_severity": "amber",
+      "integrity_mismatch_count": 3,
+      "anomaly": true,
+      "attention_items": 0
+    }
+  },
+  "silent_disappearance_possible": "YES",
+  "overall": "FAIL"
+}

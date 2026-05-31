@@ -1,0 +1,152 @@
+{
+  "intake_id": "FB-9b02b8f7f031",
+  "queries": {
+    "reconcile": {
+      "status": 404,
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "retention": {
+      "status": 404,
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "raw_disk": {
+      "status": 404,
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "boot_status": {
+      "status": 200,
+      "body": {
+        "ok": true,
+        "KYC_SAFE_MODE_raw": "false",
+        "safe_mode_effective": false,
+        "schedulers_enabled": true,
+        "scan_type": "boot_snapshot",
+        "safe_mode": false,
+        "manual_acquisition": true,
+        "knowledge_overlay": true,
+        "observability": true,
+        "env": {
+          "KYC_SAFE_MODE": "false",
+          "KYC_REQUIRE_SAFE_MODE": "false",
+          "KYC_SCHEDULERS_ENABLED": "true",
+          "KYC_ENABLE_MANUAL_ACQUISITION": "true",
+          "KYC_ENABLE_KNOWLEDGE_OVERLAY": "true",
+          "KYC_ENABLE_OBSERVABILITY": "true",
+          "ENVIRONMENT": "production",
+          "RENDER_EXTERNAL_URL": "https://jetfighter-compliance.onrender.com",
+          "safe_mode_effective": "False",
+          "schedulers_enabled": "True"
+        },
+        "entries": [
+          {
+            "component": "application",
+            "status": "starting",
+            "detail": "stabilization boot"
+          },
+          {
+            "component": "env",
+            "status": "KYC_SAFE_MODE",
+            "detail": "false"
+          },
+          {
+            "component": "env",
+            "status": "KYC_REQUIRE_SAFE_MODE",
+            "detail": "false"
+          },
+          {
+            "component": "env",
+            "status": "KYC_SCHEDULERS_ENABLED",
+            "detail": "true"
+          },
+          {
+            "component": "env",
+            "status": "KYC_ENABLE_MANUAL_ACQUISITION",
+            "detail": "true"
+          },
+          {
+            "component": "env",
+            "status": "KYC_ENABLE_KNOWLEDGE_OVERLAY",
+            "detail": "true"
+          },
+          {
+            "component": "env",
+            "status": "KYC_ENABLE_OBSERVABILITY",
+            "detail": "true"
+          },
+          {
+            "component": "env",
+            "status": "ENVIRONMENT",
+            "detail": "production"
+          },
+          {
+            "component": "env",
+            "status": "RENDER_EXTERNAL_URL",
+            "detail": "https://jetfighter-compliance.onrender.com"
+          },
+          {
+            "component": "env",
+            "status": "safe_mode_effective",
+            "detail": "False"
+          },
+          {
+            "component": "env",
+            "status": "schedulers_enabled",
+            "detail": "True"
+          },
+          {
+            "component": "storage",
+            "status": "ok",
+            "detail": "data_root=/var/data durable_storage_configured=True intake_uploads_enabled=True"
+          },
+          {
+            "component": "intake_retention",
+            "status": "ok",
+            "detail": "dirs=0 files=0 agree=True"
+          },
+          {
+            "component": "worker",
+            "status": "skipped",
+            "detail": "safe_mode=False schedulers=True"
+          },
+          {
+            "component": "heavy_subsystems",
+            "status": "skipped",
+            "detail": "inquiry/upload/static only"
+          }
+        ]
+      }
+    },
+    "integrity_incidents": {
+      "status": 404,
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "transaction": {
+      "status": 404,
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "index_tail": {
+      "status": 404,
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "download": {
+      "status": 404,
+      "bytes": 22
+    },
+    "view": {
+      "status": 404,
+      "bytes": 22
+    }
+  }
+}

@@ -1,4 +1,4 @@
-﻿import json
+import json
 import time
 from urllib.parse import parse_qs, urlparse
 

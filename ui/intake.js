@@ -1,4 +1,4 @@
-﻿(async () => {
+(async () => {
   const params = new URLSearchParams(location.search);
   const token = params.get("token") || "";
   document.getElementById("token").value = token;

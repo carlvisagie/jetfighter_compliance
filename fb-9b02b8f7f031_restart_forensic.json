@@ -1,0 +1,758 @@
+{
+  "intake_id": "FB-9b02b8f7f031",
+  "filename": "immutability-proof.pdf",
+  "expected_canonical_path_production": "/var/data/intakes/FB-9b02b8f7f031/uploads/immutability-proof.pdf",
+  "timestamp_utc": "2026-05-31T07:17:46Z",
+  "render_api_key_present": true,
+  "auth": {
+    "ok": true,
+    "build_commit": "unknown"
+  },
+  "before_restart": {
+    "queries": {
+      "/api/operator/intake/retention-check/FB-9b02b8f7f031": {
+        "status": 200,
+        "body": {
+          "ok": false,
+          "intake_id": "FB-9b02b8f7f031",
+          "write_root": "/var/data",
+          "read_root": "/var/data",
+          "intake_dir_exists": true,
+          "intake_json_exists": false,
+          "upload_files_found": false,
+          "upload_file_count": 0,
+          "file_hashes_match": true,
+          "ghost_intake": false,
+          "classification_exists": false,
+          "audit_receipt_exists": false,
+          "queue_visible": true,
+          "cote_visible": false,
+          "files_on_disk": {},
+          "audit_receipt": null,
+          "custody_status": null,
+          "count_breakdown": {
+            "expected_file_count": 0,
+            "received_file_count": 0,
+            "persisted_file_count": 0,
+            "verified_file_count": 0,
+            "rejected_file_count": 0,
+            "duplicate_file_count": 0,
+            "failed_file_count": 0,
+            "on_disk_file_count": 0
+          },
+          "counts_match": true,
+          "integrity_mismatch": false,
+          "hash_mismatch_detected": false
+        }
+      },
+      "/api/operator/intake/diagnostics": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "live_scan_status": "healthy",
+          "inventory_agreement": {
+            "ok": true,
+            "scan_at_utc": "2026-05-31T07:17:49Z",
+            "canonical": {
+              "intake_directories": 1,
+              "upload_files": 0,
+              "pending_review_count": 1
+            },
+            "disagreements": [],
+            "ghost_intakes": [],
+            "ghost_intake_count": 0,
+            "live_scan_status": "healthy"
+          },
+          "diagnostics": {
+            "data_root": "/var/data",
+            "write_root": "/var/data",
+            "read_root": "/var/data",
+            "roots_match": true,
+            "durable_storage_configured": true,
+            "intake_uploads_enabled": true,
+            "founding_beta_uploads_enabled": true,
+            "upload_block_reason": null,
+            "canonical_intakes_root": "/var/data/intakes",
+            "legacy_intakes_roots": [],
+            "intakes_root": "/var/data/intakes",
+            "index_jsonl": "/var/data/intakes/index.jsonl",
+            "index_exists": true,
+            "index_size_bytes": 394,
+            "intake_directories_found": 1,
+            "intake_directories": 1,
+            "intake_ids_sample": [
+              "FB-9b02b8f7f031"
+            ],
+            "pending_intake_ids_sample": [
+              "FB-9b02b8f7f031"
+            ],
+            "pending_review_count": 1,
+            "upload_files_on_disk": 0,
+            "upload_files": 0,
+            "inventory": {
+              "ok": true,
+              "scan_type": "live",
+              "scan_at_utc": "2026-05-31T07:17:49Z",
+              "data_root": "/var/data",
+              "write_root": "/var/data",
+              "read_root": "/var/data",
+              "intakes_root": "/var/data/intakes",
+              "index_jsonl": "/var/data/intakes/index.jsonl",
+              "intake_directories": 1,
+              "intake_json_files": 1,
+              "upload_files": 0,
+              "index_tail_unique_ids": 1,
+              "pending_review_count": 1,
+              "pending_intake_ids_sample": [
+                "FB-9b02b8f7f031"
+              ],
+              "intake_ids_sample": [
+                "FB-9b02b8f7f031"
+              ],
+              "only_on_disk_not_in_index": [],
+              "only_in_index_not_on_disk": [],
+              "index_disk_agree": true
+            },
+            "latest_integrity_mismatch": null,
+            "legacy_migration": {
+              "legacy_root": null,
+              "legacy_intakes_pending_migration": [],
+              "legacy_pending_count": 0,
+              "migration_complete": true
+            },
+            "retention_scan": {
+              "ok": true,
+              "scan_type": "live",
+              "scan_at_utc": "2026-05-31T07:17:49Z",
+              "data_root": "/var/data",
+              "write_root": "/var/data",
+              "read_root": "/var/data",
+              "intakes_root": "/var/data/intakes",
+              "index_jsonl": "/var/data/intakes/index.jsonl",
+              "intake_directories": 1,
+              "intake_json_files": 1,
+              "upload_files": 0,
+              "index_tail_unique_ids": 1,
+              "pending_review_count": 1,
+              "pending_intake_ids_sample": [
+                "FB-9b02b8f7f031"
+              ],
+              "intake_ids_sample": [
+                "FB-9b02b8f7f031"
+              ],
+              "only_on_disk_not_in_index": [],
+              "only_in_index_not_on_disk": [],
+              "index_disk_agree": true
+            },
+            "startup_retention_snapshot": {
+              "write_root": "/var/data",
+              "read_root": "/var/data",
+              "intakes_root": "/var/data/intakes",
+              "index_jsonl": "/var/data/intakes/index.jsonl",
+              "intake_directories": 0,
+              "intake_json_files": 0,
+              "upload_files": 0,
+              "index_tail_unique_ids": 0,
+              "only_on_disk_not_in_index": [],
+              "only_in_index_not_on_disk": [],
+              "index_disk_agree": true,
+              "startup_recovery": {
+                "ok": true,
+                "recovered_intake_ids": [],
+                "skipped_already_committed": [],
+                "recovered_count": 0
+              },
+              "live_scan": {
+                "ok": true,
+                "scan_type": "live",
+                "scan_at_utc": "2026-05-31T07:15:15Z",
+                "data_root": "/var/data",
+                "write_root": "/var/data",
+                "read_root": "/var/data",
+                "intakes_root": "/var/data/intakes",
+                "index_jsonl": "/var/data/intakes/index.jsonl",
+                "intake_directories": 0,
+                "intake_json_files": 0,
+                "upload_files": 0,
+                "index_tail_unique_ids": 0,
+                "pending_review_count": 0,
+                "pending_intake_ids_sample": [],
+                "intake_ids_sample": [],
+                "only_on_disk_not_in_index": [],
+                "only_in_index_not_on_disk": [],
+                "index_disk_agree": true,
+                "upload_bytes": 0,
+                "intakes": []
+              },
+              "live_boot_status": "healthy",
+              "healthy": true,
+              "forensic_proof_ok": true,
+              "ghost_intakes": [],
+              "ghost_intake_count": 0
+            },
+            "inventory_agreement": {
+              "ok": true,
+              "scan_at_utc": "2026-05-31T07:17:49Z",
+              "canonical": {
+                "intake_directories": 1,
+                "upload_files": 0,
+                "pending_review_count": 1
+              },
+              "disagreements": [],
+              "ghost_intakes": [],
+              "ghost_intake_count": 0,
+              "live_scan_status": "healthy"
+            },
+            "live_scan_status": "healthy"
+          },
+          "queue_depth": 1,
+          "pending_review_count": 1,
+          "queue_rows_generated": 1,
+          "visibility_warning": null,
+          "newest_intake_id": "FB-9b02b8f7f031"
+        }
+      },
+      "/api/operator/intake/reconcile/FB-9b02b8f7f031": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "intake_id": "FB-9b02b8f7f031",
+          "issues": [],
+          "integrity_failure": false,
+          "disk_file_count": 0,
+          "intake_json_exists": true,
+          "audit_receipt_exists": false,
+          "index_row_exists": true,
+          "index_committed": false,
+          "commit_complete": false,
+          "queue_visible": true,
+          "cote_matches_storage": true,
+          "custody_status": null,
+          "count_breakdown": {
+            "expected_file_count": 0,
+            "received_file_count": 0,
+            "persisted_file_count": 0,
+            "verified_file_count": 0,
+            "failed_file_count": 0,
+            "on_disk_file_count": 0,
+            "intake_json_file_count": 0
+          },
+          "transaction_phases": [],
+          "pending_review": true
+        }
+      },
+      "/api/operator/intake/FB-9b02b8f7f031/files": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "intake_id": "FB-9b02b8f7f031",
+          "file_count": 0,
+          "documents": []
+        }
+      },
+      "/api/operator/intake/FB-9b02b8f7f031/audit": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "intake_id": "FB-9b02b8f7f031",
+          "write_root": "/var/data",
+          "read_root": "/var/data",
+          "audit_receipt": null,
+          "audit_receipt_exists": false,
+          "audit_receipt_path": "/var/data/intakes/FB-9b02b8f7f031/intake_audit.json",
+          "files_on_disk": {},
+          "intake_json_path": "/var/data/intakes/FB-9b02b8f7f031/intake.json",
+          "classification_path": "/var/data/intakes/FB-9b02b8f7f031/classification.json",
+          "custody_status": null,
+          "upload_integrity": {},
+          "upload_custody": {},
+          "file_lifecycle_table": [],
+          "transaction_lifecycle": [],
+          "count_breakdown": {
+            "expected_file_count": null,
+            "received_file_count": null,
+            "persisted_file_count": null,
+            "verified_file_count": null,
+            "rejected_file_count": null,
+            "duplicate_file_count": null,
+            "failed_file_count": null
+          }
+        }
+      },
+      "/api/operator/integrity/timeline/FB-9b02b8f7f031": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "intake_id": "FB-9b02b8f7f031",
+          "event_count": 0,
+          "events": [],
+          "custody_status": null
+        }
+      },
+      "/api/operator/intake/raw-disk-scan": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "scan_type": "live",
+          "scan_at_utc": "2026-05-31T07:17:51Z",
+          "data_root": "/var/data",
+          "write_root": "/var/data",
+          "read_root": "/var/data",
+          "intakes_root": "/var/data/intakes",
+          "index_jsonl": "/var/data/intakes/index.jsonl",
+          "intake_directories": 1,
+          "intake_json_files": 1,
+          "upload_files": 0,
+          "index_tail_unique_ids": 1,
+          "pending_review_count": 1,
+          "pending_intake_ids_sample": [
+            "FB-9b02b8f7f031"
+          ],
+          "intake_ids_sample": [
+            "FB-9b02b8f7f031"
+          ],
+          "only_on_disk_not_in_index": [],
+          "only_in_index_not_on_disk": [],
+          "index_disk_agree": true,
+          "upload_bytes": 0,
+          "intakes": [
+            {
+              "intake_id": "FB-9b02b8f7f031",
+              "intake_dir": "/var/data/intakes/FB-9b02b8f7f031",
+              "intake_json_exists": true,
+              "upload_file_count": 0,
+              "upload_file_names": [],
+              "upload_bytes": 0,
+              "in_index": true,
+              "file_hashes": {}
+            }
+          ]
+        }
+      },
+      "download": {
+        "status": 404,
+        "bytes": 0,
+        "sha256": null
+      },
+      "view": {
+        "status": 404,
+        "bytes": 563,
+        "content_type": "application/json",
+        "sha256": null
+      }
+    },
+    "summary": {
+      "write_root": "/var/data",
+      "intake_dir_exists": true,
+      "upload_files_found": false,
+      "ghost_intake": false,
+      "ok": false,
+      "file_hashes_match": true,
+      "files_on_disk": {},
+      "audit_intake_dir": null,
+      "audit_data_root": null,
+      "files_written": null,
+      "file_hashes_from_receipt": null,
+      "path": "\\var\\data\\intakes\\FB-9b02b8f7f031\\uploads\\immutability-proof.pdf",
+      "sha256": null,
+      "filesystem_existence_check": false
+    }
+  },
+  "restart": {
+    "ok": true,
+    "service_id": "srv-d83gut57vvec739efv6g",
+    "status": 200
+  },
+  "health_ready_after_s": 10,
+  "after_restart": {
+    "queries": {
+      "/api/operator/intake/retention-check/FB-9b02b8f7f031": {
+        "status": 200,
+        "body": {
+          "ok": false,
+          "intake_id": "FB-9b02b8f7f031",
+          "write_root": "/var/data",
+          "read_root": "/var/data",
+          "intake_dir_exists": true,
+          "intake_json_exists": true,
+          "upload_files_found": false,
+          "upload_file_count": 0,
+          "file_hashes_match": true,
+          "ghost_intake": false,
+          "classification_exists": false,
+          "audit_receipt_exists": false,
+          "queue_visible": true,
+          "cote_visible": false,
+          "files_on_disk": {},
+          "audit_receipt": null,
+          "custody_status": null,
+          "count_breakdown": {
+            "expected_file_count": 0,
+            "received_file_count": 0,
+            "persisted_file_count": 0,
+            "verified_file_count": 0,
+            "rejected_file_count": 0,
+            "duplicate_file_count": 0,
+            "failed_file_count": 0,
+            "on_disk_file_count": 0
+          },
+          "counts_match": true,
+          "integrity_mismatch": false,
+          "hash_mismatch_detected": false
+        }
+      },
+      "/api/operator/intake/diagnostics": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "live_scan_status": "healthy",
+          "inventory_agreement": {
+            "ok": true,
+            "scan_at_utc": "2026-05-31T07:18:04Z",
+            "canonical": {
+              "intake_directories": 1,
+              "upload_files": 0,
+              "pending_review_count": 1
+            },
+            "disagreements": [],
+            "ghost_intakes": [],
+            "ghost_intake_count": 0,
+            "live_scan_status": "healthy"
+          },
+          "diagnostics": {
+            "data_root": "/var/data",
+            "write_root": "/var/data",
+            "read_root": "/var/data",
+            "roots_match": true,
+            "durable_storage_configured": true,
+            "intake_uploads_enabled": true,
+            "founding_beta_uploads_enabled": true,
+            "upload_block_reason": null,
+            "canonical_intakes_root": "/var/data/intakes",
+            "legacy_intakes_roots": [],
+            "intakes_root": "/var/data/intakes",
+            "index_jsonl": "/var/data/intakes/index.jsonl",
+            "index_exists": true,
+            "index_size_bytes": 394,
+            "intake_directories_found": 1,
+            "intake_directories": 1,
+            "intake_ids_sample": [
+              "FB-9b02b8f7f031"
+            ],
+            "pending_intake_ids_sample": [
+              "FB-9b02b8f7f031"
+            ],
+            "pending_review_count": 1,
+            "upload_files_on_disk": 0,
+            "upload_files": 0,
+            "inventory": {
+              "ok": true,
+              "scan_type": "live",
+              "scan_at_utc": "2026-05-31T07:18:04Z",
+              "data_root": "/var/data",
+              "write_root": "/var/data",
+              "read_root": "/var/data",
+              "intakes_root": "/var/data/intakes",
+              "index_jsonl": "/var/data/intakes/index.jsonl",
+              "intake_directories": 1,
+              "intake_json_files": 1,
+              "upload_files": 0,
+              "index_tail_unique_ids": 1,
+              "pending_review_count": 1,
+              "pending_intake_ids_sample": [
+                "FB-9b02b8f7f031"
+              ],
+              "intake_ids_sample": [
+                "FB-9b02b8f7f031"
+              ],
+              "only_on_disk_not_in_index": [],
+              "only_in_index_not_on_disk": [],
+              "index_disk_agree": true
+            },
+            "latest_integrity_mismatch": null,
+            "legacy_migration": {
+              "legacy_root": null,
+              "legacy_intakes_pending_migration": [],
+              "legacy_pending_count": 0,
+              "migration_complete": true
+            },
+            "retention_scan": {
+              "ok": true,
+              "scan_type": "live",
+              "scan_at_utc": "2026-05-31T07:18:04Z",
+              "data_root": "/var/data",
+              "write_root": "/var/data",
+              "read_root": "/var/data",
+              "intakes_root": "/var/data/intakes",
+              "index_jsonl": "/var/data/intakes/index.jsonl",
+              "intake_directories": 1,
+              "intake_json_files": 1,
+              "upload_files": 0,
+              "index_tail_unique_ids": 1,
+              "pending_review_count": 1,
+              "pending_intake_ids_sample": [
+                "FB-9b02b8f7f031"
+              ],
+              "intake_ids_sample": [
+                "FB-9b02b8f7f031"
+              ],
+              "only_on_disk_not_in_index": [],
+              "only_in_index_not_on_disk": [],
+              "index_disk_agree": true
+            },
+            "startup_retention_snapshot": {
+              "write_root": "/var/data",
+              "read_root": "/var/data",
+              "intakes_root": "/var/data/intakes",
+              "index_jsonl": "/var/data/intakes/index.jsonl",
+              "intake_directories": 0,
+              "intake_json_files": 0,
+              "upload_files": 0,
+              "index_tail_unique_ids": 0,
+              "only_on_disk_not_in_index": [],
+              "only_in_index_not_on_disk": [],
+              "index_disk_agree": true,
+              "startup_recovery": {
+                "ok": true,
+                "recovered_intake_ids": [],
+                "skipped_already_committed": [],
+                "recovered_count": 0
+              },
+              "live_scan": {
+                "ok": true,
+                "scan_type": "live",
+                "scan_at_utc": "2026-05-31T07:15:15Z",
+                "data_root": "/var/data",
+                "write_root": "/var/data",
+                "read_root": "/var/data",
+                "intakes_root": "/var/data/intakes",
+                "index_jsonl": "/var/data/intakes/index.jsonl",
+                "intake_directories": 0,
+                "intake_json_files": 0,
+                "upload_files": 0,
+                "index_tail_unique_ids": 0,
+                "pending_review_count": 0,
+                "pending_intake_ids_sample": [],
+                "intake_ids_sample": [],
+                "only_on_disk_not_in_index": [],
+                "only_in_index_not_on_disk": [],
+                "index_disk_agree": true,
+                "upload_bytes": 0,
+                "intakes": []
+              },
+              "live_boot_status": "healthy",
+              "healthy": true,
+              "forensic_proof_ok": true,
+              "ghost_intakes": [],
+              "ghost_intake_count": 0
+            },
+            "inventory_agreement": {
+              "ok": true,
+              "scan_at_utc": "2026-05-31T07:18:04Z",
+              "canonical": {
+                "intake_directories": 1,
+                "upload_files": 0,
+                "pending_review_count": 1
+              },
+              "disagreements": [],
+              "ghost_intakes": [],
+              "ghost_intake_count": 0,
+              "live_scan_status": "healthy"
+            },
+            "live_scan_status": "healthy"
+          },
+          "queue_depth": 1,
+          "pending_review_count": 1,
+          "queue_rows_generated": 1,
+          "visibility_warning": null,
+          "newest_intake_id": "FB-9b02b8f7f031"
+        }
+      },
+      "/api/operator/intake/reconcile/FB-9b02b8f7f031": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "intake_id": "FB-9b02b8f7f031",
+          "issues": [],
+          "integrity_failure": false,
+          "disk_file_count": 0,
+          "intake_json_exists": true,
+          "audit_receipt_exists": false,
+          "index_row_exists": true,
+          "index_committed": false,
+          "commit_complete": false,
+          "queue_visible": true,
+          "cote_matches_storage": true,
+          "custody_status": null,
+          "count_breakdown": {
+            "expected_file_count": 0,
+            "received_file_count": 0,
+            "persisted_file_count": 0,
+            "verified_file_count": 0,
+            "failed_file_count": 0,
+            "on_disk_file_count": 0,
+            "intake_json_file_count": 0
+          },
+          "transaction_phases": [],
+          "pending_review": true
+        }
+      },
+      "/api/operator/intake/FB-9b02b8f7f031/files": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "intake_id": "FB-9b02b8f7f031",
+          "file_count": 0,
+          "documents": []
+        }
+      },
+      "/api/operator/intake/FB-9b02b8f7f031/audit": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "intake_id": "FB-9b02b8f7f031",
+          "write_root": "/var/data",
+          "read_root": "/var/data",
+          "audit_receipt": null,
+          "audit_receipt_exists": false,
+          "audit_receipt_path": "/var/data/intakes/FB-9b02b8f7f031/intake_audit.json",
+          "files_on_disk": {},
+          "intake_json_path": "/var/data/intakes/FB-9b02b8f7f031/intake.json",
+          "classification_path": "/var/data/intakes/FB-9b02b8f7f031/classification.json",
+          "custody_status": null,
+          "upload_integrity": {},
+          "upload_custody": {},
+          "file_lifecycle_table": [],
+          "transaction_lifecycle": [],
+          "count_breakdown": {
+            "expected_file_count": null,
+            "received_file_count": null,
+            "persisted_file_count": null,
+            "verified_file_count": null,
+            "rejected_file_count": null,
+            "duplicate_file_count": null,
+            "failed_file_count": null
+          }
+        }
+      },
+      "/api/operator/integrity/timeline/FB-9b02b8f7f031": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "intake_id": "FB-9b02b8f7f031",
+          "event_count": 0,
+          "events": [],
+          "custody_status": null
+        }
+      },
+      "/api/operator/intake/raw-disk-scan": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "scan_type": "live",
+          "scan_at_utc": "2026-05-31T07:18:05Z",
+          "data_root": "/var/data",
+          "write_root": "/var/data",
+          "read_root": "/var/data",
+          "intakes_root": "/var/data/intakes",
+          "index_jsonl": "/var/data/intakes/index.jsonl",
+          "intake_directories": 1,
+          "intake_json_files": 1,
+          "upload_files": 0,
+          "index_tail_unique_ids": 1,
+          "pending_review_count": 1,
+          "pending_intake_ids_sample": [
+            "FB-9b02b8f7f031"
+          ],
+          "intake_ids_sample": [
+            "FB-9b02b8f7f031"
+          ],
+          "only_on_disk_not_in_index": [],
+          "only_in_index_not_on_disk": [],
+          "index_disk_agree": true,
+          "upload_bytes": 0,
+          "intakes": [
+            {
+              "intake_id": "FB-9b02b8f7f031",
+              "intake_dir": "/var/data/intakes/FB-9b02b8f7f031",
+              "intake_json_exists": true,
+              "upload_file_count": 0,
+              "upload_file_names": [],
+              "upload_bytes": 0,
+              "in_index": true,
+              "file_hashes": {}
+            }
+          ]
+        }
+      },
+      "download": {
+        "status": 404,
+        "bytes": 0,
+        "sha256": null
+      },
+      "view": {
+        "status": 404,
+        "bytes": 563,
+        "content_type": "application/json",
+        "sha256": null
+      }
+    },
+    "summary": {
+      "write_root": "/var/data",
+      "intake_dir_exists": true,
+      "upload_files_found": false,
+      "ghost_intake": false,
+      "ok": false,
+      "file_hashes_match": true,
+      "files_on_disk": {},
+      "audit_intake_dir": null,
+      "audit_data_root": null,
+      "files_written": null,
+      "file_hashes_from_receipt": null,
+      "path": "\\var\\data\\intakes\\FB-9b02b8f7f031\\uploads\\immutability-proof.pdf",
+      "sha256": null,
+      "filesystem_existence_check": false
+    }
+  },
+  "comparison": {
+    "sha256_unchanged": true,
+    "size_unchanged": true,
+    "existence_before": false,
+    "existence_after": false,
+    "download_status_before": 404,
+    "download_status_after": 404,
+    "survived_restart": false
+  },
+  "verdict": "NOT_PROVEN_OR_LOST",
+  "upload_time_historical_baseline": {
+    "source": "immutability_steps_pre_restart.json + immutability_proof_final.json",
+    "upload_ts_utc_approx": "2026-05-31T05:50:20Z",
+    "data_root": "/var/data",
+    "upload_destination_path": "/var/data/intakes/FB-9b02b8f7f031/uploads/immutability-proof.pdf",
+    "file_size_bytes": 27,
+    "sha256_inferred_from_known_payload": "bf01908165c0c001b0d2367541da34043dff6749dcd0b215f446cea473b1707e",
+    "sha256_note": "Inferred from 27-byte download in immutability proof; payload matches founding-beta test PDF string",
+    "filesystem_existence_at_upload_time": true,
+    "evidence": {
+      "proof_gate_passed": true,
+      "raw_disk_found": true,
+      "download_200_bytes_27": true,
+      "retention_ok": true
+    }
+  },
+  "pre_restart_baseline_note": "Live queries immediately before Render restart (2026-05-31) already showed 0 upload files, no audit receipt, and 404 download \u2014 file loss predates this restart; restart only re-confirmed absence.",
+  "restart_durability_for_file": {
+    "file_present_before_restart": false,
+    "file_present_after_restart": false,
+    "intake_directory_persisted": true,
+    "metadata_shell_persisted": true,
+    "restart_caused_file_loss": false,
+    "restart_proved_file_durability": false,
+    "verdict": "NO_FILE_TO_TEST \u2014 empty intake shell stable across restart; original upload artifact already missing before restart"
+  },
+  "reupload_same_intake": {
+    "likely_path": "POST /api/founding-beta/upload with same intake token if still valid",
+    "current_state": "intake dir exists, file_count 0, no audit \u2014 new upload may create new intake_id unless magic link/token reused",
+    "operator_note": "Not attempted in this run to avoid mutating forensic state"
+  }
+}

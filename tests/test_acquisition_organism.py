@@ -76,8 +76,10 @@ def test_qualification_has_confidence_not_certainty(acq_env):
 
 def test_upload_first_routing(acq_env):
     routes = build_upload_route(lead_id="LD-ABC", segment="aerospace", campaign_id="upload-first", message_variant="A")
-    assert "/ui/inquiry.html" in routes["primary_url"]
+    # Default destination is now shop (not inquiry) — acquisition routes directly to pricing/upload page
+    assert "/ui/shop" in routes["primary_url"]
     assert "utm_campaign=upload-first" in routes["primary_url"]
+    assert "ref=LD-ABC" in routes["primary_url"]
     assert routes["routing_doctrine"] == "upload_first"
 
 

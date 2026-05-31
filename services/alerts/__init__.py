@@ -4,6 +4,7 @@ KYC Operational Alerting Nervous System.
 Intelligent, throttled operational awareness — not spam.
 """
 from .engine import (
+    alert_acquisition_conversion,
     alert_first_paperwork_submission,
     alert_high_fit_target,
     alert_organism_failure,
@@ -16,6 +17,7 @@ from .paths import load_config, save_config
 
 __all__ = [
     "raise_alert",
+    "alert_acquisition_conversion",
     "alert_first_paperwork_submission",
     "alert_high_fit_target",
     "alert_organism_failure",

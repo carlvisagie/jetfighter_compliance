@@ -1,5 +1,5 @@
 {
-  "ts": "20260531T105811Z",
+  "ts": "20260531T125652Z",
   "base": "https://compliance.keepyourcontracts.com",
   "filename": "restart-durability-proof.pdf",
   "expected_sha256": "30e5e96d50a0927570118534098b9e37e02b744fc883951ef876a38c25137a9c",
@@ -13,12 +13,12 @@
   },
   "upload": {
     "status": 200,
-    "intake_id": "FB-2c4d3c4fd968",
+    "intake_id": "FB-6940975e0e7f",
     "proof_gate_passed": true,
     "live_scan_confirmed": true
   },
   "pre_restart": {
-    "intake_id": "FB-2c4d3c4fd968",
+    "intake_id": "FB-6940975e0e7f",
     "filename": "restart-durability-proof.pdf",
     "expected_sha256": "30e5e96d50a0927570118534098b9e37e02b744fc883951ef876a38c25137a9c",
     "download": {
@@ -42,7 +42,7 @@
     },
     "retention": {
       "ok": true,
-      "intake_id": "FB-2c4d3c4fd968",
+      "intake_id": "FB-6940975e0e7f",
       "write_root": "/var/data",
       "read_root": "/var/data",
       "intake_dir_exists": true,
@@ -59,10 +59,10 @@
         "restart-durability-proof.pdf": "30e5e96d50a0927570118534098b9e37e02b744fc883951ef876a38c25137a9c"
       },
       "audit_receipt": {
-        "intake_id": "FB-2c4d3c4fd968",
-        "created_utc": "2026-05-31T10:58:15Z",
+        "intake_id": "FB-6940975e0e7f",
+        "created_utc": "2026-05-31T12:56:56Z",
         "data_root": "/var/data",
-        "intake_dir": "/var/data/intakes/FB-2c4d3c4fd968",
+        "intake_dir": "/var/data/intakes/FB-6940975e0e7f",
         "files_written": [
           {
             "name": "restart-durability-proof.pdf",
@@ -73,8 +73,8 @@
         "file_hashes": {
           "restart-durability-proof.pdf": "30e5e96d50a0927570118534098b9e37e02b744fc883951ef876a38c25137a9c"
         },
-        "classification_path": "/var/data/intakes/FB-2c4d3c4fd968/classification.json",
-        "intake_json_path": "/var/data/intakes/FB-2c4d3c4fd968/intake.json",
+        "classification_path": "/var/data/intakes/FB-6940975e0e7f/classification.json",
+        "intake_json_path": "/var/data/intakes/FB-6940975e0e7f/intake.json",
         "expected_file_count": 1,
         "received_file_count": 1,
         "persisted_file_count": 1,
@@ -113,11 +113,11 @@
             "media_type": "application/pdf",
             "duplicate_of": null,
             "source_session_id": null,
-            "at_utc": "2026-05-31T10:58:15Z",
-            "received_at": "2026-05-31T10:58:15Z",
-            "persisted_at": "2026-05-31T10:58:15Z",
+            "at_utc": "2026-05-31T12:56:56Z",
+            "received_at": "2026-05-31T12:56:56Z",
+            "persisted_at": "2026-05-31T12:56:56Z",
             "sha256": "30e5e96d50a0927570118534098b9e37e02b744fc883951ef876a38c25137a9c",
-            "verified_at": "2026-05-31T10:58:15Z"
+            "verified_at": "2026-05-31T12:56:56Z"
           }
         ]
       },
@@ -139,6 +139,7 @@
     "forensic_proof": {
       "ok": true,
       "total_files": 1,
+      "expected_files_fleet": 1,
       "verified_files": 1,
       "registered_files": 0,
       "pending_files": 0,
@@ -156,7 +157,7 @@
       "communications_hash_mismatches": 0,
       "samples": {
         "verified": [
-          "FB-2c4d3c4fd968:restart-durability-proof.pdf"
+          "FB-6940975e0e7f:restart-durability-proof.pdf"
         ],
         "missing": [],
         "orphaned": [],
@@ -164,11 +165,11 @@
         "corrupt": [],
         "recovered": []
       },
-      "proof_at_utc": "2026-05-31T10:58:17Z"
+      "proof_at_utc": "2026-05-31T12:56:58Z"
     },
     "inventory_agreement": {
       "ok": true,
-      "scan_at_utc": "2026-05-31T10:58:17Z",
+      "scan_at_utc": "2026-05-31T12:56:58Z",
       "canonical": {
         "intake_directories": 1,
         "upload_files": 1,
@@ -188,7 +189,7 @@
     "status": 200
   },
   "post_restart": {
-    "intake_id": "FB-2c4d3c4fd968",
+    "intake_id": "FB-6940975e0e7f",
     "filename": "restart-durability-proof.pdf",
     "expected_sha256": "30e5e96d50a0927570118534098b9e37e02b744fc883951ef876a38c25137a9c",
     "download": {
@@ -212,7 +213,7 @@
     },
     "retention": {
       "ok": true,
-      "intake_id": "FB-2c4d3c4fd968",
+      "intake_id": "FB-6940975e0e7f",
       "write_root": "/var/data",
       "read_root": "/var/data",
       "intake_dir_exists": true,
@@ -229,10 +230,10 @@
         "restart-durability-proof.pdf": "30e5e96d50a0927570118534098b9e37e02b744fc883951ef876a38c25137a9c"
       },
       "audit_receipt": {
-        "intake_id": "FB-2c4d3c4fd968",
-        "created_utc": "2026-05-31T10:58:15Z",
+        "intake_id": "FB-6940975e0e7f",
+        "created_utc": "2026-05-31T12:56:56Z",
         "data_root": "/var/data",
-        "intake_dir": "/var/data/intakes/FB-2c4d3c4fd968",
+        "intake_dir": "/var/data/intakes/FB-6940975e0e7f",
         "files_written": [
           {
             "name": "restart-durability-proof.pdf",
@@ -243,8 +244,8 @@
         "file_hashes": {
           "restart-durability-proof.pdf": "30e5e96d50a0927570118534098b9e37e02b744fc883951ef876a38c25137a9c"
         },
-        "classification_path": "/var/data/intakes/FB-2c4d3c4fd968/classification.json",
-        "intake_json_path": "/var/data/intakes/FB-2c4d3c4fd968/intake.json",
+        "classification_path": "/var/data/intakes/FB-6940975e0e7f/classification.json",
+        "intake_json_path": "/var/data/intakes/FB-6940975e0e7f/intake.json",
         "expected_file_count": 1,
         "received_file_count": 1,
         "persisted_file_count": 1,
@@ -283,11 +284,11 @@
             "media_type": "application/pdf",
             "duplicate_of": null,
             "source_session_id": null,
-            "at_utc": "2026-05-31T10:58:15Z",
-            "received_at": "2026-05-31T10:58:15Z",
-            "persisted_at": "2026-05-31T10:58:15Z",
+            "at_utc": "2026-05-31T12:56:56Z",
+            "received_at": "2026-05-31T12:56:56Z",
+            "persisted_at": "2026-05-31T12:56:56Z",
             "sha256": "30e5e96d50a0927570118534098b9e37e02b744fc883951ef876a38c25137a9c",
-            "verified_at": "2026-05-31T10:58:15Z"
+            "verified_at": "2026-05-31T12:56:56Z"
           }
         ]
       },
@@ -309,6 +310,7 @@
     "forensic_proof": {
       "ok": true,
       "total_files": 1,
+      "expected_files_fleet": 1,
       "verified_files": 1,
       "registered_files": 0,
       "pending_files": 0,
@@ -326,7 +328,7 @@
       "communications_hash_mismatches": 0,
       "samples": {
         "verified": [
-          "FB-2c4d3c4fd968:restart-durability-proof.pdf"
+          "FB-6940975e0e7f:restart-durability-proof.pdf"
         ],
         "missing": [],
         "orphaned": [],
@@ -334,11 +336,11 @@
         "corrupt": [],
         "recovered": []
       },
-      "proof_at_utc": "2026-05-31T10:58:31Z"
+      "proof_at_utc": "2026-05-31T12:57:12Z"
     },
     "inventory_agreement": {
       "ok": true,
-      "scan_at_utc": "2026-05-31T10:58:31Z",
+      "scan_at_utc": "2026-05-31T12:57:12Z",
       "canonical": {
         "intake_directories": 1,
         "upload_files": 1,

@@ -15,18 +15,17 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: KYC_SAFE_MODE
-        value: "true"
+        value: "false"
       - key: KYC_REQUIRE_SAFE_MODE
-        value: "true"
+        value: "false"
       - key: KYC_ENABLE_MANUAL_ACQUISITION
-        value: "false"
+        value: "true"
       - key: KYC_ENABLE_KNOWLEDGE_OVERLAY
-        value: "false"
+        value: "true"
       - key: KYC_ENABLE_OBSERVABILITY
-        value: "false"
-      # Schedulers OFF until uptime proven. Set to "true" to re-enable APScheduler (one subsystem at a time).
-      # - key: KYC_SCHEDULERS_ENABLED
-      #   value: "true"
+        value: "true"
+      - key: KYC_SCHEDULERS_ENABLED
+        value: "true"
       - key: OPS_PASSWORD
         sync: false
       - key: OPS_SECRET

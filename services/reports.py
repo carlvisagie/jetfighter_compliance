@@ -1,4 +1,4 @@
-﻿import json, hashlib, io, zipfile
+import json, hashlib, io, zipfile
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import List, Dict

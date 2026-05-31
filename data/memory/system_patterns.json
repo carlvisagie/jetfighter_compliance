@@ -1,121 +1,72 @@
 {
   "version": 1,
-  "updated_utc": "2026-05-27T10:53:11Z",
+  "updated_utc": "2026-05-31T20:49:29Z",
   "subsystem_health": {
-    "acquisition": {
+    "intake": {
       "success_rate": 1.0,
-      "events": 124,
-      "failures": 0,
-      "status": "healthy"
-    },
-    "job_queue": {
-      "success_rate": 1.0,
-      "events": 30,
-      "failures": 0,
-      "status": "healthy"
-    },
-    "customer_friction": {
-      "success_rate": 1.0,
-      "events": 10,
-      "failures": 0,
-      "status": "healthy"
-    },
-    "founding_beta": {
-      "success_rate": 1.0,
-      "events": 17,
+      "events": 411,
       "failures": 0,
       "status": "healthy"
     },
     "acquisition_organism": {
       "success_rate": 1.0,
-      "events": 88,
+      "events": 61,
       "failures": 0,
       "status": "healthy"
     },
-    "knowledge_cockpit": {
+    "operational_alerts": {
       "success_rate": 1.0,
-      "events": 40,
+      "events": 8,
       "failures": 0,
       "status": "healthy"
     },
-    "health": {
+    "email": {
       "success_rate": 0.5,
-      "events": 30,
-      "failures": 15,
+      "events": 8,
+      "failures": 4,
       "status": "unhealthy"
     },
-    "reddit_acquisition": {
+    "job_queue": {
       "success_rate": 1.0,
-      "events": 61,
+      "events": 1,
       "failures": 0,
       "status": "healthy"
     },
     "evidence_intelligence": {
       "success_rate": 0.909,
-      "events": 55,
-      "failures": 5,
-      "status": "healthy"
-    },
-    "email": {
-      "success_rate": 0.5,
-      "events": 40,
-      "failures": 20,
-      "status": "unhealthy"
-    },
-    "operational_alerts": {
-      "success_rate": 1.0,
-      "events": 5,
-      "failures": 0,
+      "events": 11,
+      "failures": 1,
       "status": "healthy"
     }
   },
   "repeated_failures": [
     {
       "key": "email:smtp_unconfigured",
-      "count": 20,
+      "count": 4,
       "suggestion": "Review email:smtp_unconfigured failures"
-    },
-    {
-      "key": "health:smtp_unconfigured",
-      "count": 15,
-      "suggestion": "Review health:smtp_unconfigured failures"
-    },
-    {
-      "key": "evidence_intelligence:evidence_mapping_failure",
-      "count": 5,
-      "suggestion": "Review evidence_intelligence:evidence_mapping_failure failures"
     }
   ],
   "reliability_patterns": {
-    "acquisition": 1.0,
-    "job_queue": 1.0,
-    "customer_friction": 1.0,
-    "founding_beta": 1.0,
+    "intake": 1.0,
     "acquisition_organism": 1.0,
-    "knowledge_cockpit": 1.0,
-    "health": 0.5,
-    "reddit_acquisition": 1.0,
-    "evidence_intelligence": 0.909,
+    "operational_alerts": 1.0,
     "email": 0.5,
-    "operational_alerts": 1.0
+    "job_queue": 1.0,
+    "evidence_intelligence": 0.909
   },
   "conversion_patterns": {},
   "failure_patterns": {
-    "email:smtp_unconfigured": 20,
-    "health:smtp_unconfigured": 15,
-    "evidence_intelligence:evidence_mapping_failure": 5
+    "email:smtp_unconfigured": 4,
+    "evidence_intelligence:evidence_mapping_failure": 1
   },
   "bottleneck_patterns": {},
   "best_paths": {
     "acquisition_high_priority_refs": [
-      "pending",
-      "L-x"
+      "pending"
     ]
   },
   "recommended_improvements": [
     "Review email:smtp_unconfigured failures",
-    "Review health:smtp_unconfigured failures",
-    "Review evidence_intelligence:evidence_mapping_failure failures",
     "Email transport reliability low \u2014 verify SMTP or disable until configured."
   ]
 }

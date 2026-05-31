@@ -1,4 +1,4 @@
-﻿import time
+import time
 from itsdangerous import URLSafeSerializer, BadSignature, SignatureExpired
 from .config import SETTINGS
 

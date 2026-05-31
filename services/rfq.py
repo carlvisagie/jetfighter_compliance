@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 import json, uuid
 from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta, timezone
