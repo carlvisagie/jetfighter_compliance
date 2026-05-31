@@ -17,6 +17,19 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO))
 
+import os  # noqa: E402
+
+_ops_env = _REPO / ".ops_env"
+if _ops_env.is_file():
+    for line in _ops_env.read_text(encoding="utf-8", errors="ignore").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, _, v = line.partition("=")
+        k, v = k.strip(), v.strip().strip('"').strip("'")
+        if v and not os.environ.get(k, "").strip():
+            os.environ[k] = v
+
 import httpx  # noqa: E402
 
 from scripts.lib.ops_client import OpsAuthError, authenticate_production  # noqa: E402
