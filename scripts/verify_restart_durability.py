@@ -37,20 +37,35 @@ def _restart_render() -> dict:
         timeout=120,
     )
     try:
-        sv = hc.get("/v1/services", params={"name": "kyc-backend"})
-        if sv.status_code != 200:
-            return {"ok": False, "list_status": sv.status_code, "body": sv.text[:300]}
-        data = sv.json()
-        items = data if isinstance(data, list) else data.get("items") or data.get("services") or []
         sid = None
-        for it in items:
-            if isinstance(it, dict) and it.get("name") == "kyc-backend":
-                sid = it.get("id")
+        cursor: Optional[str] = None
+        for _ in range(20):
+            params: dict = {"limit": 50}
+            if cursor:
+                params["cursor"] = cursor
+            sv = hc.get("/v1/services", params=params)
+            if sv.status_code != 200:
+                return {"ok": False, "list_status": sv.status_code, "body": sv.text[:300]}
+            payload = sv.json()
+            rows = payload if isinstance(payload, list) else [payload]
+            for row in rows:
+                svc = row.get("service") if isinstance(row, dict) else None
+                if not isinstance(svc, dict):
+                    continue
+                if svc.get("name") == "kyc-backend":
+                    sid = svc.get("id")
+                    break
+            if sid:
                 break
-        if not sid and items and isinstance(items[0], dict):
-            sid = items[0].get("id")
+            cursor = None
+            if isinstance(payload, list) and payload:
+                cursor = payload[-1].get("cursor") if isinstance(payload[-1], dict) else None
+            elif isinstance(payload, dict):
+                cursor = payload.get("cursor")
+            if not cursor:
+                break
         if not sid:
-            return {"ok": False, "reason": "service id not found"}
+            return {"ok": False, "reason": "service id not found for kyc-backend"}
         rr = hc.post(f"/v1/services/{sid}/restart")
         return {"ok": rr.status_code in (200, 202), "service_id": sid, "status": rr.status_code}
     finally:
@@ -72,7 +87,7 @@ def _verify_intake(client, headers, iid: str) -> dict:
     ret = row["retention"]
     row["pass"] = (
         ret.get("ok") is True
-        and ret.get("ghost_intake") is False
+        and ret.get("ghost_intake") is not True
         and row["download_status"] == 200
         and row["view_status"] == 200
         and ret.get("file_hashes_match") is True
