@@ -6,6 +6,25 @@ from typing import Any, Dict
 
 from .payment_products import get_payment_product
 
+PAYMENT_EMAIL_SUBJECT = "KeepYourContracts — Project Approval & Payment Link"
+
+
+def build_manual_payment_email_text(
+    *,
+    product: Dict[str, Any],
+) -> Dict[str, str]:
+    title = str(product.get("title") or "")
+    price = str(product.get("price_display") or "")
+    pay_url = str(product.get("paypal_url") or "")
+    body = (
+        "Your paperwork review is complete. Based on your submission, the recommended service is:\n"
+        f"{title}\n"
+        f"Price: {price}\n"
+        f"Payment link: {pay_url}\n"
+        "After payment, we will open your project workspace and begin the compliance review."
+    )
+    return {"subject": PAYMENT_EMAIL_SUBJECT, "body": body}
+
 
 def build_payment_link_email_html(
     *,
@@ -61,7 +80,7 @@ def send_payment_link_email(
     if not product:
         return {"ok": False, "error": "invalid_product", "product_id": product_id}
 
-    subject = "KeepYourContracts — Project Approval & Payment Link"
+    subject = PAYMENT_EMAIL_SUBJECT
     body = build_payment_link_email_html(
         customer_name=customer_name,
         company=company,

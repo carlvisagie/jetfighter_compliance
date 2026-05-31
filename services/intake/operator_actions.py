@@ -119,6 +119,26 @@ def _send_payment_link(
     if not email or "@" not in email:
         raise HTTPException(status_code=400, detail="Intake missing valid customer email")
 
+    existing = dict(rec.get("payment") or {})
+    if (
+        existing.get("product_id") == product["id"]
+        and existing.get("payment_link_generated_at_utc")
+        and existing.get("paypal_url")
+    ):
+        mail = dict(existing.get("payment_link_email") or {})
+        return {
+            "ok": True,
+            "intake_id": intake_id,
+            "action": "send_payment_link",
+            "product_id": product["id"],
+            "product_title": product.get("title"),
+            "paypal_url": product.get("paypal_url"),
+            "email_result": mail,
+            "email_sent": bool(existing.get("payment_link_sent_at_utc")),
+            "duplicate_skipped": True,
+            "payment": existing,
+        }
+
     company = (rec.get("company") or "").strip()
     name = company or email.split("@")[0] or "Customer"
 
@@ -130,17 +150,22 @@ def _send_payment_link(
     )
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    payment = dict(rec.get("payment") or {})
+    payment = dict(existing)
     payment.update(
         {
             "product_id": product["id"],
             "product_title": product.get("title"),
             "price_display": product.get("price_display"),
             "paypal_url": product.get("paypal_url"),
-            "payment_link_sent_at_utc": now,
+            "payment_link_generated_at_utc": now,
             "payment_link_email": mail,
         }
     )
+    if mail.get("sent"):
+        payment["payment_link_sent_at_utc"] = now
+    else:
+        payment["payment_link_sent_at_utc"] = None
+
     rec["payment"] = payment
     if operator_note:
         rec["operator_note"] = operator_note.strip()[:1000]
@@ -151,21 +176,23 @@ def _send_payment_link(
     rec["status"] = rec.get("review_status") or rec.get("status")
     _save_intake(intake_id, rec)
 
+    email_sent = bool(mail.get("sent"))
     emit_intake_event(
         "operator_payment_link_sent",
-        message=f"Payment link sent for {product.get('title')}",
+        message=f"Payment link generated for {product.get('title')}",
         metadata={
             "intake_id": intake_id,
             "product_id": product["id"],
             "email": email,
-            "email_sent": bool(mail.get("sent")),
+            "email_sent": email_sent,
             "email_skipped": bool(mail.get("skipped")),
+            "manual_fallback": not email_sent,
         },
     )
     record_intake_learning(
         "operator_payment_link_sent",
         intake_id=intake_id,
-        success=bool(mail.get("ok") or mail.get("skipped")),
+        success=True,
         extra={"product_id": product["id"], "last_intake_id": intake_id},
     )
 
@@ -177,5 +204,6 @@ def _send_payment_link(
         "product_title": product.get("title"),
         "paypal_url": product.get("paypal_url"),
         "email_result": mail,
+        "email_sent": email_sent,
         "payment": payment,
     }

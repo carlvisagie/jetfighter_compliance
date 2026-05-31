@@ -528,12 +528,14 @@
       });
       if (action === 'send_payment_link') {
         var mail = (result && result.email_result) || {};
-        if (mail.sent) {
+        if (result && result.duplicate_skipped) {
+          alert('Payment link already on file for this service — use Copy Payment Link below.');
+        } else if (mail.sent || result.email_sent) {
           alert('Payment link email sent to customer.');
         } else if (mail.skipped) {
-          alert('Payment link recorded — SMTP not configured, email skipped. Send PayPal link manually:\n' + (result.paypal_url || ''));
+          alert('Payment link ready — SMTP not configured. Copy PayPal link from the card below.');
         } else {
-          alert('Payment link saved but email may have failed. Check SMTP or send manually:\n' + (result.paypal_url || ''));
+          alert('Payment link saved — email failed. Copy PayPal link and manual email from the card below.');
         }
       }
       if (action === 'kickoff_project' && result && result.project_id) {
@@ -643,6 +645,94 @@
       body +
       '</tbody></table></section>'
     );
+  }
+
+  function buildManualPaymentPanel(row, payment) {
+    if (!payment || (!payment.payment_link_generated_at_utc && !payment.paypal_url)) {
+      return '';
+    }
+    var paypalUrl = payment.paypal_url || '';
+    var customerEmail = row.contact || '';
+    var title = payment.product_title || payment.product_id || '—';
+    var price = payment.price_display || '—';
+    var emailSent = !!payment.payment_link_sent_at_utc;
+    var subject = 'KeepYourContracts — Project Approval & Payment Link';
+    var body =
+      'Your paperwork review is complete. Based on your submission, the recommended service is:\n' +
+      title +
+      '\nPrice: ' +
+      price +
+      '\nPayment link: ' +
+      paypalUrl +
+      '\nAfter payment, we will open your project workspace and begin the compliance review.';
+    var manualText = 'Subject:\n' + subject + '\n\nBody:\n' + body;
+    var statusLine = emailSent
+      ? '<p class="org-metric-foot fb-queue-payment"><strong>Payment link emailed:</strong> ' +
+        escapeHtml(title) +
+        ' · ' +
+        escapeHtml(price) +
+        ' · ' +
+        escapeHtml(payment.payment_link_sent_at_utc) +
+        '</p>'
+      : '<p class="fb-payment-manual__warn" role="alert">Email failed — copy link manually</p>' +
+        '<p class="org-metric-foot fb-queue-payment"><strong>Payment link generated:</strong> ' +
+        escapeHtml(title) +
+        ' · ' +
+        escapeHtml(price) +
+        ' · ' +
+        escapeHtml(payment.payment_link_generated_at_utc || '') +
+        '</p>';
+    return (
+      '<section class="fb-payment-manual" aria-label="Payment link manual fallback">' +
+      statusLine +
+      '<p class="fb-payment-manual__url"><strong>PayPal URL:</strong> ' +
+      '<a href="' +
+      escapeHtml(paypalUrl) +
+      '" target="_blank" rel="noopener">' +
+      escapeHtml(paypalUrl) +
+      '</a></p>' +
+      '<div class="kyc-btn-row fb-payment-manual__actions">' +
+      '<button type="button" class="btn secondary" data-fb-copy-payment-link data-copy-text="' +
+      escapeHtml(paypalUrl) +
+      '">Copy Payment Link</button>' +
+      (customerEmail
+        ? '<button type="button" class="btn secondary" data-fb-copy-customer-email data-copy-text="' +
+          escapeHtml(customerEmail) +
+          '">Copy customer email</button>'
+        : '') +
+      '</div>' +
+      '<details class="fb-payment-manual__email"><summary>Manual email text</summary>' +
+      '<pre class="fb-payment-manual__pre">' +
+      escapeHtml(manualText) +
+      '</pre>' +
+      '<button type="button" class="btn secondary" data-fb-copy-manual-email data-copy-text="' +
+      escapeHtml(manualText) +
+      '">Copy manual email</button></details></section>'
+    );
+  }
+
+  function wirePaymentCopyButtons(root) {
+    if (!root) return;
+    root.querySelectorAll('[data-fb-copy-payment-link],[data-fb-copy-customer-email],[data-fb-copy-manual-email]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var text = btn.getAttribute('data-copy-text') || '';
+        if (!text) return;
+        var label = btn.textContent;
+        function done() {
+          btn.textContent = 'Copied';
+          setTimeout(function () {
+            btn.textContent = label;
+          }, 1500);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done).catch(function () {
+            alert('Copy failed — select text manually.');
+          });
+        } else {
+          alert(text);
+        }
+      });
+    });
   }
 
   function closeDocumentPreview() {
@@ -882,15 +972,7 @@
             '</div>'
           : '';
         const payment = row.payment || {};
-        const paymentLine = payment.payment_link_sent_at_utc
-          ? '<p class="org-metric-foot fb-queue-payment"><strong>Payment link sent:</strong> ' +
-            escapeHtml(payment.product_title || payment.product_id || '—') +
-            ' · ' +
-            escapeHtml(payment.price_display || '') +
-            ' · ' +
-            escapeHtml(payment.payment_link_sent_at_utc) +
-            '</p>'
-          : '';
+        const paymentPanel = buildManualPaymentPanel(row, payment);
         const projectLine = row.project_id
           ? '<p class="org-metric-foot"><strong>Project:</strong> <code>' +
             escapeHtml(row.project_id) +
@@ -952,7 +1034,7 @@
           escapeHtml(row.suggested_next_action || '') +
           '</p>' +
           integrityBanner +
-          paymentLine +
+          paymentPanel +
           projectLine +
           buildDocumentsSection(row) +
           lifecycleTable +
@@ -987,6 +1069,7 @@
         });
       });
       wireDocumentPreviewButtons(el);
+      wirePaymentCopyButtons(el);
       if (window.CoteTopology && CoteTopology.refresh) {
         await CoteTopology.refresh();
       }
