@@ -101,7 +101,14 @@ def _send_payment_link(
     product_id: str,
     *,
     operator_note: str = "",
+    update_status: bool = True,
 ) -> Dict[str, Any]:
+    """Send (or re-send) a payment link email for an intake.
+
+    update_status=False is used by the autonomous pipeline — the intake stays
+    in pending_review so the operator can confirm. Set True (default) only for
+    explicit operator-triggered sends.
+    """
     from datetime import datetime, timezone
 
     from .payment_email import send_payment_link_email
@@ -169,7 +176,7 @@ def _send_payment_link(
     rec["payment"] = payment
     if operator_note:
         rec["operator_note"] = operator_note.strip()[:1000]
-    if rec.get("review_status") not in ("archived",):
+    if update_status and rec.get("review_status") not in ("archived",):
         rec["review_status"] = rec.get("review_status") or "approved"
         if rec.get("review_status") == "pending_review":
             rec["review_status"] = "approved"

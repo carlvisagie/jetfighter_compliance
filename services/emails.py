@@ -148,13 +148,17 @@ def send_email_with_result(to_email: str, subject: str, html_body: str) -> Dict[
     """Send email and return structured result. Tries Resend first, SMTP second."""
     _emit("send_attempted", metadata={"to": to_email, "subject": subject[:80]})
 
+    last_error: str = ""
+    last_detail: str = ""
+
     # --- Resend (primary) ---
     if resend_is_configured():
         result = _send_via_resend(to_email, subject, html_body)
         if result.get("sent"):
             _emit("send_success", metadata={"to": to_email, "provider": "resend"})
             return result
-        # Resend failed — log but don't alert unless SMTP also fails
+        last_error = result.get("error", "resend_failed")
+        last_detail = result.get("detail", "")
         logger.warning("Resend failed for %s — trying SMTP fallback if configured", to_email)
 
     # --- SMTP (fallback) ---
@@ -163,6 +167,8 @@ def send_email_with_result(to_email: str, subject: str, html_body: str) -> Dict[
         if result.get("sent"):
             _emit("send_success", metadata={"to": to_email, "provider": "smtp"})
             return result
+        last_error = result.get("error", "smtp_failed")
+        last_detail = result.get("detail", "")
 
     # --- Both failed / nothing configured ---
     if not email_is_configured():
@@ -172,18 +178,19 @@ def send_email_with_result(to_email: str, subject: str, html_body: str) -> Dict[
 
     # At least one provider was tried but failed
     _emit("send_failed", success=False, severity="error",
-          message="All email providers failed",
-          metadata={"to": to_email})
+          message=last_detail or last_error or "all providers failed",
+          metadata={"to": to_email, "error_type": last_error, "detail": last_detail})
     try:
         from services.alerts import alert_organism_failure
         alert_organism_failure(
             "email_all_providers_failed",
-            message=f"Both Resend and SMTP failed for {to_email}",
-            metadata={"to": to_email},
+            message=f"Email delivery failed for {to_email}: {last_error}",
+            metadata={"to": to_email, "error_type": last_error},
         )
     except Exception:
         pass
-    return {"ok": False, "sent": False, "reason": "all_providers_failed", "to": to_email}
+    return {"ok": False, "sent": False, "reason": "all_providers_failed",
+            "to": to_email, "error": last_error, "detail": last_detail}
 
 
 def send_email(to_email: str, subject: str, html_body: str):

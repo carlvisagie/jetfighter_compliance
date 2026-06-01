@@ -139,6 +139,7 @@ def auto_send_payment_link(intake_id: str, clf: Dict[str, Any]) -> Dict[str, Any
             intake_id,
             product_id,
             operator_note="auto-sent by KYC autonomous pipeline",
+            update_status=False,  # keep pending_review so operator can confirm in queue
         )
         result["auto_triggered"] = True
         return result

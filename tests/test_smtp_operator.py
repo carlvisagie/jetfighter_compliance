@@ -62,6 +62,7 @@ def test_test_email_accepts_x_ops_key(monkeypatch, anon_client):
 
 def test_test_email_emits_telemetry_on_skip(client, monkeypatch, tmp_path):
     monkeypatch.setenv("SMTP_ENABLED", "false")
+    monkeypatch.setattr("services.emails.SETTINGS.resend_api_key", "")
     from services.config import SETTINGS
 
     SETTINGS.smtp_enabled = False
@@ -79,6 +80,7 @@ def test_send_failure_emits_telemetry(monkeypatch, tmp_path):
     mem = tmp_path / "memory"
     mem.mkdir()
     monkeypatch.setattr("services.memory.telemetry.memory_dir", lambda base=None: mem)
+    monkeypatch.setattr("services.emails.SETTINGS.resend_api_key", "")
     monkeypatch.setattr("services.emails.SETTINGS.smtp_enabled", True)
     monkeypatch.setattr("services.emails.SETTINGS.smtp_host", "smtp.test")
     monkeypatch.setattr("services.emails.SETTINGS.smtp_user", "u")
