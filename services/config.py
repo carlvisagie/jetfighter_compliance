@@ -35,6 +35,8 @@ class Settings(BaseModel):
     smtp_pass: str = os.getenv("SMTP_PASS") or os.getenv("SMTP_PASSWORD") or ""
     smtp_from_name: str = os.getenv("SMTP_FROM_NAME", "KeepYourContracts")
     smtp_from_email: str = os.getenv("SMTP_FROM_EMAIL") or os.getenv("SMTP_FROM") or ""
+    resend_api_key: str = os.getenv("RESEND_API_KEY", "")
+    resend_from_email: str = os.getenv("RESEND_FROM_EMAIL", "")
     public_base_url: str = os.getenv("PUBLIC_BASE_URL","http://127.0.0.1:8080")
     intake_token_secret: str = os.getenv("INTAKE_TOKEN_SECRET","dev-dev-dev-dev-dev")
     environment: str = os.getenv("ENVIRONMENT", "development")

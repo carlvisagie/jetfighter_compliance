@@ -39,6 +39,16 @@ services:
       # Must match disk.mountPath above — founding beta uploads are refused without this.
       - key: KYC_DATA
         value: /var/data
+      # --- Email: Resend (primary) -------------------------------------------
+      # Sign up free at resend.com → API Keys → create key → paste below.
+      # Free tier: 3,000 emails/month. No SMTP, no App Passwords, no revocations.
+      - key: RESEND_API_KEY
+        sync: false
+      # Verified sender address for Resend (e.g. noreply@keepyourcontracts.com).
+      # Add keepyourcontracts.com in Resend → Domains before using a custom address.
+      - key: RESEND_FROM_EMAIL
+        value: "KeepYourContracts <noreply@keepyourcontracts.com>"
+      # --- Email: SMTP (fallback — only used if RESEND_API_KEY is not set) ---
       - key: SMTP_ENABLED
         value: "true"
       - key: SMTP_HOST

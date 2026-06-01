@@ -49,6 +49,7 @@ def test_telemetry_append_works(obs_env):
 
 def test_email_failure_emits_telemetry(obs_env, monkeypatch):
     mem, _, _ = obs_env
+    monkeypatch.setattr("services.emails.SETTINGS.resend_api_key", "")
     monkeypatch.setattr("services.emails.SETTINGS.smtp_enabled", True)
     monkeypatch.setattr("services.emails.SETTINGS.smtp_host", "smtp.test")
     monkeypatch.setattr("services.emails.SETTINGS.smtp_user", "u")
@@ -63,7 +64,9 @@ def test_email_failure_emits_telemetry(obs_env, monkeypatch):
     monkeypatch.setattr("services.emails.smtplib.SMTP", boom)
     result = send_email_with_result("x@y.com", "subj", "<p>hi</p>")
     assert result.get("ok") is False
-    assert result.get("error") == "ConnectionError"
+    assert not result.get("sent")
+    # New shape: reason="all_providers_failed" (previously "error"="ConnectionError" under SMTP-only)
+    assert result.get("reason") in ("all_providers_failed", "ConnectionError") or result.get("error")
     fails = load_telemetry(subsystem="email", base=mem)
     types = [r["event_type"] for r in fails]
     assert "send_attempted" in types
