@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/ui/assets/styles/organism-command.css">
   <link rel="stylesheet" href="/ui/assets/styles/operator-cockpit.css">
   <link rel="stylesheet" href="/ui/assets/styles/cognitive-topology.css">
-  <link rel="stylesheet" href="/ui/assets/styles/founding-beta-queue.css">
+  <link rel="stylesheet" href="/ui/assets/styles/intake-queue.css">
 </head>
 <body class="kyc-page kyc-surface-ops" id="org-control-root">
   <header class="kyc-topbar">
@@ -126,11 +126,11 @@
     <div id="fb-queue-atlas" class="fb-queue-atlas fb-queue-atlas--hidden" hidden aria-live="polite"></div>
   </section>
 
-  <section class="kyc-section" id="founding-beta-intake-panel" style="padding-top:0;">
+  <section class="kyc-section" id="intake-panel" style="padding-top:0;">
     <header class="kyc-section-head">
       <span class="kyc-label-overline">Intake</span>
       <h2>Intake Queue</h2>
-      <p>Operational review queue — <a href="/ui/founding-beta" target="_blank" rel="noopener">public intake</a></p>
+      <p>Operational review queue — <a href="/ui/intake" target="_blank" rel="noopener">public intake</a></p>
     </header>
     <div id="intake-queue-insights"><p class="kyc-loading">Loading intake queue…</p></div>
   </section>
@@ -208,7 +208,7 @@
           <p class="org-metric-foot">The organism decides pacing, safety, wording, and links. You only approve or deny. Never auto-posted.</p>
           <div class="kyc-btn-row" style="margin-bottom:0.75rem;">
             <button type="button" class="btn secondary" id="redditIntelRunBtn">Run discovery</button>
-            <button type="button" class="btn secondary" id="redditBetaBroadBtn">Run broader founding beta discovery</button>
+            <button type="button" class="btn secondary" id="redditBetaBroadBtn">Run broader discovery</button>
           </div>
           <div id="reddit-acquisition-insights"><p class="kyc-loading">Loading…</p></div>
         </article>
@@ -406,7 +406,7 @@
 
   <script src="/ui/assets/js/cockpit-safe-boot.js"></script>
   <script src="/ui/assets/js/cockpit-stabilization.js"></script>
-  <script src="/ui/assets/js/cockpit-founding-beta.js"></script>
+  <script src="/ui/assets/js/cockpit-intake.js"></script>
   <script src="/ui/assets/js/cognitive-topology.js"></script>
   <script src="/ui/assets/js/contextual-knowledge-overlay.js" onerror="reportCockpitScriptError('contextual-knowledge-overlay.js')"></script>
   <script src="/ui/assets/js/organism-intel.js" onerror="reportCockpitScriptError('organism-intel.js')"></script>
@@ -522,7 +522,7 @@
     try {
       var payload = { intake_id: intakeId, action: action };
       if (extra && extra.product_id) payload.product_id = extra.product_id;
-      var result = await api('/api/operator/founding-beta/action', {
+      var result = await api('/api/operator/intake/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -849,7 +849,7 @@
       const q =
         window.CockpitFoundingBeta && CockpitFoundingBeta.refresh
           ? await CockpitFoundingBeta.refresh(api)
-          : await api('/api/operator/founding-beta/queue');
+          : await api('/api/operator/intake/queue');
       if (window.CockpitFoundingBeta && CockpitFoundingBeta.startEvidenceProofPolling) {
         CockpitFoundingBeta.startEvidenceProofPolling(api);
       }
@@ -880,7 +880,7 @@
           summary +
           '<p class="org-metric-foot"><strong>Queue empty:</strong> ' +
           escapeHtml(why) +
-          ' — share <a href="/ui/founding-beta">/ui/founding-beta</a></p>';
+          ' — share <a href="/ui/intake">/ui/intake</a></p>';
         return;
       }
       var cards = '';
@@ -1048,7 +1048,7 @@
           kickoffBtn +
           '<button type="button" class="btn secondary" data-fb-action="mark_high_value">Mark high value</button>' +
           '<button type="button" class="btn secondary" data-fb-action="archive">Archive</button>' +
-          '<a class="btn secondary" href="/ui/founding-beta" target="_blank" rel="noopener">Open intake</a>' +
+          '<a class="btn secondary" href="/ui/intake" target="_blank" rel="noopener">Open intake</a>' +
           '</div></article>';
       });
       el.innerHTML = summary + '<div class="fb-queue-list">' + cards + '</div>';
@@ -1613,8 +1613,8 @@
     const catStr = Object.keys(cats).length
       ? Object.keys(cats).map(function (k) { return k + '(' + cats[k] + ')'; }).join(', ')
       : '—';
-    return '<div class="founding-beta-strip">' +
-      '<p class="org-metric-foot"><strong>' + escapeHtml(fb.label || 'Founding Beta Mode Active') + '</strong> · ' +
+    return '<div class="intake-strip">' +
+      '<p class="org-metric-foot"><strong>' + escapeHtml(fb.label || 'Intake Active') + '</strong> · ' +
       escapeHtml((fb.messaging && fb.messaging.success_metric) || 'real_paperwork_submitted') + '</p>' +
       '<ul class="guidance-list">' +
       '<li><strong>Uploads received:</strong> ' + (m.uploads_received || 0) + '</li>' +

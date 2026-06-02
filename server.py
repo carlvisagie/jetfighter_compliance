@@ -40,13 +40,20 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 app = FastAPI(title="KeepYourContracts.com  Compliance Control Panel", version="1.0.0")
 
 
+@app.get("/ui/intake")
+@app.get("/ui/intake.html")
+@app.get("/ui/paperwork")
+def intake_page():
+    """Canonical customer paperwork submission page."""
+    return FileResponse(ROOT / "ui" / "intake.html")
+
+
 @app.get("/ui/founding-beta")
 @app.get("/ui/founding-beta.html")
-@app.get("/ui/intake")
-@app.get("/ui/paperwork")
-def founding_beta_page():
-    """Canonical customer paperwork UI (founding-beta path kept for stable links)."""
-    return FileResponse(ROOT / "ui" / "founding-beta.html")
+def founding_beta_redirect():
+    """Permanent redirect — old beta URL → canonical intake page."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/ui/intake.html", status_code=301)
 
 
 app.include_router(telemetry_router)
@@ -759,38 +766,6 @@ async def intake_upload(
     )
 
 
-@app.post("/api/founding-beta/upload")
-async def founding_beta_upload(
-    request: Request,
-    files: List[UploadFile] = File(...),
-    intake_id: str = Form(""),
-    token: str = Form(""),
-    email: str = Form(""),
-    phone: str = Form(""),
-    company: str = Form(""),
-    context: str = Form(""),
-    deadline: str = Form(""),
-    ref: str = Form(""),
-    expected_file_count: int = Form(0),
-    expected_file_names: str = Form(""),
-    upload_manifest: str = Form(""),
-):
-    """Legacy route — delegates to canonical POST /api/intake/upload."""
-    return await intake_upload(
-        request,
-        files,
-        intake_id,
-        token,
-        email,
-        phone,
-        company,
-        context,
-        deadline,
-        ref,
-        expected_file_count,
-        expected_file_names,
-        upload_manifest,
-    )
 
 
 @app.get("/api/intake/qr.png")
@@ -805,10 +780,6 @@ def intake_qr(intake_id: str = "", token: str = ""):
     return Response(content=png, media_type="image/png")
 
 
-@app.get("/api/founding-beta/qr.png")
-def founding_beta_qr(intake_id: str = "", token: str = ""):
-    """Legacy route — delegates to canonical GET /api/intake/qr.png."""
-    return intake_qr(intake_id, token)
 
 
 @app.get("/api/customer/qr.svg")
@@ -1281,19 +1252,6 @@ def operator_organism_state(project_id: str = "", mode: str = ""):
     return get_organism_state_view(project_id=project_id, mode=mode)
 
 
-@app.get("/api/operator/founding-beta-intake")
-def operator_founding_beta_intake(request: Request):
-    """Deprecated — use GET /api/operator/intake/queue (includes dashboard)."""
-    from services.intake.queue import get_operator_review_queue
-    from services.production import require_ops_access
-    from fastapi.responses import JSONResponse
-
-    require_ops_access(request)
-    q = get_operator_review_queue(limit=40)
-    return JSONResponse(
-        content={**q, "deprecated": True, "use": "/api/operator/intake/queue"},
-        headers={"Deprecation": "true", "Link": '</api/operator/intake/queue>; rel="successor-version"'},
-    )
 
 
 @app.get("/api/operator/intake/queue")
@@ -1305,10 +1263,6 @@ def operator_intake_queue(request: Request, limit: int = 40):
     return get_operator_review_queue(limit=min(max(limit, 1), 100))
 
 
-@app.get("/api/operator/founding-beta/queue")
-def operator_founding_beta_queue(request: Request, limit: int = 40):
-    """Legacy route — delegates to GET /api/operator/intake/queue."""
-    return operator_intake_queue(request, limit)
 
 
 @app.get("/api/operator/telemetry-status")
@@ -1369,10 +1323,6 @@ def operator_intake_diagnostics(request: Request):
     }
 
 
-@app.get("/api/operator/founding-beta/diagnostics")
-def operator_founding_beta_diagnostics(request: Request):
-    """Legacy route — delegates to GET /api/operator/intake/diagnostics."""
-    return operator_intake_diagnostics(request)
 
 
 @app.get("/api/operator/intake/reconcile")
@@ -1384,9 +1334,6 @@ def operator_intake_reconcile(request: Request, limit: int = 100):
     return reconcile_fleet(limit=min(max(limit, 1), 500))
 
 
-@app.get("/api/operator/founding-beta/reconcile")
-def operator_founding_beta_reconcile(request: Request, limit: int = 100):
-    return operator_intake_reconcile(request, limit)
 
 
 @app.get("/api/operator/intake/reconcile/{intake_id}")
@@ -1411,9 +1358,6 @@ def operator_intake_raw_disk_scan(request: Request, intake_id: str = ""):
     return live_disk_scan()
 
 
-@app.get("/api/operator/founding-beta/reconcile/{intake_id}")
-def operator_founding_beta_reconcile_intake(request: Request, intake_id: str):
-    return operator_intake_reconcile_intake(request, intake_id)
 
 
 @app.get("/api/operator/intake/{intake_id}/files")
@@ -1452,9 +1396,6 @@ def operator_intake_audit(request: Request, intake_id: str):
     return get_intake_audit(intake_id.strip())
 
 
-@app.get("/api/operator/founding-beta/intake/{intake_id}/audit")
-def operator_founding_beta_intake_audit(request: Request, intake_id: str):
-    return operator_intake_audit(request, intake_id)
 
 
 @app.get("/api/operator/intake/retention-check/{intake_id}")
@@ -1466,9 +1407,6 @@ def operator_intake_retention_check(request: Request, intake_id: str):
     return retention_check(intake_id.strip())
 
 
-@app.get("/api/operator/founding-beta/retention-check/{intake_id}")
-def operator_founding_beta_retention_check(request: Request, intake_id: str):
-    return operator_intake_retention_check(request, intake_id)
 
 
 @app.get("/api/operator/integrity/reconcile")
@@ -1623,9 +1561,6 @@ async def operator_intake_action(request: Request):
     return apply_operator_action(intake_id, action, operator_note=note, product_id=product_id)
 
 
-@app.post("/api/operator/founding-beta/action")
-async def operator_founding_beta_action(request: Request):
-    return await operator_intake_action(request)
 
 
 @app.get("/api/operator/payment-products")

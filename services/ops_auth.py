@@ -34,7 +34,6 @@ PUBLIC_UI_EXACT: Set[str] = {
     "/ui/index.html",
     "/ui/vendor_quote.html",
     "/ui/continue.html",
-    "/ui/founding-beta.html",
 }
 
 PUBLIC_UI_PREFIXES = (
@@ -70,7 +69,6 @@ PUBLIC_API_PREFIXES = (
     "/api/inquiry/",
     "/api/intake/",
     "/api/customer/",
-    "/api/founding-beta/",
     "/webhooks/",
 )
 

@@ -1,0 +1,91 @@
+/* Founding Beta intake funnel */
+.kyc-fb-intake {
+  --fb-glow: rgba(100, 200, 255, 0.25);
+}
+
+.kyc-fb-hero h1 {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  line-height: 1.2;
+  margin-bottom: 0.5rem;
+}
+
+.kyc-fb-drop {
+  border: 2px dashed rgba(120, 180, 255, 0.45);
+  border-radius: 14px;
+  padding: 2rem 1.25rem;
+  text-align: center;
+  background: rgba(20, 32, 52, 0.5);
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.kyc-fb-drop.is-dragover {
+  border-color: rgba(120, 220, 255, 0.9);
+  background: rgba(30, 50, 80, 0.55);
+  box-shadow: 0 0 24px var(--fb-glow);
+}
+
+.kyc-fb-meta {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .kyc-fb-meta {
+    grid-template-columns: 1fr 1fr;
+  }
+  .kyc-fb-meta .kyc-field--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+.kyc-fb-progress {
+  margin-top: 1rem;
+}
+
+.kyc-fb-progress-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.kyc-fb-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.kyc-fb-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #5ec4ff, #7ee8b0);
+  width: 0%;
+  transition: width 0.15s ease;
+}
+
+.kyc-fb-confirm {
+  text-align: center;
+  padding: 1.5rem 1rem;
+}
+
+.kyc-fb-confirm .kyc-intake-id {
+  font-family: ui-monospace, monospace;
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+  margin: 0.75rem 0;
+}
+
+.kyc-fb-qr {
+  margin: 1rem auto;
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+  max-width: 220px;
+}
+
+.kyc-fb-hidden {
+  display: none !important;
+}
