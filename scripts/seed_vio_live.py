@@ -56,12 +56,12 @@ def _authenticate() -> dict:
     if _SESSION_COOKIES:
         return _SESSION_COOKIES
     resp = httpx.post(
-        f"{BASE_URL}/api/operator/login",
+        f"{BASE_URL}/api/ops/login",
         json={"password": OPS_PASSWORD},
         timeout=20,
         follow_redirects=True,
     )
-    if resp.status_code not in (200, 201, 302):
+    if resp.status_code not in (200, 201):
         sys.exit(f"Login failed {resp.status_code}: {resp.text[:300]}")
     _SESSION_COOKIES = dict(resp.cookies)
     print(f"  [OK] Operator session established")

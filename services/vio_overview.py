@@ -35,19 +35,31 @@ def _initials(name: str) -> str:
 
 def _calc_state(row: Dict, ei: Dict) -> str:
     review_status = row.get("review_status", "")
-    files_up = ei.get("files_uploaded", 0)
-    files_an = ei.get("files_analyzed", 0)
-    gaps = ei.get("missing_item_count", 0)
-    failures = ei.get("extraction_failures", 0)
-    pending = ei.get("pending_analysis", 0)
-    confirm_needed = len(ei.get("confirmation_needed") or [])
 
+    # EI-derived counts; fall back to intake-queue classification when no project
+    files_up      = ei.get("files_uploaded", 0) or int(row.get("file_count") or 0)
+    files_an      = ei.get("files_analyzed", 0)
+    failures      = ei.get("extraction_failures", 0)
+    pending       = ei.get("pending_analysis", 0)
+    confirm_needed = len(ei.get("confirmation_needed") or [])
+    # Gap count: EI primary, intake classification missing_items as fallback
+    gaps = ei.get("missing_item_count", 0) or len(row.get("missing_items") or [])
+
+    # ── Status-driven states (highest priority) ────────────────────────────────
     if review_status == "archived":
         return "complete"
+    if review_status in ("approved", "payment_sent", "verified_complete"):
+        return "payment_pending"
+    # Operator flagged as waiting on customer / needs clarification
+    if review_status in ("needs_info", "abandoned_upload", "partial_upload"):
+        return "waiting"
+    # Operator flagged as high-value / complex = significant gaps detected
+    if review_status == "high_value":
+        return "gap"
+
+    # ── Evidence-intelligence-driven states ────────────────────────────────────
     if failures > 0:
         return "error"
-    if review_status in ("approved", "payment_sent"):
-        return "payment_pending"
     if confirm_needed:
         return "waiting"
     if files_up > 0 and gaps > 0:
@@ -56,6 +68,7 @@ def _calc_state(row: Dict, ei: Dict) -> str:
         return "analyzing"
     if files_up > 0:
         return "active"
+
     # Stale pending_review with no uploads → stuck
     age = _ts_age_hours(row.get("created_utc") or row.get("submitted_utc") or "")
     if age > 48 and review_status == "pending_review":
