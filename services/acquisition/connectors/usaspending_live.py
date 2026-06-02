@@ -93,7 +93,7 @@ def run_usaspending_live_connector(
             row = dict(row)
             row["notes"] = notes.strip()
             try:
-                from services.founding_beta.paperwork_prediction import predict_federal_supplier_paperwork
+                from services.intake.paperwork_prediction import predict_federal_supplier_paperwork
 
                 fb = predict_federal_supplier_paperwork(
                     row.get("company_name", ""),

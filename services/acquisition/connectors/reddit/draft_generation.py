@@ -93,8 +93,8 @@ def generate_draft_reply(
     public_body = etiquette.sanitize_reply(public_body, fallback)
 
     try:
-        from services.founding_beta.mode import is_founding_beta_mode
-        from services.founding_beta.messaging import BETA_HEADLINE, BETA_REASSURANCE
+        from services.intake.mode import is_intake_mode as is_founding_beta_mode
+        from services.intake.messaging import BETA_HEADLINE, BETA_REASSURANCE
 
         if is_founding_beta_mode():
             beta_note = (

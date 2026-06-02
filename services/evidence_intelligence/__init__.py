@@ -137,7 +137,7 @@ def process_evidence_upload(
             metadata={"document_type": classification.document_type, "confidence": classification.confidence},
         )
         try:
-            from services.founding_beta.telemetry import emit_beta_event
+            from services.intake.telemetry import emit_intake_event as emit_beta_event
 
             emit_beta_event(
                 "evidence_mapping_confidence",

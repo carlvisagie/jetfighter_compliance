@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 def _beta() -> bool:
     try:
-        from services.founding_beta.mode import is_founding_beta_mode
+        from services.intake.mode import is_intake_mode as is_founding_beta_mode
 
         return is_founding_beta_mode()
     except Exception:

@@ -805,3 +805,90 @@
 {"engine": "forensics", "ref_type": "project", "ref_id": "P-FB-18cf4e048-20260531T211651Z", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-05-31T21:16:51Z"}
 {"engine": "forensics", "ref_type": "project", "ref_id": "P-FB-5a733e65c-20260531T212023Z", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-05-31T21:20:23Z"}
 {"engine": "forensics", "ref_type": "project", "ref_id": "P-FB-5a733e65c-20260531T212023Z", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-05-31T21:20:23Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-FRICTION-TEST", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-01T05:06:57Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-FRICTION-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-01T05:06:57Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-01T05:07:15Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-01T05:07:15Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-01T05:07:16Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-01T05:07:16Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-01T05:07:16Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-01T05:07:17Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-01T05:07:17Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-01T05:07:17Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-FB-e109f8828-20260601T050727Z", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-01T05:07:27Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-FB-e109f8828-20260601T050727Z", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-01T05:07:27Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-FB-96add4c3c-20260602T141032Z", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-02T14:10:32Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-FB-96add4c3c-20260602T141032Z", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-02T14:10:32Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-FB-e0fc8e3b0-20260602T141158Z", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-02T14:11:58Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-FB-e0fc8e3b0-20260602T141158Z", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-02T14:11:58Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-FRICTION-TEST", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-02T14:15:56Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-FRICTION-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T14:15:56Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T14:16:27Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T14:16:27Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T14:16:27Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T14:16:27Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T14:16:28Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T14:16:28Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-02T14:16:28Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T14:16:28Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-FB-a0bb79db4-20260602T141639Z", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-02T14:16:39Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-FB-a0bb79db4-20260602T141639Z", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-02T14:16:39Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:48:20Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:48:20Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:48:21Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:48:21Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:48:21Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:48:21Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-02T17:48:21Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:48:22Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:54:30Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:54:30Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:54:31Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:54:31Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:54:31Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-02T17:54:31Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:54:31Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:54:31Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:54:32Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:54:32Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:54:32Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:54:33Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-FRICTION-TEST", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-02T17:58:00Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-FRICTION-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:58:00Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:58:32Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:58:32Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:58:33Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:58:33Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:58:33Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-02T17:58:33Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:58:34Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:58:34Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:58:34Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:58:34Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:58:35Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T17:58:35Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-FB-afbefba76-20260602T175846Z", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-02T17:58:46Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-FB-afbefba76-20260602T175846Z", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-02T17:58:46Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-FRICTION-TEST", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-02T19:05:27Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-FRICTION-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T19:05:27Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T19:06:03Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T19:06:03Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T19:06:03Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T19:06:04Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T19:06:04Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-02T19:06:04Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T19:06:04Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T19:06:04Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T19:06:05Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T19:06:05Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T19:06:05Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-EI-TEST", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T19:06:06Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-FB-79ace16c3-20260602T190619Z", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-02T19:06:19Z"}
+{"engine": "forensics", "ref_type": "project", "ref_id": "P-FB-79ace16c3-20260602T190619Z", "detail": "Forensic evidence_uploaded unlinked", "when_utc": "2026-06-02T19:06:19Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-VIODEMO002", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T21:55:50Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-VIODEMO003", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T21:56:05Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-VIODEMO003", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T21:56:15Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-VIODEMO004", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T21:56:24Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-VIODEMO004", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T21:56:36Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-VIODEMO005", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T21:56:48Z"}
+{"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "P-VIODEMO005", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-02T21:56:59Z"}

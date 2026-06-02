@@ -264,3 +264,23 @@
 {"event_id": "KL-ab48c64d", "event_type": "overlay_opened", "concept_id": "", "query": "cockpit_guidance", "when_utc": "2026-05-31T17:22:12Z", "metadata": {"view": "cockpit_guidance", "panel": "priority"}}
 {"event_id": "KL-dc5f08f4", "event_type": "explanation_generated", "concept_id": "", "query": "cockpit_guidance", "when_utc": "2026-05-31T17:22:12Z", "metadata": {"view": "cockpit_guidance", "explanation_type": "cockpit_guidance"}}
 {"event_id": "KL-b9fb1858", "event_type": "overlay_opened", "concept_id": "", "query": "cockpit_guidance", "when_utc": "2026-05-31T17:22:13Z", "metadata": {"view": "cockpit_guidance", "panel": "priority"}}
+{"event_id": "KL-1306b0c9", "event_type": "explanation_generated", "concept_id": "ssp", "query": "", "when_utc": "2026-06-01T05:15:38Z", "metadata": {}}
+{"event_id": "KL-90646a2b", "event_type": "concept_lookup", "concept_id": "ssp", "query": "ssp test", "when_utc": "2026-06-01T05:15:39Z", "metadata": {}}
+{"event_id": "KL-d2aa4d99", "event_type": "explanation_generated", "concept_id": "cmmc", "query": "Which CMMC level?", "when_utc": "2026-06-01T05:15:40Z", "metadata": {}}
+{"event_id": "KL-54b77fa0", "event_type": "overlay_opened", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-01T05:15:41Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KL-0a920b77", "event_type": "explanation_generated", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-01T05:15:42Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}
+{"event_id": "KL-e390f34d", "event_type": "explanation_generated", "concept_id": "ssp", "query": "", "when_utc": "2026-06-02T14:24:29Z", "metadata": {}}
+{"event_id": "KL-41b43a2b", "event_type": "concept_lookup", "concept_id": "ssp", "query": "ssp test", "when_utc": "2026-06-02T14:24:30Z", "metadata": {}}
+{"event_id": "KL-06e896ef", "event_type": "explanation_generated", "concept_id": "cmmc", "query": "Which CMMC level?", "when_utc": "2026-06-02T14:24:31Z", "metadata": {}}
+{"event_id": "KL-0492e0e7", "event_type": "overlay_opened", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-02T14:24:32Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KL-f4442627", "event_type": "explanation_generated", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-02T14:24:32Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}
+{"event_id": "KL-c5e04f27", "event_type": "explanation_generated", "concept_id": "ssp", "query": "", "when_utc": "2026-06-02T18:06:59Z", "metadata": {}}
+{"event_id": "KL-50746499", "event_type": "concept_lookup", "concept_id": "ssp", "query": "ssp test", "when_utc": "2026-06-02T18:07:00Z", "metadata": {}}
+{"event_id": "KL-a7fb0e6f", "event_type": "explanation_generated", "concept_id": "cmmc", "query": "Which CMMC level?", "when_utc": "2026-06-02T18:07:01Z", "metadata": {}}
+{"event_id": "KL-55b6d6a0", "event_type": "overlay_opened", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-02T18:07:02Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KL-0baccf45", "event_type": "explanation_generated", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-02T18:07:03Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}
+{"event_id": "KL-22d7a3ca", "event_type": "explanation_generated", "concept_id": "ssp", "query": "", "when_utc": "2026-06-02T19:16:17Z", "metadata": {}}
+{"event_id": "KL-a864b37b", "event_type": "concept_lookup", "concept_id": "ssp", "query": "ssp test", "when_utc": "2026-06-02T19:16:18Z", "metadata": {}}
+{"event_id": "KL-64a1528f", "event_type": "explanation_generated", "concept_id": "cmmc", "query": "Which CMMC level?", "when_utc": "2026-06-02T19:16:19Z", "metadata": {}}
+{"event_id": "KL-f82769e6", "event_type": "overlay_opened", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-02T19:16:20Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KL-00a0110c", "event_type": "explanation_generated", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-02T19:16:21Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}

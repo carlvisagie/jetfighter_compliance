@@ -87,7 +87,7 @@ def run_reddit_acquisition_cycle(
     campaign_id: str = "reddit-upload-first",
     message_variant: str = "A",
     pause_seconds: float = discovery.MIN_SECONDS_BETWEEN_REQUESTS,
-    founding_beta_broad: bool = False,
+    broad: bool = False,
     base: Optional[Path] = None,
 ) -> Dict[str, Any]:
     """Discover → classify → organism plan → draft → operator queue (approve/deny only)."""
@@ -102,7 +102,7 @@ def run_reddit_acquisition_cycle(
             campaign_id=campaign_id,
             message_variant=message_variant,
             pause_seconds=pause_seconds,
-            founding_beta_broad=founding_beta_broad,
+            broad=broad,
             base=base,
         )
     except Exception as e:
@@ -150,12 +150,12 @@ def _run_reddit_acquisition_cycle_impl(
     campaign_id: str = "reddit-upload-first",
     message_variant: str = "A",
     pause_seconds: float = discovery.MIN_SECONDS_BETWEEN_REQUESTS,
-    founding_beta_broad: bool = False,
+    broad: bool = False,
     base: Optional[Path] = None,
 ) -> Dict[str, Any]:
     from ...orchestration import ingest_discovery_candidate, load_recent_target_keys
 
-    from services.founding_beta.reddit_discovery import (
+    from services.intake.reddit_discovery import (
         FALLBACK_MIN_FIT,
         CycleDiagnostics,
         classify_queue_block,
@@ -168,7 +168,7 @@ def _run_reddit_acquisition_cycle_impl(
     from services.acquisition.founding_beta_mode import passes_founding_beta_prey_gate
 
     state = learning.load_learning_state(base)
-    beta_discovery = founding_beta_broad or is_founding_beta_discovery_mode()
+    beta_discovery = broad or is_founding_beta_discovery_mode()
     if min_fit_score is None:
         min_fit_score = 40 if beta_discovery else int(state.get("min_fit_threshold", 50))
     if min_prey_score is None:
@@ -428,7 +428,7 @@ def _run_reddit_acquisition_cycle_impl(
         queued_this_cycle += 1
         queued_post_ids.add(post["post_id"])
         try:
-            from services.founding_beta.telemetry import emit_beta_event
+            from services.intake.telemetry import emit_intake_event as emit_beta_event
 
             emit_beta_event("beta_candidate_queued", metadata={"post_id": post["post_id"], "fallback": fallback_used})
         except Exception:
@@ -528,7 +528,7 @@ def _run_reddit_acquisition_cycle_impl(
         )
         if int(prob.get("operational_pressure_score", 0) or 0) >= 28:
             try:
-                from services.founding_beta.telemetry import emit_beta_event
+                from services.intake.telemetry import emit_intake_event as emit_beta_event
 
                 emit_beta_event(
                     "operational_pressure_detected",
@@ -882,7 +882,7 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
 
     founding_beta: Dict[str, Any] = {}
     try:
-        from services.founding_beta.stats import get_founding_beta_status
+        from services.intake.stats import get_intake_status as get_founding_beta_status
 
         founding_beta = get_founding_beta_status(base)
     except Exception:

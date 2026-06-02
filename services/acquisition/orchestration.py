@@ -114,7 +114,7 @@ def enrich_target_with_founding_beta(
     fb = row.get("founding_beta_enrichment")
     if not fb and "usaspending" in (panel.get("source") or ""):
         try:
-            from services.founding_beta.paperwork_prediction import predict_federal_supplier_paperwork
+            from services.intake.paperwork_prediction import predict_federal_supplier_paperwork
 
             fb = predict_federal_supplier_paperwork(
                 panel.get("company_name", ""),
@@ -512,7 +512,7 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
 
     founding_beta: Dict[str, Any] = {}
     try:
-        from services.founding_beta.stats import get_founding_beta_status
+        from services.intake.stats import get_intake_status as get_founding_beta_status
 
         founding_beta = get_founding_beta_status(base)
     except Exception:

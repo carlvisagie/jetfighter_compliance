@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "updated_utc": "2026-05-31T21:20:44Z",
+  "updated_utc": "2026-06-02T19:21:35Z",
   "signal_effectiveness": {
     "intake:intake_received": {
-      "success": 83,
+      "success": 839,
       "fail": 0,
       "outcomes": [
         "intake_received",
@@ -11,7 +11,7 @@
         "intake_received",
         "intake_received",
         "intake_received",
-        "intake_received",
+        "FB-52bb03e025a2",
         "intake_received",
         "intake_received",
         "intake_received",
@@ -29,7 +29,7 @@
       ]
     },
     "intake:intake_classified": {
-      "success": 78,
+      "success": 833,
       "fail": 0,
       "outcomes": [
         "intake_classified",
@@ -55,7 +55,7 @@
       ]
     },
     "intake:missing_documents_detected": {
-      "success": 78,
+      "success": 835,
       "fail": 0,
       "outcomes": [
         "missing_documents_detected",
@@ -81,7 +81,7 @@
       ]
     },
     "intake:operator_payment_link_sent": {
-      "success": 25,
+      "success": 59,
       "fail": 0,
       "outcomes": [
         "operator_payment_link_sent",
@@ -108,89 +108,407 @@
     },
     "gap:mfa_evidence": {
       "success": 0,
-      "fail": 1,
+      "fail": 10,
       "outcomes": [
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
         "intake_to_evidence"
       ]
     },
     "gap:training_record": {
       "success": 0,
-      "fail": 1,
+      "fail": 10,
       "outcomes": [
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
         "intake_to_evidence"
       ]
     },
     "gap:asset_inventory": {
       "success": 0,
-      "fail": 1,
+      "fail": 10,
       "outcomes": [
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
         "intake_to_evidence"
       ]
     },
     "gap:vulnerability_evidence": {
       "success": 0,
-      "fail": 1,
+      "fail": 10,
       "outcomes": [
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
         "intake_to_evidence"
       ]
     },
     "gap:access_control": {
       "success": 0,
-      "fail": 1,
+      "fail": 10,
       "outcomes": [
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
         "intake_to_evidence"
       ]
     },
     "gap:vendor_policy": {
       "success": 0,
-      "fail": 1,
+      "fail": 4,
       "outcomes": [
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
         "intake_to_evidence"
       ]
     },
     "gap:backup_evidence": {
       "success": 0,
-      "fail": 1,
+      "fail": 10,
       "outcomes": [
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
         "intake_to_evidence"
       ]
     },
     "gap:incident_response": {
       "success": 0,
-      "fail": 1,
+      "fail": 10,
       "outcomes": [
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
         "intake_to_evidence"
       ]
     },
     "gap:ssp_poam": {
       "success": 0,
-      "fail": 1,
+      "fail": 10,
       "outcomes": [
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
+        "intake_to_evidence",
         "intake_to_evidence"
+      ]
+    },
+    "acquisition:high_priority": {
+      "success": 26,
+      "fail": 0,
+      "outcomes": [
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "lead_to_inquiry"
+      ]
+    },
+    "compliance:central-memory": {
+      "success": 8,
+      "fail": 0,
+      "outcomes": [
+        "compliance_intel",
+        "compliance_intel",
+        "compliance_intel",
+        "compliance_intel",
+        "compliance_intel",
+        "compliance_intel",
+        "compliance_intel",
+        "compliance_intel"
+      ]
+    },
+    "compliance:launch-path": {
+      "success": 4,
+      "fail": 0,
+      "outcomes": [
+        "compliance_intel",
+        "compliance_intel",
+        "compliance_intel",
+        "compliance_intel"
+      ]
+    },
+    "intake:operator_approved": {
+      "success": 4,
+      "fail": 0,
+      "outcomes": [
+        "operator_approved",
+        "operator_approved",
+        "operator_approved",
+        "operator_approved"
+      ]
+    },
+    "intake:operator_high_value": {
+      "success": 4,
+      "fail": 0,
+      "outcomes": [
+        "operator_high_value",
+        "operator_high_value",
+        "operator_high_value",
+        "operator_high_value"
+      ]
+    },
+    "knowledge:ssp": {
+      "success": 8,
+      "fail": 0,
+      "outcomes": [
+        "explanation_generated",
+        "concept_lookup",
+        "explanation_generated",
+        "concept_lookup",
+        "explanation_generated",
+        "concept_lookup",
+        "explanation_generated",
+        "concept_lookup"
+      ]
+    },
+    "knowledge:mfa": {
+      "success": 4,
+      "fail": 0,
+      "outcomes": [
+        "concept_explained",
+        "concept_explained",
+        "concept_explained",
+        "concept_explained"
+      ]
+    },
+    "knowledge:cmmc": {
+      "success": 4,
+      "fail": 0,
+      "outcomes": [
+        "explanation_generated",
+        "explanation_generated",
+        "explanation_generated",
+        "explanation_generated"
+      ]
+    },
+    "telemetry:email:send_failed": {
+      "success": 0,
+      "fail": 32,
+      "outcomes": [
+        "subsystem_failure",
+        "subsystem_failure",
+        "subsystem_failure",
+        "subsystem_failure",
+        "subsystem_failure",
+        "subsystem_failure",
+        "subsystem_failure",
+        "subsystem_failure",
+        "subsystem_failure",
+        "subsystem_failure",
+        "subsystem_failure",
+        "subsystem_failure",
+        "subsystem_failure",
+        "subsystem_failure",
+        "subsystem_failure",
+        "subsystem_failure",
+        "subsystem_failure",
+        "subsystem_failure",
+        "subsystem_failure",
+        "subsystem_failure"
+      ]
+    },
+    "intake:operator_archived": {
+      "success": 4,
+      "fail": 0,
+      "outcomes": [
+        "operator_archived",
+        "operator_archived",
+        "operator_archived",
+        "operator_archived"
+      ]
+    },
+    "inquiry_submitted": {
+      "success": 24,
+      "fail": 0,
+      "outcomes": [
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "inquiry_to_intake",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "inquiry_to_intake",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "inquiry_to_intake",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "inquiry_to_intake",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "inquiry_to_intake",
+        "lead_to_inquiry",
+        "lead_to_inquiry",
+        "inquiry_to_intake",
+        "lead_to_inquiry",
+        "lead_to_inquiry"
+      ]
+    },
+    "workflow:intake_received": {
+      "success": 4,
+      "fail": 0,
+      "outcomes": [
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake"
+      ]
+    },
+    "intake_completed": {
+      "success": 8,
+      "fail": 0,
+      "outcomes": [
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake"
+      ]
+    },
+    "email:deliverability": {
+      "success": 30,
+      "fail": 0,
+      "outcomes": [
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake",
+        "inquiry_to_intake"
+      ]
+    },
+    "evidence_confirm:domains:confirmed": {
+      "success": 3,
+      "fail": 0,
+      "outcomes": [
+        "evidence_confirmation",
+        "evidence_confirmation",
+        "evidence_confirmation"
       ]
     }
   },
   "conversion_counts": {
-    "lead_to_inquiry": 0,
-    "inquiry_to_intake": 0,
-    "intake_to_evidence": 9,
+    "lead_to_inquiry": 42,
+    "inquiry_to_intake": 50,
+    "intake_to_evidence": 84,
     "lead_failed": 0
   },
   "paperwork_patterns": {
     "high_fit": [
       "Unknown",
-      "Policy set"
+      "Policy set",
+      "SSP",
+      "CHG-015bcc8b3771",
+      "CHG-0992a05c53c3",
+      "Vendor form",
+      "NIST questionnaire",
+      "SPRS",
+      "Asset inventory",
+      "ssp",
+      "mfa",
+      "cmmc",
+      "test",
+      "CHG-9f4f580dc383",
+      "CHG-0b2d1f441a79",
+      "domains",
+      "CHG-cf3c8b67c4c6",
+      "CHG-4de0d3dec85c",
+      "CHG-3de2a6a71422",
+      "CHG-533f742e36eb"
     ],
     "low_fit": []
   },
   "segment_performance": {
     "intake": {
-      "success": 249,
+      "success": 2228,
       "fail": 0
     }
   },
   "last_learning_event": "intake_received",
-  "uploads_seen": 11,
-  "cycles_completed": 8,
+  "uploads_seen": 237,
+  "cycles_completed": 226,
   "intake": {}
 }

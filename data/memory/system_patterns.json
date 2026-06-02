@@ -1,46 +1,52 @@
 {
   "version": 1,
-  "updated_utc": "2026-05-31T21:20:44Z",
+  "updated_utc": "2026-06-02T21:57:00Z",
   "subsystem_health": {
     "intake": {
       "success_rate": 1.0,
-      "events": 383,
+      "events": 266,
       "failures": 0,
       "status": "healthy"
     },
     "acquisition_organism": {
       "success_rate": 1.0,
-      "events": 55,
+      "events": 35,
       "failures": 0,
       "status": "healthy"
     },
     "operational_alerts": {
       "success_rate": 1.0,
-      "events": 26,
+      "events": 34,
       "failures": 0,
       "status": "healthy"
     },
     "job_queue": {
       "success_rate": 1.0,
-      "events": 1,
+      "events": 2,
       "failures": 0,
       "status": "healthy"
     },
     "evidence_intelligence": {
-      "success_rate": 0.909,
-      "events": 11,
+      "success_rate": 0.993,
+      "events": 150,
       "failures": 1,
+      "status": "healthy"
+    },
+    "customer_session": {
+      "success_rate": 1.0,
+      "events": 4,
+      "failures": 0,
       "status": "healthy"
     },
     "email": {
       "success_rate": 0.5,
-      "events": 22,
-      "failures": 11,
+      "events": 8,
+      "failures": 4,
       "status": "unhealthy"
     },
-    "reddit_acquisition": {
+    "customer_friction": {
       "success_rate": 1.0,
-      "events": 2,
+      "events": 1,
       "failures": 0,
       "status": "healthy"
     }
@@ -48,7 +54,7 @@
   "repeated_failures": [
     {
       "key": "email:smtp_unconfigured",
-      "count": 11,
+      "count": 4,
       "suggestion": "Review email:smtp_unconfigured failures"
     }
   ],
@@ -57,13 +63,14 @@
     "acquisition_organism": 1.0,
     "operational_alerts": 1.0,
     "job_queue": 1.0,
-    "evidence_intelligence": 0.909,
+    "evidence_intelligence": 0.993,
+    "customer_session": 1.0,
     "email": 0.5,
-    "reddit_acquisition": 1.0
+    "customer_friction": 1.0
   },
   "conversion_patterns": {},
   "failure_patterns": {
-    "email:smtp_unconfigured": 11,
+    "email:smtp_unconfigured": 4,
     "evidence_intelligence:evidence_mapping_failure": 1
   },
   "bottleneck_patterns": {},

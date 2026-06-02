@@ -48,12 +48,6 @@ def intake_page():
     return FileResponse(ROOT / "ui" / "intake.html")
 
 
-@app.get("/ui/founding-beta")
-@app.get("/ui/founding-beta.html")
-def founding_beta_redirect():
-    """Permanent redirect — old beta URL → canonical intake page."""
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/ui/intake.html", status_code=301)
 
 
 app.include_router(telemetry_router)
@@ -1804,7 +1798,7 @@ async def operator_reddit_acquisition_run(body: dict = Body(default={})):
     if blocked is not None:
         return blocked
     from services.acquisition.connectors.reddit import run_reddit_acquisition_cycle
-    broad = bool(body.get("founding_beta_broad") or body.get("founding_beta_discovery"))
+    broad = bool(body.get("broad") or body.get("broad_discovery"))
     try:
         result = await run_blocking(
             run_reddit_acquisition_cycle,
@@ -1816,7 +1810,7 @@ async def operator_reddit_acquisition_run(body: dict = Body(default={})):
             campaign_id=str(body.get("campaign_id") or "reddit-upload-first"),
             message_variant=str(body.get("message_variant") or "A"),
             pause_seconds=float(body.get("pause_seconds") or 0),
-            founding_beta_broad=broad,
+            broad=broad,
         )
         if result.get("ok") is False:
             return JSONResponse(status_code=200, content=result)
