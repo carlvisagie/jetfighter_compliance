@@ -224,7 +224,7 @@ def build_vio_overview(limit: int = 60) -> Dict:
     from services.intake.queue import get_operator_review_queue
 
     try:
-        queue_data = get_operator_review_queue(limit=min(limit, 100))
+        queue_data = get_operator_review_queue(limit=min(limit, 100), include_archived=True)
     except Exception as exc:
         return {"ok": False, "error": str(exc), "companies": [], "organism_health": {}}
 
