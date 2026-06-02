@@ -14,9 +14,9 @@ from services.acquisition.acquisition_probability import (
 from services.acquisition.connectors.reddit.author_intent import classify_author_intent
 from services.acquisition.connectors.reddit.classifier import classify_post
 from services.acquisition.intelligence.soft_burden import score_soft_burden
-from services.founding_beta.messaging import BETA_HEADLINE, beta_messaging_blocks
-from services.founding_beta.mode import is_founding_beta_mode
-from services.founding_beta.telemetry import emit_beta_event
+from services.intake.messaging import BETA_HEADLINE, intake_messaging_blocks
+from services.intake.mode import is_intake_mode
+from services.intake.telemetry import emit_intake_event
 
 
 @pytest.fixture
@@ -25,11 +25,11 @@ def beta_on(monkeypatch):
 
 
 def test_founding_beta_mode_default_on():
-    assert is_founding_beta_mode() is True
+    assert is_intake_mode() is True
 
 
-def test_beta_messaging_blocks():
-    blocks = beta_messaging_blocks()
+def test_intake_messaging_blocks():
+    blocks = intake_messaging_blocks()
     assert BETA_HEADLINE in blocks["headline"]
     assert "upload-first" in blocks["intro"].lower()
     assert "partial" in blocks["upload_prompt"].lower()
@@ -88,7 +88,7 @@ def test_adaptive_threshold_targets_nonzero_queue(beta_on):
 def test_beta_telemetry_emits(beta_on):
     from services.memory.telemetry import load_telemetry
 
-    emit_beta_event("beta_upload_started", metadata={"test": True})
+    emit_intake_event("beta_upload_started", metadata={"test": True})
     rows = load_telemetry(limit=30, subsystem="founding_beta")
     assert any(r.get("event_type") == "beta_upload_started" for r in rows)
 

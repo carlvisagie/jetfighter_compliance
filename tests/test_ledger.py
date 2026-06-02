@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 from services.ledger import append_ledger, register_artifact, file_sha256
 
 def test_hash_chain(tmp_path, monkeypatch):

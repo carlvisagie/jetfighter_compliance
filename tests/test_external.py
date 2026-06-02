@@ -1,4 +1,4 @@
-﻿from services.external import compute_external_costs
+from services.external import compute_external_costs
 def test_costs_sum():
     flags = {"gs1": True, "qes": True, "cmmc_l2_c3pao": False}
     res = compute_external_costs(flags)

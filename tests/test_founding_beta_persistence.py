@@ -6,8 +6,8 @@ import json
 
 import pytest
 
-from services.founding_beta.queue import get_operator_review_queue
-from services.founding_beta.storage import (
+from services.intake.queue import get_operator_review_queue
+from services.intake.storage import (
     all_intake_ids,
     intake_diagnostics,
     intake_json_path,

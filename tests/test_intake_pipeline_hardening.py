@@ -31,8 +31,8 @@ def _upload(client: TestClient, names: list[str], **extra) -> dict:
 def test_commit_phases_audit_before_index(fb_env, anon_client: TestClient):
     body = _upload(anon_client, ["order.pdf"])
     iid = body["intake_id"]
-    from services.founding_beta.transactions import load_transaction_log
-    from services.founding_beta.storage import latest_index_row
+    from services.intake.transactions import load_transaction_log
+    from services.intake.storage import latest_index_row
 
     phases = [e["phase"] for e in load_transaction_log(iid)]
     upload_idx = max(i for i, p in enumerate(phases) if p == "upload_received")
@@ -49,10 +49,10 @@ def test_commit_phases_audit_before_index(fb_env, anon_client: TestClient):
 def test_index_not_updated_before_audit_receipt(fb_env, anon_client: TestClient):
     body = _upload(anon_client, ["receipt.pdf"])
     iid = body["intake_id"]
-    from services.founding_beta.retention import audit_receipt_path
+    from services.intake.retention import audit_receipt_path
 
     assert audit_receipt_path(iid).is_file()
-    from services.founding_beta.storage import latest_index_row
+    from services.intake.storage import latest_index_row
 
     row = latest_index_row(iid)
     assert row and row.get("committed") is True
@@ -144,7 +144,7 @@ def test_concurrent_uploads_same_intake(fb_env, anon_client: TestClient):
         t.join(timeout=30)
     assert not errors
     assert all(code == 200 for code in results)
-    from services.founding_beta.retention import hash_uploads_on_disk
+    from services.intake.retention import hash_uploads_on_disk
 
     assert len(hash_uploads_on_disk(iid)) >= 3
 
@@ -174,7 +174,7 @@ def test_durability_failure_marks_integrity_failure(fb_env, anon_client: TestCli
         data={"email": "fail@example.com", "expected_file_count": "1"},
     )
     assert r.status_code == 500
-    from services.founding_beta.storage import list_intake_ids, load_intake_record
+    from services.intake.storage import list_intake_ids, load_intake_record
 
     iid = list_intake_ids(limit=1)[0]
     rec = load_intake_record(iid)

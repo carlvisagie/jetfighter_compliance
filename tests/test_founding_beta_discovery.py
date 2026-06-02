@@ -8,8 +8,8 @@ from services.acquisition.connectors.reddit.autonomy import decide_engagement
 from services.acquisition.connectors.reddit.classifier import classify_post
 from services.acquisition.connectors.reddit.qualification import qualify_post
 from services.acquisition.founding_beta_mode import passes_founding_beta_prey_gate
-from services.founding_beta.paperwork_prediction import predict_federal_supplier_paperwork
-from services.founding_beta.reddit_discovery import (
+from services.intake.paperwork_prediction import predict_federal_supplier_paperwork
+from services.intake.reddit_discovery import (
     CycleDiagnostics,
     classify_queue_block,
     passes_founding_beta_fallback_gate,

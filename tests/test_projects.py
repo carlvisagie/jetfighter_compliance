@@ -1,4 +1,4 @@
-﻿from services.projects import new_project
+from services.projects import new_project
 from pathlib import Path
 from services.config import PROJECTS
 

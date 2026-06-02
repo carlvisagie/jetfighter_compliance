@@ -8,8 +8,8 @@ import os
 import pytest
 
 from services.durable_storage import active_data_root
-from services.founding_beta.queue import get_operator_review_queue
-from services.founding_beta.retention import (
+from services.intake.queue import get_operator_review_queue
+from services.intake.retention import (
     audit_receipt_path,
     load_audit_receipt,
     retention_check,
@@ -18,7 +18,7 @@ from services.founding_beta.retention import (
     scan_retention_at_startup,
     verify_intake_durability,
 )
-from services.founding_beta.storage import (
+from services.intake.storage import (
     intake_dir,
     intake_json_path,
     intakes_root,
@@ -182,7 +182,7 @@ def test_startup_scan_flags_index_disk_drift(fb_data, monkeypatch):
   idir.mkdir(parents=True)
   (idir / "uploads").mkdir()
   (idir / "uploads" / "a.txt").write_text("x", encoding="utf-8")
-  from services.founding_beta.storage import append_index_row
+  from services.intake.storage import append_index_row
 
   append_index_row({"intake_id": "FB-ghostindexonly", "created_at_utc": "2020-01-01T00:00:00Z"})
   report = scan_retention_at_startup(force=True)

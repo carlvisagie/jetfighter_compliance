@@ -10,14 +10,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from server import app
-from services.founding_beta.classification import (
+from services.intake.classification import (
     DOC_SSP,
     DOC_UNKNOWN,
     classify_intake,
     classify_upload_file,
 )
-from services.founding_beta.queue import get_operator_review_queue
-from services.founding_beta.operator_actions import apply_operator_action
+from services.intake.queue import get_operator_review_queue
+from services.intake.operator_actions import apply_operator_action
 
 
 def test_classify_ssp_filename(tmp_path):

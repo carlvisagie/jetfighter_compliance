@@ -43,7 +43,7 @@ def test_upload_success_no_orchestration_import(fb_env, anon_client):
     assert body.get("magic_link")
     assert body.get("qr_png_base64")
     assert "services.acquisition.orchestration" not in sys.modules
-    from services.founding_beta.storage import intake_dir as fb_intake_dir
+    from services.intake.storage import intake_dir as fb_intake_dir
 
     assert (fb_intake_dir(body["intake_id"]) / "uploads" / "policy.pdf").is_file()
 

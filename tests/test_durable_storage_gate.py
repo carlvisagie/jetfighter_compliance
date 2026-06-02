@@ -12,7 +12,7 @@ from services.durable_storage import (
     is_durable_storage_configured,
     require_intake_upload_allowed,
 )
-from services.founding_beta.storage import intakes_root
+from services.intake.storage import intakes_root
 
 
 def test_production_rejects_upload_without_kyc_data(prod_env, anon_client, monkeypatch, tmp_path):

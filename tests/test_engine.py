@@ -1,4 +1,4 @@
-﻿from services.engine import enqueue, sweep_queue
+from services.engine import enqueue, sweep_queue
 from services import projects as P
 import json
 

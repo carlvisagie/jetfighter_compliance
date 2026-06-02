@@ -38,8 +38,8 @@ def test_interrupted_multipart_upload_marks_partial(fb_env, anon_client: TestCli
     assert body["failed_file_count"] >= 1
     assert "doc9.pdf" in body["missing_files"]
 
-    from services.founding_beta.retention import load_audit_receipt
-    from services.founding_beta.storage import load_intake_record
+    from services.intake.retention import load_audit_receipt
+    from services.intake.storage import load_intake_record
 
     rec = load_intake_record(body["intake_id"])
     ui = rec.get("upload_integrity") or {}
@@ -71,7 +71,7 @@ def test_duplicate_filename_collision_tracked(fb_env, anon_client: TestClient):
     assert body["verified_file_count"] == 2
     assert body["customer_may_show_success"] is True
 
-    from services.founding_beta.storage import load_intake_record
+    from services.intake.storage import load_intake_record
 
     lifecycle = (load_intake_record(body["intake_id"]).get("upload_integrity") or {}).get(
         "file_lifecycle"

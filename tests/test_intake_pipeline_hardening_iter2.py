@@ -106,7 +106,7 @@ def test_recover_uncommitted_intakes_after_interrupted_commit(fb_env, anon_clien
     )
     assert r.status_code == 200
     iid = r.json()["intake_id"]
-    from services.founding_beta.transactions import transaction_log_path
+    from services.intake.transactions import transaction_log_path
 
     path = transaction_log_path(iid)
     rows = []
@@ -119,14 +119,14 @@ def test_recover_uncommitted_intakes_after_interrupted_commit(fb_env, anon_clien
         rows.append(line.strip())
     path.write_text("\n".join(rows) + "\n", encoding="utf-8")
 
-    from services.founding_beta.reconcile import recover_uncommitted_intakes
+    from services.intake.reconcile import recover_uncommitted_intakes
 
     out = recover_uncommitted_intakes(limit=50)
     assert iid in out.get("recovered_intake_ids", [])
 
 
 def test_telemetry_failure_does_not_block_commit(fb_env, anon_client: TestClient, monkeypatch):
-    from services.founding_beta import telemetry as telem
+    from services.intake import telemetry as telem
 
     def fail_emit(*args, **kwargs):
         return False
@@ -140,7 +140,7 @@ def test_telemetry_failure_does_not_block_commit(fb_env, anon_client: TestClient
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["durable_receipt_created"] is True
-    from services.founding_beta.transactions import load_transaction_log
+    from services.intake.transactions import load_transaction_log
 
     phases = [e["phase"] for e in load_transaction_log(body["intake_id"])]
     assert "telemetry_failed" in phases
@@ -163,7 +163,7 @@ def test_hash_mismatch_detected_on_retention_check(fb_env, anon_client: TestClie
 
 
 def test_canonical_write_guard_blocks_legacy_path(fb_env):
-    from services.founding_beta.storage import assert_canonical_write_path, founding_beta_root
+    from services.intake.storage import assert_canonical_write_path, founding_beta_root
 
     legacy = founding_beta_root() / "intakes" / "FB-deadbeef" / "uploads" / "x.pdf"
     with pytest.raises(ValueError, match="non-canonical"):
@@ -177,7 +177,7 @@ def test_customer_upload_writes_only_canonical_intakes(fb_env, anon_client: Test
         data={"email": "canon@example.com", "expected_file_count": "1"},
     )
     iid = r.json()["intake_id"]
-    from services.founding_beta.storage import canonical_intake_dir, founding_beta_root
+    from services.intake.storage import canonical_intake_dir, founding_beta_root
 
     assert (canonical_intake_dir(iid) / "uploads" / "canon.pdf").is_file()
     legacy = founding_beta_root() / "intakes" / iid
@@ -194,7 +194,7 @@ def test_cote_integrity_failure_on_hash_mismatch(fb_env, anon_client: TestClient
     from services.intake.storage import intake_dir
 
     (intake_dir(iid) / "uploads" / "cotehash.pdf").write_bytes(b"BAD")
-    from services.founding_beta.reconcile import recover_uncommitted_intakes
+    from services.intake.reconcile import recover_uncommitted_intakes
 
     recover_uncommitted_intakes(limit=20)
     topo = client.get("/api/cognitive-topology").json()
