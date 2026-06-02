@@ -26,11 +26,13 @@ VENDOR_PRODUCTS: Dict[str, str] = {
     "entra id": "Microsoft Entra ID",
     "google workspace": "Google Workspace",
     "aws": "Amazon Web Services",
+    "amazon web services": "Amazon Web Services",
     "okta": "Okta",
     "duo": "Duo Security",
     "crowdstrike": "CrowdStrike",
     "sentinelone": "SentinelOne",
     "microsoft defender": "Microsoft Defender",
+    "windows defender": "Microsoft Defender",
     "knowbe4": "KnowBe4",
     "proofpoint": "Proofpoint",
     "mimecast": "Mimecast",
@@ -39,17 +41,22 @@ VENDOR_PRODUCTS: Dict[str, str] = {
     "cisco": "Cisco",
     "sophos": "Sophos",
     "bitdefender": "Bitdefender",
+    "quickbooks": "QuickBooks",
     "sharepoint": "SharePoint",
     "onedrive": "OneDrive",
     "dropbox": "Dropbox",
     "box.com": "Box",
+    " box ": "Box",
 }
 
 COMPLIANCE_REFS: Dict[str, str] = {
     "cmmc": "CMMC",
     "nist": "NIST",
     "800-171": "NIST SP 800-171",
+    "sp 800-171": "NIST SP 800-171",
     "dfars": "DFARS",
+    "far clause": "FAR",
+    " far ": "FAR",
     "itar": "ITAR",
     "iso 27001": "ISO 27001",
     "soc 2": "SOC 2",
@@ -59,6 +66,8 @@ COMPLIANCE_REFS: Dict[str, str] = {
     "digital product passport": "EU Digital Product Passport",
     " dpp": "DPP",
     "sbom": "SBOM",
+    "fedramp": "FedRAMP",
+    "fisma": "FISMA",
 }
 
 COMPANY_SUFFIX = re.compile(

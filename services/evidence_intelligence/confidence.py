@@ -51,3 +51,20 @@ def merge_items(existing: List[Dict], new_items: List[ExtractedItem], max_per_ty
     out = list(by_val.values())
     out.sort(key=lambda x: float(x.get("confidence", 0)), reverse=True)
     return out[:max_per_type]
+
+
+def mark_conflicting_company_names(profile: Dict) -> bool:
+    """If multiple distinct company names are inferred, mark all as conflicting.
+
+    Returns True if any conflicts were detected.
+    """
+    candidates = profile.get("company_name_candidates") or []
+    inferred = [
+        c for c in candidates
+        if c.get("status") in ("inferred", "conflicting")
+    ]
+    if len(inferred) > 1:
+        for c in inferred:
+            c["status"] = "conflicting"
+        return True
+    return False

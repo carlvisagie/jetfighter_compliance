@@ -40,6 +40,18 @@ def _enrich_gaps(gaps: List[Any]) -> List[Dict[str, Any]]:
     return out
 
 
+def _already_processed(project_id: str, sha256_val: str, artifact_id: str) -> bool:
+    """Return True if this exact artifact was already extracted successfully."""
+    if not sha256_val and not artifact_id:
+        return False
+    for row in storage.load_jsonl(project_id, "extractions.jsonl", limit=500):
+        if sha256_val and row.get("sha256") == sha256_val and row.get("status") == "completed":
+            return True
+        if artifact_id and row.get("artifact_id") == artifact_id and row.get("status") == "completed":
+            return True
+    return False
+
+
 def process_evidence_upload(
     project_id: str,
     file_path: Path,
@@ -50,6 +62,20 @@ def process_evidence_upload(
 ) -> ProcessingResult:
     """Analyze one uploaded file; never raises to caller."""
     name = file_path.name
+    actual_sha256 = sha256 or _sha256_file(file_path)
+
+    # Skip reprocessing identical artifacts (idempotent on duplicate uploads)
+    if _already_processed(project_id, actual_sha256, artifact_id):
+        result = ProcessingResult(project_id=project_id, source_file=name)
+        result.status = "completed"
+        result.message = "We already organized this file."
+        telemetry.emit(
+            "evidence_extraction_completed",
+            project_id=project_id,
+            metadata={"file": name, "status": "duplicate_skipped"},
+        )
+        return result
+
     result = ProcessingResult(project_id=project_id, source_file=name)
     telemetry.emit("evidence_extraction_started", project_id=project_id, metadata={"file": name})
 
@@ -60,7 +86,9 @@ def process_evidence_upload(
         if extraction.pending_analysis and not extraction.text_preview:
             result.status = "pending_analysis"
             result.message = "We received your files. We are organizing them now."
-            storage.append_jsonl(project_id, "extractions.jsonl", extraction.model_dump())
+            rec = extraction.model_dump()
+            rec.update({"sha256": actual_sha256, "artifact_id": artifact_id, "status": "pending_analysis"})
+            storage.append_jsonl(project_id, "extractions.jsonl", rec)
             telemetry.emit(
                 "evidence_extraction_completed",
                 project_id=project_id,
@@ -73,7 +101,7 @@ def process_evidence_upload(
                     project_id,
                     filename=name,
                     artifact_id=artifact_id,
-                    sha256=sha256 or _sha256_file(file_path),
+                    sha256=actual_sha256,
                     status="pending_analysis",
                 )
             except Exception:
@@ -92,7 +120,9 @@ def process_evidence_upload(
         gaps = detect_gaps(profile)
         storage.write_profile(project_id, profile)
         storage.write_gaps(project_id, [g.model_dump() for g in gaps])
-        storage.append_jsonl(project_id, "extractions.jsonl", extraction.model_dump())
+        extraction_rec = extraction.model_dump()
+        extraction_rec.update({"sha256": actual_sha256, "artifact_id": artifact_id, "status": "completed"})
+        storage.append_jsonl(project_id, "extractions.jsonl", extraction_rec)
         storage.append_jsonl(project_id, "classifications.jsonl", classification.model_dump())
         for ent in entities:
             storage.append_jsonl(project_id, "entities.jsonl", ent.model_dump())
@@ -125,6 +155,18 @@ def process_evidence_upload(
                 )
         except Exception:
             pass
+        # Detect conflicting company names and emit telemetry
+        conflicting_names = [
+            c for c in profile.get("company_name_candidates") or []
+            if c.get("status") == "conflicting"
+        ]
+        if conflicting_names:
+            telemetry.emit(
+                "conflicting_extraction",
+                project_id=project_id,
+                metadata={"field": "company_name", "count": len(conflicting_names)},
+            )
+
         result.gaps_detected = len(gaps)
         result.profile_updated = True
 
@@ -143,11 +185,11 @@ def process_evidence_upload(
             from services.memory.organism_integration import safe_write_after_evidence_intelligence
 
             safe_write_after_evidence_intelligence(
-                project_id,
-                filename=name,
-                artifact_id=artifact_id,
-                sha256=sha256 or _sha256_file(file_path),
-                classification=classification.model_dump(),
+                    project_id,
+                    filename=name,
+                    artifact_id=artifact_id,
+                    sha256=actual_sha256,
+                    classification=classification.model_dump(),
                 entities=[e.model_dump() for e in entities],
                 profile_delta=profile_to_customer_identified(profile),
                 gaps=[g.gap_id for g in gaps[:10]],
@@ -232,6 +274,20 @@ def confirm_entity(
             from services.memory.organism_integration import safe_write_after_evidence_confirmation
 
             safe_write_after_evidence_confirmation(project_id, field, value, new_status)
+        except Exception:
+            pass
+        # Feed learning: track which field types are confirmed vs rejected
+        # so operator guidance can surface "customers often confirm/reject X"
+        try:
+            from services.memory.central_memory import record_learning_signal
+
+            signal_key = f"evidence_confirm:{field}:{new_status}"
+            record_learning_signal(
+                signal_key,
+                "evidence_confirmation",
+                success=(new_status == "confirmed"),
+                paperwork_hint=field,
+            )
         except Exception:
             pass
     return {"ok": updated, "field": field, "value": value, "status": new_status}

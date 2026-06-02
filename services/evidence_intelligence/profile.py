@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
-from .confidence import merge_items
+from .confidence import mark_conflicting_company_names, merge_items
 from .schemas import ClassificationResult, ExtractedItem, ProjectProfile
 
 
@@ -52,6 +52,7 @@ def update_profile(profile: Dict[str, Any], entities: List[ExtractedItem], class
     for ent in entities:
         _bucket(profile, ent)
     apply_classification(profile, classification)
+    mark_conflicting_company_names(profile)
     profile["updated_utc"] = _ts()
     return profile
 
@@ -79,9 +80,8 @@ def needs_confirmation(profile: Dict[str, Any]) -> List[Dict[str, Any]]:
         ("domains", "domain"),
     ):
         for item in profile.get(key) or []:
-            if item.get("status") != "inferred":
-                continue
-            if float(item.get("confidence", 0)) >= 0.55:
+            status = item.get("status", "inferred")
+            if status == "conflicting":
                 out.append(
                     {
                         "field": key,
@@ -89,6 +89,19 @@ def needs_confirmation(profile: Dict[str, Any]) -> List[Dict[str, Any]]:
                         "value": item.get("value"),
                         "confidence": item.get("confidence"),
                         "source_file": item.get("source_file"),
+                        "status": "conflicting",
+                        "message": f"We found multiple {label} candidates. Please confirm which is correct.",
+                    }
+                )
+            elif status == "inferred" and float(item.get("confidence", 0)) >= 0.55:
+                out.append(
+                    {
+                        "field": key,
+                        "label": label,
+                        "value": item.get("value"),
+                        "confidence": item.get("confidence"),
+                        "source_file": item.get("source_file"),
+                        "status": "inferred",
                         "message": f"We may have identified this {label}. Please confirm.",
                     }
                 )

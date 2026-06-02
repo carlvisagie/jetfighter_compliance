@@ -210,3 +210,83 @@ def test_upload_pipeline_still_works(ei_client, ei_project):
 def test_no_public_ops_leakage(anon_client):
     r = anon_client.get("/api/operator/evidence-intelligence?project_id=P-X")
     assert r.status_code in (401, 403)
+
+
+# ── Refinement tests added for bulletproof spec coverage ─────────────────────
+
+
+def test_cross_file_profile_building(ei_project):
+    """Company name from file A and email from file B must both appear in profile."""
+    pid, _, tmp, _mem = ei_project
+
+    f_a = tmp / "projects" / pid / "evidence" / "contract.txt"
+    f_a.write_text("Acme Defense LLC signed this agreement on 2024-01-15.", encoding="utf-8")
+
+    f_b = tmp / "projects" / pid / "evidence" / "contacts.txt"
+    f_b.write_text("Primary contact: jane@acme-defense.com for all inquiries.", encoding="utf-8")
+
+    process_evidence_upload(pid, f_a)
+    process_evidence_upload(pid, f_b)
+
+    prof = get_customer_evidence_profile(pid)
+    identified = prof.get("identified") or {}
+    assert any("Acme" in n for n in identified.get("company_names", [])), (
+        "company name from file A must be in profile"
+    )
+    assert any("jane@acme-defense.com" in e for e in identified.get("emails", [])), (
+        "email from file B must be in profile"
+    )
+
+
+def test_confirmation_status_persists(ei_project):
+    """After customer confirms an entity its status must be 'confirmed' on next profile load."""
+    pid, _, tmp, _mem = ei_project
+
+    f = tmp / "projects" / pid / "evidence" / "domain.txt"
+    f.write_text("Visit us at https://www.acme-ops.com for more info.", encoding="utf-8")
+    process_evidence_upload(pid, f)
+
+    # Retrieve first, find the domain to confirm
+    prof = get_customer_evidence_profile(pid)
+    domains = prof.get("identified", {}).get("domains", [])
+    assert domains, "at least one domain should be extracted"
+
+    target = domains[0]
+    confirm_entity(pid, field="domains", value=target, action="confirmed")
+
+    # Reload profile — status must be confirmed now
+    profile = storage.load_profile(pid)
+    confirmed = [
+        d for d in (profile.get("domains") or [])
+        if d.get("value", "").lower() == target.lower() and d.get("status") == "confirmed"
+    ]
+    assert confirmed, f"domain '{target}' should be confirmed in profile, got: {profile.get('domains')}"
+
+
+def test_conflicting_company_names_detected(ei_project):
+    """Two uploads with different company legal names must trigger conflicting status."""
+    pid, _, tmp, _mem = ei_project
+
+    f_a = tmp / "projects" / pid / "evidence" / "doc_a.txt"
+    f_a.write_text("This policy is issued by Acme Defense LLC.", encoding="utf-8")
+
+    f_b = tmp / "projects" / pid / "evidence" / "doc_b.txt"
+    f_b.write_text("Agreement between Beta Industries Inc and client.", encoding="utf-8")
+
+    process_evidence_upload(pid, f_a)
+    process_evidence_upload(pid, f_b)
+
+    profile = storage.load_profile(pid)
+    candidates = profile.get("company_name_candidates") or []
+    conflicting = [c for c in candidates if c.get("status") == "conflicting"]
+
+    # At least one should be conflicting since two distinct company names were found
+    assert conflicting, (
+        f"Expected conflicting company names, got statuses: "
+        f"{[c.get('status') for c in candidates]}"
+    )
+    # And needs_confirmation must surface them with status='conflicting'
+    from services.evidence_intelligence.profile import needs_confirmation
+    confirm_items = needs_confirmation(profile)
+    conflict_items = [i for i in confirm_items if i.get("status") == "conflicting"]
+    assert conflict_items, "conflicting company names must appear in needs_confirmation list"

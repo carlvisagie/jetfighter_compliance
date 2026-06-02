@@ -15,10 +15,14 @@ MAX_PREVIEW = 8000
 MAX_SNIPPET_STORE = 240
 
 SECRET_PATTERNS = [
-    re.compile(r"(?i)(api[_-]?key|secret|password|passwd|token|bearer)\s*[:=]\s*\S{8,}"),
-    re.compile(r"AKIA[0-9A-Z]{16}"),
-    re.compile(r"-----BEGIN (?:RSA |OPENSSH )?PRIVATE KEY-----"),
-    re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),
+    re.compile(r"(?i)(api[_-]?key|secret[_-]?key?|password|passwd|token|bearer|credential|auth[_-]?key)\s*[:=]\s*\S{8,}"),
+    re.compile(r"AKIA[0-9A-Z]{16}"),                                          # AWS access key
+    re.compile(r"ASIA[0-9A-Z]{16}"),                                          # AWS temp key
+    re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY(?: BLOCK)?-----"),
+    re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),               # JWT
+    re.compile(r"ghp_[A-Za-z0-9]{36}"),                                       # GitHub PAT
+    re.compile(r"sk-[a-zA-Z0-9]{32,}"),                                       # OpenAI key pattern
+    re.compile(r"(?i)private[_\s-]?key\s*[:=]\s*\S{16,}"),
 ]
 
 DANGEROUS_EXTENSIONS = {".exe", ".bat", ".cmd", ".ps1", ".sh", ".dll", ".msi", ".scr", ".vbs", ".js"}
