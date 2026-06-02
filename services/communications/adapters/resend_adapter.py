@@ -40,6 +40,8 @@ def send(
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "KYC-Compliance/1.0",
         },
         method="POST",
     )
