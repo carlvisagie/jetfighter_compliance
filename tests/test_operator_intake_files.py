@@ -19,7 +19,7 @@ def _upload(anon_client: TestClient, names: list[str], **extra) -> dict:
         **extra,
     }
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf(n) for n in names],
         data=data,
     )
@@ -70,7 +70,7 @@ def test_verified_file_view_and_download(fb_env, anon_client: TestClient, client
         "expected_file_count": "1",
     }
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("verified-download.pdf", io.BytesIO(content), "application/pdf"))],
         data=data,
     )
@@ -126,7 +126,7 @@ def test_no_public_document_leak(fb_env, anon_client: TestClient, client: TestCl
     r = anon_client.get(f"/api/operator/intake/{iid}/files/{stored}/download")
     assert r.status_code == 403
 
-    r2 = anon_client.get(f"/api/founding-beta/upload")
+    r2 = anon_client.get(f"/api/intake/upload")
     assert r2.status_code == 405
 
 

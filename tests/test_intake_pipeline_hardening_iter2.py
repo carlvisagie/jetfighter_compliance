@@ -20,7 +20,7 @@ def _manifest(**kwargs) -> str:
         "client_selected_count": kwargs.pop("client_selected_count", 1),
         "filenames": kwargs.pop("filenames", ["doc.pdf"]),
         "upload_session_id": kwargs.pop("upload_session_id", "sess-iter2"),
-        "route": "/ui/founding-beta",
+        "route": "/ui/intake",
     }
     base.update(kwargs)
     return json.dumps(base)
@@ -30,7 +30,7 @@ def test_multi_batch_thirty_files_two_requests(fb_env, anon_client: TestClient):
     names = [f"multi{i}.pdf" for i in range(30)]
     batch1 = names[:15]
     r1 = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf(n) for n in batch1],
         data={
             "email": "multibatch@example.com",
@@ -53,7 +53,7 @@ def test_multi_batch_thirty_files_two_requests(fb_env, anon_client: TestClient):
 
     batch2 = names[15:]
     r2 = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf(n) for n in batch2],
         data={
             "intake_id": iid,
@@ -78,7 +78,7 @@ def test_interrupted_batch_no_fake_success(fb_env, anon_client: TestClient):
     names = [f"i{i}.pdf" for i in range(20)]
     sent = names[:8]
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf(n) for n in sent],
         data={
             "email": "interrupt@example.com",
@@ -100,7 +100,7 @@ def test_interrupted_batch_no_fake_success(fb_env, anon_client: TestClient):
 
 def test_recover_uncommitted_intakes_after_interrupted_commit(fb_env, anon_client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("orphan.pdf")],
         data={"email": "recover@example.com", "expected_file_count": "1"},
     )
@@ -133,7 +133,7 @@ def test_telemetry_failure_does_not_block_commit(fb_env, anon_client: TestClient
 
     monkeypatch.setattr("services.intake.intake.emit_intake_event", fail_emit)
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("tel.pdf")],
         data={"email": "tel@example.com", "expected_file_count": "1"},
     )
@@ -148,7 +148,7 @@ def test_telemetry_failure_does_not_block_commit(fb_env, anon_client: TestClient
 
 def test_hash_mismatch_detected_on_retention_check(fb_env, anon_client: TestClient, client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("hash.pdf")],
         data={"email": "hash@example.com", "expected_file_count": "1"},
     )
@@ -172,7 +172,7 @@ def test_canonical_write_guard_blocks_legacy_path(fb_env):
 
 def test_customer_upload_writes_only_canonical_intakes(fb_env, anon_client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("canon.pdf")],
         data={"email": "canon@example.com", "expected_file_count": "1"},
     )
@@ -186,7 +186,7 @@ def test_customer_upload_writes_only_canonical_intakes(fb_env, anon_client: Test
 
 def test_cote_integrity_failure_on_hash_mismatch(fb_env, anon_client: TestClient, client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("cotehash.pdf")],
         data={"email": "cotehash@example.com", "expected_file_count": "1"},
     )

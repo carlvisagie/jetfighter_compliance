@@ -20,7 +20,7 @@ def test_production_rejects_upload_without_kyc_data(prod_env, anon_client, monke
     monkeypatch.setattr("services.config.DATA", tmp_path.resolve())
     assert founding_beta_upload_allowed() is False
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("policy.pdf", io.BytesIO(b"%PDF-1.4"), "application/pdf"))],
         data={"email": "client@example.com"},
     )
@@ -34,7 +34,7 @@ def test_production_accepts_upload_with_kyc_data(prod_env, anon_client, monkeypa
     monkeypatch.setattr("services.config.DATA", tmp_path.resolve())
     assert is_durable_storage_configured() is True
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("doc.txt", io.BytesIO(b"questionnaire"), "text/plain"))],
         data={"email": "live@client.com"},
     )
@@ -48,7 +48,7 @@ def test_queue_reads_from_durable_kyc_data(prod_env, anon_client, client, monkey
     monkeypatch.setenv("OPS_API_KEY", "gate-test-key")
     monkeypatch.setattr("services.config.DATA", tmp_path.resolve())
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("a.pdf", io.BytesIO(b"%PDF"), "application/pdf"))],
         data={"phone": "+15551234567"},
     )
@@ -95,7 +95,7 @@ def test_no_ephemeral_fallback_writes_in_production(prod_env, anon_client, monke
     assert status["data_root_ephemeral_in_production"] is True
     assert status["founding_beta_uploads_enabled"] is False
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("x.txt", io.BytesIO(b"x"), "text/plain"))],
         data={"email": "x@y.com"},
     )

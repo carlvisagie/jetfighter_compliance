@@ -22,7 +22,7 @@ def _upload(client: TestClient, names: list[str], **extra) -> dict:
         "expected_file_names": json.dumps(names),
         **extra,
     }
-    r = client.post("/api/founding-beta/upload", files=[_pdf(n) for n in names], data=data)
+    r = client.post("/api/intake/upload", files=[_pdf(n) for n in names], data=data)
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -78,7 +78,7 @@ def test_partial_upload_no_fake_success(fb_env, anon_client: TestClient):
     names = [f"p{i}.pdf" for i in range(4)]
     expected = [f"p{i}.pdf" for i in range(5)]
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf(n) for n in names],
         data={
             "email": "partial@example.com",
@@ -96,7 +96,7 @@ def test_duplicate_upload_handled(fb_env, anon_client: TestClient):
     iid = first["intake_id"]
     token = first["token"]
     second = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("dup.pdf")],
         data={
             "intake_id": iid,
@@ -258,7 +258,7 @@ def test_browser_refresh_mid_upload(fb_env, anon_client: TestClient):
     iid = first["intake_id"]
     token = first["token"]
     second = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("refresh_b.pdf")],
         data={
             "intake_id": iid,
@@ -304,7 +304,7 @@ def test_concurrent_uploads_same_intake(fb_env, anon_client: TestClient):
     def worker(name: str):
         try:
             r = anon_client.post(
-                "/api/founding-beta/upload",
+                "/api/intake/upload",
                 files=[_pdf(name)],
                 data={"intake_id": iid, "token": token, "expected_file_count": "3"},
             )
@@ -324,7 +324,7 @@ def test_concurrent_uploads_same_intake(fb_env, anon_client: TestClient):
 def test_interrupted_upload_partial_persistence(fb_env, anon_client: TestClient):
     names = [f"int{i}.pdf" for i in range(3)]
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf(n) for n in names],
         data={
             "email": "interrupt@example.com",

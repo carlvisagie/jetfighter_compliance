@@ -23,7 +23,7 @@ def _manifest(**kwargs) -> str:
         "lastModified": kwargs.pop("lastModified", [1]),
         "client_user_agent": kwargs.pop("client_user_agent", "pytest"),
         "upload_session_id": kwargs.pop("upload_session_id", "pytest-session"),
-        "route": kwargs.pop("route", "/ui/founding-beta"),
+        "route": kwargs.pop("route", "/ui/intake"),
     }
     base.update(kwargs)
     return json.dumps(base)
@@ -32,7 +32,7 @@ def _manifest(**kwargs) -> str:
 def test_ten_selected_ten_verified(fb_env, anon_client: TestClient):
     names = [f"doc{i}.pdf" for i in range(10)]
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf(n) for n in names],
         data={
             "email": "ten@example.com",
@@ -58,7 +58,7 @@ def test_ten_selected_ten_verified(fb_env, anon_client: TestClient):
 
 def test_audit_endpoint_exposes_lifecycle(fb_env, anon_client: TestClient, client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("audit.pdf")],
         data={"email": "audit@example.com", "expected_file_count": "1"},
     )
@@ -72,7 +72,7 @@ def test_audit_endpoint_exposes_lifecycle(fb_env, anon_client: TestClient, clien
 
 def test_retention_check_compares_counts(fb_env, anon_client: TestClient, client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("a.pdf"), _pdf("b.pdf")],
         data={
             "email": "ret@example.com",
@@ -94,7 +94,7 @@ def test_oversized_file_rejected_visible(fb_env, anon_client: TestClient, monkey
     monkeypatch.setattr(intake_mod, "MAX_FILE_BYTES", 64)
     big = b"x" * 128
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("small.pdf"), _pdf("big.pdf", big)],
         data={
             "email": "big@example.com",
@@ -111,13 +111,13 @@ def test_oversized_file_rejected_visible(fb_env, anon_client: TestClient, monkey
 
 def test_magic_link_manifest_metadata(fb_env, anon_client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("link.pdf")],
         data={
             "email": "magic@example.com",
             "expected_file_count": "1",
             "upload_manifest": _manifest(
-                route="/ui/founding-beta?intake_id=FB-x&token=abc",
+                route="/ui/intake?intake_id=FB-x&token=abc",
                 resume_token_used=False,
             ),
         },
@@ -131,11 +131,11 @@ def test_magic_link_manifest_metadata(fb_env, anon_client: TestClient):
 
 def test_qr_route_submission_method(fb_env, anon_client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("qr.pdf")],
         data={
             "email": "qr@example.com",
-            "upload_manifest": _manifest(route="/ui/founding-beta?qr=1"),
+            "upload_manifest": _manifest(route="/ui/intake?qr=1"),
         },
     )
     assert r.status_code == 200
@@ -155,7 +155,7 @@ def test_founding_beta_html_custody_summary():
 
 def test_cote_upload_severity_on_mismatch(fb_env, anon_client: TestClient, client: TestClient):
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("only.pdf")],
         data={"email": "sev@example.com", "expected_file_count": "2"},
     )

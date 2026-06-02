@@ -33,7 +33,7 @@ def test_upload_success_requires_fsync_path(fb_env, anon_client: TestClient, mon
 
     monkeypatch.setattr("os.fsync", track_fsync)
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("fsync-required.pdf")],
         data={"email": "fsync@example.com", "expected_file_count": "1"},
     )
@@ -54,7 +54,7 @@ def test_durable_write_upload_payload_reopens_and_rehashes(fb_env):
 
 def test_empty_uploads_with_expected_files_fails_retention(fb_env, anon_client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("expected-missing.pdf")],
         data={"email": "expected@example.com", "expected_file_count": "1"},
     )
@@ -71,7 +71,7 @@ def test_empty_uploads_with_expected_files_fails_retention(fb_env, anon_client: 
 
 def test_metadata_shell_without_payload_fails_inventory(fb_env, anon_client: TestClient, client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("shell-fail.pdf")],
         data={"email": "shell@example.com", "expected_file_count": "1"},
     )
@@ -100,7 +100,7 @@ def test_metadata_shell_without_payload_fails_inventory(fb_env, anon_client: Tes
 
 def test_file_hashes_match_false_when_expected_files_absent(fb_env, anon_client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("hash-fail.pdf")],
         data={"email": "hash@example.com", "expected_file_count": "1"},
     )
@@ -115,7 +115,7 @@ def test_file_hashes_match_false_when_expected_files_absent(fb_env, anon_client:
 
 def test_forensic_proof_false_when_total_files_zero_expected_positive(fb_env, anon_client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("proof-fail.pdf")],
         data={"email": "proof@example.com", "expected_file_count": "1"},
     )
@@ -133,7 +133,7 @@ def test_restart_simulation_same_sha256_after_recovery(fb_env, anon_client: Test
     content = b"%PDF-1.4 restart sha256 proof"
     expected_sha = hashlib.sha256(content).hexdigest()
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("restart-sha.pdf", io.BytesIO(content), "application/pdf"))],
         data={"email": "restartsha@example.com", "expected_file_count": "1"},
     )

@@ -220,7 +220,7 @@ def test_outreach_invite_generated_on_provider_failure(email_env, monkeypatch):
         company_name="Acme Corp",
         contact_name="Jane Smith",
         invite_url="https://compliance.keepyourcontracts.com/?ref=LD-001",
-        upload_url="https://compliance.keepyourcontracts.com/ui/founding-beta?ref=LD-001",
+        upload_url="https://compliance.keepyourcontracts.com/ui/intake?ref=LD-001",
         lead_id="LD-001",
     )
 

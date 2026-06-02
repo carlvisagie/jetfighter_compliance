@@ -23,7 +23,7 @@ def _upload(client: TestClient, names: list[str], **extra) -> dict:
         "expected_file_names": json.dumps(names),
         **extra,
     }
-    r = client.post("/api/founding-beta/upload", files=[_pdf(n) for n in names], data=data)
+    r = client.post("/api/intake/upload", files=[_pdf(n) for n in names], data=data)
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -62,7 +62,7 @@ def test_partial_upload_visible_everywhere(fb_env, anon_client: TestClient, clie
     names = [f"m{i}.pdf" for i in range(9)]
     expected = [f"m{i}.pdf" for i in range(10)]
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf(n) for n in names],
         data={
             "email": "partial@example.com",
@@ -100,7 +100,7 @@ def test_fleet_reconcile_endpoint(fb_env, anon_client: TestClient, client: TestC
 
 def test_malformed_manifest_does_not_crash(fb_env, anon_client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("ok.pdf")],
         data={
             "email": "badmanifest@example.com",
@@ -114,7 +114,7 @@ def test_malformed_manifest_does_not_crash(fb_env, anon_client: TestClient):
 
 def test_concurrent_uploads_same_intake(fb_env, anon_client: TestClient):
     first = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("c1.pdf")],
         data={"email": "conc@example.com", "expected_file_count": "1"},
     ).json()
@@ -125,7 +125,7 @@ def test_concurrent_uploads_same_intake(fb_env, anon_client: TestClient):
     def worker(n: int):
         try:
             r = anon_client.post(
-                "/api/founding-beta/upload",
+                "/api/intake/upload",
                 files=[_pdf(f"c{n}.pdf")],
                 data={
                     "intake_id": iid,
@@ -169,7 +169,7 @@ def test_durability_failure_marks_integrity_failure(fb_env, anon_client: TestCli
 
     monkeypatch.setattr(ret, "verify_intake_durability", fail_verify)
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("fail.pdf")],
         data={"email": "fail@example.com", "expected_file_count": "1"},
     )
@@ -184,7 +184,7 @@ def test_durability_failure_marks_integrity_failure(fb_env, anon_client: TestCli
 def test_cote_severity_tracks_latest_intake(fb_env, anon_client: TestClient, client: TestClient):
     _upload(anon_client, ["good.pdf"])
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("only.pdf")],
         data={
             "email": "cote2@example.com",

@@ -13,14 +13,14 @@ from server import app
 
 
 def test_founding_beta_page_loads(client):
-    r = client.get("/ui/founding-beta")
+    r = client.get("/ui/intake")
     assert r.status_code == 200
     assert "Free Founding Beta Compliance Paperwork Review" in r.text
 
 
 def test_upload_requires_contact(fb_env, anon_client):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("test.pdf", io.BytesIO(b"%PDF-1.4"), "application/pdf"))],
         data={"email": "", "phone": ""},
     )
@@ -32,7 +32,7 @@ def test_upload_success_no_orchestration_import(fb_env, anon_client):
         if name.startswith("services.acquisition.orchestration"):
             del sys.modules[name]
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("policy.pdf", io.BytesIO(b"%PDF-1.4 minimal"), "application/pdf"))],
         data={"email": "beta@example.com", "company": "Acme"},
     )
@@ -50,7 +50,7 @@ def test_upload_success_no_orchestration_import(fb_env, anon_client):
 
 def test_operator_panel_lists_intake(client, fb_env, anon_client):
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("a.txt", io.BytesIO(b"hello"), "text/plain"))],
         data={"email": "ops@example.com", "deadline": "Friday"},
     )
@@ -65,7 +65,7 @@ def test_operator_panel_lists_intake(client, fb_env, anon_client):
 
 def test_cognitive_topology_includes_upload_signal(client, fb_env, anon_client):
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("b.csv", io.BytesIO(b"a,b\n1,2"), "text/csv"))],
         data={"phone": "+15551234567"},
     )
@@ -77,7 +77,7 @@ def test_cognitive_topology_includes_upload_signal(client, fb_env, anon_client):
 
 def test_malformed_file_does_not_crash(fb_env, anon_client):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[
             ("files", ("bad.exe", io.BytesIO(b"MZ"), "application/octet-stream")),
             ("files", ("ok.txt", io.BytesIO(b"ok"), "text/plain")),
@@ -91,7 +91,7 @@ def test_malformed_file_does_not_crash(fb_env, anon_client):
 
 def test_healthz_stable_after_upload(fb_env, anon_client, client):
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("z.txt", io.BytesIO(b"z"), "text/plain"))],
         data={"email": "z@z.com"},
     )

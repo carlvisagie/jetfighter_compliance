@@ -35,7 +35,7 @@ def test_upload_writes_under_var_data_style_root(prod_durable, anon_client):
   """Production uploads must land under explicit KYC_DATA (/var/data style)."""
   assert active_data_root() == prod_durable
   r = anon_client.post(
-      "/api/founding-beta/upload",
+      "/api/intake/upload",
       files=[("files", ("policy.pdf", io.BytesIO(b"%PDF-1.4 durable"), "application/pdf"))],
       data={"email": "durable@client.com"},
   )
@@ -51,7 +51,7 @@ def test_upload_writes_under_var_data_style_root(prod_durable, anon_client):
 
 def test_upload_success_only_after_files_verified(fb_data, anon_client):
   r = anon_client.post(
-      "/api/founding-beta/upload",
+      "/api/intake/upload",
       files=[("files", ("doc.txt", io.BytesIO(b"verified content"), "text/plain"))],
       data={"email": "verify@x.com"},
   )
@@ -70,7 +70,7 @@ def test_upload_success_only_after_files_verified(fb_data, anon_client):
 
 def test_queue_survives_simulated_restart(fb_data, anon_client):
   r = anon_client.post(
-      "/api/founding-beta/upload",
+      "/api/intake/upload",
       files=[("files", ("survive.txt", io.BytesIO(b"after restart"), "text/plain"))],
       data={"email": "restart@x.com"},
   )
@@ -92,7 +92,7 @@ def test_index_recovery_from_disk(fb_data):
 
 def test_retention_check_detects_missing_files(fb_data, anon_client, client):
   r = anon_client.post(
-      "/api/founding-beta/upload",
+      "/api/intake/upload",
       files=[("files", ("gone.txt", io.BytesIO(b"temp"), "text/plain"))],
       data={"email": "gone@x.com"},
   )
@@ -105,7 +105,7 @@ def test_retention_check_detects_missing_files(fb_data, anon_client, client):
 
 def test_cote_reflects_retained_intake(fb_data, anon_client, client):
   anon_client.post(
-      "/api/founding-beta/upload",
+      "/api/intake/upload",
       files=[("files", ("cote.csv", io.BytesIO(b"a,b"), "text/csv"))],
       data={"phone": "+15550001111"},
   )
@@ -130,7 +130,7 @@ def test_wrong_root_mismatch_fails_loudly(monkeypatch, fb_data, anon_client):
       lambda: other.resolve(),
   )
   r = anon_client.post(
-      "/api/founding-beta/upload",
+      "/api/intake/upload",
       files=[("files", ("x.txt", io.BytesIO(b"x"), "text/plain"))],
       data={"email": "mismatch@x.com"},
   )
@@ -139,7 +139,7 @@ def test_wrong_root_mismatch_fails_loudly(monkeypatch, fb_data, anon_client):
 
 def test_no_silent_empty_queue_after_upload(fb_data, anon_client, client):
   r = anon_client.post(
-      "/api/founding-beta/upload",
+      "/api/intake/upload",
       files=[("files", ("visible.txt", io.BytesIO(b"queue me"), "text/plain"))],
       data={"email": "visible@x.com"},
   )
@@ -152,7 +152,7 @@ def test_no_silent_empty_queue_after_upload(fb_data, anon_client, client):
 
 def test_audit_endpoint(client, fb_data, anon_client):
   r = anon_client.post(
-      "/api/founding-beta/upload",
+      "/api/intake/upload",
       files=[("files", ("audit.pdf", io.BytesIO(b"%PDF"), "application/pdf"))],
       data={"email": "audit@x.com"},
   )
@@ -166,7 +166,7 @@ def test_audit_endpoint(client, fb_data, anon_client):
 
 def test_diagnostics_expose_write_and_read_roots(client, fb_data, anon_client):
   anon_client.post(
-      "/api/founding-beta/upload",
+      "/api/intake/upload",
       files=[("files", ("d.txt", io.BytesIO(b"d"), "text/plain"))],
       data={"email": "d@x.com"},
   )
@@ -194,7 +194,7 @@ def test_production_upload_fails_without_durable_root(prod_env, anon_client, mon
   monkeypatch.delenv("KYC_DATA", raising=False)
   monkeypatch.setattr("services.config.DATA", tmp_path.resolve())
   r = anon_client.post(
-      "/api/founding-beta/upload",
+      "/api/intake/upload",
       files=[("files", ("n.txt", io.BytesIO(b"n"), "text/plain"))],
       data={"email": "n@x.com"},
   )

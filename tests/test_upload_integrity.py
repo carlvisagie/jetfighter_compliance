@@ -19,7 +19,7 @@ def test_interrupted_multipart_upload_marks_partial(fb_env, anon_client: TestCli
     expected_names = [f"doc{i}.pdf" for i in range(10)]
     received = expected_names[:9]
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf(n) for n in received],
         data={
             "email": "integrity@example.com",
@@ -56,7 +56,7 @@ def test_interrupted_multipart_upload_marks_partial(fb_env, anon_client: TestCli
 
 def test_duplicate_filename_collision_tracked(fb_env, anon_client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("policy.pdf"), _pdf("policy.pdf")],
         data={
             "email": "dup@example.com",
@@ -83,7 +83,7 @@ def test_duplicate_filename_collision_tracked(fb_env, anon_client: TestClient):
 
 def test_unsupported_extension_partial_upload(fb_env, anon_client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[
             _pdf("good.pdf"),
             ("files", ("virus.exe", io.BytesIO(b"MZ"), "application/octet-stream")),
@@ -123,7 +123,7 @@ def test_partial_persistence_surfaces_mismatch(fb_env, anon_client: TestClient, 
     monkeypatch.setattr(Path, "write_bytes", flaky_write)
 
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("a.pdf"), _pdf("b.pdf")],
         data={
             "email": "persist@example.com",
@@ -141,7 +141,7 @@ def test_partial_persistence_surfaces_mismatch(fb_env, anon_client: TestClient, 
 
 def test_operator_queue_surfaces_integrity(fb_env, anon_client: TestClient, client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("only.pdf")],
         data={
             "email": "ops@example.com",
@@ -190,7 +190,7 @@ def test_mobile_session_retry_contract(fb_env, anon_client: TestClient):
 
 def test_cote_upload_pressure_on_integrity_mismatch(fb_env, anon_client: TestClient, client: TestClient):
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("x.pdf")],
         data={
             "email": "cote@example.com",

@@ -22,7 +22,7 @@ def _upload(client: TestClient, names: list[str], **extra) -> dict:
         "expected_file_names": json.dumps(names),
         **extra,
     }
-    r = client.post("/api/founding-beta/upload", files=[_pdf(n) for n in names], data=data)
+    r = client.post("/api/intake/upload", files=[_pdf(n) for n in names], data=data)
     return r
 
 
@@ -75,7 +75,7 @@ def test_upload_thirteen_files_visible_everywhere(fb_env, anon_client: TestClien
 
 def test_index_write_fail_no_success(fb_env, anon_client: TestClient, monkeypatch):
     create = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("setup.pdf")],
         data={"email": "idxfail@example.com", "expected_file_count": "1"},
     )
@@ -88,7 +88,7 @@ def test_index_write_fail_no_success(fb_env, anon_client: TestClient, monkeypatc
 
     monkeypatch.setattr("services.intake.intake.upsert_index_row", fail_index)
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("idxfail.pdf")],
         data={
             "intake_id": iid,

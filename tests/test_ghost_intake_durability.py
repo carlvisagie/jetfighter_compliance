@@ -18,7 +18,7 @@ def _pdf(name: str) -> tuple:
 
 def test_ghost_intake_detected_when_metadata_without_files(fb_env, anon_client: TestClient, client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("ghost-detect.pdf")],
         data={"email": "ghost@example.com", "expected_file_count": "1"},
     )
@@ -60,7 +60,7 @@ def test_retention_no_false_positive_without_receipt(fb_env):
 
 def test_ghost_detected_via_hash_ledger_when_metadata_stripped(fb_env, anon_client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("ledger-ghost.pdf")],
         data={"email": "ledger@example.com", "expected_file_count": "1"},
     )
@@ -99,7 +99,7 @@ def test_fresh_intake_without_upload_not_ghost(fb_env):
 
 def test_retention_fails_when_receipt_missing_files(fb_env, anon_client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("receipt-miss.pdf")],
         data={"email": "receipt@example.com", "expected_file_count": "1"},
     )

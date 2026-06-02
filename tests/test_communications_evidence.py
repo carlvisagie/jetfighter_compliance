@@ -22,7 +22,7 @@ def _upload(client: TestClient, names: list[str], **extra) -> dict:
         "expected_file_names": json.dumps(names),
         **extra,
     }
-    r = client.post("/api/founding-beta/upload", files=[_pdf(n) for n in names], data=data)
+    r = client.post("/api/intake/upload", files=[_pdf(n) for n in names], data=data)
     assert r.status_code == 200, r.text
     return r.json()
 

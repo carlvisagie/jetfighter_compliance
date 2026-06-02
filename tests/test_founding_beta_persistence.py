@@ -19,7 +19,7 @@ from services.intake.storage import (
 
 def test_upload_writes_intake_metadata(fb_data, anon_client):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("policy.pdf", io.BytesIO(b"%PDF-1.4 test"), "application/pdf"))],
         data={"email": "a@b.com"},
     )
@@ -35,7 +35,7 @@ def test_upload_writes_intake_metadata(fb_data, anon_client):
 
 def test_queue_reads_same_intake_metadata(fb_data, anon_client, client):
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("doc.txt", io.BytesIO(b"vendor questionnaire"), "text/plain"))],
         data={"email": "same@path.com"},
     )
@@ -53,7 +53,7 @@ def test_queue_reads_same_intake_metadata(fb_data, anon_client, client):
 
 def test_uploaded_intake_pending_review(fb_data, anon_client):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("x.pdf", io.BytesIO(b"%PDF"), "application/pdf"))],
         data={"email": "pending@x.com"},
     )
@@ -67,7 +67,7 @@ def test_uploaded_intake_pending_review(fb_data, anon_client):
 
 def test_cote_upload_pipeline_reflects_queue_depth(fb_data, anon_client, client):
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("a.csv", io.BytesIO(b"1,2"), "text/csv"))],
         data={"phone": "+15551234567"},
     )
@@ -78,7 +78,7 @@ def test_cote_upload_pipeline_reflects_queue_depth(fb_data, anon_client, client)
 
 def test_cockpit_queue_api_returns_pending(fb_data, anon_client, client):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("b.txt", io.BytesIO(b"ssp content"), "text/plain"))],
         data={"email": "cockpit@x.com"},
     )
@@ -113,7 +113,7 @@ def test_production_data_path_consistency(fb_data, monkeypatch):
 
 def test_diagnostics_endpoint(client, fb_data, anon_client):
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("d.txt", io.BytesIO(b"data"), "text/plain"))],
         data={"email": "d@x.com"},
     )
@@ -127,7 +127,7 @@ def test_diagnostics_endpoint(client, fb_data, anon_client):
 
 def test_queue_and_upload_share_data_root(fb_data, anon_client):
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("z.txt", io.BytesIO(b"z"), "text/plain"))],
         data={"email": "z@z.com"},
     )

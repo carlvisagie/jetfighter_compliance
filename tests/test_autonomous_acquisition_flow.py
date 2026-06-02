@@ -101,7 +101,7 @@ def test_shop_html_links_to_founding_beta(anon_client: TestClient):
     assert r.status_code == 200
     text = r.text
     # All CTAs must now point to founding-beta, not inquiry
-    assert "/ui/founding-beta" in text
+    assert "/ui/intake" in text
     assert "/ui/inquiry.html" not in text
     # Ref propagation script should be present
     assert "kyc-ref-cta" in text
@@ -186,7 +186,7 @@ def test_upload_with_ref_stores_lead_id(fb_env, monkeypatch, anon_client):
         lambda *a, **kw: {"ok": True},
     )
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("test.pdf", io.BytesIO(b"%PDF-1.4"), "application/pdf"))],
         data={
             "email": "prospect@govco.com",
@@ -215,7 +215,7 @@ def test_upload_ignores_invalid_ref(fb_env, monkeypatch, anon_client):
         lambda *a, **kw: {"ok": True},
     )
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("test.pdf", io.BytesIO(b"%PDF-1.4"), "application/pdf"))],
         data={"email": "test@test.com", "ref": "INVALID-REF"},
     )
@@ -237,7 +237,7 @@ def test_invitation_email_text_contains_cta():
         company_name="Apex Defense",
         contact_name="Bob Smith",
         invite_url="https://compliance.keepyourcontracts.com/ui/shop?ref=LD-007&utm_campaign=test",
-        upload_url="https://compliance.keepyourcontracts.com/ui/founding-beta?ref=LD-007",
+        upload_url="https://compliance.keepyourcontracts.com/ui/intake?ref=LD-007",
     )
     assert result["subject"]
     body = result["body"]

@@ -52,7 +52,7 @@ def test_shop_shows_three_services_and_prices(anon_client: TestClient):
 
 def test_send_payment_link_operator_action(fb_env, anon_client: TestClient, client: TestClient):
     up = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("policy.pdf", io.BytesIO(b"%PDF-1.4"), "application/pdf"))],
         data={"email": "pay@example.com", "company": "PayCo"},
     )
@@ -78,7 +78,7 @@ def test_send_payment_link_operator_action(fb_env, anon_client: TestClient, clie
 
 def test_kickoff_project_after_payment_link(fb_env, anon_client: TestClient, client: TestClient):
     up = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("doc.pdf", io.BytesIO(b"%PDF"), "application/pdf"))],
         data={"email": "kick@example.com", "company": "KickCo"},
     )
@@ -98,7 +98,7 @@ def test_kickoff_project_after_payment_link(fb_env, anon_client: TestClient, cli
 
 def test_send_payment_link_requires_product(fb_env, anon_client: TestClient, client: TestClient):
     iid = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("a.pdf", io.BytesIO(b"%PDF"), "application/pdf"))],
         data={"email": "x@y.com"},
     ).json()["intake_id"]
@@ -111,7 +111,7 @@ def test_send_payment_link_requires_product(fb_env, anon_client: TestClient, cli
 
 def test_smtp_failure_still_generates_paypal_url(fb_env, anon_client: TestClient, client: TestClient):
     iid = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("policy.pdf", io.BytesIO(b"%PDF"), "application/pdf"))],
         data={"email": "smtp-fail@example.com", "company": "FailCo"},
     ).json()["intake_id"]
@@ -142,7 +142,7 @@ def test_smtp_failure_still_generates_paypal_url(fb_env, anon_client: TestClient
 
 def test_operator_action_ok_when_email_not_sent(fb_env, anon_client: TestClient, client: TestClient):
     iid = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("a.pdf", io.BytesIO(b"%PDF"), "application/pdf"))],
         data={"email": "noemail@example.com"},
     ).json()["intake_id"]
@@ -167,7 +167,7 @@ def test_operator_action_ok_when_email_not_sent(fb_env, anon_client: TestClient,
 
 def test_no_duplicate_payment_link_email_spam(fb_env, anon_client: TestClient, client: TestClient):
     iid = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("b.pdf", io.BytesIO(b"%PDF"), "application/pdf"))],
         data={"email": "dup@example.com"},
     ).json()["intake_id"]

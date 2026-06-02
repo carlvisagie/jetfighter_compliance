@@ -12,7 +12,7 @@ SERVER_PY = ROOT / "server.py"
 ALLOWED_CUSTOMER_FILE_UPLOAD_ROUTES = frozenset(
     {
         "/api/intake/upload",
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         "/api/customer/session/upload",  # shim only — proxies to canonical
         "/api/evidence/register",  # post-kickoff project evidence
     }
@@ -79,7 +79,7 @@ def test_queue_reports_empty_reason(fb_data, client):
 
 def test_deprecated_operator_intake_shims_to_queue(client, fb_data, anon_client):
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("z.txt", io.BytesIO(b"z"), "text/plain"))],
         data={"email": "z@z.com"},
     )

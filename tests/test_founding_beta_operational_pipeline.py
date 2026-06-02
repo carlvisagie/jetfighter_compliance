@@ -30,7 +30,7 @@ def test_classify_ssp_filename(tmp_path):
 
 def test_classify_unknown_exe_skipped_in_upload(fb_env, anon_client):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("mystery.bin", io.BytesIO(b"data"), "application/octet-stream"))],
         data={"email": "x@y.com"},
     )
@@ -39,7 +39,7 @@ def test_classify_unknown_exe_skipped_in_upload(fb_env, anon_client):
 
 def test_queue_generation_and_sort(fb_env, anon_client, client):
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[
             ("files", ("company_ssp.pdf", io.BytesIO(b"%PDF-1.4"), "application/pdf")),
             ("files", ("poam.xlsx", io.BytesIO(b"pk"), "application/vnd.ms-excel")),
@@ -47,7 +47,7 @@ def test_queue_generation_and_sort(fb_env, anon_client, client):
         data={"email": "a@co.com", "company": "Alpha", "deadline": "ASAP"},
     )
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("notes.txt", io.BytesIO(b"vendor questionnaire"), "text/plain"))],
         data={"email": "b@co.com", "company": "Beta"},
     )
@@ -68,7 +68,7 @@ def test_queue_generation_and_sort(fb_env, anon_client, client):
 
 def test_classification_persisted(fb_env, anon_client):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("nist_800-171_self_assessment.csv", io.BytesIO(b"control,id\n"), "text/csv"))],
         data={"phone": "+15551234567"},
     )
@@ -81,7 +81,7 @@ def test_classification_persisted(fb_env, anon_client):
 
 def test_mixed_upload_malformed_and_ok(fb_env, anon_client):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[
             ("files", ("bad.exe", io.BytesIO(b"MZ"), "application/octet-stream")),
             ("files", ("ok_vendor_form.txt", io.BytesIO(b"security questionnaire"), "text/plain")),
@@ -96,7 +96,7 @@ def test_mixed_upload_malformed_and_ok(fb_env, anon_client):
 def test_oversized_file_rejected(fb_env, anon_client):
     big = b"x" * (52_428_801)
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("huge.pdf", io.BytesIO(big), "application/pdf"))],
         data={"email": "big@x.com"},
     )
@@ -107,7 +107,7 @@ def test_oversized_file_rejected(fb_env, anon_client):
 
 def test_operator_actions_and_learning(fb_env, anon_client, client):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("ssp.pdf", io.BytesIO(b"%PDF"), "application/pdf"))],
         data={"email": "ops@co.com", "company": "OpsCo"},
     )
@@ -132,7 +132,7 @@ def test_telemetry_emitted_on_upload(monkeypatch, fb_env, anon_client):
         lambda sub, et, **kw: events.append((sub, et)),
     )
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("policy_handbook.txt", io.BytesIO(b"acceptable use policy"), "text/plain"))],
         data={"email": "tel@x.com"},
     )
@@ -145,7 +145,7 @@ def test_cote_upload_and_learning_after_pipeline(client, fb_env, anon_client):
         if name.startswith("services.acquisition.orchestration"):
             del sys.modules[name]
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("sprs_export.csv", io.BytesIO(b"sprs score"), "text/csv"))],
         data={"email": "cote@x.com", "company": "COTE Test"},
     )
@@ -160,7 +160,7 @@ def test_cote_upload_and_learning_after_pipeline(client, fb_env, anon_client):
 
 def test_mark_high_value_action(fb_env, anon_client, client):
     iid = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("asset_inventory.csv", io.BytesIO(b"asset,host"), "text/csv"))],
         data={"email": "hv@x.com"},
     ).json()["intake_id"]
@@ -174,7 +174,7 @@ def test_mark_high_value_action(fb_env, anon_client, client):
 
 def test_apply_operator_invalid_action(fb_env, anon_client, client):
     iid = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("a.txt", io.BytesIO(b"x"), "text/plain"))],
         data={"email": "inv@x.com"},
     ).json()["intake_id"]

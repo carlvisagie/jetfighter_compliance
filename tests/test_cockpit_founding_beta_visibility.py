@@ -20,7 +20,7 @@ def test_control_html_cockpit_paperwork_visibility(client):
 
 def test_topology_attention_when_founding_beta_pending(client, fb_env, anon_client):
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("ssp.pdf", io.BytesIO(b"%PDF"), "application/pdf"))],
         data={"email": "vis@example.com", "company": "Visible Co"},
     )
@@ -39,7 +39,7 @@ def test_topology_attention_when_founding_beta_pending(client, fb_env, anon_clie
 
 def test_founding_beta_queue_endpoint_ok(client, fb_env, anon_client):
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[("files", ("notes.txt", io.BytesIO(b"policy"), "text/plain"))],
         data={"email": "q@example.com"},
     )

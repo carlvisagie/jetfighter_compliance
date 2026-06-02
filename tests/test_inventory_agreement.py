@@ -16,7 +16,7 @@ def _pdf(name: str) -> tuple:
 
 def test_inventory_agreement_after_single_upload(fb_env, anon_client: TestClient, client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("inv-one.pdf")],
         data={"email": "inv@example.com", "expected_file_count": "1"},
     )
@@ -51,7 +51,7 @@ def test_inventory_agreement_after_single_upload(fb_env, anon_client: TestClient
 def test_inventory_agreement_thirteen_files(fb_env, anon_client: TestClient, client: TestClient):
     names = [f"inv{i:02d}.pdf" for i in range(13)]
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf(n) for n in names],
         data={
             "email": "inv13@example.com",
@@ -73,7 +73,7 @@ def test_inventory_agreement_thirteen_files(fb_env, anon_client: TestClient, cli
 def test_retention_scan_not_stale_startup_snapshot(fb_env, anon_client: TestClient, client: TestClient):
     """retention_scan must reflect live disk, not cached boot dirs=0."""
     anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("live-scan.pdf")],
         data={"email": "live@example.com", "expected_file_count": "1"},
     )
@@ -89,7 +89,7 @@ def test_retention_scan_not_stale_startup_snapshot(fb_env, anon_client: TestClie
 
 def test_no_degraded_when_proof_gate_passed(fb_env, anon_client: TestClient, client: TestClient):
     r = anon_client.post(
-        "/api/founding-beta/upload",
+        "/api/intake/upload",
         files=[_pdf("nogate.pdf")],
         data={"email": "nogate@example.com", "expected_file_count": "1"},
     )
@@ -104,7 +104,7 @@ def test_no_degraded_when_proof_gate_passed(fb_env, anon_client: TestClient, cli
 def test_queue_depth_equals_pending_review(fb_env, anon_client: TestClient, client: TestClient):
     for i in range(2):
         anon_client.post(
-            "/api/founding-beta/upload",
+            "/api/intake/upload",
             files=[_pdf(f"q{i}.pdf")],
             data={"email": f"q{i}@example.com", "expected_file_count": "1"},
         )
