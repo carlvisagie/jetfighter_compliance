@@ -268,7 +268,7 @@ def create_intake(
 
 def _magic_link(intake_id: str, token: str) -> str:
     base = get_public_base_url().rstrip("/")
-    return f"{base}/ui/founding-beta?intake_id={intake_id}&token={token}"
+    return f"{base}/ui/intake?intake_id={intake_id}&token={token}"
 
 
 def _qr_png(link: str) -> bytes:
@@ -638,7 +638,7 @@ async def _process_upload_locked(
                 has_resume_token=bool(manifest.get("resume_token_used")),
                 has_magic_token=bool(token),
             ),
-            "originating_route": str(manifest.get("route") or meta.get("route") or "/ui/founding-beta"),
+            "originating_route": str(manifest.get("route") or meta.get("route") or "/ui/intake"),
             "newest_upload_at_utc": upload_started_at,
             "client_manifest": manifest,
             "batch_complete": batch_complete,

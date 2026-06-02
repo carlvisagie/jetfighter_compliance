@@ -32,7 +32,7 @@ def build_upload_route(
     if dest == "inquiry" and lead_id:
         url = build_inquiry_link(lead_id, segment, base_url=base)
     elif dest == "upload":
-        url = f"{base}/ui/founding-beta"
+        url = f"{base}/ui/intake"
     else:
         url = f"{base}{UPLOAD_FIRST_PATHS['shop']}"
 

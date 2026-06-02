@@ -525,7 +525,7 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
             "positioning": "burden_removal",
             "message": messaging.CORE_HEADLINE + " " + messaging.CORE_SUBLINE,
             "primary_route": "/ui/shop.html",
-            "upload_route": "/ui/founding-beta",
+            "upload_route": "/ui/intake",
             "success_metric": "real_paperwork_submitted",
         },
         "hottest_targets": hottest,
@@ -602,7 +602,7 @@ def approve_and_invite_lead(
     from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
     _parsed = urlparse(invite_url)
-    upload_url = urlunparse(_parsed._replace(path="/ui/founding-beta"))
+    upload_url = urlunparse(_parsed._replace(path="/ui/intake"))
 
     from services.communications.email_service import send_outreach_invite
 

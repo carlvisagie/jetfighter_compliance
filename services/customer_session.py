@@ -215,7 +215,7 @@ def start_session() -> Dict[str, str]:
         "ok": True,
         "session_id": session_id,
         "session_token": token,
-        "redirect_ui": "/ui/founding-beta",
+        "redirect_ui": "/ui/intake",
         "deprecated_route": "/api/customer/session/start",
         "canonical_intake": True,
     }
@@ -281,7 +281,7 @@ async def upload_to_session(session_id: str, session_token: str, file: UploadFil
         "session_id": session_id,
         "deprecated_route": "/api/customer/session/upload",
         "canonical_intake": True,
-        "redirect_ui": "/ui/founding-beta",
+        "redirect_ui": "/ui/intake",
         "upload_count": int(result.get("file_count") or 0),
         "filename": (result.get("files_saved") or [{}])[0].get("name") if result.get("files_saved") else "",
     }
@@ -306,7 +306,7 @@ def complete_session(
     if not iid:
         raise HTTPException(
             status_code=400,
-            detail="Upload paperwork first. Use /ui/founding-beta if this page did not redirect.",
+            detail="Upload paperwork first. Use /ui/intake if this page did not redirect.",
         )
 
     from services.intake.intake import _load_intake, _save_intake
@@ -327,7 +327,7 @@ def complete_session(
 
     token = str(sess.get("canonical_intake_token") or "")
     base = get_public_base_url()
-    magic = f"{base}/ui/founding-beta?intake_id={iid}&token={token}" if token else f"{base}/ui/founding-beta"
+    magic = f"{base}/ui/intake?intake_id={iid}&token={token}" if token else f"{base}/ui/intake"
 
     logger.info("session_complete_shim session=%s intake=%s (no shadow project)", session_id, iid)
     return {
@@ -335,7 +335,7 @@ def complete_session(
         "intake_id": iid,
         "token": token,
         "magic_link": magic,
-        "redirect_ui": "/ui/founding-beta",
+        "redirect_ui": "/ui/intake",
         "deprecated_route": "/api/customer/session/complete",
         "project_created": False,
         "message": "Paperwork on durable intake — operator review before project kickoff.",
