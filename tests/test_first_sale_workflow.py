@@ -116,8 +116,15 @@ def test_smtp_failure_still_generates_paypal_url(fb_env, anon_client: TestClient
         data={"email": "smtp-fail@example.com", "company": "FailCo"},
     ).json()["intake_id"]
 
-    fail_result = {"ok": False, "sent": False, "to": "smtp-fail@example.com", "error": "SMTPAuthenticationError"}
-    with patch("services.emails.send_email_with_result", return_value=fail_result):
+    # Simulate all providers failing → manual fallback fires, email not sent
+    fail_result = {
+        "ok": True, "sent": False, "manual_fallback_generated": True,
+        "product_id": "cmmc_l1", "product_title": "CMMC L1",
+        "paypal_url": "https://www.paypal.com/ncp/payment/ABCTEST",
+        "provider_attempted": ["resend", "smtp"],
+        "reason": "manual_fallback",
+    }
+    with patch("services.communications.email_service.send_payment_link", return_value=fail_result):
         r = client.post(
             "/api/operator/founding-beta/action",
             json={"intake_id": iid, "action": "send_payment_link", "product_id": "cmmc_l1"},
@@ -139,8 +146,14 @@ def test_operator_action_ok_when_email_not_sent(fb_env, anon_client: TestClient,
         files=[("files", ("a.pdf", io.BytesIO(b"%PDF"), "application/pdf"))],
         data={"email": "noemail@example.com"},
     ).json()["intake_id"]
-    skipped = {"ok": False, "skipped": True, "reason": "smtp_unconfigured", "to": "noemail@example.com"}
-    with patch("services.emails.send_email_with_result", return_value=skipped):
+    skipped = {
+        "ok": False, "sent": False, "skipped": True,
+        "reason": "no_email_provider_configured",
+        "product_id": "eu_dpp", "product_title": "EU DPP",
+        "paypal_url": "https://www.paypal.com/ncp/payment/EUTEST",
+        "manual_fallback_generated": False,
+    }
+    with patch("services.communications.email_service.send_payment_link", return_value=skipped):
         r = client.post(
             "/api/operator/founding-beta/action",
             json={"intake_id": iid, "action": "send_payment_link", "product_id": "eu_dpp"},
@@ -158,8 +171,13 @@ def test_no_duplicate_payment_link_email_spam(fb_env, anon_client: TestClient, c
         files=[("files", ("b.pdf", io.BytesIO(b"%PDF"), "application/pdf"))],
         data={"email": "dup@example.com"},
     ).json()["intake_id"]
-    sent = {"ok": True, "sent": True, "to": "dup@example.com"}
-    with patch("services.emails.send_email_with_result", return_value=sent) as mock_send:
+    sent = {
+        "ok": True, "sent": True,
+        "product_id": "cmmc_l2", "product_title": "CMMC L2",
+        "paypal_url": "https://www.paypal.com/ncp/payment/L2TEST",
+        "manual_fallback_generated": False,
+    }
+    with patch("services.communications.email_service.send_payment_link", return_value=sent) as mock_send:
         r1 = client.post(
             "/api/operator/founding-beta/action",
             json={"intake_id": iid, "action": "send_payment_link", "product_id": "cmmc_l2"},

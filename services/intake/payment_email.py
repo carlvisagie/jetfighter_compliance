@@ -87,12 +87,16 @@ def send_payment_link_email(
         product=product,
     )
 
-    from services.emails import send_email_with_result
+    from services.communications.email_service import send_payment_link as _svc_send
 
-    result = send_email_with_result(to_email.strip(), subject, body)
-    return {
-        **result,
-        "product_id": product_id,
-        "product_title": product.get("title"),
-        "paypal_url": product.get("paypal_url"),
-    }
+    result = _svc_send(
+        to_email=to_email.strip(),
+        customer_name=customer_name,
+        company=company,
+        product_id=product_id,
+    )
+    # Merge back fields that callers (operator_actions) expect on the result
+    result.setdefault("product_id", product_id)
+    result.setdefault("product_title", product.get("title"))
+    result.setdefault("paypal_url", product.get("paypal_url"))
+    return result

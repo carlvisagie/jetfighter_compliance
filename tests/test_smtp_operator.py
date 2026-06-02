@@ -63,17 +63,25 @@ def test_test_email_accepts_x_ops_key(monkeypatch, anon_client):
 def test_test_email_emits_telemetry_on_skip(client, monkeypatch, tmp_path):
     monkeypatch.setenv("SMTP_ENABLED", "false")
     monkeypatch.setattr("services.emails.SETTINGS.resend_api_key", "")
+    # Also disable at the adapter level so email_service sees no providers
+    monkeypatch.setattr(
+        "services.communications.adapters.resend_adapter.is_configured", lambda k: False
+    )
+    monkeypatch.setattr(
+        "services.communications.adapters.smtp_adapter.is_configured", lambda h, u, p, e: False
+    )
     from services.config import SETTINGS
-
     SETTINGS.smtp_enabled = False
     mem = tmp_path / "memory"
     mem.mkdir()
     monkeypatch.setattr("services.memory.telemetry.memory_dir", lambda base=None: mem)
     result = send_operator_test_email("ops@test.com")
-    assert result.get("skipped") or result.get("reason") == "smtp_unconfigured"
+    # No providers → skipped=True (organism continues gracefully)
+    assert result.get("skipped") is True
     tel = (mem / "telemetry.jsonl").read_text(encoding="utf-8")
     assert "send_attempted" in tel
-    assert "smtp_unconfigured" in tel
+    # email_service emits "smtp_unconfigured" for backward compat when no providers configured
+    assert "smtp_unconfigured" in tel or "no_email_provider" in tel
 
 
 def test_send_failure_emits_telemetry(monkeypatch, tmp_path):
@@ -81,19 +89,24 @@ def test_send_failure_emits_telemetry(monkeypatch, tmp_path):
     mem.mkdir()
     monkeypatch.setattr("services.memory.telemetry.memory_dir", lambda base=None: mem)
     monkeypatch.setattr("services.emails.SETTINGS.resend_api_key", "")
-    monkeypatch.setattr("services.emails.SETTINGS.smtp_enabled", True)
-    monkeypatch.setattr("services.emails.SETTINGS.smtp_host", "smtp.test")
-    monkeypatch.setattr("services.emails.SETTINGS.smtp_user", "u")
-    monkeypatch.setattr("services.emails.SETTINGS.smtp_pass", "p")
-    monkeypatch.setattr("services.emails.SETTINGS.smtp_port", 587)
-    monkeypatch.setattr("services.emails.SETTINGS.smtp_from_email", "from@test.com")
-
-    def boom(*a, **k):
-        raise ConnectionError("smtp down")
-
-    monkeypatch.setattr("services.emails.smtplib.SMTP", boom)
+    # Configure SMTP at adapter level so it is tried, then fail it
+    monkeypatch.setattr(
+        "services.communications.adapters.resend_adapter.is_configured", lambda k: False
+    )
+    monkeypatch.setattr(
+        "services.communications.adapters.smtp_adapter.is_configured",
+        lambda host, user, password, enabled: True,
+    )
+    monkeypatch.setattr(
+        "services.communications.adapters.smtp_adapter.send",
+        lambda to, subject, html, **kw: {
+            "sent": False, "provider": "smtp",
+            "error": "ConnectionError", "detail": "smtp down",
+        },
+    )
     result = send_email_with_result("x@y.com", "subj", "<p>hi</p>")
-    assert result.get("ok") is False
+    # Provider failed → manual fallback → sent=False, organism continues
+    assert not result.get("sent")
     tel = (mem / "telemetry.jsonl").read_text(encoding="utf-8")
     assert "send_attempted" in tel
     assert "send_failed" in tel

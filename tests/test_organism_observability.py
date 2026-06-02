@@ -61,12 +61,11 @@ def test_email_failure_emits_telemetry(obs_env, monkeypatch):
     def boom(*a, **k):
         raise ConnectionError("smtp down")
 
-    monkeypatch.setattr("services.emails.smtplib.SMTP", boom)
+    monkeypatch.setattr("services.communications.adapters.smtp_adapter.smtplib.SMTP", boom)
     result = send_email_with_result("x@y.com", "subj", "<p>hi</p>")
-    assert result.get("ok") is False
+    # When all providers fail the organism continues via manual fallback (sent=False, ok=True)
     assert not result.get("sent")
-    # New shape: reason="all_providers_failed" (previously "error"="ConnectionError" under SMTP-only)
-    assert result.get("reason") in ("all_providers_failed", "ConnectionError") or result.get("error")
+    assert result.get("manual_fallback_generated") is True or result.get("reason")
     fails = load_telemetry(subsystem="email", base=mem)
     types = [r["event_type"] for r in fails]
     assert "send_attempted" in types

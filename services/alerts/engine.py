@@ -103,7 +103,7 @@ def raise_alert(
     if routing.should_send_email(rule, cfg):
         to = routing.operator_email(cfg)
         if to:
-            from services.emails import send_email_with_result
+            from services.communications.email_service import send_operator_alert
 
             html = alert_email.render_alert_html(
                 title=title,
@@ -115,13 +115,16 @@ def raise_alert(
                 action_hint=_action_hint(event_type),
             )
             subj = alert_email.subject_for_alert(title, sev, event_type)
-            em = send_email_with_result(to, subj, html)
+            em = send_operator_alert(to_email=to, subject=subj, html_body=html)
             result["email"] = em
             rec["channels"]["email"] = em
-            if em.get("ok"):
+            if em.get("sent"):
                 alert_telemetry.link_memory("alert_sent", alert_id=rec.get("alert_id", ""), metadata={"channel": "email"})
+            elif em.get("manual_fallback_generated"):
+                # Alert available as copyable text — not a system failure
+                alert_telemetry.link_memory("alert_manual_fallback", alert_id=rec.get("alert_id", ""), metadata={"channel": "email"})
             elif not em.get("skipped"):
-                alert_telemetry.append_failure({"alert_id": rec.get("alert_id"), "channel": "email", "error": em.get("error")})
+                alert_telemetry.append_failure({"alert_id": rec.get("alert_id"), "channel": "email", "error": em.get("reason") or em.get("error")})
         else:
             result["email"] = {"ok": False, "skipped": True, "reason": "no_operator_email"}
 

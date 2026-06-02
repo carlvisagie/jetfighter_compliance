@@ -604,15 +604,16 @@ def approve_and_invite_lead(
     _parsed = urlparse(invite_url)
     upload_url = urlunparse(_parsed._replace(path="/ui/founding-beta"))
 
-    from ..email_utils import send_invitation_email
+    from services.communications.email_service import send_outreach_invite
 
-    # Attempt autonomous email send — system sends without operator touching anything
-    email_result = send_invitation_email(
+    # Autonomous send — KYC email service owns dispatch, fallback, and record
+    email_result = send_outreach_invite(
         to_email=target.contact_email,
         company_name=target.company_name,
         contact_name=target.contact_name,
         invite_url=invite_url,
         upload_url=upload_url,
+        lead_id=lead_id,
     )
     email_sent = bool(email_result.get("sent"))
 
