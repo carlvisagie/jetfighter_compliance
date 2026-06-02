@@ -44,6 +44,7 @@ PUBLIC_UI_PREFIXES = (
 # Operator UI (session required)
 PROTECTED_UI_EXACT: Set[str] = {
     "/ui/control.html",
+    "/ui/vio.html",          # VIO 2.0 awareness instrument
     "/ui/memory.html",
     "/ui/command.html",
     "/ui/status.html",

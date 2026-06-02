@@ -1679,6 +1679,21 @@ def operator_evidence_intelligence(project_id: str = ""):
     return get_operator_evidence_intelligence(project_id)
 
 
+# ── VIO 2.0 — visual awareness interface ──────────────────────────────────────
+@app.get("/api/operator/vio/overview")
+def vio_overview(request: Request, limit: int = 60):
+    """Aggregate all company timelines for VIO 2.0 rendering.
+
+    Returns every active company with its state, timeline segments, and quick
+    stats — one API call loads the entire awareness field.
+    """
+    from services.production import require_ops_access
+    from services.vio_overview import build_vio_overview
+
+    require_ops_access(request)
+    return build_vio_overview(limit=min(max(limit, 1), 100))
+
+
 @app.get("/api/operator/acquisition-intelligence")
 def operator_acquisition_intelligence():
     from services.runtime_boot import module_pause_response
