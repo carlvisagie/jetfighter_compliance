@@ -60,7 +60,7 @@ def test_send_payment_link_operator_action(fb_env, anon_client: TestClient, clie
     iid = up.json()["intake_id"]
 
     r = client.post(
-        "/api/operator/founding-beta/action",
+        "/api/operator/intake/action",
         json={"intake_id": iid, "action": "send_payment_link", "product_id": "cmmc_l2"},
     )
     assert r.status_code == 200
@@ -69,7 +69,7 @@ def test_send_payment_link_operator_action(fb_env, anon_client: TestClient, clie
     assert body.get("product_id") == "cmmc_l2"
     assert "paypal.com" in (body.get("paypal_url") or "")
 
-    q = client.get("/api/operator/founding-beta/queue")
+    q = client.get("/api/operator/intake/queue")
     row = next(x for x in q.json()["queue"] if x["intake_id"] == iid)
     assert row["payment"]["product_id"] == "cmmc_l2"
     assert row["payment"]["payment_link_generated_at_utc"]
@@ -84,11 +84,11 @@ def test_kickoff_project_after_payment_link(fb_env, anon_client: TestClient, cli
     )
     iid = up.json()["intake_id"]
     client.post(
-        "/api/operator/founding-beta/action",
+        "/api/operator/intake/action",
         json={"intake_id": iid, "action": "send_payment_link", "product_id": "eu_dpp"},
     )
     ko = client.post(
-        "/api/operator/founding-beta/action",
+        "/api/operator/intake/action",
         json={"intake_id": iid, "action": "kickoff_project"},
     )
     assert ko.status_code == 200
@@ -103,7 +103,7 @@ def test_send_payment_link_requires_product(fb_env, anon_client: TestClient, cli
         data={"email": "x@y.com"},
     ).json()["intake_id"]
     r = client.post(
-        "/api/operator/founding-beta/action",
+        "/api/operator/intake/action",
         json={"intake_id": iid, "action": "send_payment_link"},
     )
     assert r.status_code == 400
@@ -126,7 +126,7 @@ def test_smtp_failure_still_generates_paypal_url(fb_env, anon_client: TestClient
     }
     with patch("services.communications.email_service.send_payment_link", return_value=fail_result):
         r = client.post(
-            "/api/operator/founding-beta/action",
+            "/api/operator/intake/action",
             json={"intake_id": iid, "action": "send_payment_link", "product_id": "cmmc_l1"},
         )
     assert r.status_code == 200
@@ -155,7 +155,7 @@ def test_operator_action_ok_when_email_not_sent(fb_env, anon_client: TestClient,
     }
     with patch("services.communications.email_service.send_payment_link", return_value=skipped):
         r = client.post(
-            "/api/operator/founding-beta/action",
+            "/api/operator/intake/action",
             json={"intake_id": iid, "action": "send_payment_link", "product_id": "eu_dpp"},
         )
     assert r.status_code == 200
@@ -179,11 +179,11 @@ def test_no_duplicate_payment_link_email_spam(fb_env, anon_client: TestClient, c
     }
     with patch("services.communications.email_service.send_payment_link", return_value=sent) as mock_send:
         r1 = client.post(
-            "/api/operator/founding-beta/action",
+            "/api/operator/intake/action",
             json={"intake_id": iid, "action": "send_payment_link", "product_id": "cmmc_l2"},
         )
         r2 = client.post(
-            "/api/operator/founding-beta/action",
+            "/api/operator/intake/action",
             json={"intake_id": iid, "action": "send_payment_link", "product_id": "cmmc_l2"},
         )
     assert r1.status_code == 200

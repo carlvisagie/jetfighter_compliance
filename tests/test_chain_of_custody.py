@@ -63,7 +63,7 @@ def test_audit_endpoint_exposes_lifecycle(fb_env, anon_client: TestClient, clien
         data={"email": "audit@example.com", "expected_file_count": "1"},
     )
     iid = r.json()["intake_id"]
-    audit = client.get(f"/api/operator/founding-beta/intake/{iid}/audit").json()
+    audit = client.get(f"/api/operator/intake/{iid}/audit").json()
     assert audit.get("file_lifecycle_table")
     row = audit["file_lifecycle_table"][0]
     assert row.get("original_filename") == "audit.pdf"
@@ -81,7 +81,7 @@ def test_retention_check_compares_counts(fb_env, anon_client: TestClient, client
         },
     )
     iid = r.json()["intake_id"]
-    chk = client.get(f"/api/operator/founding-beta/retention-check/{iid}").json()
+    chk = client.get(f"/api/operator/intake/retention-check/{iid}").json()
     bd = chk["count_breakdown"]
     assert bd["expected_file_count"] == 2
     assert bd["verified_file_count"] == 2
@@ -148,8 +148,8 @@ def test_cockpit_html_has_custody_markers():
     assert "file_lifecycle_table" in text
 
 
-def test_founding_beta_html_custody_summary():
-    text = Path("ui/founding-beta.html").read_text(encoding="utf-8")
+def test_intake_html_custody_summary():
+    text = Path("ui/intake.html").read_text(encoding="utf-8")
     assert "fbCustodySummary" in text
 
 

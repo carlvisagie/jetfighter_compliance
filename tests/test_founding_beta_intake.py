@@ -54,7 +54,7 @@ def test_operator_panel_lists_intake(client, fb_env, anon_client):
         files=[("files", ("a.txt", io.BytesIO(b"hello"), "text/plain"))],
         data={"email": "ops@example.com", "deadline": "Friday"},
     )
-    r = client.get("/api/operator/founding-beta-intake")
+    r = client.get("/api/operator/intake/queue")
     assert r.status_code == 200
     body = r.json()
     dash = body.get("dashboard") or {}

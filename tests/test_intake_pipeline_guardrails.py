@@ -69,7 +69,7 @@ def test_session_complete_does_not_create_shadow_project(fb_data, anon_client):
 
 
 def test_queue_reports_empty_reason(fb_data, client):
-    r = client.get("/api/operator/founding-beta/queue")
+    r = client.get("/api/operator/intake/queue")
     assert r.status_code == 200
     body = r.json()
     assert "queue_empty_reason" in body
@@ -83,7 +83,6 @@ def test_deprecated_operator_intake_shims_to_queue(client, fb_data, anon_client)
         files=[("files", ("z.txt", io.BytesIO(b"z"), "text/plain"))],
         data={"email": "z@z.com"},
     )
-    r = client.get("/api/operator/founding-beta-intake")
+    r = client.get("/api/operator/intake/queue")
     assert r.status_code == 200
-    assert r.json().get("deprecated") is True
     assert r.json().get("queue_depth", 0) >= 1

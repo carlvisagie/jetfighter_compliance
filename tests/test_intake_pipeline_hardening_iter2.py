@@ -157,7 +157,7 @@ def test_hash_mismatch_detected_on_retention_check(fb_env, anon_client: TestClie
 
     path = intake_dir(iid) / "uploads" / "hash.pdf"
     path.write_bytes(b"CORRUPTED")
-    check = client.get(f"/api/operator/founding-beta/retention-check/{iid}").json()
+    check = client.get(f"/api/operator/intake/retention-check/{iid}").json()
     assert check.get("hash_mismatch_detected") is True
     assert check.get("integrity_mismatch") is True
 

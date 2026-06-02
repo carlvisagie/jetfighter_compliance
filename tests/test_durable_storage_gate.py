@@ -53,7 +53,7 @@ def test_queue_reads_from_durable_kyc_data(prod_env, anon_client, client, monkey
         data={"phone": "+15551234567"},
     )
     ops_headers = {"X-Ops-Key": "gate-test-key"}
-    q = client.get("/api/operator/founding-beta/queue", headers=ops_headers).json()
+    q = client.get("/api/operator/intake/queue", headers=ops_headers).json()
     assert q["queue_depth"] >= 1
     st = client.get("/api/operator/storage-status", headers=ops_headers).json()
     assert st["durable_storage_configured"] is True

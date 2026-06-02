@@ -150,7 +150,7 @@ def test_operator_queue_surfaces_integrity(fb_env, anon_client: TestClient, clie
         },
     )
     intake_id = r.json()["intake_id"]
-    q = client.get("/api/operator/founding-beta/queue").json()
+    q = client.get("/api/operator/intake/queue").json()
     assert q.get("integrity_mismatch_count", 0) >= 1
     row = next(x for x in q.get("queue") or [] if x.get("intake_id") == intake_id)
     ui = row.get("upload_integrity") or {}

@@ -39,7 +39,7 @@ def test_queue_reads_same_intake_metadata(fb_data, anon_client, client):
         files=[("files", ("doc.txt", io.BytesIO(b"vendor questionnaire"), "text/plain"))],
         data={"email": "same@path.com"},
     )
-    r = client.get("/api/operator/founding-beta/queue")
+    r = client.get("/api/operator/intake/queue")
     assert r.status_code == 200
     body = r.json()
     assert body["queue_depth"] >= 1
@@ -83,7 +83,7 @@ def test_cockpit_queue_api_returns_pending(fb_data, anon_client, client):
         data={"email": "cockpit@x.com"},
     )
     iid = r.json()["intake_id"]
-    q = client.get("/api/operator/founding-beta/queue").json()
+    q = client.get("/api/operator/intake/queue").json()
     assert q["ok"] is True
     ids = [row["intake_id"] for row in q.get("queue") or []]
     assert iid in ids
@@ -117,7 +117,7 @@ def test_diagnostics_endpoint(client, fb_data, anon_client):
         files=[("files", ("d.txt", io.BytesIO(b"data"), "text/plain"))],
         data={"email": "d@x.com"},
     )
-    r = client.get("/api/operator/founding-beta/diagnostics")
+    r = client.get("/api/operator/intake/diagnostics")
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is True

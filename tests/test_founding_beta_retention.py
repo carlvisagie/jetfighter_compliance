@@ -98,7 +98,7 @@ def test_retention_check_detects_missing_files(fb_data, anon_client, client):
   )
   iid = r.json()["intake_id"]
   (intake_dir(iid) / "uploads" / "gone.txt").unlink()
-  chk = client.get(f"/api/operator/founding-beta/retention-check/{iid}").json()
+  chk = client.get(f"/api/operator/intake/retention-check/{iid}").json()
   assert chk["upload_files_found"] is False
   assert chk["file_hashes_match"] is False
 
@@ -144,9 +144,9 @@ def test_no_silent_empty_queue_after_upload(fb_data, anon_client, client):
       data={"email": "visible@x.com"},
   )
   iid = r.json()["intake_id"]
-  q = client.get("/api/operator/founding-beta/queue").json()
+  q = client.get("/api/operator/intake/queue").json()
   assert q["queue_depth"] >= 1
-  chk = client.get(f"/api/operator/founding-beta/retention-check/{iid}").json()
+  chk = client.get(f"/api/operator/intake/retention-check/{iid}").json()
   assert chk["queue_visible"] is True
 
 
@@ -157,7 +157,7 @@ def test_audit_endpoint(client, fb_data, anon_client):
       data={"email": "audit@x.com"},
   )
   iid = r.json()["intake_id"]
-  body = client.get(f"/api/operator/founding-beta/intake/{iid}/audit").json()
+  body = client.get(f"/api/operator/intake/{iid}/audit").json()
   assert body["ok"] is True
   assert body["audit_receipt_exists"] is True
   assert body["write_root"] == body["read_root"]
@@ -170,7 +170,7 @@ def test_diagnostics_expose_write_and_read_roots(client, fb_data, anon_client):
       files=[("files", ("d.txt", io.BytesIO(b"d"), "text/plain"))],
       data={"email": "d@x.com"},
   )
-  d = client.get("/api/operator/founding-beta/diagnostics").json()
+  d = client.get("/api/operator/intake/diagnostics").json()
   diag = d["diagnostics"]
   assert diag["write_root"] == diag["read_root"]
   assert diag["roots_match"] is True

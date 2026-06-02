@@ -76,24 +76,24 @@ def test_partial_upload_visible_everywhere(fb_env, anon_client: TestClient, clie
     assert body["customer_may_show_success"] is False
     assert body["custody_status"] == "partial_upload"
 
-    audit = client.get(f"/api/operator/founding-beta/intake/{iid}/audit").json()
+    audit = client.get(f"/api/operator/intake/{iid}/audit").json()
     assert audit.get("transaction_lifecycle")
     assert audit.get("file_lifecycle_table")
 
-    retention = client.get(f"/api/operator/founding-beta/retention-check/{iid}").json()
+    retention = client.get(f"/api/operator/intake/retention-check/{iid}").json()
     assert retention.get("integrity_mismatch") is True
 
-    reconcile = client.get(f"/api/operator/founding-beta/reconcile/{iid}").json()
+    reconcile = client.get(f"/api/operator/intake/reconcile/{iid}").json()
     assert reconcile.get("custody_status") == "partial_upload"
 
-    q = client.get("/api/operator/founding-beta/queue").json()
+    q = client.get("/api/operator/intake/queue").json()
     row = next(x for x in q["queue"] if x["intake_id"] == iid)
     assert row["upload_integrity"]["integrity_mismatch"] is True
 
 
 def test_fleet_reconcile_endpoint(fb_env, anon_client: TestClient, client: TestClient):
     _upload(anon_client, ["fleet.pdf"])
-    fleet = client.get("/api/operator/founding-beta/reconcile").json()
+    fleet = client.get("/api/operator/intake/reconcile").json()
     assert "disk_intake_count" in fleet
     assert fleet.get("disk_intake_count", 0) >= 1
 
@@ -152,9 +152,9 @@ def test_concurrent_uploads_same_intake(fb_env, anon_client: TestClient):
 def test_queue_rebuild_after_simulated_restart(fb_env, anon_client: TestClient, client: TestClient):
     body = _upload(anon_client, ["restart.pdf"])
     iid = body["intake_id"]
-    q1 = client.get("/api/operator/founding-beta/queue").json()
+    q1 = client.get("/api/operator/intake/queue").json()
     assert any(r["intake_id"] == iid for r in q1.get("queue") or [])
-    q2 = client.get("/api/operator/founding-beta/queue").json()
+    q2 = client.get("/api/operator/intake/queue").json()
     assert any(r["intake_id"] == iid for r in q2.get("queue") or [])
 
 

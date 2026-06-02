@@ -164,7 +164,7 @@ def test_complete_returns_magic_link_to_canonical_ui(pub, mem_telemetry):
         },
     )
     body = r.json()
-    assert "founding-beta" in body.get("magic_link", "")
+    assert "/ui/intake" in body.get("magic_link", "")
     assert body.get("redirect_ui") == "/ui/intake"
 
 

@@ -51,7 +51,7 @@ def test_queue_generation_and_sort(fb_env, anon_client, client):
         files=[("files", ("notes.txt", io.BytesIO(b"vendor questionnaire"), "text/plain"))],
         data={"email": "b@co.com", "company": "Beta"},
     )
-    r = client.get("/api/operator/founding-beta/queue")
+    r = client.get("/api/operator/intake/queue")
     assert r.status_code == 200
     body = r.json()
     assert body.get("ok") is True
@@ -113,7 +113,7 @@ def test_operator_actions_and_learning(fb_env, anon_client, client):
     )
     iid = r.json()["intake_id"]
     ar = client.post(
-        "/api/operator/founding-beta/action",
+        "/api/operator/intake/action",
         json={"intake_id": iid, "action": "approve_review"},
     )
     assert ar.status_code == 200
@@ -165,7 +165,7 @@ def test_mark_high_value_action(fb_env, anon_client, client):
         data={"email": "hv@x.com"},
     ).json()["intake_id"]
     r = client.post(
-        "/api/operator/founding-beta/action",
+        "/api/operator/intake/action",
         json={"intake_id": iid, "action": "mark_high_value"},
     )
     assert r.status_code == 200
@@ -179,7 +179,7 @@ def test_apply_operator_invalid_action(fb_env, anon_client, client):
         data={"email": "inv@x.com"},
     ).json()["intake_id"]
     r = client.post(
-        "/api/operator/founding-beta/action",
+        "/api/operator/intake/action",
         json={"intake_id": iid, "action": "not_a_real_action"},
     )
     assert r.status_code == 400

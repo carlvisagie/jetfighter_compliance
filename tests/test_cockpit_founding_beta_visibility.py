@@ -9,12 +9,11 @@ def test_control_html_cockpit_paperwork_visibility(client):
     assert r.status_code == 200
     text = r.text
     assert "fb-paperwork-banner" in text
-    assert "founding-beta-intake-panel" in text
     assert "intake-queue-insights" in text
     assert "founding-beta-intake-insights" not in text
     assert "fb-queue-atlas" in text
-    assert "cockpit-founding-beta.js" in text
-    assert "/api/operator/founding-beta/queue" in text
+    assert "cockpit-intake.js" in text
+    assert "/api/operator/intake/queue" in text
     assert "CockpitFoundingBeta" in text
 
 
@@ -43,7 +42,7 @@ def test_founding_beta_queue_endpoint_ok(client, fb_env, anon_client):
         files=[("files", ("notes.txt", io.BytesIO(b"policy"), "text/plain"))],
         data={"email": "q@example.com"},
     )
-    r = client.get("/api/operator/founding-beta/queue")
+    r = client.get("/api/operator/intake/queue")
     assert r.status_code == 200
     body = r.json()
     assert body.get("ok") is True

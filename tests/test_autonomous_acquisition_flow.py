@@ -100,7 +100,7 @@ def test_shop_html_links_to_founding_beta(anon_client: TestClient):
     r = anon_client.get("/ui/shop.html")
     assert r.status_code == 200
     text = r.text
-    # All CTAs must now point to founding-beta, not inquiry
+    # All CTAs must now point to intake, not inquiry
     assert "/ui/intake" in text
     assert "/ui/inquiry.html" not in text
     # Ref propagation script should be present
