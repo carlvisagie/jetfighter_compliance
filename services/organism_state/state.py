@@ -1,113 +1,164 @@
-"""Compute and persist the organism state snapshot."""
+"""KYC adapter — assembles an organism_core AwarenessEngine for KYC.
+
+This module preserves the legacy public API used by server.py and tests:
+
+  - compute_organism_state()           -> dict (with KYC top-level keys)
+  - write_organism_state_snapshot(...) -> Path
+  - ORGANISM_STATE_PATH (callable)
+"""
 from __future__ import annotations
 
-import json
 import logging
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
-from .detector import (
-    collect_evidence_signals,
-    collect_git_signals,
-    collect_intake_signals,
-    collect_project_signals,
-    collect_storage_signals,
-    collect_vio_signals,
-    run_reconciliation_checks,
+from organism_core import AwarenessEngine, SignalBundle
+from organism_core.persistence.snapshot_writer import write_snapshot
+
+from services.organism_state.checks import all_checks
+from services.organism_state.collectors import (
+    EvidenceCollector,
+    GitCollector,
+    IntakeCollector,
+    ProjectsCollector,
+    StorageCollector,
+    VioCollector,
 )
-from .health import derive_health
-from .residue import scan_repo_for_beta_residue
+from services.organism_state.recommendations import kyc_recommendations
+from services.organism_state.residue_config import kyc_residue_scanner
 
 logger = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
-def _organism_state_path(data_root: Optional[Path] = None) -> Path:
-    """Snapshot lives in the durable data root, not in the repo."""
-    if data_root is None:
-        try:
-            from services.durable_storage import active_data_root
-            data_root = active_data_root()
-        except Exception:
-            data_root = _REPO_ROOT / "data"
-    return Path(data_root) / "organism_state.json"
+def _default_snapshot_path() -> Path:
+    try:
+        from services.durable_storage import active_data_root
+        root = active_data_root()
+    except Exception:
+        root = _REPO_ROOT / "data"
+    return Path(root) / "organism_state.json"
 
 
-ORGANISM_STATE_PATH = _organism_state_path
+ORGANISM_STATE_PATH = _default_snapshot_path
 
 
-def compute_organism_state(*, repo_root: Optional[Path] = None) -> Dict[str, Any]:
-    """Reconcile every source of truth and return a single state document."""
+def _kyc_gating(signals: SignalBundle):
+    """In production, durable storage misconfiguration forces RED."""
+    storage = signals.section("storage") or {}
+    if storage.get("environment") == "production" and not storage.get("durable_storage_configured", False):
+        return ("durable_storage_not_configured", "KYC_DATA env not configured in production")
+    return None
+
+
+def _kyc_workload(signals: SignalBundle) -> bool:
+    """GREEN-with-work indicator: queue has pending items."""
+    return int(signals.get("intake", "queue_depth", 0)) > 0
+
+
+def build_kyc_engine(*, repo_root: Optional[Path] = None) -> AwarenessEngine:
+    """Construct the canonical KYC AwarenessEngine."""
     root = (repo_root or _REPO_ROOT).resolve()
 
-    storage = collect_storage_signals()
-    intake = collect_intake_signals()
-    vio = collect_vio_signals()
-    projects = collect_project_signals()
-    evidence = collect_evidence_signals(projects.get("project_ids_sample") or [])
-    residue = scan_repo_for_beta_residue(root)
-    git = collect_git_signals()
+    projects = ProjectsCollector()
 
-    checks = run_reconciliation_checks(
-        intake=intake,
-        vio=vio,
-        projects=projects,
-        evidence=evidence,
-        residue=residue,
+    def _project_ids_provider():
+        return projects.collect().get("_all_project_ids", [])
+
+    return AwarenessEngine(
+        organism_name="kyc",
+        collectors=[
+            IntakeCollector(),
+            VioCollector(),
+            projects,
+            EvidenceCollector(project_ids_provider=_project_ids_provider),
+            StorageCollector(),
+            GitCollector(repo_root=root),
+        ],
+        checks=list(all_checks()),
+        recommendations=kyc_recommendations(),
+        residue_scanner=kyc_residue_scanner(),
+        residue_root=root,
+        snapshot_path=None,
+        gating=_kyc_gating,
+        green_workload_indicator=_kyc_workload,
+        metadata={"product": "KYC Compliance"},
     )
 
-    health, bottleneck, next_action, mismatches = derive_health(
-        checks,
-        intake=intake,
-        storage=storage,
-    )
 
-    return {
-        "ok": True,
-        "timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+def _flatten_for_legacy_api(core_snapshot: Dict[str, Any]) -> Dict[str, Any]:
+    """Lift KYC-specific signal fields to top-level for backwards compat.
+
+    The legacy ``compute_organism_state()`` contract returned top-level
+    keys like ``intake_count_total``, ``queue_depth``, ``vio_company_count``.
+    The new core nests those under ``signals.<collector>``. We surface them
+    so existing tests / server.py / control card keep working.
+    """
+    sigs = core_snapshot.get("signals", {}) or {}
+    intake = sigs.get("intake", {}) or {}
+    vio = sigs.get("vio", {}) or {}
+    projects = sigs.get("projects", {}) or {}
+    evidence = sigs.get("evidence", {}) or {}
+    storage = sigs.get("storage", {}) or {}
+    git = sigs.get("git", {}) or {}
+    residue = core_snapshot.get("residue", {}) or {}
+
+    beta_imports: list = []
+    beta_routes: list = []
+    active_files: list = []
+    for m in residue.get("matches", []):
+        cls = m.get("classification")
+        pid = m.get("pattern_id")
+        rel = m.get("rel_path")
+        if pid == "beta_import" and cls == "active":
+            beta_imports.append(rel)
+        elif pid == "beta_route" and cls == "active":
+            beta_routes.append(rel)
+        if cls == "active" and rel not in active_files:
+            active_files.append(rel)
+
+    cls_counts = residue.get("classification_counts") or {}
+    legacy = dict(core_snapshot)
+    legacy.update({
+        "timestamp_utc": core_snapshot["timestamp_utc"],
         "git_commit": git.get("git_commit", ""),
         "deploy_commit": git.get("deploy_commit", ""),
         "environment": storage.get("environment", "development"),
         "data_root": storage.get("data_root", ""),
-        "durable_storage_configured": storage.get("durable_storage_configured", False),
-        "intake_count_total": intake.get("intake_count_total", 0),
-        "intake_count_active": intake.get("intake_count_active", 0),
-        "intake_count_archived": intake.get("intake_count_archived", 0),
-        "uploaded_file_count": intake.get("uploaded_file_count", 0),
-        "evidence_artifact_count": evidence.get("evidence_artifact_count", 0),
-        "project_count": projects.get("project_count", 0),
-        "queue_depth": intake.get("queue_depth", 0),
-        "vio_company_count": vio.get("vio_company_count", 0),
-        "control_queue_count": intake.get("queue_depth", 0),
-        "beta_residue_detected": residue.get("beta_residue_detected", False),
-        "beta_routes_remaining": residue.get("beta_routes_remaining", []),
-        "beta_files_remaining": residue.get("beta_files_remaining", 0),
-        "visibility_mismatches": mismatches,
-        "health_state": health,
-        "current_bottleneck": bottleneck,
-        "next_recommended_action": next_action,
-        "checks": checks,
+        "durable_storage_configured": bool(storage.get("durable_storage_configured", False)),
+        "intake_count_total": int(intake.get("intake_count_total", 0)),
+        "intake_count_active": int(intake.get("intake_count_active", 0)),
+        "intake_count_archived": int(intake.get("intake_count_archived", 0)),
+        "uploaded_file_count": int(intake.get("uploaded_file_count", 0)),
+        "evidence_artifact_count": int(evidence.get("evidence_artifact_count", 0)),
+        "project_count": int(projects.get("project_count", 0)),
+        "queue_depth": int(intake.get("queue_depth", 0)),
+        "vio_company_count": int(vio.get("vio_company_count", 0)),
+        "control_queue_count": int(intake.get("queue_depth", 0)),
+        "beta_residue_detected": bool(residue.get("detected", False)),
+        "beta_routes_remaining": beta_routes[:10],
+        "beta_files_remaining": int(sum(cls_counts.values())) + len(residue.get("critical_paths", []) or []),
         "residue_detail": {
-            "critical_count": residue.get("critical_count", 0),
-            "active_file_count": residue.get("active_file_count", 0),
-            "docs_file_count": residue.get("docs_file_count", 0),
-            "artifact_file_count": residue.get("artifact_file_count", 0),
-            "active_files": residue.get("active_files", []),
-            "beta_imports_remaining": residue.get("beta_imports_remaining", []),
+            "critical_count": int(residue.get("critical_count", 0)),
+            "active_file_count": int(cls_counts.get("active", 0)),
+            "docs_file_count": int(cls_counts.get("docs", 0)),
+            "artifact_file_count": int(cls_counts.get("artifact", 0)),
+            "active_files": active_files[:25],
+            "beta_imports_remaining": beta_imports[:10],
         },
-    }
+    })
+    return legacy
+
+
+def compute_organism_state(*, repo_root: Optional[Path] = None) -> Dict[str, Any]:
+    """Backward-compatible: build engine, run snapshot, flatten for legacy callers."""
+    engine = build_kyc_engine(repo_root=repo_root)
+    core_snapshot = engine.snapshot(persist=False)
+    return _flatten_for_legacy_api(core_snapshot)
 
 
 def write_organism_state_snapshot(state: Dict[str, Any], *, path: Optional[Path] = None) -> Path:
-    """Persist the snapshot to data/organism_state.json (best-effort)."""
-    target = path or _organism_state_path()
-    try:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        tmp = target.with_suffix(".tmp")
-        tmp.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
-        tmp.replace(target)
-    except OSError as exc:
-        logger.warning("organism_state: snapshot write failed (%s): %s", target, exc)
-    return target
+    target = Path(path) if path else _default_snapshot_path()
+    written = write_snapshot(state, path=target)
+    return written if written is not None else target
