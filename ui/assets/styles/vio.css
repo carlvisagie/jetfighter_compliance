@@ -639,10 +639,133 @@
   75%       { box-shadow: -14px 0 0 0 rgba(167,139,250,.3), 0 0 14px rgba(139,92,246,.5); }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   VIO DOCUMENT VISIBILITY — organism strip, findings, document actions
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Organism strip — full-platform awareness one row below the header */
+.vio-organism-strip {
+  background: var(--vio-surface);
+  border-bottom: 1px solid var(--vio-border);
+  flex-shrink: 0;
+  z-index: 50;
+  transition: background 0.15s;
+}
+.vio-organism-strip:hover { background: var(--vio-surface-raised); }
+.vio-organism-strip-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 20px;
+  font-size: 11px;
+  color: var(--vio-text-dim);
+  flex-wrap: wrap;
+}
+.vio-org-pill {
+  font-size: 9px; font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--vio-border);
+  background: var(--vio-bg);
+  color: var(--vio-text-dim);
+  flex-shrink: 0;
+}
+.vio-org-pill[data-state="green"]   { background: rgba(34,197,94,.12); color:#86efac; border-color: rgba(34,197,94,.35); }
+.vio-org-pill[data-state="amber"]   { background: rgba(245,158,11,.12); color:#fcd34d; border-color: rgba(245,158,11,.35); animation: vio-pulse-slow 3s ease-in-out infinite; }
+.vio-org-pill[data-state="red"]     { background: rgba(239,68,68,.15);  color:#fca5a5; border-color: rgba(239,68,68,.4);  animation: vio-pulse 1.5s ease-in-out infinite; }
+.vio-org-pill[data-state="unknown"] { background: rgba(71,85,105,.15);  color:#94a3b8; }
+.vio-org-text {
+  color: var(--vio-text);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 50ch;
+}
+.vio-org-text.vio-org-action { color: #93c5fd; }
+.vio-org-sep { color: var(--vio-text-faint); }
+.vio-org-spacer { flex: 1; }
+.vio-org-meta {
+  font-size: 10px;
+  color: var(--vio-text-dim);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  letter-spacing: 0.02em;
+}
+
+/* Findings list inside detail panel */
+.vio-finding {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+  align-items: start;
+  padding: 8px 10px;
+  background: var(--vio-bg);
+  border: 1px solid var(--vio-border);
+  border-left-width: 3px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.vio-finding[data-severity="red"]   { border-left-color: var(--s-error); }
+.vio-finding[data-severity="amber"] { border-left-color: var(--s-gap); }
+.vio-finding[data-severity="info"]  { border-left-color: var(--s-active); }
+.vio-finding-badge {
+  font-size: 9px; font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 1px 6px; border-radius: 8px;
+  text-transform: uppercase;
+  align-self: start;
+}
+.vio-finding-badge[data-severity="red"]   { background: rgba(239,68,68,.2);  color:#f87171; }
+.vio-finding-badge[data-severity="amber"] { background: rgba(245,158,11,.2); color:#fcd34d; }
+.vio-finding-badge[data-severity="info"]  { background: rgba(59,130,246,.18); color:#93c5fd; }
+.vio-finding-msg { color: var(--vio-text); line-height: 1.4; }
+.vio-finding-hint {
+  grid-column: 2;
+  margin-top: 4px;
+  color: var(--vio-text-dim);
+  font-size: 10px;
+  font-style: italic;
+}
+
+/* Document action buttons (view / dl) */
+.vio-doc-action {
+  font-size: 10px; font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 8px;
+  background: var(--vio-border);
+  color: var(--vio-text-dim);
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  transition: color 0.15s, background 0.15s;
+}
+.vio-doc-action:hover { color: var(--vio-text); background: var(--vio-border-bright); }
+
+/* Document status-driven borders */
+.vio-doc-item[data-status="missing"],
+.vio-doc-item[data-status="broken"] { border-left: 3px solid var(--s-error); }
+.vio-doc-item[data-status="on_disk_unindexed"] { border-left: 3px solid var(--s-gap); }
+.vio-doc-item[data-status="verified"],
+.vio-doc-item[data-status="durable"] { border-left: 3px solid var(--s-complete); }
+
+/* Composite detail loading hint */
+.vio-detail-loading {
+  padding: 12px;
+  font-size: 11px;
+  color: var(--vio-text-dim);
+  font-style: italic;
+  text-align: center;
+}
+
 /* ── Responsive (tablet) ─────────────────────────────────────────────────────  */
 @media (max-width: 768px) {
   .vio-header { gap: 8px; padding: 10px 12px; }
   .vio-health-bar { display: none; }
   .vio-stage { padding: 10px 12px 30px; }
   .vio-detail-content { width: 100vw; }
+  .vio-organism-strip-inner { padding: 6px 12px; gap: 6px; }
+  .vio-org-text { max-width: 30ch; }
+  .vio-org-meta { display: none; }
 }

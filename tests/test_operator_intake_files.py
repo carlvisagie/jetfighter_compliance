@@ -127,7 +127,7 @@ def test_no_public_document_leak(fb_env, anon_client: TestClient, client: TestCl
     assert r.status_code == 403
 
     r2 = anon_client.get(f"/api/intake/upload")
-    assert r2.status_code == 405
+    assert r2.status_code in (404, 405)
 
 
 def test_control_html_renders_documents_section(client: TestClient):

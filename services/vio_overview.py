@@ -201,14 +201,19 @@ def _priority_score(state: str, created_utc: str) -> float:
 
 
 def _build_company_row(row: Dict, ei: Dict) -> Dict:
-    pid = row.get("project_id") or row.get("intake_id") or ""
+    intake_id = row.get("intake_id") or ""
+    project_id = row.get("project_id") or ""
+    # Prefer intake_id as the row key so VIO can call /api/operator/vio/company/{intake_id}
+    pid = intake_id or project_id
     name = row.get("company_name") or row.get("company") or "Unknown"
     state = _calc_state(row, ei)
     timeline = _build_timeline(row, ei, state)
     created = row.get("created_utc") or row.get("submitted_utc") or ""
 
     return {
-        "project_id": pid,
+        "project_id": project_id,
+        "intake_id": intake_id,
+        "row_id": pid,
         "company_name": name,
         "initials": _initials(name),
         "contact_email": row.get("contact_email") or row.get("email") or "",
@@ -219,9 +224,9 @@ def _build_company_row(row: Dict, ei: Dict) -> Dict:
         "priority_score": _priority_score(state, created),
         "timeline": timeline,
         "quick_stats": {
-            "files_uploaded": ei.get("files_uploaded", 0),
+            "files_uploaded": ei.get("files_uploaded", 0) or int(row.get("file_count") or 0),
             "files_analyzed": ei.get("files_analyzed", 0),
-            "gaps": ei.get("missing_item_count", 0),
+            "gaps": ei.get("missing_item_count", 0) or len(row.get("missing_items") or []),
             "failures": ei.get("extraction_failures", 0),
             "pending": ei.get("pending_analysis", 0),
             "confirmation_needed": len(ei.get("confirmation_needed") or []),
@@ -232,8 +237,15 @@ def _build_company_row(row: Dict, ei: Dict) -> Dict:
     }
 
 
-def build_vio_overview(limit: int = 60) -> Dict:
-    """Aggregate all company rows for VIO 2.0 rendering."""
+def build_vio_overview(limit: int = 60, *, include_organism: bool = True) -> Dict:
+    """Aggregate all company rows for VIO 2.0 rendering.
+
+    Args:
+      limit: max companies to return.
+      include_organism: when False, skip the organism awareness summary.
+        This MUST be False when called from inside the organism's own
+        VioCollector to avoid infinite recursion.
+    """
     from services.intake.queue import get_operator_review_queue
 
     try:
@@ -262,7 +274,7 @@ def build_vio_overview(limit: int = 60) -> Dict:
         s = c["state"]
         state_counts[s] = state_counts.get(s, 0) + 1
 
-    return {
+    payload: Dict = {
         "ok": True,
         "companies": companies,
         "organism_health": {
@@ -272,3 +284,86 @@ def build_vio_overview(limit: int = 60) -> Dict:
         "queue_depth": queue_data.get("queue_depth", 0),
         "urgent_count": queue_data.get("urgent_count", 0),
     }
+    if include_organism:
+        payload["organism"] = _organism_summary()
+    return payload
+
+
+# ── TTL cache for organism awareness ─────────────────────────────────────────
+# The residue scan walks the whole repo (~seconds). VIO's auto-refresh fires
+# every 60s, so caching for 45s is invisible to the operator and removes
+# repeated scan cost across page loads.
+_ORGANISM_TTL_SECONDS = 45.0
+_organism_cache: Dict[str, Any] = {"ts": 0.0, "payload": None}
+
+
+def _organism_summary(*, force: bool = False) -> Dict[str, Any]:
+    """Compact organism awareness for the VIO header strip.
+
+    Fails silently — VIO must still render if the organism layer is unavailable.
+    Result is cached for ``_ORGANISM_TTL_SECONDS`` to avoid repeated whole-repo
+    residue scans on every overview request.
+    """
+    import time
+
+    now = time.time()
+    cached = _organism_cache.get("payload")
+    if not force and cached is not None and (now - _organism_cache.get("ts", 0.0)) < _ORGANISM_TTL_SECONDS:
+        return dict(cached)
+
+    try:
+        from services.organism_state import compute_organism_state
+        state = compute_organism_state()
+    except Exception as exc:
+        fail = {
+            "available": False,
+            "error": str(exc),
+            "health_state": "UNKNOWN",
+        }
+        _organism_cache["payload"] = fail
+        _organism_cache["ts"] = now
+        return dict(fail)
+
+    sigs = state.get("signals") or {}
+    intake_sig = sigs.get("intake") or {}
+    storage_sig = sigs.get("storage") or {}
+
+    # Surface the most important reconciliation mismatches as a flat list
+    mismatches: List[Dict] = []
+    for chk in state.get("checks") or []:
+        if not isinstance(chk, dict):
+            continue
+        if chk.get("ok"):
+            continue
+        mismatches.append({
+            "name": chk.get("name") or "",
+            "severity": chk.get("severity") or "info",
+            "detail": chk.get("detail") or "",
+        })
+
+    payload = {
+        "available": True,
+        "health_state": state.get("health_state", "UNKNOWN"),
+        "current_bottleneck": state.get("current_bottleneck"),
+        "next_recommended_action": state.get("next_recommended_action"),
+        "mismatches": mismatches[:10],
+        "mismatch_count": len(mismatches),
+        "queue_depth": int(intake_sig.get("queue_depth") or state.get("queue_depth") or 0),
+        "intake_count_active": int(intake_sig.get("intake_count_active") or state.get("intake_count_active") or 0),
+        "intake_count_total": int(intake_sig.get("intake_count_total") or state.get("intake_count_total") or 0),
+        "uploaded_file_count": int(intake_sig.get("uploaded_file_count") or state.get("uploaded_file_count") or 0),
+        "durable_storage_configured": bool(storage_sig.get("durable_storage_configured", state.get("durable_storage_configured", False))),
+        "environment": storage_sig.get("environment") or state.get("environment") or "",
+        "git_commit": (state.get("git_commit") or "")[:7],
+        "beta_residue_detected": bool(state.get("beta_residue_detected", False)),
+        "timestamp_utc": state.get("timestamp_utc") or "",
+    }
+    _organism_cache["payload"] = payload
+    _organism_cache["ts"] = now
+    return dict(payload)
+
+
+def reset_organism_cache() -> None:
+    """Force a fresh organism summary on the next overview call (used by tests)."""
+    _organism_cache["payload"] = None
+    _organism_cache["ts"] = 0.0

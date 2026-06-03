@@ -391,16 +391,44 @@ function hideTooltip() {
 document.addEventListener('mousemove', positionTooltip);
 
 // ── Detail panel ─────────────────────────────────────────────────────────────
-function openDetailPanel(company, nodeType, segment) {
+async function openDetailPanel(company, nodeType, segment) {
   const panel = document.getElementById('vio-detail-panel');
   const body  = document.getElementById('vio-detail-body');
   if (!panel || !body) return;
 
   body.innerHTML = '';
+  // Immediate render from existing aggregate data (no flash of empty)
   body.appendChild(buildDetailContent(company, nodeType, segment));
+
+  // Loading hint for composite data
+  const loadHint = div('vio-detail-loading');
+  loadHint.textContent = 'Loading documents, evidence, and findings…';
+  body.appendChild(loadHint);
 
   panel.removeAttribute('hidden');
   document.body.style.overflow = 'hidden';
+
+  // Hydrate with composite detail (uploaded/generated/missing docs + findings)
+  const rowKey = company.intake_id || company.row_id || company.project_id;
+  if (!rowKey) {
+    loadHint.textContent = 'No intake id available for this row.';
+    loadHint.style.color = 'var(--s-error)';
+    return;
+  }
+  try {
+    const resp = await fetch(`/api/operator/vio/company/${encodeURIComponent(rowKey)}`, {
+      credentials: 'same-origin',
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const detail = await resp.json();
+    if (!detail.ok) throw new Error(detail.error || 'detail API error');
+    loadHint.remove();
+    body.appendChild(buildCompositeDetail(detail));
+  } catch (err) {
+    loadHint.textContent = 'Could not load composite detail: ' + err.message;
+    loadHint.style.color = 'var(--s-error)';
+    console.error('[VIO][detail]', err);
+  }
 }
 
 function closeDetailPanel() {
@@ -604,6 +632,373 @@ function section(title) {
   return wrap;
 }
 
+// ── Composite per-company detail (uploaded / generated / missing / findings) ──
+function buildCompositeDetail(detail) {
+  const frag = document.createDocumentFragment();
+
+  // ── Findings (most important — show first) ──
+  const findings = detail.findings || [];
+  if (findings.length) {
+    const sec = section('Findings');
+    findings.forEach(f => {
+      const row = div('vio-finding');
+      row.setAttribute('data-severity', f.severity || 'info');
+      const badge = span('vio-finding-badge', (f.severity || 'info').toUpperCase());
+      badge.setAttribute('data-severity', f.severity || 'info');
+      const msg = span('vio-finding-msg', f.message || f.code || 'finding');
+      row.appendChild(badge);
+      row.appendChild(msg);
+      if (f.hint) {
+        const hint = div('vio-finding-hint');
+        hint.textContent = f.hint;
+        row.appendChild(hint);
+      }
+      sec.appendChild(row);
+    });
+    frag.appendChild(sec);
+  } else if (detail.bottleneck) {
+    const sec = section('Status');
+    const row = div('vio-finding');
+    row.setAttribute('data-severity', 'info');
+    row.appendChild(span('vio-finding-badge', 'INFO'));
+    row.appendChild(span('vio-finding-msg', detail.bottleneck));
+    sec.appendChild(row);
+    frag.appendChild(sec);
+  }
+
+  // ── Uploaded documents ──
+  const uploaded = detail.uploaded_documents || [];
+  const upSec = section(`Uploaded documents (${uploaded.length})`);
+  if (uploaded.length) {
+    const list = document.createElement('ul');
+    list.className = 'vio-doc-list';
+    uploaded.forEach(d => {
+      const item = document.createElement('li');
+      item.className = 'vio-doc-item';
+      item.setAttribute('data-status', d.status || 'unknown');
+
+      const typeEl = span('vio-doc-type', (d.document_type || d.extension?.replace('.', '') || 'doc').toUpperCase());
+      const nameWrap = div('');
+      nameWrap.style.cssText = 'flex:1; min-width:0; overflow:hidden;';
+      const nameEl = document.createElement('div');
+      nameEl.style.cssText = 'color:var(--vio-text); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+      nameEl.textContent = d.original_name || d.stored_name || '(unnamed)';
+      nameEl.title = d.stored_name || '';
+      nameWrap.appendChild(nameEl);
+
+      const meta = document.createElement('div');
+      meta.style.cssText = 'color:var(--vio-text-dim); font-size:10px; margin-top:2px;';
+      const parts = [];
+      if (d.size_bytes != null) parts.push(formatBytes(d.size_bytes));
+      if (d.status) parts.push(d.status);
+      if (d.classification_confidence != null) {
+        parts.push(`conf ${Math.round((d.classification_confidence || 0) * 100)}%`);
+      }
+      meta.textContent = parts.join(' · ');
+      nameWrap.appendChild(meta);
+
+      if (d.access_error) {
+        const err = document.createElement('div');
+        err.style.cssText = 'color:var(--s-error); font-size:10px; margin-top:3px;';
+        err.textContent = d.access_error;
+        nameWrap.appendChild(err);
+      }
+
+      item.appendChild(typeEl);
+      item.appendChild(nameWrap);
+
+      const actions = div('');
+      actions.style.cssText = 'display:flex; gap:4px; flex-shrink:0;';
+      if (d.view_url) {
+        const v = document.createElement('a');
+        v.href = d.view_url;
+        v.target = '_blank';
+        v.rel = 'noopener';
+        v.className = 'vio-doc-action';
+        v.title = 'View in new tab';
+        v.textContent = 'view';
+        actions.appendChild(v);
+      }
+      if (d.download_url) {
+        const dl = document.createElement('a');
+        dl.href = d.download_url;
+        dl.className = 'vio-doc-action';
+        dl.title = 'Download';
+        dl.textContent = 'dl';
+        actions.appendChild(dl);
+      }
+      item.appendChild(actions);
+      list.appendChild(item);
+    });
+    upSec.appendChild(list);
+  } else {
+    upSec.appendChild(emptyHint('No files uploaded yet.'));
+  }
+  frag.appendChild(upSec);
+
+  // ── Generated documents ──
+  const generated = detail.generated_documents || [];
+  const genSec = section(`Generated documents (${generated.length})`);
+  if (generated.length) {
+    const list = document.createElement('ul');
+    list.className = 'vio-doc-list';
+    generated.forEach(g => {
+      const item = document.createElement('li');
+      item.className = 'vio-doc-item';
+      item.appendChild(span('vio-doc-type', 'GEN'));
+      const nameWrap = div('');
+      nameWrap.style.flex = '1';
+      const nm = document.createElement('div');
+      nm.style.cssText = 'color:var(--vio-text); font-size:12px;';
+      nm.textContent = g.name;
+      nameWrap.appendChild(nm);
+      const meta = document.createElement('div');
+      meta.style.cssText = 'color:var(--vio-text-dim); font-size:10px;';
+      meta.textContent = formatBytes(g.size_bytes || 0);
+      nameWrap.appendChild(meta);
+      item.appendChild(nameWrap);
+      list.appendChild(item);
+    });
+    genSec.appendChild(list);
+  } else {
+    genSec.appendChild(emptyHint('No generated paperwork yet.'));
+  }
+  frag.appendChild(genSec);
+
+  // ── Missing documents ──
+  const missing = detail.missing_documents || [];
+  if (missing.length) {
+    const sec = section(`Missing documents (${missing.length})`);
+    const list = document.createElement('ul');
+    list.className = 'vio-gap-list';
+    missing.forEach(m => {
+      const item = document.createElement('li');
+      item.className = 'vio-gap-item';
+      item.setAttribute('data-priority', m.priority || 'medium');
+      const badge = span('vio-gap-badge', (m.priority || 'med').toUpperCase());
+      badge.setAttribute('data-priority', m.priority || 'medium');
+      const lbl = div('');
+      lbl.style.cssText = 'flex:1; min-width:0;';
+      const t = document.createElement('div');
+      t.style.cssText = 'color:var(--vio-text); font-size:12px;';
+      t.textContent = m.label;
+      lbl.appendChild(t);
+      if (m.explanation) {
+        const ex = document.createElement('div');
+        ex.style.cssText = 'color:var(--vio-text-dim); font-size:10px; margin-top:2px;';
+        ex.textContent = m.explanation;
+        lbl.appendChild(ex);
+      }
+      item.appendChild(badge);
+      item.appendChild(lbl);
+      if (m.example_url) {
+        const ex = document.createElement('a');
+        ex.href = m.example_url;
+        ex.target = '_blank';
+        ex.rel = 'noopener';
+        ex.className = 'vio-doc-action';
+        ex.textContent = 'example';
+        item.appendChild(ex);
+      }
+      list.appendChild(item);
+    });
+    sec.appendChild(list);
+    frag.appendChild(sec);
+  }
+
+  // ── Evidence snapshot ──
+  const ev = detail.evidence || {};
+  if (ev.available || ev.files_uploaded) {
+    const evSec = section('Evidence snapshot');
+    const grid = div('vio-kv-grid');
+    [
+      ['Files uploaded', ev.files_uploaded ?? 0],
+      ['Files analyzed', ev.files_analyzed ?? 0],
+      ['Entities extracted', ev.entity_count ?? 0],
+      ['Missing items', ev.missing_item_count ?? 0],
+      ['Extraction failures', ev.extraction_failures ?? 0],
+      ['Pending analysis', ev.pending_analysis ?? 0],
+    ].forEach(([k, v]) => {
+      const kv = div('vio-kv');
+      kv.innerHTML = `<div class="vio-kv-key">${k}</div><div class="vio-kv-value">${v}</div>`;
+      grid.appendChild(kv);
+    });
+    evSec.appendChild(grid);
+
+    const prof = ev.profile || {};
+    if (prof.technologies && prof.technologies.length) {
+      const w = div('');
+      w.innerHTML = '<div class="vio-kv-key" style="margin-top:10px;margin-bottom:5px">Technologies detected</div>';
+      const tags = div('vio-tag-list');
+      prof.technologies.slice(0, 10).forEach(t => tags.appendChild(span('vio-tag', t)));
+      w.appendChild(tags);
+      evSec.appendChild(w);
+    }
+    if (prof.compliance_references && prof.compliance_references.length) {
+      const w = div('');
+      w.innerHTML = '<div class="vio-kv-key" style="margin-top:10px;margin-bottom:5px">Compliance references</div>';
+      const tags = div('vio-tag-list');
+      prof.compliance_references.slice(0, 10).forEach(t => {
+        const tg = span('vio-tag', t);
+        tg.style.background = 'rgba(139,92,246,.15)';
+        tg.style.color = '#c4b5fd';
+        tags.appendChild(tg);
+      });
+      w.appendChild(tags);
+      evSec.appendChild(w);
+    }
+    frag.appendChild(evSec);
+  }
+
+  // ── Next actions (operator) ──
+  const nextActions = detail.next_actions || [];
+  if (nextActions.length) {
+    const sec = section('Recommended next actions');
+    nextActions.forEach(a => {
+      const box = div('vio-next-action');
+      box.textContent = a;
+      box.style.marginBottom = '6px';
+      sec.appendChild(box);
+    });
+    frag.appendChild(sec);
+  }
+
+  // ── IDs / forensic anchor ──
+  const idSec = section('Identifiers');
+  const idGrid = div('vio-kv-grid');
+  [
+    ['Intake ID', detail.intake_id || '—'],
+    ['Project ID', detail.project_id || '—'],
+    ['Review status', detail.review_status || '—'],
+    ['Age (hours)', detail.age_hours ?? 0],
+  ].forEach(([k, v]) => {
+    const kv = div('vio-kv');
+    kv.innerHTML = `<div class="vio-kv-key">${k}</div><div class="vio-kv-value" style="font-family:ui-monospace,monospace;font-size:11px;">${v}</div>`;
+    idGrid.appendChild(kv);
+  });
+  idSec.appendChild(idGrid);
+  frag.appendChild(idSec);
+
+  return frag;
+}
+
+function emptyHint(text) {
+  const e = document.createElement('div');
+  e.style.cssText = 'color:var(--vio-text-faint); font-size:11px; padding:8px 4px; font-style:italic;';
+  e.textContent = text;
+  return e;
+}
+
+function formatBytes(n) {
+  if (n == null || isNaN(n)) return '—';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+// ── Organism awareness strip (top-of-page global state) ───────────────────────
+function renderOrganismStrip(org) {
+  const pill = document.getElementById('vio-org-pill');
+  const bottle = document.getElementById('vio-org-bottleneck');
+  const action = document.getElementById('vio-org-action');
+  const meta = document.getElementById('vio-org-meta');
+  if (!pill || !bottle || !action || !meta) return;
+
+  if (!org || !org.available) {
+    pill.textContent = 'ORG?';
+    pill.setAttribute('data-state', 'unknown');
+    bottle.textContent = org?.error ? `Organism layer error: ${org.error}` : 'Organism state unavailable';
+    action.textContent = '';
+    meta.textContent = '';
+    return;
+  }
+
+  const health = (org.health_state || 'UNKNOWN').toUpperCase();
+  pill.textContent = health;
+  pill.setAttribute('data-state', health.toLowerCase());
+
+  bottle.textContent = org.current_bottleneck
+    ? `Bottleneck: ${org.current_bottleneck}`
+    : 'No active bottleneck';
+
+  action.textContent = org.next_recommended_action
+    ? `Next: ${org.next_recommended_action}`
+    : '';
+
+  const metaParts = [
+    `q=${org.queue_depth}`,
+    `intakes=${org.intake_count_active}/${org.intake_count_total}`,
+    `files=${org.uploaded_file_count}`,
+    org.mismatch_count ? `mismatches=${org.mismatch_count}` : '',
+    org.beta_residue_detected ? 'beta_residue!' : '',
+    org.environment ? org.environment : '',
+    org.git_commit ? `git=${org.git_commit}` : '',
+  ].filter(Boolean);
+  meta.textContent = metaParts.join(' · ');
+  meta.title = org.timestamp_utc ? `Snapshot: ${org.timestamp_utc}` : '';
+
+  // If there are mismatches, make the strip clickable to surface them
+  const strip = document.getElementById('vio-organism-strip');
+  if (!strip) return;
+  strip.onclick = (org.mismatch_count > 0) ? () => openOrganismMismatchPanel(org) : null;
+  strip.style.cursor = (org.mismatch_count > 0) ? 'pointer' : 'default';
+}
+
+function openOrganismMismatchPanel(org) {
+  const panel = document.getElementById('vio-detail-panel');
+  const body  = document.getElementById('vio-detail-body');
+  if (!panel || !body) return;
+  body.innerHTML = '';
+
+  const header = div('vio-detail-header');
+  const orbEl = div('vio-detail-orb');
+  orbEl.textContent = '◉';
+  const stateColor = ORG_COLORS[(org.health_state || 'UNKNOWN').toUpperCase()] || '#475569';
+  orbEl.style.background = `radial-gradient(circle at 35% 35%, ${stateColor}cc, ${stateColor}55)`;
+  orbEl.style.boxShadow = `0 0 16px ${stateColor}66`;
+  const titleWrap = div('');
+  titleWrap.style.flex = '1';
+  const t = div('vio-detail-title');
+  t.textContent = 'Organism findings';
+  const s = div('vio-detail-sub');
+  s.textContent = org.current_bottleneck || 'Reconciliation report';
+  titleWrap.appendChild(t);
+  titleWrap.appendChild(s);
+  header.appendChild(orbEl);
+  header.appendChild(titleWrap);
+  body.appendChild(header);
+
+  const sec = section(`Mismatches (${org.mismatch_count})`);
+  (org.mismatches || []).forEach(m => {
+    const row = div('vio-finding');
+    row.setAttribute('data-severity', (m.severity || 'amber').toLowerCase());
+    row.appendChild(span('vio-finding-badge', (m.severity || 'AMBER').toUpperCase()));
+    const msg = span('vio-finding-msg', m.name);
+    row.appendChild(msg);
+    if (m.detail) {
+      const hint = div('vio-finding-hint');
+      hint.textContent = m.detail;
+      row.appendChild(hint);
+    }
+    sec.appendChild(row);
+  });
+  body.appendChild(sec);
+
+  if (org.next_recommended_action) {
+    const ac = section('Recommended action');
+    const box = div('vio-next-action');
+    box.textContent = org.next_recommended_action;
+    ac.appendChild(box);
+    body.appendChild(ac);
+  }
+
+  panel.removeAttribute('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+const ORG_COLORS = { GREEN: '#22c55e', AMBER: '#f59e0b', RED: '#ef4444', UNKNOWN: '#475569' };
+
 // ── Data load ─────────────────────────────────────────────────────────────────
 async function loadVioData() {
   try {
@@ -617,6 +1012,7 @@ async function loadVioData() {
     if (!data.ok) throw new Error(data.error || 'API error');
     _allCompanies = data.companies || [];
     renderHealthBar(data.organism_health || {});
+    renderOrganismStrip(data.organism);
     renderCompanyList(_allCompanies);
   } catch (err) {
     const stage = document.getElementById('vio-stage');
@@ -641,6 +1037,7 @@ function startAutoRefresh() {
       if (!data.ok) return;
       _allCompanies = data.companies || [];
       renderHealthBar(data.organism_health || {});
+      renderOrganismStrip(data.organism);
       // Only re-render list if no detail panel is open
       if (document.getElementById('vio-detail-panel')?.hasAttribute('hidden')) {
         renderCompanyList(_allCompanies, document.getElementById('vio-search')?.value || '');

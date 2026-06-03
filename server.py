@@ -1623,6 +1623,21 @@ def vio_overview(request: Request, limit: int = 60):
     return build_vio_overview(limit=min(max(limit, 1), 100))
 
 
+@app.get("/api/operator/vio/company/{intake_id}")
+def vio_company_detail(request: Request, intake_id: str):
+    """Composite per-company awareness payload for the VIO detail panel.
+
+    Returns every paperwork/evidence/gap/finding signal for one company in a
+    single call, so the operator never needs GitHub, Render, logs, or the
+    file system to understand a company's state.
+    """
+    from services.production import require_ops_access
+    from services.vio_company_detail import build_company_detail
+
+    require_ops_access(request)
+    return build_company_detail(intake_id.strip())
+
+
 @app.get("/api/operator/organism/state")
 def operator_organism_state(request: Request):
     """KYC Aware Organism v0 — self-awareness snapshot.

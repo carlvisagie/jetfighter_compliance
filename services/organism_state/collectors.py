@@ -51,7 +51,9 @@ class VioCollector(SignalCollector):
     def collect(self) -> Dict[str, Any]:
         from services.vio_overview import build_vio_overview
 
-        vio = build_vio_overview(limit=200) or {}
+        # include_organism=False prevents infinite recursion:
+        # build_vio_overview → _organism_summary → compute_organism_state → VioCollector
+        vio = build_vio_overview(limit=200, include_organism=False) or {}
         companies = vio.get("companies") or []
         return {
             "vio_company_count": len(companies),
