@@ -1623,6 +1623,23 @@ def vio_overview(request: Request, limit: int = 60):
     return build_vio_overview(limit=min(max(limit, 1), 100))
 
 
+@app.get("/api/operator/organism/state")
+def operator_organism_state(request: Request):
+    """KYC Aware Organism v0 — self-awareness snapshot.
+
+    Reconciles disk, intake index, queue, VIO, projects, evidence, and beta
+    residue. Returns GREEN / AMBER / RED + bottleneck + next action.
+    Snapshot is also persisted to {data_root}/organism_state.json.
+    """
+    from services.organism_state import compute_organism_state, write_organism_state_snapshot
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    state = compute_organism_state()
+    write_organism_state_snapshot(state)
+    return state
+
+
 @app.get("/api/operator/acquisition-intelligence")
 def operator_acquisition_intelligence():
     from services.runtime_boot import module_pause_response

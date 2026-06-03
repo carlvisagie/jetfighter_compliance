@@ -317,6 +317,19 @@
       </div>
 
       <div class="org-health-grid">
+        <article class="org-card org-card--wide" data-org-card="organism-state" id="organism-state-card">
+          <div class="org-card-head">
+            <h3 class="org-card-title">Organism state</h3>
+            <span class="org-card-state info" data-org-state-pill>—</span>
+          </div>
+          <div class="org-card-body">
+            <p class="org-metric-foot" data-org-state-bottleneck>Loading self-awareness snapshot…</p>
+            <p class="org-metric-foot" data-org-state-action></p>
+            <p class="org-metric-foot" style="margin-top:0.5em;">
+              <a href="/api/operator/organism/state" target="_blank" rel="noopener" style="color:#9ad;">View full JSON</a>
+            </p>
+          </div>
+        </article>
         <article class="org-card" data-org-card="memory">
           <div class="org-card-head"><h3 class="org-card-title">Memory integrity</h3><span class="org-card-state info">—</span></div>
           <div class="org-card-body"></div>
@@ -1094,7 +1107,38 @@
       loadSmtpStatus(),
       loadOperationalAlerts(),
       loadFoundingBetaIntake(),
+      loadOrganismState(),
     ]);
+  }
+  async function loadOrganismState() {
+    const card = document.getElementById('organism-state-card');
+    if (!card) return;
+    const pill = card.querySelector('[data-org-state-pill]');
+    const bottle = card.querySelector('[data-org-state-bottleneck]');
+    const action = card.querySelector('[data-org-state-action]');
+    try {
+      const res = await fetch('/api/operator/organism/state', { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('http ' + res.status);
+      const s = await res.json();
+      const health = (s.health_state || 'UNKNOWN').toUpperCase();
+      pill.textContent = health;
+      pill.classList.remove('info', 'warning', 'critical', 'success');
+      if (health === 'GREEN')  pill.classList.add('success');
+      else if (health === 'AMBER') pill.classList.add('warning');
+      else if (health === 'RED')   pill.classList.add('critical');
+      else                          pill.classList.add('info');
+      bottle.textContent = 'Bottleneck: ' + (s.current_bottleneck || 'none')
+        + ' · queue=' + (s.queue_depth ?? 0)
+        + ' · vio=' + (s.vio_company_count ?? 0)
+        + ' · intakes=' + (s.intake_count_active ?? 0) + '/' + (s.intake_count_total ?? 0)
+        + (s.beta_residue_detected ? ' · beta_residue=YES' : '');
+      action.textContent = 'Next: ' + (s.next_recommended_action || '—');
+    } catch (err) {
+      pill.textContent = 'ERR';
+      pill.classList.add('critical');
+      bottle.textContent = 'Failed to load organism state: ' + err.message;
+      action.textContent = '';
+    }
   }
   async function refreshAll() {
     const root = document.getElementById('org-control-root');
@@ -1112,6 +1156,7 @@
       loadOperationalAlerts(),
       loadComplianceIntelligence(),
       loadFoundingBetaIntake(),
+      loadOrganismState(),
     ];
     await Promise.allSettled(tasks);
   }
