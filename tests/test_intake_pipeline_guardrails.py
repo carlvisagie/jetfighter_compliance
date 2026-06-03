@@ -77,7 +77,10 @@ def test_queue_reports_empty_reason(fb_data, client):
     assert "dashboard" in body
 
 
-def test_deprecated_operator_intake_shims_to_queue(client, fb_data, anon_client):
+def test_operator_intake_queue_serves_uploaded_intakes(client, fb_data, anon_client):
+    """The canonical intake queue endpoint must surface freshly uploaded
+    intakes. The former /api/operator/founding-beta-intake shim is gone —
+    the queue endpoint IS the canonical surface now."""
     anon_client.post(
         "/api/intake/upload",
         files=[("files", ("z.txt", io.BytesIO(b"z"), "text/plain"))],
@@ -85,4 +88,5 @@ def test_deprecated_operator_intake_shims_to_queue(client, fb_data, anon_client)
     )
     r = client.get("/api/operator/intake/queue")
     assert r.status_code == 200
-    assert r.json().get("queue_depth", 0) >= 1
+    body = r.json()
+    assert body.get("queue_depth", 0) >= 1

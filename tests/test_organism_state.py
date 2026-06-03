@@ -63,7 +63,7 @@ def test_residue_scanner_detects_routes(tmp_path):
     """Server routes mentioning /api/founding-beta count as critical."""
     src = tmp_path / "server.py"
     src.write_text(
-        '@app.get("/api/operator/founding-beta/queue")\ndef _x(): pass\n',
+        '@app.get("/api/founding-beta/upload")\ndef _x(): pass\n',
         encoding="utf-8",
     )
     out = scan_repo_for_beta_residue(tmp_path)
@@ -245,7 +245,7 @@ def test_check_detects_beta_residue():
     residue = {
         "beta_residue_detected": True, "critical_count": 3,
         "active_file_count": 2, "docs_file_count": 0,
-        "beta_routes_remaining": ["server.py:/api/operator/founding-beta/queue"],
+        "beta_routes_remaining": ["server.py:/api/operator/intake/queue"],
         "beta_imports_remaining": ["services/acquisition/x.py"],
     }
     checks = run_reconciliation_checks(

@@ -52,12 +52,29 @@ def intake_page():
 
 app.include_router(telemetry_router)
 
+# CORS — production policy:
+#   - In production: lock to known surfaces (custom domain + Render backend).
+#   - Outside production: allow * for local dev / preview environments / tests.
+# Operators can override via CORS_ALLOW_ORIGINS (comma-separated) without code change.
+import os as _os_cors
+
+_ENV_CORS = (_os_cors.getenv("CORS_ALLOW_ORIGINS") or "").strip()
+if _ENV_CORS:
+    _CORS_ORIGINS = [o.strip() for o in _ENV_CORS.split(",") if o.strip()]
+elif (_os_cors.getenv("ENVIRONMENT") or "").lower() == "production":
+    _CORS_ORIGINS = [
+        "https://compliance.keepyourcontracts.com",
+        "https://jetfighter-compliance.onrender.com",
+    ]
+else:
+    _CORS_ORIGINS = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: Restrict to specific domains in production
+    allow_origins=_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 app.mount("/ui", StaticFiles(directory=str(ROOT / "ui"), html=True), name="ui")
 

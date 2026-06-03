@@ -26,9 +26,15 @@ def _load_intake(intake_id: str) -> Dict[str, Any]:
     return _real(intake_id)
 
 
-def _send_payment_link(intake_id: str, product_id: str, *, operator_note: str = "") -> Dict[str, Any]:
+def _send_payment_link(
+    intake_id: str,
+    product_id: str,
+    *,
+    operator_note: str = "",
+    update_status: bool = True,
+) -> Dict[str, Any]:
     from .operator_actions import _send_payment_link as _real
-    return _real(intake_id, product_id, operator_note=operator_note)
+    return _real(intake_id, product_id, operator_note=operator_note, update_status=update_status)
 
 _CONFIDENCE_THRESHOLD = 0.65
 

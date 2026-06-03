@@ -12,10 +12,12 @@ from fastapi.testclient import TestClient
 from server import app
 
 
-def test_founding_beta_page_loads(client):
+def test_intake_page_loads(client):
+    """Canonical customer paperwork page must render at /ui/intake
+    (post-rebrand replacement for /ui/founding-beta)."""
     r = client.get("/ui/intake")
     assert r.status_code == 200
-    assert "Free Founding Beta Compliance Paperwork Review" in r.text
+    assert "Submit Your Compliance Paperwork" in r.text
 
 
 def test_upload_requires_contact(fb_env, anon_client):

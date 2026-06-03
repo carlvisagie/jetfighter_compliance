@@ -131,7 +131,7 @@ Cannot verify raw-disk-scan, queue, retention-check, or live boot status without
 
 1. Deploy commit to Render `kyc-backend`
 2. Login: `POST /api/ops/login` with production `OPS_PASSWORD`
-3. Upload 13 PDFs via `/ui/founding-beta` or `POST /api/intake/upload`
+3. Upload 13 PDFs via `/ui/intake` or `POST /api/intake/upload`
 4. Confirm response: `proof_gate_passed=true`, `verified_file_count=13`
 5. `GET /api/operator/intake/raw-disk-scan?intake_id={id}` → 13 files
 6. `GET /api/operator/intake/retention-check/{id}` → counts match, hashes match

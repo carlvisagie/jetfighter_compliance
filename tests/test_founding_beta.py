@@ -101,9 +101,10 @@ def test_acquisition_dashboard_includes_founding_beta():
     assert dash["founding_beta"].get("active") is True
 
 
-def test_control_html_founding_beta_strip(client):
+def test_control_html_intake_strip(client):
+    """Operator cockpit must render the intake strip in control.html.
+    Post-rebrand: class is 'intake-strip' (was founding-beta-strip)."""
     r = client.get("/ui/control.html")
     assert r.status_code == 200
-    assert "renderFoundingBeta" in r.text
+    assert 'class="intake-strip"' in r.text
     assert "fb-paperwork-banner" in r.text
-    assert "loadFoundingBetaIntake" in r.text

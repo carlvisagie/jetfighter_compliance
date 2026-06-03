@@ -130,7 +130,7 @@
   function initUploadFirstFlow(cfg) {
     var params = new URLSearchParams(global.location.search || "");
     if (!params.get("legacy_session")) {
-      var target = "/ui/founding-beta";
+      var target = "/ui/intake";
       if (params.toString()) target += "?" + params.toString();
       global.location.replace(target);
       return;

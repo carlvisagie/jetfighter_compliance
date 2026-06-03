@@ -5,16 +5,19 @@ import io
 
 
 def test_control_html_cockpit_paperwork_visibility(client):
+    """Operator cockpit must surface the intake banner, queue panel,
+    and live queue endpoint. Asserts the post-rebrand identifiers
+    (intake-* instead of founding-beta-*)."""
     r = client.get("/ui/control.html")
     assert r.status_code == 200
     text = r.text
     assert "fb-paperwork-banner" in text
+    assert 'id="intake-panel"' in text
     assert "intake-queue-insights" in text
     assert "founding-beta-intake-insights" not in text
     assert "fb-queue-atlas" in text
     assert "cockpit-intake.js" in text
     assert "/api/operator/intake/queue" in text
-    assert "CockpitFoundingBeta" in text
 
 
 def test_topology_attention_when_founding_beta_pending(client, fb_env, anon_client):
