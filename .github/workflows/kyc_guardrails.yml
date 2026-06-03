@@ -10,7 +10,10 @@ on:
 jobs:
   guardrails:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Full suite needs ~14–22 minutes; previous 15 cap killed run 26895968230
+    # at exactly the 15-minute boundary. See
+    # docs/CI_GUARDRAILS_RUN_26895968230_ROOT_CAUSE.md.
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
