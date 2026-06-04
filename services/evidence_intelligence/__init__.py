@@ -46,6 +46,36 @@ def _enrich_gaps(gaps: List[Any]) -> List[Dict[str, Any]]:
     return out
 
 
+# Internal sidecars and orchestration metadata that must NEVER be counted
+# as customer evidence. Production intake FB-1dfab13c120b (2026-06-04)
+# surfaced classifications + entities derived from these files because the
+# intake.py loop used to ``rglob("*")`` the whole intake directory. The
+# loop is now scoped to ``uploads/``, but we keep this read-side filter to
+# clean up data already on disk and to defend against future regressions.
+_EI_INTERNAL_FILENAMES = frozenset({
+    "intake.json",
+    "classification.json",
+    "profile.json",
+    "extractions.jsonl",
+    "classifications.jsonl",
+    "entities.jsonl",
+    "gaps.json",
+    "review_queue.jsonl",
+})
+
+
+def _is_real_customer_upload(name: str) -> bool:
+    """True only for filenames that came from a customer upload."""
+    if not name:
+        return False
+    n = str(name).strip()
+    if n in _EI_INTERNAL_FILENAMES:
+        return False
+    if n.endswith(".durability.json"):
+        return False
+    return True
+
+
 def _already_processed(project_id: str, sha256_val: str, artifact_id: str) -> bool:
     """Return True if this exact artifact was already extracted successfully."""
     if not sha256_val and not artifact_id:
@@ -349,8 +379,21 @@ def _record_custody_event(
 
 def get_customer_evidence_profile(project_id: str) -> Dict[str, Any]:
     profile = storage.load_profile(project_id)
-    domain = profile.get("primary_domain") or None
-    gaps = _enrich_gaps(detect_gaps(profile, domain=domain))
+    # Strip any inferred "domain" entries that were lifted from internal
+    # sidecar filenames (e.g. ``image.jpg.durability.json``) so we never
+    # ask the customer to confirm orchestration metadata as if it were
+    # part of their company profile.
+    if isinstance(profile.get("domains"), list):
+        profile["domains"] = [
+            d for d in profile["domains"]
+            if _is_real_customer_upload(str(d.get("value") or ""))
+            and not str(d.get("value", "")).endswith(".durability.json")
+        ]
+    domain  = profile.get("primary_domain") or None
+    # Always recompute gaps freshly — see get_operator_evidence_intelligence
+    # for the reasoning; the cached gaps.json would otherwise mask the
+    # newer domain-aware rule pack.
+    gaps    = _enrich_gaps(detect_gaps(profile, domain=domain))
     missing = gaps[:3]
     return {
         "ok": True,
@@ -430,16 +473,45 @@ def get_operator_evidence_intelligence(project_id: str) -> Dict[str, Any]:
     files = []
     if ev_dir.is_dir():
         for p in sorted(ev_dir.iterdir()):
-            if p.is_file():
+            if p.is_file() and _is_real_customer_upload(p.name):
                 files.append({"name": p.name, "size": p.stat().st_size})
-    extractions = storage.load_jsonl(project_id, "extractions.jsonl", limit=100)
-    classifications = storage.load_jsonl(project_id, "classifications.jsonl", limit=100)
-    entities = storage.load_jsonl(project_id, "entities.jsonl", limit=200)
+    extractions_raw     = storage.load_jsonl(project_id, "extractions.jsonl", limit=200)
+    classifications_raw = storage.load_jsonl(project_id, "classifications.jsonl", limit=200)
+    entities_raw        = storage.load_jsonl(project_id, "entities.jsonl", limit=400)
+
+    # Defensive filter: scrub any rows derived from internal sidecars /
+    # metadata files. Earlier production runs polluted these JSONLs;
+    # filtering on read means VIO and the operator dashboard show clean
+    # counts without a destructive backfill.
+    extractions = [
+        e for e in extractions_raw
+        if _is_real_customer_upload(e.get("source_file") or e.get("artifact_id") or "")
+    ]
+    classifications = [
+        c for c in classifications_raw
+        if _is_real_customer_upload(c.get("source_file") or "")
+    ]
+    entities = [
+        e for e in entities_raw
+        if _is_real_customer_upload(e.get("source_file") or "")
+    ]
+
     profile = storage.load_profile(project_id)
+    if isinstance(profile.get("domains"), list):
+        profile["domains"] = [
+            d for d in profile["domains"]
+            if _is_real_customer_upload(str(d.get("value") or ""))
+            and not str(d.get("value", "")).endswith(".durability.json")
+        ]
+    # Always recompute gaps from the latest profile so a stale gaps.json
+    # written before the domain-aware pack landed cannot mask the correct
+    # rule set. Falls back to whatever the profile detected; if a profile
+    # has no `primary_domain` yet (older intake) detect_gaps will run the
+    # auto-detector itself.
     domain = profile.get("primary_domain") or None
-    gaps = storage.load_gaps(project_id) or [g.model_dump() for g in detect_gaps(profile, domain=domain)]
-    pending = [e for e in extractions if e.get("pending_analysis")]
-    failed = [e for e in extractions if e.get("errors")]
+    gaps   = [g.model_dump() for g in detect_gaps(profile, domain=domain)]
+    pending     = [e for e in extractions if e.get("pending_analysis")]
+    failed      = [e for e in extractions if e.get("errors")]
     unsupported = [e for e in extractions if "unsupported" in str(e.get("errors", []))]
 
     return {

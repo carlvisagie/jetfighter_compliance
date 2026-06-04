@@ -855,9 +855,25 @@ async def _process_upload_locked(
             # Best-effort: never let extraction failures break the intake.
             try:
                 from services.evidence_intelligence import process_evidence_upload
+                from .file_durability import is_upload_payload_file
 
-                _ei_dir = canonical_intake_dir(intake_id)
-                _ei_files = sorted(p for p in _ei_dir.rglob("*") if p.is_file())
+                # SCOPE: only customer uploads under intakes/{id}/uploads/.
+                # Earlier this loop used `rglob("*")` against the whole intake
+                # directory, which dragged `intake.json`, `classification.json`,
+                # and every `*.durability.json` sidecar through EI as if they
+                # were customer evidence. Production upload FB-1dfab13c120b on
+                # 2026-06-04 surfaced exactly that — see the forensic note in
+                # docs/EVIDENCE_INTELLIGENCE_LAYER.md. EI must only ever see
+                # what the customer actually uploaded.
+                _ei_dir   = canonical_intake_dir(intake_id) / "uploads"
+                _ei_files = (
+                    sorted(
+                        p for p in _ei_dir.iterdir()
+                        if p.is_file() and is_upload_payload_file(p.name)
+                    )
+                    if _ei_dir.is_dir()
+                    else []
+                )
                 for _f in _ei_files:
                     try:
                         process_evidence_upload(
@@ -875,7 +891,7 @@ async def _process_upload_locked(
                         "evidence_intelligence_dispatched",
                         message=intake_id,
                         metadata={
-                            "intake_id": intake_id,
+                            "intake_id":       intake_id,
                             "files_dispatched": len(_ei_files),
                         },
                     )

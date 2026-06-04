@@ -356,6 +356,24 @@ def start_worker(*, heavy: bool = True) -> None:
 
     _add_job("queue", sweep_queue, trigger="interval", seconds=10)
     _add_job("sla", check_slas, trigger="interval", minutes=5)
+
+    # Forensic-audit fix (2026-06-04, intake FB-1dfab13c120b): emit a
+    # cheap periodic pulse so the awareness layer always has a recent
+    # `scheduler_*` row to read. Without this the heartbeat depended on
+    # the one-time `scheduler_started` row staying inside the telemetry
+    # lookback window — which it doesn't survive busy production traffic.
+    def _scheduler_heartbeat_pulse() -> None:
+        _emit_scheduler_event(
+            "scheduler_heartbeat_pulse",
+            metadata={"job_count": len(scheduler.get_jobs()) if scheduler else 0},
+        )
+
+    _add_job(
+        "heartbeat_pulse",
+        _scheduler_heartbeat_pulse,
+        trigger="interval",
+        minutes=5,
+    )
     if heavy:
         _add_job(
             "nightly_exports",

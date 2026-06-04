@@ -263,6 +263,7 @@ class SchedulerHeartbeatCollector(SignalCollector):
         "scheduler_organ_registered",
         "scheduler_organ_module_registered",
         "scheduler_forensic_reconcile_ran",
+        "scheduler_heartbeat_pulse",
     }
     _FAILURE_EVENTS = {
         "scheduler_create_failed",
@@ -285,8 +286,15 @@ class SchedulerHeartbeatCollector(SignalCollector):
                 "reason": "telemetry_unavailable",
             }
 
+        # Production bug (2026-06-04, intake FB-1dfab13c120b): an
+        # unfiltered limit=500 lookback meant the scheduler's `scheduler_
+        # started` row was pushed out of the window by routine EI + intake
+        # + acquisition telemetry within minutes of boot, so the heartbeat
+        # check reported MISSING on a perfectly healthy process. Scoping
+        # to subsystem="system" means 500 rows = ~hours of scheduler
+        # signal, not seconds of mixed traffic.
         try:
-            rows = load_telemetry(limit=500) or []
+            rows = load_telemetry(limit=500, subsystem="system") or []
         except Exception:
             return {
                 "available": False,
