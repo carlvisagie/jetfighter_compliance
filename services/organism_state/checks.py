@@ -69,14 +69,43 @@ class QueueVsVioCheck(Check):
 
 
 class QueueVsControlCheck(Check):
+    """Compare the operator-control queue count against the canonical
+    intake queue depth (separate signal sources).
+
+    Forensic-audit fix (2026-06-04): the previous implementation
+    returned ok=True unconditionally on the grounds that both sides
+    "match by construction." That was a hardcoded-green vanity check
+    and is a real first-customer trust embarrassment when surfaced in
+    the operator cockpit. The control count is now read separately
+    from the operator-cockpit collector signal; the check stays silent
+    only when the cockpit signal is genuinely absent.
+    """
+
     name = "queue_vs_control"
 
     def evaluate(self, signals: SignalBundle) -> CheckResult:
         depth = int(signals.get("intake", "queue_depth", 0))
+        control = signals.get("operator_cockpit", "queue_count", None)
+        if control is None:
+            return CheckResult(
+                name=self.name, ok=True, severity=Severity.INFO,
+                detail="No operator cockpit signal — skipped.",
+                evidence={"canonical_queue_depth": depth,
+                          "control_queue_count": None},
+            )
+        control_n = int(control)
+        ok = control_n == depth
         return CheckResult(
-            name=self.name, ok=True, severity=Severity.INFO,
-            detail="Control reads the canonical queue endpoint — counts match by construction.",
-            evidence={"control_queue_count": depth},
+            name=self.name,
+            ok=ok,
+            severity=Severity.INFO if ok else Severity.AMBER,
+            detail=(f"Control={control_n} canonical={depth}"
+                    if ok else
+                    f"DIVERGENCE: operator-cockpit queue={control_n} "
+                    f"vs canonical queue={depth}"),
+            evidence={"canonical_queue_depth": depth,
+                      "control_queue_count": control_n,
+                      "delta": control_n - depth},
         )
 
 
@@ -106,15 +135,48 @@ class EvidenceVsFilesCheck(Check):
 
 
 class ProjectsVsCompletedIntakesCheck(Check):
+    """Reality check: completed intakes should produce kickoff projects.
+
+    Forensic-audit fix (2026-06-04): the previous implementation
+    returned ok=True unconditionally — hardcoded-green vanity. Now
+    flags AMBER when archived intakes exist but no projects do, and
+    RED when many archived intakes are missing project artifacts (more
+    than a 10% gap), which is a real "kickoff stopped firing" signal.
+
+    Stays INFO when there's no archived intake to compare against; we
+    don't punish a quiet day.
+    """
+
     name = "projects_vs_completed_intakes"
 
     def evaluate(self, signals: SignalBundle) -> CheckResult:
         projects = int(signals.get("projects", "project_count", 0))
         archived = int(signals.get("intake", "intake_count_archived", 0))
+        if archived == 0:
+            return CheckResult(
+                name=self.name, ok=True, severity=Severity.INFO,
+                detail="No archived intakes yet — nothing to verify.",
+                evidence={"project_count": projects, "archived_intakes": 0},
+            )
+        deficit = archived - projects
+        if deficit <= 0:
+            return CheckResult(
+                name=self.name, ok=True, severity=Severity.INFO,
+                detail=(f"Projects={projects} cover archived "
+                        f"intakes={archived}"),
+                evidence={"project_count": projects,
+                          "archived_intakes": archived,
+                          "deficit": deficit},
+            )
+        sev = (Severity.RED if deficit > max(1, archived * 0.10)
+                              else Severity.AMBER)
         return CheckResult(
-            name=self.name, ok=True, severity=Severity.INFO,
-            detail=f"Projects={projects} archived_intakes={archived}",
-            evidence={"project_count": projects, "archived_intakes": archived},
+            name=self.name, ok=False, severity=sev,
+            detail=(f"KICKOFF DEFICIT: archived={archived} but only "
+                    f"{projects} project(s) — deficit={deficit}"),
+            evidence={"project_count": projects,
+                      "archived_intakes": archived,
+                      "deficit": deficit},
         )
 
 

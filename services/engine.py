@@ -164,6 +164,58 @@ def sweep_queue():
         except Exception:
             pass
 
+
+def _scheduled_forensic_reconcile():
+    """Hourly fleet reconcile + integrity-proof refresh.
+
+    Hardens the on-demand-only reconcile flagged in the 2026-06-04
+    forensic audit: silent disk replacement and unsigned audit-receipt
+    tampering were only detectable when someone manually triggered.
+    Emits a `system` telemetry row so the organism's awareness sees
+    the run, and a CRITICAL row if reconcile fails.
+    """
+    try:
+        from services.intake.forensic_reconcile import (
+            build_integrity_proof,
+            run_forensic_reconciliation,
+        )
+    except Exception as exc:
+        _emit_scheduler_event(
+            "scheduler_forensic_reconcile_import_failed",
+            success=False,
+            severity="warning",
+            message=f"{type(exc).__name__}: {exc}",
+        )
+        return
+
+    try:
+        report = run_forensic_reconciliation()
+        proof  = build_integrity_proof(use_cache=False)
+    except Exception as exc:
+        _emit_scheduler_event(
+            "scheduler_forensic_reconcile_failed",
+            success=False,
+            severity="critical",
+            message=f"{type(exc).__name__}: {exc}",
+        )
+        return
+
+    _emit_scheduler_event(
+        "scheduler_forensic_reconcile_ran",
+        success=True,
+        severity="info" if proof.get("ok") else "warning",
+        message=("clean" if proof.get("ok") else "integrity issues detected"),
+        metadata={
+            "proof_ok":                proof.get("ok"),
+            "signature_failure_count": proof.get("signature_failure_count", 0),
+            "missing_audit_files":     proof.get("missing_audit_files", 0),
+            "unindexed_files":         proof.get("unindexed_files", 0),
+            "ghost_intake_count":      proof.get("ghost_intake_count", 0),
+            "reconcile_intakes":       report.get("intakes_checked")
+                                       if isinstance(report, dict) else None,
+        },
+    )
+
 def check_slas():
     # minimal SLA escalator (email optional)
     for pdir in (DATA / "projects").glob("P-*"):
@@ -304,6 +356,18 @@ def start_worker(*, heavy: bool = True) -> None:
             day_of_week="fri",
             hour=9,
             minute=0,
+        )
+        # Forensic-audit fix (2026-06-04): reconcile was only running
+        # at startup/on-demand. Silent disk replacement or manual file
+        # edits stayed invisible until somebody hit the endpoint. Now
+        # the engine runs a fleet reconcile every hour and refreshes
+        # the cached integrity proof — operators see the live
+        # heartbeat, not a stale receipt.
+        _add_job(
+            "forensic_reconcile",
+            _scheduled_forensic_reconcile,
+            trigger="interval",
+            minutes=60,
         )
 
     if heavy:

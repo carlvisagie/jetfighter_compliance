@@ -22,7 +22,14 @@ from .evidence_registry import (
     load_registry,
     lookup_by_intake,
 )
-from .retention import audit_hashes_match, audit_receipt_path, emit_sev1_data_loss_suspected, hash_uploads_on_disk, load_audit_receipt
+from .retention import (
+    audit_hashes_match,
+    audit_receipt_path,
+    emit_sev1_data_loss_suspected,
+    hash_uploads_on_disk,
+    load_audit_receipt,
+    verify_audit_receipt_signature,
+)
 from .storage import index_intake_ids, index_jsonl, intake_dir, intake_json_path, latest_index_row, list_intake_ids, load_intake_record
 from .transactions import intake_commit_complete, load_transaction_log
 
@@ -499,6 +506,14 @@ def build_integrity_proof(
     pending_files = 0
     missing_audit_files = 0
     structural_problems = 0
+    # Receipt-HMAC accounting — distinguishes "no signature yet" (legacy
+    # intakes or unsigned environments) from "signature failed", which
+    # is a forensic-grade tamper signal that must surface as an
+    # incident, not be silently swallowed.
+    signed_receipts        = 0
+    unsigned_receipts      = 0
+    signature_failures     = 0
+    sample_signature_fail: List[str] = []
 
     sample_verified: List[str] = []
     sample_missing: List[str] = []
@@ -530,6 +545,32 @@ def build_integrity_proof(
                 f"{len(on_disk)} file(s) on disk without audit receipt",
                 subsystem="audit_receipt",
             )
+
+        # Per-intake HMAC verification. A signed receipt that fails
+        # verification is the single strongest signal of post-write
+        # tampering and must escalate to CRITICAL.
+        if canonical.get("audit_receipt_exists"):
+            try:
+                receipt_loaded = load_audit_receipt(intake_id)
+                sig_status = verify_audit_receipt_signature(receipt_loaded or {})
+            except Exception:
+                sig_status = {"signed": False, "reason": "verify_error"}
+            if sig_status.get("signed") and sig_status.get("verified"):
+                signed_receipts += 1
+            elif sig_status.get("signed") and not sig_status.get("verified"):
+                signature_failures += 1
+                if len(sample_signature_fail) < sample_limit:
+                    sample_signature_fail.append(intake_id)
+                _proof_record_incident(
+                    intake_id,
+                    "audit_receipt_signature_mismatch",
+                    f"audit receipt HMAC failed verification: "
+                    f"{sig_status.get('reason')}",
+                    severity=_SEVERITY_CRITICAL,
+                    subsystem="audit_receipt",
+                )
+            else:
+                unsigned_receipts += 1
 
         if on_disk and not ij_exists:
             structural_problems += 1
@@ -691,6 +732,7 @@ def build_integrity_proof(
         and communications_ok
         and incident_count == 0
         and len(ghost_intakes) == 0
+        and signature_failures == 0
         and not (total_files == 0 and expected_files_fleet > 0)
     )
     result = {
@@ -706,6 +748,9 @@ def build_integrity_proof(
         "corrupt_files": corrupt_files,
         "recovered_files": recovered_files,
         "missing_audit_files": missing_audit_files,
+        "signed_receipts": signed_receipts,
+        "unsigned_receipts": unsigned_receipts,
+        "signature_failure_count": signature_failures,
         "ghost_intake_count": len(ghost_intakes),
         "ghost_intakes": ghost_intakes[:25],
         "integrity_incident_count": incident_count,
@@ -719,6 +764,7 @@ def build_integrity_proof(
             "unindexed": sample_unindexed,
             "corrupt": sample_corrupt,
             "recovered": sample_recovered,
+            "signature_failure": sample_signature_fail,
         },
         "proof_at_utc": _utc_now(),
     }

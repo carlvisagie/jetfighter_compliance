@@ -13,7 +13,11 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from organism_core import AwarenessEngine, SignalBundle
-from organism_core.persistence.snapshot_writer import write_snapshot
+from organism_core.persistence.snapshot_writer import (
+    append_snapshot_history,
+    read_snapshot_history,
+    write_snapshot,
+)
 
 from services.organism_state.checks import all_checks
 from services.organism_state.collectors import (
@@ -186,4 +190,19 @@ def compute_organism_state(*, repo_root: Optional[Path] = None) -> Dict[str, Any
 def write_organism_state_snapshot(state: Dict[str, Any], *, path: Optional[Path] = None) -> Path:
     target = Path(path) if path else _default_snapshot_path()
     written = write_snapshot(state, path=target)
+    # Append-only history sidecar so operators can reconstruct the
+    # awareness signal over time. Never raises on failure.
+    append_snapshot_history(state, path=target)
     return written if written is not None else target
+
+
+def load_organism_state_history(
+    *, path: Optional[Path] = None, limit: int = 200
+) -> list:
+    """Return the most recent organism-state snapshots, oldest first.
+
+    Backs the GET /api/operator/organism/history endpoint surfaced in
+    the operator cockpit / VIO header strip.
+    """
+    target = Path(path) if path else _default_snapshot_path()
+    return read_snapshot_history(target, limit=limit)

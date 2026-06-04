@@ -395,3 +395,111 @@ def test_recovery_mixed_corruption(fb_env, anon_client: TestClient, client: Test
     assert recover.status_code == 200
     proof_after = client.get("/api/operator/integrity/proof").json()
     assert proof_after.get("corrupt_files", 0) >= 1 or proof_after.get("ok") is False
+
+
+# ── HMAC-signed audit receipt — 2026-06-04 forensic audit P1 ───────
+
+
+def test_audit_receipt_signed_when_secret_configured(
+    fb_env, anon_client: TestClient, monkeypatch
+):
+    """REGRESSION GUARD — write_audit_receipt must sign in place when
+    KYC_AUDIT_HMAC_SECRET is set."""
+    monkeypatch.setenv("KYC_AUDIT_HMAC_SECRET", "a" * 48)
+    body = _upload(anon_client, ["signed.pdf"])
+    iid = body["intake_id"]
+
+    from services.intake.retention import (
+        load_audit_receipt,
+        verify_audit_receipt_signature,
+    )
+
+    receipt = load_audit_receipt(iid)
+    assert receipt is not None
+    sig = receipt.get("signature") or {}
+    assert sig.get("present") is True
+    assert sig.get("algorithm") == "sha256"
+    assert isinstance(sig.get("value"), str) and len(sig["value"]) == 64
+
+    status = verify_audit_receipt_signature(receipt)
+    assert status == {"signed": True, "verified": True}
+
+
+def test_audit_receipt_signature_detects_tamper(
+    fb_env, anon_client: TestClient, monkeypatch
+):
+    """REGRESSION GUARD — flipping any signed field on disk must
+    cause verification to fail."""
+    monkeypatch.setenv("KYC_AUDIT_HMAC_SECRET", "b" * 48)
+    body = _upload(anon_client, ["tamper.pdf"])
+    iid = body["intake_id"]
+
+    from services.intake.retention import (
+        audit_receipt_path,
+        load_audit_receipt,
+        verify_audit_receipt_signature,
+    )
+
+    path = audit_receipt_path(iid)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    # Flip a covered field — should now fail.
+    fh = dict(data.get("file_hashes") or {})
+    if not fh:
+        pytest.skip("no file_hashes recorded for this intake")
+    only = next(iter(fh))
+    fh[only] = "0" * 64
+    data["file_hashes"] = fh
+    path.write_text(
+        json.dumps(data, sort_keys=True, indent=2), encoding="utf-8"
+    )
+
+    receipt = load_audit_receipt(iid)
+    status = verify_audit_receipt_signature(receipt or {})
+    assert status.get("signed") is True
+    assert status.get("verified") is False
+    assert status.get("reason") == "mismatch"
+
+
+def test_proof_surfaces_signature_failure_as_incident(
+    fb_env, anon_client: TestClient, client: TestClient, monkeypatch
+):
+    """REGRESSION GUARD — fleet proof must mark the run unhealthy and
+    record an incident when a signature fails."""
+    monkeypatch.setenv("KYC_AUDIT_HMAC_SECRET", "c" * 48)
+    body = _upload(anon_client, ["fleet_tamper.pdf"])
+    iid = body["intake_id"]
+
+    from services.intake.retention import audit_receipt_path
+
+    path = audit_receipt_path(iid)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["intake_id"] = "FB-FAKEDREPLACED"  # covered field
+    path.write_text(
+        json.dumps(data, sort_keys=True, indent=2), encoding="utf-8"
+    )
+
+    proof = client.get("/api/operator/integrity/proof").json()
+    assert proof.get("signature_failure_count", 0) >= 1
+    assert proof.get("ok") is False
+
+
+def test_audit_receipt_unsigned_when_secret_absent(
+    fb_env, anon_client: TestClient, monkeypatch
+):
+    """No HMAC secret → receipt is annotated unsigned; legacy paths
+    must not blow up."""
+    monkeypatch.delenv("KYC_AUDIT_HMAC_SECRET", raising=False)
+    body = _upload(anon_client, ["legacy.pdf"])
+    iid = body["intake_id"]
+
+    from services.intake.retention import (
+        load_audit_receipt,
+        verify_audit_receipt_signature,
+    )
+
+    receipt = load_audit_receipt(iid)
+    sig = (receipt or {}).get("signature") or {}
+    assert sig.get("present") is False
+    assert verify_audit_receipt_signature(receipt or {}) == {
+        "signed": False, "reason": "unsigned",
+    }

@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -25,6 +27,104 @@ from .storage import (
     list_intake_ids,
     load_intake_record,
 )
+
+
+# ── Audit-receipt HMAC ─────────────────────────────────────────────
+#
+# 2026-06-04 forensic audit (Forensic Integrity Engine): audit receipts
+# are plain JSON the operator controls — no signature, no off-site
+# anchor. A motivated tamperer can edit the file and the only signal is
+# the next reconcile, which only runs at startup/on-demand. Adding an
+# HMAC at write time:
+#   • makes any post-hoc edit cryptographically detectable;
+#   • is invisible to the existing on-disk verification path; and
+#   • costs ~zero in code paths or test churn.
+#
+# Production must set `KYC_AUDIT_HMAC_SECRET` (≥32 random bytes,
+# base64- or hex-encoded). Without it the field is omitted (signature
+# = "unsigned") so legacy intakes stay readable and tests still pass.
+_HMAC_ENV_VAR    = "KYC_AUDIT_HMAC_SECRET"
+_HMAC_VERSION    = "v1"
+_HMAC_ALGORITHM  = "sha256"
+_RECEIPT_SIG_KEY = "signature"
+
+_SIGNED_FIELDS: Tuple[str, ...] = (
+    "intake_id",
+    "created_utc",
+    "file_hashes",
+    "data_root",
+    "intake_dir",
+)
+
+
+def _hmac_secret() -> bytes:
+    raw = (os.environ.get(_HMAC_ENV_VAR) or "").strip()
+    if not raw:
+        return b""
+    return raw.encode("utf-8")
+
+
+def _canonical_signed_payload(receipt: Dict[str, Any]) -> bytes:
+    """Build the canonical bytes the HMAC covers — sorted keys, no
+    embedded signature field, deterministic JSON."""
+    body = {k: receipt.get(k) for k in _SIGNED_FIELDS if k in receipt}
+    return json.dumps(body, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def sign_audit_receipt(receipt: Dict[str, Any]) -> Dict[str, Any]:
+    """Attach an HMAC `signature` block to a receipt in-place.
+
+    No-op when `KYC_AUDIT_HMAC_SECRET` is unset; the receipt is
+    annotated `{"signature": {"present": False}}` so verifiers can
+    distinguish "not signed yet" from "signature failed".
+    """
+    if not isinstance(receipt, dict):
+        return receipt
+    secret = _hmac_secret()
+    if not secret:
+        receipt[_RECEIPT_SIG_KEY] = {"present": False, "reason": "secret_unset"}
+        return receipt
+    digest = hmac.new(
+        secret, _canonical_signed_payload(receipt), hashlib.sha256
+    ).hexdigest()
+    receipt[_RECEIPT_SIG_KEY] = {
+        "present":   True,
+        "version":   _HMAC_VERSION,
+        "algorithm": _HMAC_ALGORITHM,
+        "covers":    list(_SIGNED_FIELDS),
+        "value":     digest,
+        "signed_utc": datetime.now(timezone.utc)
+                              .isoformat()
+                              .replace("+00:00", "Z"),
+    }
+    return receipt
+
+
+def verify_audit_receipt_signature(receipt: Dict[str, Any]) -> Dict[str, Any]:
+    """Verify the HMAC on a loaded receipt.
+
+    Returns one of:
+      {"signed": False, "reason": ...}   — no signature/secret present
+      {"signed": True,  "verified": True}
+      {"signed": True,  "verified": False, "reason": "mismatch"}
+    """
+    if not isinstance(receipt, dict):
+        return {"signed": False, "reason": "no_receipt"}
+    sig = receipt.get(_RECEIPT_SIG_KEY) or {}
+    if not isinstance(sig, dict) or not sig.get("present"):
+        return {"signed": False, "reason": "unsigned"}
+    secret = _hmac_secret()
+    if not secret:
+        return {"signed": True, "verified": False, "reason": "secret_unset_at_verify"}
+    expected = sig.get("value") or ""
+    if not isinstance(expected, str) or len(expected) != 64:
+        return {"signed": True, "verified": False, "reason": "malformed"}
+    actual = hmac.new(
+        secret, _canonical_signed_payload(receipt), hashlib.sha256
+    ).hexdigest()
+    if not hmac.compare_digest(actual, expected):
+        return {"signed": True, "verified": False, "reason": "mismatch"}
+    return {"signed": True, "verified": True}
 
 logger = logging.getLogger(__name__)
 
@@ -233,6 +333,13 @@ def build_audit_receipt(
 
 def write_audit_receipt(intake_id: str, receipt: Dict[str, Any]) -> Path:
     from .storage import atomic_write_json
+
+    # Sign before persisting — the on-disk file is what an auditor sees
+    # months later, so the signature must live on disk, not just in
+    # memory. Signing is a no-op when KYC_AUDIT_HMAC_SECRET is unset
+    # (e.g. local dev / CI); the audit-receipt fields are otherwise
+    # unchanged.
+    sign_audit_receipt(receipt)
 
     path = audit_receipt_path(intake_id)
     from .storage import assert_canonical_write_path

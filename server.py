@@ -1801,7 +1801,8 @@ def operator_organism_state(request: Request):
 
     Reconciles disk, intake index, queue, VIO, projects, evidence, and beta
     residue. Returns GREEN / AMBER / RED + bottleneck + next action.
-    Snapshot is also persisted to {data_root}/organism_state.json.
+    Snapshot is also persisted to {data_root}/organism_state.json and a
+    compact row is appended to the snapshot history sidecar.
     """
     from services.organism_state import compute_organism_state, write_organism_state_snapshot
     from services.production import require_ops_access
@@ -1810,6 +1811,33 @@ def operator_organism_state(request: Request):
     state = compute_organism_state()
     write_organism_state_snapshot(state)
     return state
+
+
+@app.get("/api/operator/organism/history")
+def operator_organism_history(request: Request, limit: int = 200):
+    """KYC Aware Organism v0 — append-only awareness history.
+
+    Returns the most recent organism-state snapshots so operators can
+    answer "when did the organism turn AMBER?" or "how did the queue
+    depth move over the last hour?" without parsing telemetry.
+
+    The history sidecar is written on every snapshot via
+    `write_organism_state_snapshot`. Bounded to the last `limit` rows
+    (default 200).
+    """
+    from services.organism_state import load_organism_state_history
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    try:
+        rows = load_organism_state_history(limit=max(1, int(limit)))
+    except Exception as exc:
+        return {"ok": False, "error": str(exc), "rows": []}
+    return {
+        "ok":    True,
+        "count": len(rows),
+        "rows":  rows,
+    }
 
 
 @app.get("/api/operator/acquisition-intelligence")

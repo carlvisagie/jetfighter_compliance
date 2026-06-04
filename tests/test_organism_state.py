@@ -309,3 +309,102 @@ def test_snapshot_persisted_to_disk(durable_intake_root, tmp_path):
     assert target.is_file()
     on_disk = json.loads(target.read_text(encoding="utf-8"))
     assert on_disk["health_state"] == state["health_state"]
+
+
+# ── Honest-check guards (no more hardcoded green) — 2026-06-04 audit ──
+
+
+def test_projects_vs_completed_intakes_flags_kickoff_deficit():
+    """REGRESSION GUARD — when archived intakes exist but no projects
+    do, the check must FAIL (was previously always-green vanity)."""
+    checks = run_reconciliation_checks(
+        intake={"intake_count_archived": 12, "intake_count_active": 0,
+                "intake_count_total": 12, "queue_depth": 0,
+                "queue_full_depth": 0, "uploaded_file_count": 25,
+                "inventory": {}},
+        vio={"vio_company_count": 0},
+        projects={"project_count": 0, "project_ids_sample": []},
+        evidence={"evidence_artifact_count": 0},
+        residue={},
+    )
+    by_name = {c["name"]: c for c in checks}
+    chk = by_name["projects_vs_completed_intakes"]
+    assert chk["ok"] is False
+    assert chk["severity"].lower() in ("amber", "red")
+    assert "deficit" in chk["evidence"]
+    assert chk["evidence"]["deficit"] == 12
+
+
+def test_projects_vs_completed_intakes_passes_when_covered():
+    """When project count meets archived count, check is honestly OK."""
+    checks = run_reconciliation_checks(
+        intake={"intake_count_archived": 3, "intake_count_active": 0,
+                "intake_count_total": 3, "queue_depth": 0,
+                "queue_full_depth": 0, "uploaded_file_count": 5,
+                "inventory": {}},
+        vio={"vio_company_count": 0},
+        projects={"project_count": 3, "project_ids_sample":
+                  ["P-1", "P-2", "P-3"]},
+        evidence={"evidence_artifact_count": 0},
+        residue={},
+    )
+    by_name = {c["name"]: c for c in checks}
+    assert by_name["projects_vs_completed_intakes"]["ok"] is True
+
+
+def test_queue_vs_control_flags_cockpit_divergence():
+    """REGRESSION GUARD — when the operator cockpit reports a queue
+    count that differs from the canonical queue depth, the check must
+    fail (was previously always-green vanity)."""
+    from organism_core import SignalBundle
+    from services.organism_state.checks import QueueVsControlCheck
+
+    bundle = SignalBundle()
+    bundle.add("intake", {"queue_depth": 7})
+    bundle.add("operator_cockpit", {"queue_count": 4})
+
+    result = QueueVsControlCheck().evaluate(bundle)
+    assert result.ok is False
+    assert result.evidence["delta"] == -3
+
+
+# ── Snapshot history — 2026-06-04 audit (organism awareness) ──
+
+
+def test_snapshot_history_appends_compact_row(durable_intake_root, tmp_path):
+    """REGRESSION GUARD — every snapshot write must also append a
+    compact row to the history sidecar so the new
+    /api/operator/organism/history endpoint has real data to read."""
+    from services.organism_state import (
+        load_organism_state_history,
+        write_organism_state_snapshot,
+    )
+
+    target = tmp_path / "organism_state.json"
+
+    s1 = compute_organism_state()
+    write_organism_state_snapshot(s1, path=target)
+    s2 = compute_organism_state()
+    write_organism_state_snapshot(s2, path=target)
+
+    rows = load_organism_state_history(path=target, limit=10)
+    assert len(rows) == 2
+    for row in rows:
+        assert row.get("health_state") in ("GREEN", "AMBER", "RED")
+        assert "captured_utc" in row
+        assert "queue_depth" in row
+
+
+def test_snapshot_history_endpoint_returns_rows(client):
+    """REGRESSION GUARD — the new
+    /api/operator/organism/history endpoint must surface rows after
+    /state has been hit at least once."""
+    state_resp = client.get("/api/operator/organism/state")
+    assert state_resp.status_code == 200, state_resp.text
+
+    hist = client.get("/api/operator/organism/history?limit=50")
+    assert hist.status_code == 200, hist.text
+    body = hist.json()
+    assert body.get("ok") is True
+    assert body.get("count", 0) >= 1
+    assert isinstance(body.get("rows"), list)

@@ -7,10 +7,16 @@ The organism reports on itself. It does not heal or modify.
 """
 from __future__ import annotations
 
-from .state import compute_organism_state, write_organism_state_snapshot, ORGANISM_STATE_PATH
+from .state import (
+    compute_organism_state,
+    load_organism_state_history,
+    write_organism_state_snapshot,
+    ORGANISM_STATE_PATH,
+)
 
 __all__ = [
     "compute_organism_state",
+    "load_organism_state_history",
     "write_organism_state_snapshot",
     "ORGANISM_STATE_PATH",
 ]
