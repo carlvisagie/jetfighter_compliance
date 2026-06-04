@@ -1,116 +1,124 @@
-"""Detect likely missing evidence gaps."""
+"""Detect likely missing evidence gaps (domain-aware).
+
+The original v1 of this module shipped one CMMC-flavoured rule set
+that ran against every project. That was a meaningful first-customer
+embarrassment for DOT/FMCSA carriers and EU DPP suppliers: they saw
+"missing SSP/POA&M" instead of the actually-relevant "missing Driver
+Qualification File" or "missing Digital Product Passport".
+
+This module now:
+
+* Auto-detects the project's primary compliance domain (see
+  :mod:`services.evidence_intelligence.domains`) when the caller does
+  not pass one explicitly.
+* Selects the matching rule pack (CMMC / DOT_FMCSA / EU_DPP / HIPAA
+  / general) plus a universal pack of basics every program needs.
+* Treats a gap as *satisfied* by either a matching ``document_type``
+  in the inventory **or** any of the rule's ``text_signals`` appearing
+  in the extracted text snippets we've stored on the profile.
+"""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set
 
-from .schemas import DocumentType, GapItem
-
-GAP_DEFS = [
-    {
-        "gap_id": "mfa_evidence",
-        "label": "Multi-factor authentication evidence",
-        "explanation": "Screenshots or exports showing MFA is enforced help prove access control.",
-        "why": "Assessors often ask how you protect accounts beyond passwords.",
-        "catalog_key": "mfa",
-        "priority": "high",
-        "doc_types": {"mfa_evidence", "screenshot"},
-    },
-    {
-        "gap_id": "training_record",
-        "label": "Security awareness training record",
-        "explanation": "A completion report or LMS export shows personnel training.",
-        "why": "Training records are a common CMMC/NIST expectation.",
-        "catalog_key": "training",
-        "priority": "high",
-        "doc_types": {"training_record"},
-    },
-    {
-        "gap_id": "vendor_policy",
-        "label": "Vendor / third-party management policy",
-        "explanation": "How you evaluate and monitor suppliers that touch your environment.",
-        "why": "Supply chain risk is a frequent audit focus.",
-        "catalog_key": "vendor_policy",
-        "priority": "medium",
-        "doc_types": {"vendor_document", "policy"},
-    },
-    {
-        "gap_id": "asset_inventory",
-        "label": "Asset inventory",
-        "explanation": "A list of systems, devices, or software in scope.",
-        "why": "You cannot protect what you have not inventoried.",
-        "catalog_key": "policy_general",
-        "priority": "high",
-        "doc_types": {"asset_inventory"},
-    },
-    {
-        "gap_id": "backup_evidence",
-        "label": "Backup and recovery evidence",
-        "explanation": "Backup policy, job logs, or restore test results.",
-        "why": "Recovery capability is required for resilience controls.",
-        "catalog_key": "policy_general",
-        "priority": "medium",
-        "doc_types": {"backup_evidence"},
-    },
-    {
-        "gap_id": "vulnerability_evidence",
-        "label": "Vulnerability scan or patch evidence",
-        "explanation": "Scan reports or patch tracking for in-scope systems.",
-        "why": "Vulnerability management is a core security practice.",
-        "catalog_key": "policy_general",
-        "priority": "high",
-        "doc_types": {"vulnerability_report"},
-    },
-    {
-        "gap_id": "access_control",
-        "label": "Access control evidence",
-        "explanation": "User listings, access reviews, or privileged access controls.",
-        "why": "Access control is central to most compliance frameworks.",
-        "catalog_key": "mfa",
-        "priority": "high",
-        "doc_types": {"access_control_evidence"},
-    },
-    {
-        "gap_id": "incident_response",
-        "label": "Incident response plan or evidence",
-        "explanation": "IR plan, playbooks, or tabletop exercise records.",
-        "why": "Shows you can detect and respond to security events.",
-        "catalog_key": "policy_general",
-        "priority": "medium",
-        "doc_types": {"incident_response"},
-    },
-    {
-        "gap_id": "ssp_poam",
-        "label": "SSP or POA&M reference",
-        "explanation": "System Security Plan or Plan of Action and Milestones.",
-        "why": "Often required for NIST/CMMC style assessments.",
-        "catalog_key": "ssp_section",
-        "priority": "low",
-        "doc_types": {"ssp", "poam"},
-    },
-]
+from .domains import Domain, detect_compliance_domain, rules_for_domain
+from .schemas import GapItem
 
 
-def detect_gaps(profile: Dict[str, Any]) -> List[GapItem]:
-    present: Set[DocumentType] = set()
+# Public re-export for backward compatibility — earlier callers imported
+# ``GAP_DEFS`` from this module. Their intent was "every default rule",
+# which today is CMMC + universal.
+from .domains import CMMC_RULES as _CMMC, UNIVERSAL_RULES as _UNIVERSAL
+
+GAP_DEFS: List[Dict[str, Any]] = _CMMC + _UNIVERSAL
+
+
+def _present_doc_types(profile: Dict[str, Any]) -> Set[str]:
+    out: Set[str] = set()
     for row in profile.get("document_inventory") or []:
-        present.add(row.get("document_type") or "unknown")
+        out.add(str(row.get("document_type") or "unknown"))
+    return out
+
+
+def _profile_text_blob(profile: Dict[str, Any]) -> str:
+    """Stitch together a low-cost text blob for signal matching.
+
+    We don't keep the full extracted text on the profile (that lives
+    in extractions.jsonl), so signals here ride on the inventory rows
+    and the entity strings we *did* persist — enough to catch domain-
+    specific phrases like "DOT physical" or "driver qualification".
+    """
+    parts: List[str] = []
+    for row in profile.get("document_inventory") or []:
+        parts.append(str(row.get("file") or ""))
+        parts.append(str(row.get("document_type") or ""))
+        for sig in row.get("signals") or []:
+            parts.append(str(sig))
+    for bucket in (
+        "company_name_candidates",
+        "emails",
+        "domains",
+        "vendors",
+        "technologies",
+        "compliance_references",
+    ):
+        for item in profile.get(bucket) or []:
+            v = item.get("value")
+            if v:
+                parts.append(str(v))
+    return " ".join(parts).lower()
+
+
+def _rule_satisfied(
+    rule: Dict[str, Any],
+    *,
+    present: Set[str],
+    text_blob: str,
+) -> bool:
+    doc_types = set(rule.get("doc_types") or set())
+    if doc_types and (present & doc_types):
+        return True
+    for signal in rule.get("text_signals") or ():
+        if signal and signal.lower() in text_blob:
+            return True
+    return False
+
+
+def detect_gaps(
+    profile: Dict[str, Any],
+    *,
+    domain: Optional[Domain] = None,
+) -> List[GapItem]:
+    """Return the prioritised gap list for this project.
+
+    ``domain`` may be passed explicitly when the caller already knows
+    it (e.g. operator override); otherwise we auto-detect from the
+    profile signals.
+    """
+    if domain is None:
+        d = detect_compliance_domain(profile)
+        domain = d.domain or "general"
+
+    present   = _present_doc_types(profile)
+    text_blob = _profile_text_blob(profile)
+    rules     = rules_for_domain(domain)
 
     gaps: List[GapItem] = []
-    for gdef in GAP_DEFS:
-        if present & set(gdef["doc_types"]):
+    for rule in rules:
+        if _rule_satisfied(rule, present=present, text_blob=text_blob):
             continue
-        catalog = gdef["catalog_key"]
         gaps.append(
             GapItem(
-                gap_id=gdef["gap_id"],
-                label=gdef["label"],
-                plain=gdef["explanation"],
-                why=gdef["why"],
-                priority=gdef["priority"],
-                confidence=0.72,
-                example_item_id=catalog,
+                gap_id        = rule["gap_id"],
+                label         = rule["label"],
+                plain         = rule["explanation"],
+                why           = rule.get("why", ""),
+                priority      = rule.get("priority", "medium"),
+                confidence    = 0.72,
+                example_item_id = rule.get("catalog_key", ""),
             )
         )
+
     prio = {"high": 0, "medium": 1, "low": 2}
     gaps.sort(key=lambda g: prio.get(g.priority, 9))
     return gaps

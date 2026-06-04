@@ -15,6 +15,7 @@ from ..public_url import get_public_base_url
 from . import storage, telemetry
 from .classification import classify_document
 from .confidence import summarize_confidence
+from .domains import detect_compliance_domain
 from .entities import extract_entities
 from .extraction import extract_from_file, redact_secrets
 from .gaps import detect_gaps
@@ -144,7 +145,30 @@ def process_evidence_upload(
         profile = storage.load_profile(project_id)
         profile["project_id"] = project_id
         update_profile(profile, entities, classification)
-        gaps = detect_gaps(profile)
+        # Domain detection — operator and customer payloads both surface
+        # this so the recommendations are framework-relevant (DOT vs
+        # CMMC vs EU DPP vs HIPAA), not a one-size-fits-all CMMC pack.
+        domain_result = detect_compliance_domain(
+            profile,
+            texts=[text],
+            classifications=[classification.model_dump()],
+        )
+        profile["primary_domain"]    = domain_result.domain
+        profile["domain_confidence"] = domain_result.confidence
+        profile["domain_signals"]    = {
+            k: list(v) for k, v in (domain_result.signals or {}).items()
+        }
+        if domain_result.domain and domain_result.domain != "general":
+            telemetry.emit(
+                "compliance_domain_detected",
+                project_id=project_id,
+                metadata={
+                    "domain":     domain_result.domain,
+                    "confidence": domain_result.confidence,
+                    "runner_up":  domain_result.runner_up,
+                },
+            )
+        gaps = detect_gaps(profile, domain=domain_result.domain or None)
         storage.write_profile(project_id, profile)
         storage.write_gaps(project_id, [g.model_dump() for g in gaps])
         extraction_rec = extraction.model_dump()
@@ -325,7 +349,8 @@ def _record_custody_event(
 
 def get_customer_evidence_profile(project_id: str) -> Dict[str, Any]:
     profile = storage.load_profile(project_id)
-    gaps = _enrich_gaps(detect_gaps(profile))
+    domain = profile.get("primary_domain") or None
+    gaps = _enrich_gaps(detect_gaps(profile, domain=domain))
     missing = gaps[:3]
     return {
         "ok": True,
@@ -335,6 +360,8 @@ def get_customer_evidence_profile(project_id: str) -> Dict[str, Any]:
         "needs_confirmation": needs_confirmation(profile),
         "missing_items": missing,
         "missing_items_more": len(gaps) > 3,
+        "primary_domain":     profile.get("primary_domain") or "general",
+        "domain_confidence":  profile.get("domain_confidence") or 0.0,
         "document_types": [
             {
                 "file": row.get("file"),
@@ -409,7 +436,8 @@ def get_operator_evidence_intelligence(project_id: str) -> Dict[str, Any]:
     classifications = storage.load_jsonl(project_id, "classifications.jsonl", limit=100)
     entities = storage.load_jsonl(project_id, "entities.jsonl", limit=200)
     profile = storage.load_profile(project_id)
-    gaps = storage.load_gaps(project_id) or [g.model_dump() for g in detect_gaps(profile)]
+    domain = profile.get("primary_domain") or None
+    gaps = storage.load_gaps(project_id) or [g.model_dump() for g in detect_gaps(profile, domain=domain)]
     pending = [e for e in extractions if e.get("pending_analysis")]
     failed = [e for e in extractions if e.get("errors")]
     unsupported = [e for e in extractions if "unsupported" in str(e.get("errors", []))]
@@ -427,6 +455,9 @@ def get_operator_evidence_intelligence(project_id: str) -> Dict[str, Any]:
         "confidence_summary": summarize_confidence(profile),
         "missing_item_count": len(gaps),
         "gaps": gaps[:15],
+        "primary_domain":     profile.get("primary_domain") or "general",
+        "domain_confidence":  profile.get("domain_confidence") or 0.0,
+        "domain_signals":     profile.get("domain_signals") or {},
         "confirmation_needed": needs_confirmation(profile),
         "entity_count": len(entities),
         "artifacts_path": str(intel_dir) if intel_dir.exists() else "",
