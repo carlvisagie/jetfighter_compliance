@@ -189,11 +189,21 @@ def test_learning_cycle_error_failed(cote_isolated, monkeypatch):
 
 
 def test_learning_with_signals_healthy(cote_isolated, monkeypatch):
+    # Use a dynamic recent timestamp so this test does not silently
+    # cross the 168h staleness threshold over wall-clock time
+    # (previous hardcoded date became stale on 2026-06-04).
+    from datetime import datetime, timezone
+
+    recent_utc = (
+        datetime.now(timezone.utc)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z")
+    )
     _write_learning(
         cote_isolated["learning"],
         {
             "version": 1,
-            "updated_utc": "2026-05-28T12:00:00Z",
+            "updated_utc": recent_utc,
             "signal_effectiveness": {
                 "inquiry_submitted": {"success": 12, "fail": 0, "outcomes": []},
             },
