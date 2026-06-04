@@ -48,6 +48,11 @@ def test_custody_timeline_surfaces_new_phases_in_lexicon(fb_env):
     required = {
         "evidence_intelligence_completed",
         "evidence_intelligence_failed",
+        # Operator-triggered EI replay (FB-1dfab13c120b recovery, 2026-06-04).
+        # Must surface in the L2 chain-of-custody tile as a first-class event
+        # — operator-initiated reprocess is part of provable custody, not a
+        # back-channel admin action. See VIO_DOCTRINE §12.
+        "evidence_intelligence_reprocessed",
         "operator_action_approve_review",
         "operator_action_request_more_info",
         "operator_action_mark_high_value",

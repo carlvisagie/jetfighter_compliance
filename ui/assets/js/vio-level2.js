@@ -347,7 +347,141 @@
     state.textContent = (company.stage_state || 'healthy').replace(/_/g, ' ');
     h.appendChild(state);
 
+    // Operator action: re-run the Evidence Intelligence pipeline for
+    // this intake. Required when an earlier deploy ran a broken EI
+    // loop (the FB-1dfab13c120b incident on 2026-06-04), when a new
+    // EI capability lands (OCR, domain pack, rule changes) and the
+    // operator wants to apply it retroactively, or as a diagnostic.
+    // Routes through the existing browser session so no ops key
+    // needs to leave the operator's machine.
+    const iid = company.intake_id || company.row_id || company.project_id;
+    if (iid) {
+      const reproc = el('button', 'vio-l2-reproc');
+      reproc.type        = 'button';
+      reproc.textContent = 'reprocess EI';
+      reproc.title = (
+        'Wipe rebuildable EI artifacts (profile.json, gaps.json, '
+        + 'extractions.jsonl, classifications.jsonl, entities.jsonl) and '
+        + 're-run the pipeline against the real customer uploads only. '
+        + 'Review queue history is preserved.'
+      );
+      reproc.addEventListener('click', () => triggerReprocess(iid, reproc));
+      h.appendChild(reproc);
+    }
+
     return h;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // OPERATOR ACTION — re-run Evidence Intelligence
+  // ─────────────────────────────────────────────────────────────────────
+  async function triggerReprocess(intakeId, btnEl) {
+    if (!intakeId) return;
+    const ok = window.confirm(
+      'Re-run Evidence Intelligence for ' + intakeId + '?\n\n'
+      + 'This will wipe and rebuild profile.json, gaps.json, '
+      + 'extractions.jsonl, classifications.jsonl, and entities.jsonl, '
+      + 'then re-extract from the real customer uploads.\n\n'
+      + 'Review queue history is preserved.'
+    );
+    if (!ok) return;
+
+    if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'reprocessing…'; }
+    showSideHint('reprocessing — wiping artifacts and re-extracting…');
+
+    let report = null;
+    let httpStatus = 0;
+    try {
+      const resp = await fetch(
+        `/api/operator/evidence-intelligence/reprocess/${encodeURIComponent(intakeId)}`,
+        {
+          method:      'POST',
+          credentials: 'same-origin',
+          headers:     { 'Content-Type': 'application/json' },
+          body:        JSON.stringify({ wipe: true }),
+        }
+      );
+      httpStatus = resp.status;
+      const ctype = resp.headers.get('content-type') || '';
+      report = ctype.includes('json')
+        ? await resp.json()
+        : { ok: false, error: 'non_json_response', body: (await resp.text()).slice(0, 300) };
+    } catch (err) {
+      report = { ok: false, error: 'fetch_failed', detail: String(err && err.message || err) };
+    }
+
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'reprocess EI'; }
+
+    resetFrames({
+      title: 'reprocess report',
+      render: body => renderReprocessReport(body, report, httpStatus),
+    });
+  }
+
+  function renderReprocessReport(body, report, httpStatus) {
+    if (!report) {
+      body.appendChild(asHint('no response from server'));
+      return;
+    }
+    const summary = el('div', 'vio-l2-side-prose');
+    const status  = report.ok === true ? 'OK' : 'FAILED';
+    summary.textContent = (
+      `status: ${status}  (HTTP ${httpStatus})\n`
+      + `intake_id:     ${report.intake_id || '?'}\n`
+      + `files seen:    ${report.files_seen || 0}\n`
+      + `processed:     ${(report.files_processed || []).length}\n`
+      + `failed:        ${(report.files_failed || []).length}\n`
+      + `OCR attempts:  ${report.ocr_attempts || 0}\n`
+      + `OCR succeeded: ${report.ocr_succeeded || 0}\n`
+    );
+    body.appendChild(summary);
+
+    if (report.error) {
+      const errBox = el('div', 'vio-l2-side-prose');
+      errBox.style.color = 'var(--st-failed, #ff8080)';
+      errBox.textContent = (
+        `error: ${report.error}`
+        + (report.detail ? `\n${report.detail}` : '')
+      );
+      body.appendChild(errBox);
+    }
+
+    if (Array.isArray(report.files_processed) && report.files_processed.length) {
+      const h = el('div', 'vio-l2-side-section-title');
+      h.textContent = 'files processed';
+      body.appendChild(h);
+      report.files_processed.forEach(f => {
+        const row = el('div', 'vio-l2-side-row');
+        const ocr = f.ocr_applied
+          ? `OCR ok (${f.ocr_text_length || 0} chars)`
+          : (f.ocr_status ? `OCR ${f.ocr_status}` : '');
+        row.textContent = (
+          `• ${f.file}  →  ${f.status || '?'}`
+          + (f.entities != null ? `  | ${f.entities} entities` : '')
+          + (f.gaps     != null ? `, ${f.gaps} gaps`           : '')
+          + (ocr                 ? `  | ${ocr}`                : '')
+          + (f.pending_analysis  ? `  | pending`               : '')
+        );
+        body.appendChild(row);
+      });
+    }
+
+    if (Array.isArray(report.files_failed) && report.files_failed.length) {
+      const h = el('div', 'vio-l2-side-section-title');
+      h.textContent = 'files failed';
+      h.style.color = 'var(--st-failed, #ff8080)';
+      body.appendChild(h);
+      report.files_failed.forEach(f => {
+        const row = el('div', 'vio-l2-side-row');
+        row.style.color = 'var(--st-failed, #ff8080)';
+        row.textContent = `• ${f.file}: ${f.error || '?'}${f.detail ? ' — ' + f.detail : ''}`;
+        body.appendChild(row);
+      });
+    }
+
+    const hint = el('div', 'vio-l2-side-hint');
+    hint.textContent = 'click "← back to VIO" then re-open this intake to see refreshed inventory + gaps.';
+    body.appendChild(hint);
   }
 
   function buildCanvas() {

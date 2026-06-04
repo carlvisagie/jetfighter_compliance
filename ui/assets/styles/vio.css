@@ -599,6 +599,26 @@ html, body {
   transition: color 0.18s, border-color 0.18s;
 }
 .vio-l2-back:hover { color: var(--vio-text); border-color: var(--st-healthy); }
+
+/* Operator action button — re-run Evidence Intelligence for this intake.
+ * Visual rhythm mirrors `.vio-l2-back` so the header keeps its language;
+ * border uses the inconsistent (turbulence) token because reprocess is
+ * exactly the gesture that resolves polluted / inconsistent extraction
+ * state (VIO_DOCTRINE §1: colour is semantic). Stillness baseline
+ * preserved — no idle motion, no hover glow beyond a border brighten. */
+.vio-l2-reproc {
+  background:     transparent;
+  border:         1px solid var(--st-inconsistent);
+  color:          var(--st-inconsistent);
+  padding:        5px 12px;
+  border-radius:  4px;
+  cursor:         pointer;
+  font-size:      11px;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+}
+.vio-l2-reproc:hover    { color: var(--vio-text); border-color: var(--st-inconsistent); }
+.vio-l2-reproc:disabled { cursor: progress; opacity: 0.55; }
 .vio-l2-titlewrap { flex: 1; min-width: 0; }
 .vio-l2-title {
   color: var(--vio-text);
