@@ -39,6 +39,13 @@ services:
         value: "true"
       - key: KYC_SCHEDULERS_ENABLED
         value: "true"
+      # Evidence-intelligence OCR for scanned PDFs and image uploads.
+      # Tesseract + poppler binaries are installed by the Dockerfile;
+      # this flag is the application-level gate (see
+      # services/evidence_intelligence/ocr.py). Off = images and scanned
+      # PDFs get metadata-only handling.
+      - key: KYC_OCR_ENABLED
+        value: "true"
       - key: OPS_PASSWORD
         sync: false
       - key: OPS_SECRET

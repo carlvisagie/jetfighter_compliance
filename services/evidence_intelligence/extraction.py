@@ -280,6 +280,17 @@ def extract_from_file(path: Path, *, size_bytes: int = 0) -> ExtractionResult:
         result.pending_analysis = True
         result.warnings.append("legacy_office_binary_format")
         method = "office_legacy_pending"
+    elif ext in (".zip", ".7z", ".rar", ".tar", ".gz", ".tgz"):
+        # Archives must never fall through to text extraction — that
+        # path returns latin-1 garbage which then pollutes classify /
+        # entity steps. Production intake FB-1dfab13c120b uploaded a
+        # 4.7 MB packet.zip that was silently classified as plain text
+        # before this branch existed. Flag for manual review with an
+        # actionable operator hint so the customer is asked to re-
+        # upload the contents individually.
+        result.pending_analysis = True
+        result.warnings.append("archive_pending_manual_extraction")
+        method = "archive_pending"
     elif ext in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tiff", ".tif"):
         text, method = _extract_image_metadata(data, ext)
         # Image METADATA is real text; mark pending only if metadata extraction

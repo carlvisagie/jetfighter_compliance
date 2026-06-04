@@ -1765,6 +1765,45 @@ def operator_evidence_intelligence_review_queue(
     }
 
 
+@app.post("/api/operator/evidence-intelligence/reprocess/{intake_id}")
+def operator_evidence_intelligence_reprocess(
+    request: Request,
+    intake_id: str,
+    wipe: bool = Body(True, embed=True),
+):
+    """Operator-triggered EI replay for a single intake.
+
+    Use cases:
+
+    * Recovery — an earlier deploy ran a broken EI loop and persisted
+      polluted ``profile.json`` / ``classifications.jsonl`` rows.
+      Wiping + replaying rebuilds the on-disk state from the real
+      customer uploads.
+    * Retroactive feature application — a new EI capability (OCR,
+      domain pack, rule changes) has landed and the operator wants to
+      apply it to an existing intake.
+    * Diagnostics — confirm the live pipeline picks up the same files
+      the customer actually uploaded.
+
+    Auth: ``X-Ops-Key`` (write/destructive route).
+    Body: ``{"wipe": bool}`` — default ``true``; ``false`` is replay-
+    without-wipe (idempotent re-runs are skipped at the existing
+    ``_already_processed`` gate inside ``process_evidence_upload``).
+
+    Always returns a structured report. Per-file failures never abort
+    the loop and never raise into the HTTP layer.
+    """
+    from services.production import require_ops_access
+    from services.evidence_intelligence import reprocess_intake_evidence
+
+    require_ops_access(request)
+    iid = (intake_id or "").strip()
+    if not iid:
+        return {"ok": False, "error": "intake_id required"}
+    validate_project_id(iid)
+    return reprocess_intake_evidence(iid, wipe=bool(wipe))
+
+
 # ── VIO 2.0 — visual awareness interface ──────────────────────────────────────
 @app.get("/api/operator/vio/overview")
 def vio_overview(request: Request, limit: int = 60):

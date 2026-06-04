@@ -88,3 +88,40 @@ def load_review_queue(project_id: str, limit: int = 500) -> List[Dict[str, Any]]
     triage: conflicting extractions, low-confidence entities, etc.
     """
     return load_jsonl(project_id, "review_queue.jsonl", limit=limit)
+
+
+# Files written by the EI pipeline that may legitimately need to be
+# rebuilt from scratch (operator-triggered reprocess). The review queue
+# is excluded on purpose: it carries historical operator decisions and
+# must survive a reprocess so we don't lose audit trail.
+_REBUILDABLE_ARTIFACTS = (
+    "profile.json",
+    "gaps.json",
+    "extractions.jsonl",
+    "classifications.jsonl",
+    "entities.jsonl",
+)
+
+
+def wipe_rebuildable_artifacts(project_id: str) -> Dict[str, Any]:
+    """Delete EI artifacts that can be rebuilt by re-running the pipeline.
+
+    Used by the operator reprocess endpoint. Returns ``{deleted: [...],
+    kept: [...]}`` so the operator can see exactly what was reset.
+    Never raises — missing files are silently skipped.
+    """
+    intel = _intel_dir(project_id)
+    deleted: List[str] = []
+    kept:    List[str] = []
+    for name in _REBUILDABLE_ARTIFACTS:
+        p = intel / name
+        if p.is_file():
+            try:
+                p.unlink()
+                deleted.append(name)
+            except Exception:
+                kept.append(name)
+    for child in intel.iterdir():
+        if child.is_file() and child.name not in _REBUILDABLE_ARTIFACTS:
+            kept.append(child.name)
+    return {"deleted": deleted, "kept": sorted(set(kept))}

@@ -525,6 +525,209 @@ def confirm_entity(
     return {"ok": updated, "field": field, "value": value, "status": new_status}
 
 
+def reprocess_intake_evidence(
+    intake_id: str,
+    *,
+    wipe: bool = True,
+) -> Dict[str, Any]:
+    """Re-run evidence intelligence for every real customer upload of an intake.
+
+    Operator-triggered recovery / replay path. Use when:
+
+    * An earlier deploy ran a broken EI loop and persisted polluted
+      ``profile.json`` / ``classifications.jsonl`` rows that need
+      rebuilding from scratch.
+    * A new EI capability (OCR, domain pack, etc.) has landed and the
+      operator wants to retroactively apply it to an existing intake.
+    * Diagnostics: replay an intake to verify the live pipeline picks
+      up the same files the customer actually uploaded.
+
+    Behaviour:
+
+    * ``wipe=True`` (default) calls
+      :func:`services.evidence_intelligence.storage.wipe_rebuildable_artifacts`
+      to delete the rebuildable EI artifacts (``profile.json``,
+      ``gaps.json``, ``extractions.jsonl``, ``classifications.jsonl``,
+      ``entities.jsonl``). ``review_queue.jsonl`` is intentionally
+      preserved — it carries historical operator decisions that must
+      survive a reprocess.
+    * Lists every file under ``intakes/{intake_id}/uploads/`` and
+      filters out durability sidecars (``*.durability.json``) plus the
+      reserved internal filenames. Only real customer payloads are
+      dispatched to :func:`process_evidence_upload`.
+    * Per-file failures are caught and recorded; the loop never aborts.
+    * Writes a single ``evidence_intelligence_reprocessed`` custody
+      event so the chain of custody includes the reprocess action
+      itself, plus a matching telemetry row.
+    * Returns a structured report the operator UI / VIO can render
+      without further parsing.
+
+    Idempotent: when ``wipe=False`` and ``process_evidence_upload``
+    sees a sha256 it has already completed, that file is skipped at
+    the existing ``_already_processed`` gate.
+    """
+    iid          = (intake_id or "").strip()
+    started_utc  = _utc_now()
+
+    if not iid:
+        return {
+            "ok":          False,
+            "intake_id":   iid,
+            "error":       "intake_id_required",
+            "started_utc": started_utc,
+            "finished_utc": _utc_now(),
+        }
+
+    try:
+        from services.intake.storage import intake_dir as _intake_dir
+        uploads_dir = _intake_dir(iid) / "uploads"
+    except Exception as exc:
+        return {
+            "ok":          False,
+            "intake_id":   iid,
+            "error":       f"intake_dir_failed:{type(exc).__name__}",
+            "detail":      str(exc)[:200],
+            "started_utc": started_utc,
+            "finished_utc": _utc_now(),
+        }
+
+    if not uploads_dir.is_dir():
+        return {
+            "ok":          False,
+            "intake_id":   iid,
+            "error":       "uploads_dir_missing",
+            "uploads_dir": str(uploads_dir),
+            "started_utc": started_utc,
+            "finished_utc": _utc_now(),
+        }
+
+    wipe_report: Dict[str, Any] = {}
+    if wipe:
+        try:
+            wipe_report = storage.wipe_rebuildable_artifacts(iid)
+        except Exception as exc:
+            wipe_report = {
+                "ok": False,
+                "error": f"wipe_failed:{type(exc).__name__}",
+                "detail": str(exc)[:200],
+            }
+
+    try:
+        from services.intake.file_durability import is_upload_payload_file
+        candidate_files = sorted(
+            p for p in uploads_dir.iterdir()
+            if p.is_file()
+            and is_upload_payload_file(p.name)
+            and _is_real_customer_upload(p.name)
+        )
+    except Exception as exc:
+        return {
+            "ok":          False,
+            "intake_id":   iid,
+            "error":       f"list_uploads_failed:{type(exc).__name__}",
+            "detail":      str(exc)[:200],
+            "uploads_dir": str(uploads_dir),
+            "wipe":        wipe,
+            "wipe_report": wipe_report,
+            "started_utc": started_utc,
+            "finished_utc": _utc_now(),
+        }
+
+    processed:    List[Dict[str, Any]] = []
+    failed:       List[Dict[str, Any]] = []
+    ocr_attempts = 0
+    ocr_ok       = 0
+
+    for f in candidate_files:
+        try:
+            result = process_evidence_upload(
+                project_id  = iid,
+                file_path   = f,
+                artifact_id = f.name,
+            )
+            ext = result.extraction
+            entry: Dict[str, Any] = {
+                "file":       f.name,
+                "status":     result.status,
+                "entities":   result.entities_extracted,
+                "gaps":       result.gaps_detected,
+            }
+            if ext is not None:
+                entry["extraction_method"] = ext.extraction_method
+                entry["text_length"]        = ext.text_length
+                entry["pending_analysis"]   = bool(ext.pending_analysis)
+                if ext.warnings:
+                    entry["warnings"] = list(ext.warnings)[:5]
+                if ext.ocr_status:
+                    ocr_attempts          += 1
+                    entry["ocr_status"]    = ext.ocr_status
+                    entry["ocr_text_length"] = int(ext.ocr_text_length or 0)
+                if ext.ocr_applied:
+                    ocr_ok                += 1
+                    entry["ocr_applied"]   = True
+            processed.append(entry)
+        except Exception as exc:
+            # process_evidence_upload should never raise (it returns a
+            # ProcessingResult even on failure) but defend in depth.
+            failed.append({
+                "file":   f.name,
+                "error":  f"{type(exc).__name__}",
+                "detail": str(exc)[:200],
+            })
+
+    overall_ok = (not failed)
+    finished_utc = _utc_now()
+
+    _record_custody_event(
+        iid,
+        "evidence_intelligence_reprocessed",
+        ok=overall_ok,
+        metadata={
+            "wipe":          wipe,
+            "wiped":         wipe_report.get("deleted") or [],
+            "files_seen":    len(candidate_files),
+            "files_ok":      len(processed),
+            "files_failed":  len(failed),
+            "ocr_attempts":  ocr_attempts,
+            "ocr_succeeded": ocr_ok,
+            "started_utc":   started_utc,
+            "finished_utc":  finished_utc,
+        },
+    )
+
+    try:
+        telemetry.emit(
+            "evidence_intelligence_reprocessed",
+            project_id=iid,
+            success=overall_ok,
+            severity="info" if overall_ok else "warning",
+            metadata={
+                "files_seen":    len(candidate_files),
+                "files_ok":      len(processed),
+                "files_failed":  len(failed),
+                "ocr_attempts":  ocr_attempts,
+                "ocr_succeeded": ocr_ok,
+            },
+        )
+    except Exception:
+        pass
+
+    return {
+        "ok":              overall_ok,
+        "intake_id":       iid,
+        "wipe":            wipe,
+        "wipe_report":     wipe_report,
+        "uploads_dir":     str(uploads_dir),
+        "files_seen":      len(candidate_files),
+        "files_processed": processed,
+        "files_failed":    failed,
+        "ocr_attempts":    ocr_attempts,
+        "ocr_succeeded":   ocr_ok,
+        "started_utc":     started_utc,
+        "finished_utc":    finished_utc,
+    }
+
+
 def get_operator_evidence_intelligence(project_id: str) -> Dict[str, Any]:
     ev_dir = DATA / "projects" / project_id / "evidence"
     intel_dir = DATA / "projects" / project_id / "evidence_intelligence"
