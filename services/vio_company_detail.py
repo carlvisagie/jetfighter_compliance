@@ -305,6 +305,16 @@ def build_company_detail(intake_id: str) -> Dict[str, Any]:
         "review_status": review_status,
         "created_utc": rec.get("created_at_utc") or rec.get("created_utc") or "",
         "age_hours": round(_ts_age_hours(rec.get("created_at_utc") or rec.get("created_utc") or ""), 1),
+        # ── Intake-side context (used by Level 2 intake branch) ──────────
+        "intake_context": {
+            "context": str(rec.get("context") or "").strip(),
+            "phone": str(rec.get("phone") or "").strip(),
+            "deadline": str(rec.get("deadline") or "").strip(),
+            "urgent": bool(rec.get("urgent") or False),
+            "expected_file_count": rec.get("expected_file_count"),
+            "source_ip": rec.get("source_ip") or "",
+            "user_agent": (rec.get("user_agent") or "")[:120],
+        },
         "uploaded_documents": documents,
         "generated_documents": generated,
         "missing_documents": missing,

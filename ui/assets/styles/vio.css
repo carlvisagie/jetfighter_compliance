@@ -466,62 +466,404 @@ html, body {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   LEVEL 2 PLACEHOLDER  (the landscape build is next)
+   LEVEL 2 — Visual Intelligent Landscape
+
+   Same doctrine as Level 1:
+     · Stillness baseline. No idle motion.
+     · Shape is the language. Branching only when complexity demands it.
+     · Every visual element is clickable; side panel surfaces detail.
    ══════════════════════════════════════════════════════════════════════════ */
 
-.vio-level2-placeholder {
+.vio-level2-mount {
   position: fixed;
   inset: 0;
-  background: rgba(7, 7, 13, 0.85);
+  z-index: 200;
+  background: var(--vio-bg);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  grid-template-columns: 1fr 340px;
+  grid-template-areas:
+    "header header"
+    "canvas side";
+}
+
+/* ── L2 header ─────────────────────────────────────────────────────────── */
+.vio-l2-header {
+  grid-area: header;
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 200;
-}
-.vio-level2-card {
+  gap: 16px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--vio-border);
   background: var(--vio-surface);
+}
+.vio-l2-back {
+  background: transparent;
   border: 1px solid var(--vio-border-bright);
-  border-radius: 6px;
-  padding: 22px 26px;
-  max-width: 460px;
-  width: calc(100% - 40px);
-}
-.vio-level2-title {
-  color: var(--vio-text);
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-.vio-level2-sub {
-  color: var(--st-healthy);
-  font-size: 13px;
-  margin-top: 4px;
-}
-.vio-level2-body {
   color: var(--vio-text-dim);
+  padding: 5px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  transition: color 0.18s, border-color 0.18s;
+}
+.vio-l2-back:hover { color: var(--vio-text); border-color: var(--st-healthy); }
+.vio-l2-titlewrap { flex: 1; min-width: 0; }
+.vio-l2-title {
+  color: var(--vio-text);
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vio-l2-sub {
+  color: var(--vio-text-dim);
+  font-size: 11px;
+  margin-top: 2px;
+}
+.vio-l2-state {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 3px;
+  background: var(--vio-surface-soft);
+  border: 1px solid var(--vio-border-bright);
+  color: var(--st-healthy);
+}
+.vio-l2-state[data-stage-state="healthy"]        { color: var(--st-healthy); }
+.vio-l2-state[data-stage-state="stalled"]        { color: var(--st-stalled); }
+.vio-l2-state[data-stage-state="failed"]         { color: var(--st-failed);    border-color: var(--st-failed); }
+.vio-l2-state[data-stage-state="waiting_client"] { color: var(--st-waiting);   border-color: var(--st-waiting); }
+.vio-l2-state[data-stage-state="inconsistent"]   { color: var(--st-inconsistent); border-color: var(--st-inconsistent); }
+.vio-l2-state[data-stage-state="done"]           { color: var(--st-done); }
+
+/* ── L2 canvas (the landscape SVG container) ───────────────────────────── */
+.vio-l2-canvas {
+  grid-area: canvas;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 20% 40%, rgba(77, 196, 214, 0.02), transparent 40%),
+    var(--vio-bg);
+}
+.vio-l2-svg {
+  display: block;
+  min-width: 100%;
+}
+
+/* ── Spine + stages ────────────────────────────────────────────────────── */
+.vio-l2-spine-past {
+  stroke: var(--st-healthy);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+.vio-l2-spine-past[data-stage-state="healthy"]        { stroke: var(--st-healthy); }
+.vio-l2-spine-past[data-stage-state="stalled"]        { stroke: var(--st-stalled);      stroke-width: 1.6; }
+.vio-l2-spine-past[data-stage-state="failed"]         { stroke: var(--st-failed); }
+.vio-l2-spine-past[data-stage-state="waiting_client"] { stroke: var(--st-waiting); }
+.vio-l2-spine-past[data-stage-state="inconsistent"]   { stroke: var(--st-inconsistent); }
+.vio-l2-spine-past[data-stage-state="done"]           { stroke: var(--st-done);         stroke-width: 1.8; }
+
+.vio-l2-spine-future {
+  stroke: var(--vio-text-faint);
+  stroke-width: 1.2;
+  stroke-dasharray: 2 5;
+  opacity: 0.55;
+}
+
+.vio-l2-stage {
+  cursor: pointer;
+}
+.vio-l2-stage circle {
+  fill: var(--vio-bg);
+  stroke: var(--vio-text-dim);
+  stroke-width: 1.5;
+  transition: stroke 0.18s;
+}
+.vio-l2-stage.past circle   { fill: var(--st-healthy); stroke: var(--st-healthy); }
+.vio-l2-stage.future circle { fill: var(--vio-bg);     stroke: var(--vio-text-faint); }
+.vio-l2-stage:hover circle  { stroke: var(--vio-text); }
+.vio-l2-stage-label {
+  fill: var(--vio-text-faint);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+.vio-l2-stage:hover .vio-l2-stage-label { fill: var(--vio-text); }
+
+/* ── Orb ───────────────────────────────────────────────────────────────── */
+.vio-l2-orb-group { cursor: pointer; }
+.vio-l2-orb-limb {
+  stroke: var(--st-healthy);
+  stroke-width: 2;
+}
+.vio-l2-orb {
+  fill: var(--vio-surface);
+  stroke: var(--vio-text-faint);
+  stroke-width: 2;
+  transition: stroke 0.18s;
+}
+.vio-l2-orb[data-stage-state="healthy"]        { stroke: var(--st-healthy); }
+.vio-l2-orb[data-stage-state="stalled"]        { stroke: var(--st-stalled); }
+.vio-l2-orb[data-stage-state="failed"]         { stroke: var(--st-failed); }
+.vio-l2-orb[data-stage-state="waiting_client"] { stroke: var(--st-waiting); animation: vio-breathe 4s ease-in-out infinite; }
+.vio-l2-orb[data-stage-state="inconsistent"]   { stroke: var(--st-inconsistent); }
+.vio-l2-orb[data-stage-state="done"]           { stroke: var(--st-done); }
+.vio-l2-orb-group:hover .vio-l2-orb { stroke-width: 3; }
+.vio-l2-orb-text {
+  fill: var(--vio-text);
   font-size: 12px;
-  margin: 16px 0;
+  font-weight: 600;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  pointer-events: none;
 }
-.vio-level2-actions {
+
+/* ── Branch limbs + cluster titles ─────────────────────────────────────── */
+.vio-l2-branch-limb {
+  stroke: var(--vio-border-bright);
+  stroke-width: 1.2;
+  fill: none;
+}
+.vio-l2-branch-title {
+  fill: var(--vio-text-dim);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  pointer-events: none;
+}
+
+/* ── Leaves — kind-specific shape styling ──────────────────────────────── */
+.vio-l2-leaf {
+  cursor: pointer;
+  transition: opacity 0.18s;
+}
+.vio-l2-leaf:hover { opacity: 1 !important; }
+.vio-l2-leaf-shape {
+  fill: var(--vio-surface);
+  stroke: var(--vio-text-faint);
+  stroke-width: 1.2;
+  transition: stroke 0.18s, fill 0.18s;
+}
+.vio-l2-leaf:hover .vio-l2-leaf-shape { stroke: var(--vio-text); }
+.vio-l2-leaf-text {
+  fill: var(--vio-text);
+  font-size: 10px;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  pointer-events: none;
+}
+
+/* documents (uploaded) — cool teal pages */
+.vio-l2-leaf-doc .vio-l2-leaf-shape {
+  fill: var(--vio-surface-soft);
+  stroke: var(--st-healthy);
+}
+.vio-l2-leaf-doc .vio-l2-leaf-fold {
+  fill: var(--vio-surface);
+  stroke: var(--st-healthy);
+  stroke-width: 1;
+}
+.vio-l2-leaf-doc[data-status="missing"] .vio-l2-leaf-shape,
+.vio-l2-leaf-doc[data-status="broken"]  .vio-l2-leaf-shape { stroke: var(--st-failed); }
+.vio-l2-leaf-doc[data-status="on_disk_unindexed"] .vio-l2-leaf-shape { stroke: var(--st-waiting); }
+
+/* generated — double-bordered pages */
+.vio-l2-leaf-gen .vio-l2-leaf-shape { stroke: var(--st-done); fill: var(--vio-surface-soft); }
+.vio-l2-leaf-gen .vio-l2-leaf-inner { fill: none; stroke: var(--st-done); stroke-width: 0.8; }
+
+/* gaps — dashed missing pages */
+.vio-l2-leaf-gap .vio-l2-leaf-shape {
+  stroke: var(--st-waiting);
+  fill: none;
+}
+.vio-l2-leaf-gap[data-priority="high"] .vio-l2-leaf-shape { stroke: var(--st-failed); }
+.vio-l2-leaf-gap .vio-l2-leaf-text { fill: var(--st-waiting); }
+.vio-l2-leaf-gap[data-priority="high"] .vio-l2-leaf-text { fill: var(--st-failed); }
+
+/* findings — warning triangles */
+.vio-l2-leaf-finding .vio-l2-leaf-shape {
+  fill: var(--vio-surface-soft);
+  stroke: var(--st-waiting);
+}
+.vio-l2-leaf-finding[data-severity="red"]   .vio-l2-leaf-shape { stroke: var(--st-failed); fill: rgba(239, 68, 68, 0.08); }
+.vio-l2-leaf-finding[data-severity="amber"] .vio-l2-leaf-shape { stroke: var(--st-waiting); fill: rgba(216, 162, 74, 0.08); }
+.vio-l2-leaf-finding[data-severity="info"]  .vio-l2-leaf-shape { stroke: var(--vio-text-dim); }
+
+/* identifiers — soft purple pills */
+.vio-l2-leaf-ident .vio-l2-leaf-shape {
+  fill: rgba(177, 139, 216, 0.08);
+  stroke: var(--st-inconsistent);
+}
+.vio-l2-leaf-ident .vio-l2-leaf-text { fill: var(--vio-text); }
+
+/* payment — card with magnetic band */
+.vio-l2-leaf-payment .vio-l2-leaf-shape {
+  fill: var(--vio-surface-soft);
+  stroke: var(--st-done);
+}
+.vio-l2-leaf-payment .vio-l2-leaf-card-band {
+  fill: var(--st-done);
+  fill-opacity: 0.35;
+  stroke: none;
+}
+
+/* project — hexagon anchor */
+.vio-l2-leaf-project .vio-l2-leaf-shape {
+  fill: var(--vio-surface-soft);
+  stroke: var(--st-healthy);
+  stroke-width: 1.6;
+}
+
+/* flags + notes — quiet rectangles */
+.vio-l2-leaf-flag .vio-l2-leaf-shape,
+.vio-l2-leaf-note .vio-l2-leaf-shape {
+  fill: var(--vio-surface-soft);
+  stroke: var(--vio-text-dim);
+}
+
+/* ── Side panel (recursive detail surface) ─────────────────────────────── */
+.vio-l2-side {
+  grid-area: side;
+  background: var(--vio-surface);
+  border-left: 1px solid var(--vio-border);
   display: flex;
-  gap: 10px;
-  justify-content: flex-end;
+  flex-direction: column;
+  overflow: hidden;
 }
-.vio-level2-btn {
+.vio-l2-side-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--vio-border);
+}
+.vio-l2-side-title {
+  flex: 1;
+  color: var(--vio-text);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: lowercase;
+}
+.vio-l2-side-back {
+  background: transparent;
+  border: none;
+  color: var(--vio-text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.vio-l2-side-back:hover { color: var(--vio-text); }
+.vio-l2-side-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.vio-l2-side-hint {
+  color: var(--vio-text-dim);
+  font-size: 11px;
+  font-style: italic;
+  text-align: center;
+  padding: 20px 0;
+}
+.vio-l2-kv {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 12px;
+  padding: 3px 0;
+  border-bottom: 1px dashed var(--vio-border);
+}
+.vio-l2-kv-k {
+  color: var(--vio-text-faint);
+  text-transform: lowercase;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.vio-l2-kv-v {
+  color: var(--vio-text);
+  text-align: right;
+  word-break: break-word;
+}
+.vio-l2-kv-v.mono { font-family: ui-monospace, monospace; font-size: 11px; }
+.vio-l2-side-section {
+  color: var(--vio-text-dim);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 14px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--vio-border);
+}
+.vio-l2-side-prose {
+  color: var(--vio-text);
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  background: var(--vio-bg);
+  border-radius: 3px;
+  white-space: pre-wrap;
+}
+.vio-l2-side-bottleneck {
+  color: var(--st-waiting);
+  font-size: 12px;
+  padding: 8px 10px;
+  background: rgba(216, 162, 74, 0.06);
+  border: 1px solid rgba(216, 162, 74, 0.2);
+  border-radius: 3px;
+}
+.vio-l2-side-action {
+  color: var(--vio-text);
+  font-size: 12px;
+  padding: 4px 0;
+}
+.vio-l2-side-link, .vio-l2-side-btn {
+  display: inline-block;
+  margin-top: 6px;
+  margin-right: 6px;
+  padding: 5px 12px;
   background: var(--vio-surface-soft);
   border: 1px solid var(--vio-border-bright);
   color: var(--vio-text);
-  padding: 6px 14px;
-  border-radius: 4px;
-  cursor: pointer;
+  font-size: 11px;
   text-decoration: none;
-  font-size: 12px;
-  transition: background 0.18s;
+  border-radius: 3px;
+  transition: border-color 0.18s, color 0.18s;
 }
-.vio-level2-btn:hover { background: var(--vio-border); }
-.vio-level2-btn-ghost {
-  background: transparent;
-  color: var(--vio-text-dim);
+.vio-l2-side-link:hover, .vio-l2-side-btn:hover {
+  color: var(--st-healthy);
+  border-color: var(--st-healthy);
+}
+.vio-l2-side-error {
+  color: var(--st-failed);
+  font-size: 11px;
+  padding: 6px 8px;
+  background: rgba(239, 68, 68, 0.06);
+  border-radius: 3px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* ── Small screens collapse side panel below canvas ────────────────────── */
+@media (max-width: 1100px) {
+  .vio-level2-mount {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      "header"
+      "canvas"
+      "side";
+  }
+  .vio-l2-side { border-left: none; border-top: 1px solid var(--vio-border); max-height: 38vh; }
 }
 
 /* ── Responsive: small screens collapse the strip + reduce padding ────── */

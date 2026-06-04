@@ -63,22 +63,10 @@
   <!-- ── Hover overlay (Level 1 information surface) ────────────────────── -->
   <div class="vio-hover-card" id="vio-hover-card" hidden role="tooltip"></div>
 
-  <!-- ── Level 2 placeholder (click a company → not yet built) ──────────── -->
-  <div class="vio-level2-placeholder" id="vio-level2-placeholder" hidden>
-    <div class="vio-level2-card">
-      <div class="vio-level2-title">Level 2 — Company Landscape</div>
-      <div class="vio-level2-sub" id="vio-level2-sub"></div>
-      <p class="vio-level2-body">
-        Detailed visual landscape for this company is the next build. For now,
-        use the cockpit to drill into the intake.
-      </p>
-      <div class="vio-level2-actions">
-        <a id="vio-level2-cockpit" class="vio-level2-btn" href="/ui/control.html">Open in cockpit →</a>
-        <button id="vio-level2-close" class="vio-level2-btn vio-level2-btn-ghost">Close</button>
-      </div>
-    </div>
-  </div>
+  <!-- ── Level 2 landscape mount (filled by vio-level2.js on click) ────── -->
+  <div class="vio-level2-mount" id="vio-level2-mount" hidden></div>
 
+  <script src="/ui/assets/js/vio-level2.js"></script>
   <script src="/ui/assets/js/vio.js"></script>
 </body>
 </html>

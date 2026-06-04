@@ -120,12 +120,9 @@ Tuning the weights is a doctrinal change; it requires a note here.
 | Level | Surface                              | Purpose                                                       | Build status   |
 | ----- | ------------------------------------ | ------------------------------------------------------------- | -------------- |
 | 0     | Cockpit (`/ui/control.html`)         | Cognitive topology orbs. Upload orb is the entry into VIO.   | shipped        |
-| 1     | VIO (`/ui/vio.html`)                 | One company = one continuous line, urgency-sorted, calm.     | **this build** |
-| 2     | VIO landscape (click a company line) | Linear left→right immersive landscape, branches only when    | next build     |
+| 1     | VIO (`/ui/vio.html`)                 | One company = one continuous line, urgency-sorted, calm.     | shipped        |
+| 2     | VIO landscape (click a company line) | Linear left→right immersive landscape, branches only when    | **shipped**    |
 |       |                                      | complexity demands it, recursively clickable to atoms.       |                |
-
-Level 2 is intentionally deferred. The Level 1 surface ships first
-because the operator needs awareness before exploration.
 
 ### Level 1 anatomy
 
@@ -153,26 +150,63 @@ Each line is:
 - live point sized + coloured by `stage_state`
 - branch only drawn when `on_branch = true`
 
-### Level 2 (next build, NOT in this commit)
+### Level 2 (the immersive landscape — shipped)
 
-Click a company line → its line expands into an immersive horizontal
-landscape:
+Click a company line on Level 1 → the page is taken over by a full-screen
+horizontal landscape whose visible shape *is* the entire story of that
+company:
 
-- Company orb anchored on the left
-- Linear left→right spine (not radial)
-- Branches sprout *perpendicular* to the spine **only** when complexity
-  demands it (uploaded docs, gaps, identifiers, technologies, payment
-  events) — bushy companies look bushy, simple companies stay a single
-  spine
-- Every visual element is clickable, leading recursively into deeper
-  subtrees (a "documents" branch opens into per-file landscapes, an
-  "MFA evidence" leaf opens into the extracted snippet, etc.)
-- The detail is always richer than Level 1 even for clean companies —
-  but branching itself is reserved for real complexity
+- Company orb anchored on the **left**, larger and quieter than its
+  Level 1 counterpart, breathing only when `waiting_client`.
+- Linear left→right **spine** through the same seven backbone stages.
+  Past stages are filled; the live stage is enlarged; future stages
+  are faint dashed. Every stage anchor is itself clickable and surfaces
+  "what happens at this stage" in the side panel.
+- **Perpendicular branches** sprout up and down from the stages, but
+  **only** when there is real data to surface:
 
-The Level 2 surface is intentionally not built in this commit. The
-placeholder modal that appears on click is the explicit acknowledgement
-of "Level 2 — next."
+  | Branch              | Anchor stage        | Direction | Renders when                       |
+  | ------------------- | ------------------- | --------- | ---------------------------------- |
+  | context             | `intake`            | above     | customer wrote context or urgent   |
+  | identifiers         | `evidence_mapping`  | above     | tech / vendors / compliance found  |
+  | service tier        | `approval`          | above     | review_status ≥ approved           |
+  | generated paperwork | `conversion`        | above     | any auto-generated file exists     |
+  | papers (uploaded)   | `evidence_mapping`  | below     | any file uploaded                  |
+  | missing (gaps)      | `evidence_mapping`  | below     | EI flagged missing items           |
+  | findings            | `validation`        | below     | failures / unindexed / etc.        |
+  | payment             | `approval`          | below     | payment link sent or recorded      |
+  | project             | `conversion`        | below     | kickoff project exists             |
+
+  Clean companies (Apex with one uploaded file, no gaps, no findings)
+  render as a clean spine plus a single `papers` cluster of one leaf.
+  Complex companies (Sigma with vendors, gaps, partial extraction)
+  render as a bushy landscape with multiple clusters above and below
+  the spine.
+
+- Every leaf has its own **distinct silhouette**: pages with corner-folds
+  for uploaded docs, double-bordered pages for generated paperwork,
+  dashed empty pages for gaps, triangles for findings, rounded pills for
+  identifiers, cards-with-magnetic-band for payment, hexagons for the
+  project anchor.
+
+- **Every visual element is clickable**: clicking a leaf opens a side
+  panel with the full detail (file metadata + view/download links for
+  documents, severity + hint for findings, why-this-matters + example
+  for gaps, paid/amount/link for payment, etc.). Clicking the orb or a
+  stage anchor surfaces the overview. The side panel has a back button
+  so the operator can recurse and return without losing place.
+
+- **Stillness baseline preserved.** The only animation in the entire
+  Level 2 surface is the same 4-second breathe on the orb when the
+  company is in `waiting_client`. Hover surfaces a 1-px stroke-width
+  bump on the leaf — that is the entire interactive treatment.
+
+- ESC, the back chevron, or a click outside the canvas all return the
+  operator to Level 1.
+
+Source: `ui/assets/js/vio-level2.js` + the L2 section of
+`ui/assets/styles/vio.css`. Contract locked by
+`tests/test_vio_level2_contract.py`.
 
 ---
 

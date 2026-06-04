@@ -86,8 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadVioData();
   });
 
-  document.getElementById('vio-level2-close')?.addEventListener('click', closeLevel2);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLevel2(); hideHoverCard(); } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') hideHoverCard(); });
 
   loadVioData();
   startAutoRefresh();
@@ -465,20 +464,16 @@ function hideHoverCard() {
   document.getElementById('vio-hover-card')?.setAttribute('hidden', '');
 }
 
-// ── Level 2 placeholder (Level 2 landscape build is next) ─────────────────────
+// ── Level 2 hand-off (the visual landscape lives in vio-level2.js) ───────────
 function openLevel2(company) {
   hideHoverCard();
-  const ph    = document.getElementById('vio-level2-placeholder');
-  const sub   = document.getElementById('vio-level2-sub');
-  const link  = document.getElementById('vio-level2-cockpit');
-  if (!ph) return;
-  if (sub)  sub.textContent = company.company_name || 'Unknown';
-  if (link) link.href = `/ui/control.html#intake-${encodeURIComponent(company.intake_id || company.row_id || '')}`;
-  ph.removeAttribute('hidden');
-}
-
-function closeLevel2() {
-  document.getElementById('vio-level2-placeholder')?.setAttribute('hidden', '');
+  if (window.VioLevel2 && typeof window.VioLevel2.open === 'function') {
+    window.VioLevel2.open(company);
+  } else {
+    // Defensive fallback if vio-level2.js failed to load — never silently
+    // break the click.
+    console.error('[VIO] Level 2 module not available');
+  }
 }
 
 // ── Organism awareness strip (calm baseline; only speaks on deviation) ────────

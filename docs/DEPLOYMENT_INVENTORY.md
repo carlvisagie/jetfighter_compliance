@@ -42,39 +42,65 @@ shipping. It is generated against the actual codebase (not a wish list).
 - **Raw disk scan:** `/api/operator/intake/raw-disk-scan` — never cached.
 - **Test coverage:** 87 hardening / durability / integrity tests, all green.
 
-### 1.2 Visual Intelligence Observatory — Level 1 (unified-line view)
+### 1.2 Visual Intelligence Observatory — Levels 1 and 2
 - **Doctrine:** [`docs/VIO_DOCTRINE.md`](./VIO_DOCTRINE.md) — the binding
-  visual-language and motion charter the Level 1 build is implemented against.
+  visual-language and motion charter the VIO build is implemented against.
   Companion to [`docs/VIO_CONSTITUTION.md`](./VIO_CONSTITUTION.md).
-- **UI:** `ui/vio.html` + `ui/assets/js/vio.js` + `ui/assets/styles/vio.css`
+- **UI:** `ui/vio.html` + `ui/assets/js/vio.js` (Level 1) +
+  `ui/assets/js/vio-level2.js` (Level 2) + `ui/assets/styles/vio.css`.
+
+#### Level 1 — the unified line view
 - **Surface:** every company renders as one continuous SVG trace through the
   7-stage backbone (`intake → classification → validation → evidence_mapping
   → review → approval → conversion`), with a single allowed branch for
   `client follow-up`. Lines are urgency-sorted top-down, `done` companies
   always last. Stillness is the baseline; the only animation in the system
   is a 4-second breathe on `waiting_client`.
-- **Overview API:** `GET /api/operator/vio/overview` — each company row now
+- **Overview API:** `GET /api/operator/vio/overview` — each company row
   carries `stage`, `stage_index`, `stage_state`, `urgency_score`,
   `days_in_stage`, `on_branch`, `branch_label`, and `attention[]` alongside
   the legacy `state`, `timeline`, and `quick_stats` for back-compat. Includes
   a global `organism` block (system health, bottleneck, mismatches),
   cached 45 s, plus `stage_backbone` and `stage_counts` for the header
   legend.
+
+#### Level 2 — the immersive landscape
+- **Surface:** clicking any Level 1 trace takes the page over with a
+  full-screen horizontal landscape. The company orb anchors the left; the
+  same 7-stage spine runs right; perpendicular branches sprout up and down
+  from the stages **only where data warrants it** — clean companies render
+  as a clean spine, complex companies render bushy. Branches: context,
+  identifiers, service tier, generated paperwork (above the spine); papers
+  uploaded, missing documents, findings, payment, project (below the spine).
+- **Leaves:** every leaf has a distinct silhouette (folded pages for uploads,
+  double-bordered pages for generated, dashed empty pages for gaps, triangles
+  for findings, pills for identifiers, payment cards with magnetic band,
+  hexagons for projects). Every visual element is clickable; click opens a recursive
+  side panel with the full per-leaf detail (file metadata + view/download
+  for documents, severity + hint for findings, why-this-matters + example
+  for gaps, paid/amount/link for payment, etc.). Click the orb or a stage
+  anchor to surface overview / stage-meaning. ESC or back-chevron returns
+  to Level 1.
+- **Doctrine-compliant:** stillness baseline preserved; the only animation
+  in Level 2 is the same `waiting_client` breathe on the orb. Hover gives
+  a 1-px stroke bump on leaves — that is the entire interactive treatment.
 - **Per-company composite API:** `GET /api/operator/vio/company/{intake_id}`
-  — returns uploaded docs (with view/download URLs), generated docs,
-  missing docs, evidence summary, identifiers, and derived findings
-  (extraction failures, payment-link stale, file-on-disk mismatch, etc.).
-  Currently powers the cockpit drill-down; Level 2 landscape (next build)
-  will consume this same payload.
-- **Header organism strip:** live system awareness pinned at the top of
-  VIO. Silent when the organism is healthy.
+  — feeds Level 2 directly. Returns uploaded docs (with view/download
+  URLs), generated docs, missing docs, evidence summary with extracted
+  identifiers (technologies, vendors, compliance refs, company names),
+  intake context block, payment, and derived findings (extraction failures,
+  payment-link stale, file-on-disk mismatch, etc.).
+- **Header organism strip (both levels):** live system awareness pinned at
+  the top of VIO. Silent when the organism is healthy.
 - **Defensive hygiene:** `services/vio_overview._clean_company_name`
   scrubs URL-pasted company fields down to the apex domain, both at
   display time and at intake creation. Covered by
   `tests/test_vio_company_name_sanitiser.py`.
-- **Level 2 (per-company immersive landscape):** **next build.** A clear
-  placeholder is shown when an operator clicks a Level 1 line.
-- **Status:** Level 1 functionally complete and doctrine-compliant.
+- **Contract tests:**
+  `tests/test_vio_document_visibility.py` (Level 1 + composite API),
+  `tests/test_vio_level2_contract.py` (Level 2 payload shape),
+  `tests/test_vio_company_name_sanitiser.py` (defensive hygiene).
+- **Status:** Levels 1 and 2 functionally complete and doctrine-compliant.
 
 ### 1.3 Awareness / organism layer
 - **`organism_core/`** — domain-agnostic, reusable package:
