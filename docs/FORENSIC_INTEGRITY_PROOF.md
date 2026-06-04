@@ -175,7 +175,7 @@ Render deploy SHA not exposed in HTTP headers; treat as **likely deployed** pend
 |------|-------------|--------|
 | 1 | `/api/operator/storage-status` | **BLOCKED** — 403 without `OPS_PASSWORD` / `OPS_API_KEY` |
 | 2 | `/api/operator/integrity/proof` | **BLOCKED** — 403 without ops auth |
-| 3 | `/api/operator/founding-beta/diagnostics` | **BLOCKED** — 403 without ops auth |
+| 3 | `/api/operator/intake/diagnostics` | **BLOCKED** — 403 without ops auth |
 | 4 | Public upload one test file | **PASS** — see intake below |
 | 5 | Queue visibility | **NOT VERIFIED** — requires ops session |
 | 6 | Proof endpoint sees file | **NOT VERIFIED** — requires ops session |
@@ -186,10 +186,12 @@ Render deploy SHA not exposed in HTTP headers; treat as **likely deployed** pend
 ### Production upload (step 4 — verified)
 
 ```
-POST https://compliance.keepyourcontracts.com/api/founding-beta/upload
+POST https://compliance.keepyourcontracts.com/api/intake/upload
 email: forensic-proof-prod@keepyourcontracts.com
 file: prod-forensic-proof.pdf (%PDF-1.4 prod forensic proof)
 ```
+
+> Historical: this endpoint was `/api/founding-beta/upload` before commit `fabdbc8` (2026-05-29). The upload-first customer surface is now `/api/intake/upload`. Operator counterpart: `/api/operator/intake/diagnostics`.
 
 | Field | Value |
 |-------|-------|

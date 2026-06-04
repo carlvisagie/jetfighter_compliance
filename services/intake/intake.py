@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -844,25 +845,43 @@ async def _process_upload_locked(
                     intake_id=intake_id,
                 )
 
-            # Autonomous payment link dispatch — no operator touch required
-            try:
-                from .auto_payment import auto_send_payment_link
+            # Autonomous payment link dispatch — gated off by default per
+            # docs/FIRST_SALE_OPERATOR_SOP.md (operator must review the intake
+            # before any PayPal link goes to the customer). Opt in by setting
+            # KYC_AUTO_PAYMENT_LINK=true in the environment.
+            if os.getenv("KYC_AUTO_PAYMENT_LINK", "false").strip().lower() in (
+                "1",
+                "true",
+                "yes",
+                "on",
+            ):
+                try:
+                    from .auto_payment import auto_send_payment_link
 
-                auto_result = auto_send_payment_link(intake_id, clf)
+                    auto_result = auto_send_payment_link(intake_id, clf)
+                    emit_intake_event(
+                        "auto_payment_link_dispatched",
+                        message=intake_id,
+                        metadata={
+                            "intake_id": intake_id,
+                            "product_id": auto_result.get("product_id"),
+                            "email_sent": auto_result.get("email_sent") or auto_result.get("email_result", {}).get("sent"),
+                            "skipped": auto_result.get("skipped"),
+                            "reason": auto_result.get("reason"),
+                            "auto_triggered": True,
+                        },
+                    )
+                except Exception as exc:
+                    logger.warning("Auto payment link dispatch skipped: %s", exc)
+            else:
                 emit_intake_event(
-                    "auto_payment_link_dispatched",
+                    "auto_payment_link_gated_off",
                     message=intake_id,
                     metadata={
                         "intake_id": intake_id,
-                        "product_id": auto_result.get("product_id"),
-                        "email_sent": auto_result.get("email_sent") or auto_result.get("email_result", {}).get("sent"),
-                        "skipped": auto_result.get("skipped"),
-                        "reason": auto_result.get("reason"),
-                        "auto_triggered": True,
+                        "reason": "KYC_AUTO_PAYMENT_LINK env flag is off (default)",
                     },
                 )
-            except Exception as exc:
-                logger.warning("Auto payment link dispatch skipped: %s", exc)
 
         except Exception as exc:
             logger.warning("Founding beta classification skipped: %s", exc)

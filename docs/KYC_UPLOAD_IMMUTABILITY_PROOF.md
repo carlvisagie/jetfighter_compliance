@@ -1,8 +1,8 @@
 # KYC Upload Immutability Proof
 
-**Date:** 2026-05-30  
-**Repo:** [carlvisagie/jetfighter_compliance](https://github.com/carlvisagie/jetfighter_compliance)  
-**Production:** https://compliance.keepyourcontracts.com
+**Date:** 2026-05-30 (initial) · **Last reviewed:** 2026-06-04
+**Repo:** [carlvisagie/jetfighter_compliance](https://github.com/carlvisagie/jetfighter_compliance)
+**Production:** https://compliance.keepyourcontracts.com (Render service `jetfighter_compliance`)
 
 ---
 
@@ -11,6 +11,71 @@
 **A successful upload cannot disappear without a SEV-1 forensic incident.**
 
 Customer-visible success (`customer_may_show_success=true`, `proof_gate_passed=true`) is returned only after a synchronous proof gate verifies the intake is immediately discoverable on durable disk, in the index, operator queue/archive, retention-check, file list, and download/view paths.
+
+---
+
+## 2026-06-04 — Disk attach incident (SEV-1, closed)
+
+**Symptom.** Production reported `intakes=0, uploads=0` in the organism overview
+despite Carl having uploaded paperwork for five test companies through the
+customer portal. Earlier forensic snapshots had recorded 40 intakes and 40
+uploads on disk.
+
+**Root cause.** The live Render service `jetfighter_compliance` ran with
+`KYC_DATA=/var/data` but **no persistent disk attached to that mount path**.
+Each redeploy/restart created a fresh container-local `/var/data`, and every
+upload from the previous boot was erased. The upload code itself was correct;
+the storage substrate underneath it was ephemeral.
+
+**Why the proof gate did not catch it.** The proof gate verifies post-write
+visibility *within the running process*. It cannot, on its own, see whether
+the underlying filesystem will survive the next container restart — that is a
+question only a cross-restart probe can answer.
+
+**Fix (deployed 2026-06-04T08:14:43Z).**
+
+1. A 10 GB Render persistent disk named `kyc-data` was attached at `/var/data`
+   on `jetfighter_compliance` and recorded in `render.yaml` (`disk.mountPath:
+   /var/data`, `disk.sizeGB: 10`).
+2. A new disk-persistence observability layer was added so this regression is
+   detected automatically on every boot:
+   - `services/durable_storage.py` writes a one-time marker
+     (`<KYC_DATA>/.disk_marker`) on first boot containing `marker_birth_utc`.
+   - `services/organism_state/collectors.py::DiskPersistenceCollector` reads
+     that marker on every boot.
+   - `services/organism_state/checks.py::DiskPersistenceCheck` compares the
+     marker's birth timestamp to the current process start; if the marker
+     disappears or its birth timestamp resets across a restart, the organism
+     flips to **RED `ephemeral_lost`** (auto SEV-1) and refuses to claim it is
+     production-ready.
+   - States: `pending_first_restart` (AMBER, just deployed), `verified_persistent`
+     (INFO, marker survived ≥ one restart), `ephemeral_lost` (RED, marker
+     missing — SEV-1 ephemeral regression), `write_failed` (RED, write path
+     itself broken).
+
+**Live verification (2026-06-04).**
+
+| Probe | Boot | Result |
+|-------|------|--------|
+| `scripts/prove_disk_persistence.py` (explicit restart) | pre + post | `verified_persistent`, `marker_birth_utc` unchanged |
+| Full code redeploy | pre + post | `verified_persistent`, `marker_birth_utc` unchanged |
+
+**Operator runbook:**
+
+```powershell
+python -m scripts.probe_boot_status     # scheduler + organism status
+python -m scripts.prove_disk_persistence # cross-restart marker proof
+```
+
+If either probe reports `ephemeral_lost`, `write_failed`, or a changed
+`marker_birth_utc` across a restart, **the disk mount is gone** — open the
+Render service `jetfighter_compliance` → Disks tab, re-attach `kyc-data` at
+`/var/data`, and re-run the probe. Do not accept new customer uploads until
+the probe is green.
+
+**Status:** Closed. Disk attached. Marker verified persistent across two
+independent boot events. Detection wired into the organism so this class of
+regression cannot recur silently.
 
 ---
 

@@ -1092,6 +1092,31 @@ def project_advance(project_id: str, step_id: str = Body(..., embed=True)):
         pass
     return {"ok": True, "status": st}
 
+
+@app.get("/api/project/{project_id}/export")
+def project_export_binder(project_id: str, request: Request):
+    """Operator-only deliverable binder download.
+
+    Wraps services.reports.export_binder() so the control cockpit's
+    existing link (ui/control.html) and the operator workflow stop hitting
+    a 404. Returns a zip stream with a deterministic Merkle manifest.
+    """
+    from fastapi.responses import FileResponse
+
+    from services.production import require_ops_access
+    from services.reports import export_binder
+
+    require_ops_access(request)
+    try:
+        zpath = export_binder(project_id.strip())
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return FileResponse(
+        path=str(zpath),
+        filename=zpath.name,
+        media_type="application/zip",
+    )
+
 # ---------- External cost view ----------
 @app.get("/api/project/{project_id}/costs")
 def project_costs(project_id: str):

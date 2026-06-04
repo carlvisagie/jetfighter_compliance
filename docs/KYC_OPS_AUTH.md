@@ -55,9 +55,11 @@ PROD_BASE_URL=https://compliance.keepyourcontracts.com
 
 ## Routes
 
-- **Public UI:** shop, inquiry, intake, upload, login, founding-beta, `/ui/assets/*`
-- **Protected UI:** control, memory, command, … → redirect to `/ui/login.html`
+- **Public UI:** shop, inquiry, intake, upload, login, continue, `/ui/assets/*` (see `services/ops_auth.py::PUBLIC_PAGES`)
+- **Protected UI:** control, memory, command, vio, … → redirect to `/ui/login.html`
 - **Protected API:** `/api/operator/*`, `/api/ops/auth-check`, `/api/memory/*`, … → **403** without auth
-- **Public API:** `/healthz`, `/health/ready`, `/api/public/*`, `/api/founding-beta/*`
+- **Public API:** `/healthz`, `/health/ready`, `/api/public/*`, `/api/intake/*` (upload-first customer intake — `upload`, `resolve`, `submit`, `extend`, `complete`, `payment-link`)
+
+> Historical note: `/api/founding-beta/*` and `/ui/founding-beta` were hard-deleted on 2026-05-29 (commit `fabdbc8`). The customer-facing upload path is now `/api/intake/upload`; the operator surface lives under `/api/operator/intake/*`. See `docs/FOUNDING_BETA_RENAME_PLAN.md` for the remaining nomenclature work.
 
 Cookie: `kyc_ops_session` (httponly, 7-day max age, `secure` in production).
