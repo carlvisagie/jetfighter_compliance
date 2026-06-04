@@ -358,6 +358,82 @@ def health():
     }
 
 
+@app.get("/healthz/ei-binaries")
+def healthz_ei_binaries():
+    """Unauthenticated runtime probe for Evidence-Intelligence binaries.
+
+    Reports whether the OCR + PDF rasterisation stack is actually
+    resolvable inside the running container. Without these, the
+    evidence-intelligence layer silently degrades to
+    ``ocr_binary_unavailable`` for every customer scan and we lose
+    the single biggest quality lift in the extraction pipeline.
+
+    Returns a small JSON payload with one row per dependency so the
+    operator (and the awareness layer) can tell at a glance whether
+    OCR is real or a paper tiger:
+
+      {
+        "ok": true,
+        "ocr_enabled": true,            # KYC_OCR_ENABLED app-level flag
+        "pytesseract_import": "ok",
+        "pdf2image_import":   "ok",
+        "tesseract_binary":   {"available": true, "version": "5.3.0"},
+        "poppler_binary":     {"available": true, "version": "..."}
+      }
+
+    Unauthenticated on purpose: this is a liveness / capability probe
+    with no PII surface, the same way ``/healthz`` is unauthenticated.
+    Used by both the deployment loop and the operator UI to verify
+    that OCR is genuinely live after a deploy.
+    """
+    import os
+    import shutil
+    import subprocess
+
+    out = {
+        "ok":          True,
+        "ocr_enabled": (os.getenv("KYC_OCR_ENABLED", "").lower() in ("1","true","yes","on")),
+    }
+
+    # Python import surface.
+    try:
+        import pytesseract  # noqa: F401
+        out["pytesseract_import"] = "ok"
+    except Exception as exc:
+        out["pytesseract_import"] = f"missing: {type(exc).__name__}"
+        out["ok"] = False
+    try:
+        import pdf2image  # noqa: F401
+        out["pdf2image_import"] = "ok"
+    except Exception as exc:
+        out["pdf2image_import"] = f"missing: {type(exc).__name__}"
+        out["ok"] = False
+
+    def _probe_binary(executable: str, version_arg: str) -> dict:
+        path = shutil.which(executable)
+        if not path:
+            return {"available": False, "reason": "not_on_PATH"}
+        try:
+            r = subprocess.run(
+                [path, version_arg],
+                capture_output=True, text=True, timeout=5,
+            )
+            ver = (r.stdout or r.stderr or "").splitlines()[0].strip()[:120]
+            return {"available": True, "path": path, "version": ver}
+        except Exception as exc:
+            return {"available": False, "path": path,
+                    "reason": f"{type(exc).__name__}: {exc}"}
+
+    out["tesseract_binary"] = _probe_binary("tesseract", "--version")
+    out["poppler_binary"]   = _probe_binary("pdftoppm",  "-v")
+    if not out["tesseract_binary"].get("available"):
+        out["ok"] = False
+    if not out["poppler_binary"].get("available"):
+        out["ok"] = False
+
+    return out
+
+
 @app.get("/api/ops/boot-status")
 def ops_boot_status():
     """Operator-visible startup log (env audit, safe mode, scheduler kill-switch)."""
