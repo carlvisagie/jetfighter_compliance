@@ -88,6 +88,28 @@ def process_evidence_upload(
         extraction = extract_from_file(file_path)
         result.extraction = extraction
 
+        if extraction.ocr_applied:
+            telemetry.emit(
+                "evidence_ocr_applied",
+                project_id=project_id,
+                metadata={
+                    "file":             name,
+                    "ocr_text_length":  extraction.ocr_text_length,
+                    "extraction_method": extraction.extraction_method,
+                },
+            )
+        elif extraction.ocr_status in (
+            "ocr_module_unavailable",
+            "ocr_binary_unavailable",
+            "ocr_failed",
+            "ocr_empty",
+        ):
+            telemetry.emit(
+                "evidence_ocr_skipped",
+                project_id=project_id,
+                metadata={"file": name, "reason": extraction.ocr_status},
+            )
+
         if extraction.pending_analysis and not extraction.text_preview:
             result.status = "pending_analysis"
             result.message = "We received your files. We are organizing them now."

@@ -8,6 +8,13 @@ import re
 from pathlib import Path
 from typing import Tuple
 
+from .ocr import (
+    DEFAULT_OCR_MAX_PAGES,
+    looks_like_scanned_pdf,
+    ocr_enabled,
+    ocr_image_bytes,
+    ocr_pdf_bytes,
+)
 from .schemas import ExtractionResult
 
 MAX_SYNC_BYTES = 2 * 1024 * 1024
@@ -215,6 +222,40 @@ def extract_from_file(path: Path, *, size_bytes: int = 0) -> ExtractionResult:
         if method == "pdf_unavailable":
             result.warnings.append("pdf_extraction_unavailable")
             result.pending_analysis = True
+        # OCR fallback for scanned PDFs: pypdf returns only whitespace
+        # for image-only PDFs. If the extracted text is below a
+        # conservative threshold *and* OCR is enabled, try OCR.
+        if ocr_enabled() and looks_like_scanned_pdf(text):
+            ocr_text, ocr_status = ocr_pdf_bytes(
+                data, max_pages=DEFAULT_OCR_MAX_PAGES
+            )
+            result.ocr_status = ocr_status
+            if ocr_status == "ok" or ocr_status == "ocr_ok":
+                result.ocr_applied = True
+                result.ocr_text_length = len(ocr_text)
+                # Preserve any text pypdf did find by prepending it.
+                if text.strip():
+                    text = text + "\n\n--- ocr text ---\n" + ocr_text
+                else:
+                    text = ocr_text
+                method = "pdf_ocr"
+                # Clear pending if we now have real text.
+                if text.strip():
+                    result.pending_analysis = False
+            elif ocr_status in (
+                "ocr_module_unavailable",
+                "ocr_binary_unavailable",
+            ):
+                result.warnings.append(
+                    f"scanned_pdf_ocr_skipped:{ocr_status}"
+                )
+                result.pending_analysis = True
+            elif ocr_status == "ocr_empty":
+                result.warnings.append("scanned_pdf_ocr_empty")
+                result.pending_analysis = True
+            elif ocr_status == "ocr_failed":
+                result.warnings.append("scanned_pdf_ocr_failed")
+                result.pending_analysis = True
     elif ext in (".csv",):
         text, method = _extract_csv(data)
     elif ext == ".docx":
@@ -243,10 +284,33 @@ def extract_from_file(path: Path, *, size_bytes: int = 0) -> ExtractionResult:
         text, method = _extract_image_metadata(data, ext)
         # Image METADATA is real text; mark pending only if metadata extraction
         # itself failed. The image still goes through classification + entity
-        # extraction on filename + metadata; OCR awaits a deliberate add.
-        result.warnings.append("image_text_awaits_ocr_for_full_extraction")
+        # extraction on filename + metadata.
         if method in ("image_metadata_unavailable", "image_metadata_failed"):
             result.pending_analysis = True
+        # OCR on the image itself if enabled — this is what surfaces
+        # MFA screenshots, scanned licences, smartphone-photo policies.
+        if ocr_enabled():
+            ocr_text, ocr_status = ocr_image_bytes(data)
+            result.ocr_status = ocr_status
+            if ocr_status == "ocr_ok":
+                result.ocr_applied = True
+                result.ocr_text_length = len(ocr_text)
+                text = (text + "\n\n--- ocr text ---\n" + ocr_text) if text else ocr_text
+                method = "image_ocr"
+                result.pending_analysis = False
+            elif ocr_status in (
+                "ocr_module_unavailable",
+                "ocr_binary_unavailable",
+            ):
+                result.warnings.append(
+                    f"image_ocr_skipped:{ocr_status}"
+                )
+            elif ocr_status == "ocr_empty":
+                result.warnings.append("image_ocr_empty")
+            elif ocr_status == "ocr_failed":
+                result.warnings.append("image_ocr_failed")
+        else:
+            result.warnings.append("image_text_awaits_ocr_for_full_extraction")
     else:
         text, method = _extract_txt(data)
         if not text.strip():

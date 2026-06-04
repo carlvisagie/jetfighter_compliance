@@ -39,6 +39,10 @@ class ExtractionResult(BaseModel):
     warnings: List[str] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
     pending_analysis: bool = False
+    ocr_applied: bool = False
+    ocr_status: str = ""
+    ocr_text_length: int = 0
+    ocr_pages: int = 0
 
 
 class ExtractedItem(BaseModel):
