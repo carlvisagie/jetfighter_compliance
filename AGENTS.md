@@ -34,6 +34,20 @@ Violating this rule cost the platform a forensic audit on 2026-06-04. Do not rep
 
 ---
 
+## Live production proofs (must be re-verified before quoting status)
+
+| Proof | How to run | Last verified |
+|---|---|---|
+| Operator session login + build commit | `python scripts/probe_boot_status.py` | 2026-06-04 commit `bb3aeb6` |
+| Scheduler started with 12 cron jobs | (same — look for `scheduler: started`) | 2026-06-04 commit `bb3aeb6` |
+| Organism state + VIO overview shape | `python scripts/probe_vio_overview.py` | 2026-06-04 |
+| Disk persistence across restart | `python scripts/prove_disk_persistence.py` | 2026-06-04 `verified_persistent` |
+| Full pytest suite (865 tests) | `python -m pytest -q --timeout=60` | 2026-06-04 865 passed |
+
+All four probes require `.ops_env` with `OPS_PASSWORD` (+ `RENDER_API_KEY` for the restart proof).
+
+---
+
 ## Mandatory read before any edit
 
 1. **This file** (`AGENTS.md`)
@@ -45,7 +59,7 @@ Violating this rule cost the platform a forensic audit on 2026-06-04. Do not rep
 7. **`server.py`** — real routes (HTML may lie; code is truth)
 8. **`render.yaml`** — production env contract
 
-Optional but useful: [`docs/PRODUCTION_ENGINEERING_DOCTRINE.md`](docs/PRODUCTION_ENGINEERING_DOCTRINE.md), [`docs/PUBLIC_UI_EXPOSURE_AUDIT.md`](docs/PUBLIC_UI_EXPOSURE_AUDIT.md).
+Optional but useful: [`docs/PRODUCTION_ENGINEERING_DOCTRINE.md`](docs/PRODUCTION_ENGINEERING_DOCTRINE.md), [`docs/PUBLIC_UI_EXPOSURE_AUDIT.md`](docs/PUBLIC_UI_EXPOSURE_AUDIT.md), [`docs/FOUNDING_BETA_RENAME_PLAN.md`](docs/FOUNDING_BETA_RENAME_PLAN.md) (known-amber tracking).
 
 ---
 

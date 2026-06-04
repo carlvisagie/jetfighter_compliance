@@ -9,6 +9,30 @@
 
 ---
 
+## 2026-06-04 status addendum (commit `bb3aeb6` — heartbeat restoration pass)
+
+**Production proofs re-run (all live):**
+
+| Proof | Verdict |
+|---|---|
+| Build deployed | commit `bb3aeb6`, environment=`production`, `safe_mode=false`, `schedulers_enabled=true` |
+| Organism heartbeat | `scheduler: started (active jobs=12)` — queue, sla, exports, digest, compliance_intel, acquisition, alerts all registered |
+| Disk persistence | `verified_persistent` (marker_birth_utc unchanged across one full Render restart) — SEV-1 ephemeral-disk regression is **structurally eliminated** |
+| Document extraction | PDF / DOCX / XLSX / image metadata implemented in `services/evidence_intelligence/extraction.py` — `pypdf`, `python-docx`, `openpyxl`, `Pillow` shipped in `requirements.txt` |
+| Test suite | 865 passed in 264.46s |
+
+**Remaining organism AMBER:** one — `beta_residue_scan` (15 active source files still use the `founding_beta` token for the canonical loose-discovery acquisition mode). Behavior is correct; the name is unfinished. Planned rename is scoped in [`FOUNDING_BETA_RENAME_PLAN.md`](./FOUNDING_BETA_RENAME_PLAN.md). **Not a release blocker.**
+
+**Verification scripts shipped in this pass (all hit production via authenticated session, never local data):**
+
+- `scripts/probe_boot_status.py` — boot/heartbeat snapshot
+- `scripts/probe_vio_overview.py` — VIO + organism summary shape contract
+- `scripts/prove_disk_persistence.py` — pre-probe → restart → post-probe → PASS/FAIL
+
+---
+
+---
+
 ## Part I — What This Platform Is
 
 Before any deployment action is taken, it is essential to understand the platform's identity precisely, because this identity governs every decision about what to build, what to change, and what to leave alone.
