@@ -79,3 +79,12 @@ def load_gaps(project_id: str) -> List[Dict[str, Any]]:
 
 def append_review_item(project_id: str, item: Dict[str, Any]) -> None:
     append_jsonl(project_id, "review_queue.jsonl", item)
+
+
+def load_review_queue(project_id: str, limit: int = 500) -> List[Dict[str, Any]]:
+    """Read back the EI operator review queue for an intake/project.
+
+    Returned items are append-only EI events that an operator must
+    triage: conflicting extractions, low-confidence entities, etc.
+    """
+    return load_jsonl(project_id, "review_queue.jsonl", limit=limit)

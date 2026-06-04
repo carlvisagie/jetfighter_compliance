@@ -281,16 +281,27 @@ def build_company_detail(intake_id: str) -> Dict[str, Any]:
 
     files_payload = _safe(lambda: list_intake_files_for_operator(iid), {"documents": [], "file_count": 0})
 
+    # Doctrine alignment: L1 (`vio_overview.py`) loads EI as
+    # `project_id or intake_id`. L2 used to gate purely on `project_id`,
+    # which meant founding-beta intakes (no kickoff project yet) had EI
+    # artifacts on disk but an empty `evidence` block in the company
+    # detail. Operators drilled in and saw an empty evidence/missing/
+    # findings branch despite L1 showing real signals. The intake hook
+    # (`services/intake/intake.py` post-upload) writes EI under
+    # `intake_id`, so we look there as the fallback.
+    ei_key = project_id or iid
     ei: Dict[str, Any] = {}
-    if project_id:
+    if ei_key:
         try:
             from services.evidence_intelligence import get_operator_evidence_intelligence
-            ei = get_operator_evidence_intelligence(project_id) or {}
+            ei = get_operator_evidence_intelligence(ei_key) or {}
         except Exception:
             ei = {}
 
     documents = _present_uploaded_documents(files_payload.get("documents") or [], ei)
-    generated = _generated_documents(project_id)
+    # Generated paperwork still resolves by project_id (legacy projects)
+    # but also accepts intake-as-project (FB-… key) for the new pipeline.
+    generated = _generated_documents(project_id or iid)
     missing = _missing_documents(ei)
     findings = _derive_findings(rec, files_payload, ei)
     bottleneck = _bottleneck(findings, review_status)

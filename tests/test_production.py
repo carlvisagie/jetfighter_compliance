@@ -39,3 +39,49 @@ def test_evidence_rejects_invalid_project(anon_client):
         files={"file": ("a.txt", b"hi", "text/plain")},
     )
     assert r.status_code == 400
+
+
+def test_startup_warnings_flag_missing_email_provider(monkeypatch):
+    """REGRESSION GUARD — in production, the startup self-check must
+    surface a CRITICAL warning when neither SMTP nor Resend is wired.
+
+    The 2026-06-04 revenue-pipeline audit flagged silent payment-link
+    failure as the top first-customer embarrassment: link "generated"
+    but never sent because no provider is configured. This guard
+    pins the warning so the operator sees the gap at boot.
+    """
+    from services import production
+
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    # Force every email config off.
+    monkeypatch.setattr(production.SETTINGS, "smtp_enabled", False, raising=False)
+    monkeypatch.setattr(production.SETTINGS, "smtp_host", "", raising=False)
+    monkeypatch.setattr(production.SETTINGS, "smtp_user", "", raising=False)
+    monkeypatch.setattr(production.SETTINGS, "smtp_pass", "", raising=False)
+    monkeypatch.setattr(production.SETTINGS, "resend_api_key", "", raising=False)
+    monkeypatch.setattr(production.SETTINGS, "resend_from_email", "", raising=False)
+
+    warnings = production.startup_warnings()
+    assert any("no email provider" in w.lower() for w in warnings), (
+        "missing-provider warning must be surfaced; got %r" % (warnings,)
+    )
+    assert production.email_provider_configured() is False
+
+
+def test_startup_warnings_clear_when_resend_configured(monkeypatch):
+    """Resend alone is enough — no warning required."""
+    from services import production
+
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setattr(production.SETTINGS, "smtp_enabled", False, raising=False)
+    monkeypatch.setattr(production.SETTINGS, "smtp_host", "", raising=False)
+    monkeypatch.setattr(production.SETTINGS, "smtp_user", "", raising=False)
+    monkeypatch.setattr(production.SETTINGS, "smtp_pass", "", raising=False)
+    monkeypatch.setattr(production.SETTINGS, "resend_api_key", "re_xxx", raising=False)
+    monkeypatch.setattr(
+        production.SETTINGS, "resend_from_email", "ops@example.com", raising=False
+    )
+
+    assert production.email_provider_configured() is True
+    warnings = production.startup_warnings()
+    assert not any("no email provider" in w.lower() for w in warnings)

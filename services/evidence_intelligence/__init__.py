@@ -2,8 +2,13 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 from ..config import DATA
 from ..public_url import get_public_base_url
@@ -166,6 +171,22 @@ def process_evidence_upload(
                 project_id=project_id,
                 metadata={"field": "company_name", "count": len(conflicting_names)},
             )
+            # Operator queue write — conflicting values are exactly the
+            # case a human must resolve. Forensic audit (2026-06-04)
+            # noted append_review_item was defined but never invoked,
+            # so low-confidence and conflicting events fell on the floor.
+            try:
+                storage.append_review_item(project_id, {
+                    "kind":       "conflicting_extraction",
+                    "field":      "company_name",
+                    "file":       name,
+                    "artifact_id": artifact_id,
+                    "count":      len(conflicting_names),
+                    "candidates": [c.get("value") for c in conflicting_names][:8],
+                    "created_utc": _utc_now(),
+                })
+            except Exception:
+                pass
 
         result.gaps_detected = len(gaps)
         result.profile_updated = True
@@ -180,6 +201,24 @@ def process_evidence_upload(
         low = [e for e in entities if e.confidence < 0.55]
         if low:
             telemetry.emit("low_confidence_extraction", project_id=project_id, metadata={"count": len(low)})
+            # Operator queue write — same reason as above; an operator
+            # must decide whether to accept low-confidence extractions
+            # or re-classify.
+            try:
+                storage.append_review_item(project_id, {
+                    "kind":         "low_confidence_extraction",
+                    "file":         name,
+                    "artifact_id":  artifact_id,
+                    "count":        len(low),
+                    "samples": [
+                        {"type": e.entity_type, "value": str(e.value)[:120],
+                         "confidence": round(float(e.confidence), 3)}
+                        for e in low[:5]
+                    ],
+                    "created_utc":  _utc_now(),
+                })
+            except Exception:
+                pass
 
         try:
             from services.memory.organism_integration import safe_write_after_evidence_intelligence

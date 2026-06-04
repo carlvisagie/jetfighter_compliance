@@ -1734,6 +1734,37 @@ def operator_evidence_intelligence(project_id: str = ""):
     return get_operator_evidence_intelligence(project_id)
 
 
+@app.get("/api/operator/evidence-intelligence/review-queue")
+def operator_evidence_intelligence_review_queue(
+    project_id: str = "",
+    intake_id: str = "",
+    limit: int = 200,
+):
+    """Append-only EI review queue surface for operators.
+
+    Conflicting extractions, low-confidence entities, and other EI
+    events that cannot resolve automatically land here. Accepts either
+    `project_id` (legacy) or `intake_id` (current pipeline writes EI
+    keyed on intake_id).
+    """
+    from services.evidence_intelligence import storage as ei_storage
+
+    key = (project_id or intake_id or "").strip()
+    if not key:
+        return {"ok": False, "error": "project_id or intake_id required"}
+    validate_project_id(key)
+    try:
+        items = ei_storage.load_review_queue(key, limit=int(limit))
+    except Exception as exc:
+        return {"ok": False, "error": f"queue not readable: {exc}", "items": []}
+    return {
+        "ok": True,
+        "key": key,
+        "count": len(items),
+        "items": items,
+    }
+
+
 # ── VIO 2.0 — visual awareness interface ──────────────────────────────────────
 @app.get("/api/operator/vio/overview")
 def vio_overview(request: Request, limit: int = 60):

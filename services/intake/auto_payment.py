@@ -15,9 +15,25 @@ Confidence threshold: 0.65 minimum. Below that, operator review is flagged inste
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
+
+# Doctrine: auto-payment is OFF by default in production. The intake
+# pipeline (services/intake/intake.py) checks `KYC_AUTO_PAYMENT_LINK`
+# before calling us. Forensic audit (2026-06-04) flagged that as a
+# single-layer safety: one env-var typo or one new caller forgetting
+# the guard, and we would spam customers with payment links before
+# operator review. This module-level constant is the belt to the
+# caller's suspenders — `auto_send_payment_link()` itself refuses to
+# send unless the env-var is explicitly truthy, regardless of caller.
+_AUTO_PAYMENT_FLAG = "KYC_AUTO_PAYMENT_LINK"
+_TRUTHY = frozenset({"1", "true", "yes", "on", "enabled"})
+
+
+def _auto_payment_enabled() -> bool:
+    return str(os.environ.get(_AUTO_PAYMENT_FLAG, "false")).strip().lower() in _TRUTHY
 
 
 # Module-level references — can be replaced in tests via monkeypatch
@@ -80,7 +96,27 @@ def auto_send_payment_link(intake_id: str, clf: Dict[str, Any]) -> Dict[str, Any
 
     Called immediately after `classify_intake` in the upload pipeline.
     No operator action required.
+
+    Belt-and-suspenders gate: even if a caller (test, script, future
+    refactor) forgets to honour `KYC_AUTO_PAYMENT_LINK`, this function
+    itself refuses to send when the flag is not explicitly truthy.
+    Production default is OFF — only enable when the operator workflow
+    is ready for the auto-send fan-out.
     """
+    if not _auto_payment_enabled():
+        logger.info(
+            "auto_payment: %s — refused; %s is not enabled",
+            intake_id,
+            _AUTO_PAYMENT_FLAG,
+        )
+        return {
+            "ok":      True,
+            "skipped": True,
+            "reason":  "auto_payment_flag_disabled",
+            "flag":    _AUTO_PAYMENT_FLAG,
+            "intake_id": intake_id,
+        }
+
     rec = _load_intake(intake_id)
 
     # Skip if payment already sent

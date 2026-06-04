@@ -22,6 +22,23 @@ def get_public_base_for_checks() -> str:
     return get_public_base_url()
 
 
+def email_provider_configured() -> bool:
+    """At least one outbound email provider is fully configured.
+
+    Returns True iff either SMTP is enabled with host/user/pass OR a
+    Resend API key + from-address are set. Required for any flow that
+    sends mail (payment links, operator alerts, customer success).
+    """
+    smtp_ok = bool(
+        SETTINGS.smtp_enabled
+        and SETTINGS.smtp_host
+        and SETTINGS.smtp_user
+        and SETTINGS.smtp_pass
+    )
+    resend_ok = bool(SETTINGS.resend_api_key and SETTINGS.resend_from_email)
+    return smtp_ok or resend_ok
+
+
 def startup_warnings() -> List[str]:
     warnings: List[str] = []
     if SETTINGS.intake_token_secret == _DEV_INTAKE_SECRET:
@@ -42,6 +59,19 @@ def startup_warnings() -> List[str]:
             warnings.append(
                 "CRITICAL: intake uploads disabled — "
                 + (upload_block_reason() or "configure KYC_DATA on persistent disk")
+            )
+        # Email provider — top first-customer embarrassment from the
+        # 2026-06-04 revenue-pipeline audit: payment links and operator
+        # notifications "generated" but never sent because no provider
+        # is configured. The system silently degraded into "operator
+        # must paste link manually" — invisible from health checks.
+        if not email_provider_configured():
+            smtp_missing = ", ".join(_smtp_missing_fields()) or "n/a"
+            warnings.append(
+                "CRITICAL: no email provider configured — payment "
+                "links, operator alerts, and customer notifications "
+                "will NOT be sent. Set SMTP_* or RESEND_API_KEY + "
+                f"RESEND_FROM_EMAIL. SMTP missing: {smtp_missing}"
             )
     return warnings
 
@@ -98,6 +128,7 @@ def readiness_checks() -> Dict[str, Any]:
         "inquiry_onboarding_active": True,
         "intake_secret_configured": SETTINGS.intake_token_secret != _DEV_INTAKE_SECRET,
         "smtp_configured": smtp_env_status()["configured"],
+        "email_provider_configured": email_provider_configured(),
         "smtp_status": smtp_env_status(),
         "environment": os.getenv("ENVIRONMENT", "development"),
         "durable_storage_configured": storage["durable_storage_configured"],

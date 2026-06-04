@@ -262,11 +262,23 @@ def test_invitation_email_no_contact_name():
 # ---------------------------------------------------------------------------
 # Auto payment link dispatch
 # ---------------------------------------------------------------------------
+#
+# `auto_send_payment_link()` has two safety layers (belt + suspenders):
+#  1. Caller (services/intake/intake.py) checks `KYC_AUTO_PAYMENT_LINK`
+#     before invoking the function.
+#  2. The function itself refuses unless the same env-var is truthy.
+#
+# Every test below that exercises the "auto-payment fires" path must
+# opt in via `monkeypatch.setenv("KYC_AUTO_PAYMENT_LINK", "true")`. A
+# dedicated test below proves that without opt-in, the function refuses
+# even with a perfect classification — guarding against the embarrassing
+# fan-out scenario flagged in the 2026-06-04 revenue-pipeline audit.
 
 def test_auto_payment_picks_cmmc_l1_for_ssp(monkeypatch):
     """SSP document → cmmc_l1 auto-selected when confidence is high enough."""
     import services.intake.auto_payment as _ap
 
+    monkeypatch.setenv("KYC_AUTO_PAYMENT_LINK", "true")
     calls = []
     monkeypatch.setattr(_ap, "_send_payment_link", lambda iid, pid, **kw: calls.append(pid) or {"ok": True, "product_id": pid})
     monkeypatch.setattr(_ap, "_load_intake", lambda iid: {"email": "test@company.com", "payment": {}})
@@ -282,6 +294,7 @@ def test_auto_payment_upgrades_to_l2_for_network_diagram(monkeypatch):
     """Network diagram → cmmc_l2 auto-selected."""
     import services.intake.auto_payment as _ap
 
+    monkeypatch.setenv("KYC_AUTO_PAYMENT_LINK", "true")
     calls = []
     monkeypatch.setattr(_ap, "_send_payment_link", lambda iid, pid, **kw: calls.append(pid) or {"ok": True, "product_id": pid})
     monkeypatch.setattr(_ap, "_load_intake", lambda iid: {"email": "test@company.com", "payment": {}})
@@ -296,6 +309,7 @@ def test_auto_payment_skips_low_confidence(monkeypatch):
     """Low confidence → no payment sent."""
     import services.intake.auto_payment as _ap
 
+    monkeypatch.setenv("KYC_AUTO_PAYMENT_LINK", "true")
     sent = []
     monkeypatch.setattr(_ap, "_send_payment_link", lambda *a, **kw: sent.append(True) or {})
     monkeypatch.setattr(_ap, "_load_intake", lambda iid: {"email": "test@company.com", "payment": {}})
@@ -312,6 +326,7 @@ def test_auto_payment_skips_if_already_sent(monkeypatch):
     """If payment already exists, do not re-send."""
     import services.intake.auto_payment as _ap
 
+    monkeypatch.setenv("KYC_AUTO_PAYMENT_LINK", "true")
     sent = []
     monkeypatch.setattr(_ap, "_send_payment_link", lambda *a, **kw: sent.append(True) or {})
     monkeypatch.setattr(_ap, "_load_intake", lambda iid: {
@@ -330,12 +345,65 @@ def test_auto_payment_skips_no_email(monkeypatch):
     """No email address → skip."""
     import services.intake.auto_payment as _ap
 
+    monkeypatch.setenv("KYC_AUTO_PAYMENT_LINK", "true")
     monkeypatch.setattr(_ap, "_load_intake", lambda iid: {"email": "", "payment": {}})
 
     from services.intake.auto_payment import auto_send_payment_link
     result = auto_send_payment_link("FB-TEST-005", {"primary_category": "SSP", "confidence_score": 0.9})
     assert result.get("skipped") is True
     assert result.get("reason") == "no_email"
+
+
+def test_auto_payment_refuses_when_flag_not_enabled(monkeypatch):
+    """REGRESSION GUARD — belt-and-suspenders gate.
+
+    Even with a perfectly-classified intake, a configured email, and a
+    fully mocked send path, `auto_send_payment_link` must REFUSE to
+    fire when `KYC_AUTO_PAYMENT_LINK` is not explicitly truthy. The
+    revenue-pipeline audit (2026-06-04) flagged the single-layer
+    safety as catastrophic: one env-var typo and we spam customers
+    with payment links. This guard ensures the function refuses in
+    its own right, independent of the caller.
+    """
+    import services.intake.auto_payment as _ap
+
+    monkeypatch.delenv("KYC_AUTO_PAYMENT_LINK", raising=False)
+    sent = []
+    monkeypatch.setattr(_ap, "_send_payment_link",
+                        lambda *a, **kw: sent.append(True) or {})
+    monkeypatch.setattr(_ap, "_load_intake",
+                        lambda iid: {"email": "test@company.com", "payment": {}})
+
+    from services.intake.auto_payment import auto_send_payment_link
+    result = auto_send_payment_link(
+        "FB-GATE-OFF",
+        {"primary_category": "SSP", "confidence_score": 0.95,
+         "file_types": ["SSP"]},
+    )
+    assert result.get("skipped") is True
+    assert result.get("reason") == "auto_payment_flag_disabled"
+    assert len(sent) == 0, "send path must not be called when gate is off"
+
+
+def test_auto_payment_refuses_when_flag_is_empty_string(monkeypatch):
+    """Empty string or whitespace must NOT count as truthy."""
+    import services.intake.auto_payment as _ap
+
+    monkeypatch.setenv("KYC_AUTO_PAYMENT_LINK", "   ")
+    sent = []
+    monkeypatch.setattr(_ap, "_send_payment_link",
+                        lambda *a, **kw: sent.append(True) or {})
+    monkeypatch.setattr(_ap, "_load_intake",
+                        lambda iid: {"email": "test@company.com", "payment": {}})
+
+    from services.intake.auto_payment import auto_send_payment_link
+    result = auto_send_payment_link(
+        "FB-GATE-WS",
+        {"primary_category": "SSP", "confidence_score": 0.95,
+         "file_types": ["SSP"]},
+    )
+    assert result.get("reason") == "auto_payment_flag_disabled"
+    assert len(sent) == 0
 
 
 def test_acquisition_conversion_alert_emitted(monkeypatch):

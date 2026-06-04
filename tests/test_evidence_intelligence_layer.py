@@ -290,3 +290,58 @@ def test_conflicting_company_names_detected(ei_project):
     confirm_items = needs_confirmation(profile)
     conflict_items = [i for i in confirm_items if i.get("status") == "conflicting"]
     assert conflict_items, "conflicting company names must appear in needs_confirmation list"
+
+
+def test_review_queue_persists_conflicting_extractions(ei_project):
+    """REGRESSION GUARD — EI must write conflicting extractions to the
+    operator review queue, not just emit telemetry.
+
+    Forensic audit (2026-06-04) flagged that `append_review_item`
+    existed but was never invoked, so low-confidence and conflicting
+    events were fire-and-forget telemetry. This guard pins the wiring.
+    """
+    pid, _, tmp, _mem = ei_project
+
+    f_a = tmp / "projects" / pid / "evidence" / "conflict_a.txt"
+    f_a.write_text("This policy is issued by Acme Defense LLC.",
+                   encoding="utf-8")
+    f_b = tmp / "projects" / pid / "evidence" / "conflict_b.txt"
+    f_b.write_text("Agreement between Beta Industries Inc and client.",
+                   encoding="utf-8")
+
+    process_evidence_upload(pid, f_a)
+    process_evidence_upload(pid, f_b)
+
+    queue = storage.load_review_queue(pid)
+    kinds = {item.get("kind") for item in queue}
+    assert "conflicting_extraction" in kinds, (
+        "conflicting company-name detection must enqueue a review item; "
+        "got kinds=%r" % (kinds,)
+    )
+
+
+def test_review_queue_operator_endpoint_reads_by_intake_id(
+    ei_client, ei_project
+):
+    """REGRESSION GUARD — operator endpoint must accept intake_id
+    (the current pipeline key) in addition to legacy project_id."""
+    pid, _, _tmp, _mem = ei_project
+    storage.append_review_item(pid, {
+        "kind": "low_confidence_extraction",
+        "file": "smoke.pdf",
+        "count": 3,
+        "created_utc": "2026-06-04T00:00:00Z",
+    })
+
+    r = ei_client.get(
+        "/api/operator/evidence-intelligence/review-queue",
+        params={"intake_id": pid},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body.get("ok") is True
+    assert body.get("count") >= 1
+    assert any(
+        i.get("kind") == "low_confidence_extraction"
+        for i in body.get("items") or []
+    )
