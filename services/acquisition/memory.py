@@ -54,6 +54,27 @@ def save_learned_weights(weights: Dict[str, float], base: Optional[Path] = None)
     root = ensure_intel_dirs(base)
     (root / WEIGHTS_JSON).write_text(json.dumps(weights, indent=2), encoding="utf-8")
 
+    # Mirror the live scoring weights into central learning_state so
+    # the organism has a single observable place to see "what learning
+    # actually steers." Forensic-audit fix (2026-06-04, Central
+    # Memory): weights.json was the real learning source while
+    # learning_state.json held mostly counters — two brains under
+    # the "one brain" doctrine. The mirror is best-effort; failures
+    # never affect acquisition.
+    try:
+        from services.memory.learning import load_learning_state, save_learning_state
+        from services.memory.entity_graph import utc_now
+
+        state = load_learning_state()
+        state["acquisition_weights"] = {
+            "values":      {k: float(v) for k, v in weights.items()},
+            "source":      "services.acquisition.memory.save_learned_weights",
+            "mirrored_utc": utc_now(),
+        }
+        save_learning_state(state)
+    except Exception:
+        pass
+
 
 def record_outcome(
     *,

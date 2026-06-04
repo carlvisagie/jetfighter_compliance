@@ -272,3 +272,35 @@ def test_compact_entities_dedupes_history(mem_tmp):
     assert kept.get("updated_utc"), (
         "compacted entity row must carry an updated_utc timestamp"
     )
+
+
+def test_acquisition_weights_mirror_into_learning_state(mem_tmp, tmp_path,
+                                                       monkeypatch):
+    """REGRESSION GUARD — saving acquisition weights must also mirror
+    them into central learning_state.json so the organism has one
+    place to see what learning actually steers.
+
+    Forensic-audit fix (2026-06-04, Central Memory): two parallel
+    "learning" surfaces violated the one-brain doctrine. Mirroring is
+    cheap, lossless, and gives the awareness layer a single observable.
+    """
+    mem, _ = mem_tmp
+    intel_root = tmp_path / "intel"
+    intel_root.mkdir()
+    monkeypatch.setattr(
+        "services.acquisition.intelligence_paths.ensure_intel_dirs",
+        lambda base=None: intel_root,
+    )
+
+    from services.acquisition.memory import save_learned_weights
+    from services.memory.learning import load_learning_state
+
+    weights = {"segment_aerospace": 4.2, "intake_completed": 9.5}
+    save_learned_weights(weights)
+
+    state = load_learning_state()
+    mirror = state.get("acquisition_weights") or {}
+    assert mirror, "central learning_state must include acquisition_weights"
+    assert mirror["values"]["segment_aerospace"] == 4.2
+    assert mirror["values"]["intake_completed"] == 9.5
+    assert mirror.get("mirrored_utc"), "mirror must carry a timestamp"

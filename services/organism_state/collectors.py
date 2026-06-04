@@ -169,6 +169,73 @@ class DiskPersistenceCollector(SignalCollector):
         }
 
 
+class UnconfirmedPaymentsCollector(SignalCollector):
+    """Counts intakes whose payment link is unconfirmed past the SLA.
+
+    Forensic-audit fix (2026-06-04, Revenue Pipeline): payment links
+    are generated but no PayPal webhook closes the loop. Until an
+    operator manually confirms via the new
+    `confirm_payment_received` action, the platform has no idea who
+    paid. This collector quantifies the gap so the awareness layer
+    can flag it.
+
+    Threshold defaults to 24h; tune via `KYC_PAYMENT_CONFIRM_SLA_H`.
+    """
+
+    name = "unconfirmed_payments"
+
+    def __init__(self, *, sla_hours_default: int = 24):
+        try:
+            self._sla = int(
+                os.environ.get("KYC_PAYMENT_CONFIRM_SLA_H")
+                or sla_hours_default
+            )
+        except (TypeError, ValueError):
+            self._sla = sla_hours_default
+
+    def collect(self) -> Dict[str, Any]:
+        from services.intake.storage import all_intake_ids, load_intake_record
+
+        now_utc = datetime.now(timezone.utc)
+        sla_secs = max(1, self._sla) * 3600
+        breached: List[Dict[str, Any]] = []
+        pending = 0
+        confirmed = 0
+        for iid in all_intake_ids(limit=500):
+            try:
+                rec = load_intake_record(iid, persist_recovery=False)
+            except (FileNotFoundError, ValueError, OSError):
+                continue
+            payment = rec.get("payment") or {}
+            sent_at = _parse_utc(
+                payment.get("payment_link_generated_at_utc")
+            )
+            if not sent_at:
+                continue
+            if payment.get("payment_received_at_utc"):
+                confirmed += 1
+                continue
+            pending += 1
+            age = int((now_utc - sent_at).total_seconds())
+            if age > sla_secs:
+                breached.append({
+                    "intake_id": iid,
+                    "product_id":   payment.get("product_id"),
+                    "age_seconds": age,
+                    "age_hours":   round(age / 3600.0, 1),
+                    "sent_utc":    payment.get(
+                                      "payment_link_generated_at_utc"),
+                })
+        breached.sort(key=lambda r: -int(r.get("age_seconds") or 0))
+        return {
+            "sla_hours":       self._sla,
+            "links_confirmed": confirmed,
+            "links_pending":   pending,
+            "links_breached":  len(breached),
+            "samples":         breached[:10],
+        }
+
+
 class SchedulerHeartbeatCollector(SignalCollector):
     """Observes the background scheduler's pulse.
 

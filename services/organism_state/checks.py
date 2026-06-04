@@ -333,6 +333,63 @@ class BetaResidueCheck(Check):
         )
 
 
+class UnconfirmedPaymentsCheck(Check):
+    """Awareness check: payment-link → payment-confirmed loop.
+
+    Forensic-audit fix (2026-06-04, Revenue Pipeline): with no PayPal
+    webhook, customers can pay and the system stays silent until an
+    operator manually confirms via `confirm_payment_received`. The
+    UnconfirmedPaymentsCollector quantifies how many links are
+    waiting past the SLA; this check escalates accordingly.
+
+    Severity ladder:
+      ok        → no breached links
+      AMBER     → ≤ 2 breached links (operator should follow up)
+      RED       → ≥ 3 breached links OR any link aged > 2x SLA
+    """
+
+    name = "unconfirmed_payments"
+
+    def evaluate(self, signals: SignalBundle) -> CheckResult:
+        section = signals.section("unconfirmed_payments") or {}
+        if not section:
+            return CheckResult(
+                name=self.name, ok=True, severity=Severity.INFO,
+                detail="No unconfirmed-payments signal available.",
+                evidence={},
+            )
+        breached = int(section.get("links_breached") or 0)
+        pending  = int(section.get("links_pending") or 0)
+        sla_h    = int(section.get("sla_hours") or 0)
+        samples  = section.get("samples") or []
+        max_age_h = max(
+            [float((s or {}).get("age_hours") or 0) for s in samples],
+            default=0.0,
+        )
+        if breached == 0:
+            return CheckResult(
+                name=self.name, ok=True, severity=Severity.INFO,
+                detail=(f"Pending={pending} confirmed={section.get('links_confirmed') or 0}; "
+                        f"no payment link past {sla_h}h."),
+                evidence=dict(section),
+            )
+        if breached >= 3 or max_age_h > 2 * sla_h:
+            return CheckResult(
+                name=self.name, ok=False, severity=Severity.RED,
+                detail=(f"PAYMENT LOOP STALLED: {breached} payment "
+                        f"link(s) older than {sla_h}h; oldest "
+                        f"{max_age_h:.1f}h. Confirm via "
+                        f"operator/intake/<id>/payment/confirm."),
+                evidence=dict(section),
+            )
+        return CheckResult(
+            name=self.name, ok=False, severity=Severity.AMBER,
+            detail=(f"{breached} payment link(s) past {sla_h}h SLA — "
+                    f"operator follow-up needed."),
+            evidence=dict(section),
+        )
+
+
 class SchedulerHeartbeatCheck(Check):
     """Awareness check: the background scheduler is alive and ticking.
 
@@ -397,7 +454,7 @@ class SchedulerHeartbeatCheck(Check):
 
 
 def all_checks():
-    """Ordered tuple of KYC's 10 checks."""
+    """Ordered tuple of KYC's 11 checks."""
     return (
         DiskPersistenceCheck(),
         DiskVsIntakeIndexCheck(),
@@ -409,4 +466,5 @@ def all_checks():
         ArchivesVsActiveCheck(),
         BetaResidueCheck(),
         SchedulerHeartbeatCheck(),
+        UnconfirmedPaymentsCheck(),
     )

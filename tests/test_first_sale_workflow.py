@@ -76,6 +76,62 @@ def test_send_payment_link_operator_action(fb_env, anon_client: TestClient, clie
     assert row["payment"]["paypal_url"]
 
 
+def test_confirm_payment_received_closes_loop(
+    fb_env, anon_client: TestClient, client: TestClient
+):
+    """REGRESSION GUARD — confirm_payment_received must stamp the
+    receipt time, promote review_status to "paid", and emit telemetry.
+
+    Closes the open payment loop flagged in the 2026-06-04 revenue-
+    pipeline audit: PayPal has no webhook back, so the operator (or
+    a future webhook) must explicitly confirm receipt — and the
+    confirmation must be visible to the awareness layer.
+    """
+    up = anon_client.post(
+        "/api/intake/upload",
+        files=[("files", ("confirm.pdf", io.BytesIO(b"%PDF"), "application/pdf"))],
+        data={"email": "confirm@example.com", "company": "ConfirmCo"},
+    )
+    iid = up.json()["intake_id"]
+
+    # Send payment link first — confirmation requires one.
+    sent = client.post(
+        "/api/operator/intake/action",
+        json={"intake_id": iid, "action": "send_payment_link",
+              "product_id": "cmmc_l1"},
+    )
+    assert sent.status_code == 200, sent.text
+
+    # Cannot confirm without a link → guarded by the action's own
+    # precondition.
+    pre = client.post(
+        "/api/operator/intake/action",
+        json={"intake_id": "FB-NEVER-LINKED",
+              "action": "confirm_payment_received"},
+    )
+    assert pre.status_code in (400, 404)
+
+    # Confirm.
+    r = client.post(
+        "/api/operator/intake/action",
+        json={"intake_id": iid, "action": "confirm_payment_received"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body.get("ok") is True
+    assert body.get("review_status") == "paid"
+    assert body.get("kickoff_ready") is True
+    assert body["payment"].get("payment_received_at_utc")
+
+    # Idempotent re-confirmation.
+    again = client.post(
+        "/api/operator/intake/action",
+        json={"intake_id": iid, "action": "confirm_payment_received"},
+    )
+    assert again.status_code == 200
+    assert again.json().get("duplicate_skipped") is True
+
+
 def test_kickoff_project_after_payment_link(fb_env, anon_client: TestClient, client: TestClient):
     up = anon_client.post(
         "/api/intake/upload",

@@ -463,3 +463,65 @@ def test_scheduler_heartbeat_check_silent_when_unavailable():
     result = SchedulerHeartbeatCheck().evaluate(bundle)
     assert result.ok is True
     assert result.severity.value.lower() == "info"
+
+
+# ── Unconfirmed payments — 2026-06-04 audit (Revenue Pipeline) ─────
+
+
+def test_unconfirmed_payments_check_red_on_stalled_loop():
+    """REGRESSION GUARD — three breached payment links must escalate
+    the awareness check to RED so the silent-money-loss gap is
+    visible to operators."""
+    from organism_core import SignalBundle
+    from services.organism_state.checks import UnconfirmedPaymentsCheck
+
+    bundle = SignalBundle()
+    bundle.add("unconfirmed_payments", {
+        "sla_hours":      24,
+        "links_pending":  5,
+        "links_confirmed": 2,
+        "links_breached": 3,
+        "samples": [
+            {"intake_id": "FB-A", "age_hours": 30, "age_seconds": 30*3600},
+            {"intake_id": "FB-B", "age_hours": 28, "age_seconds": 28*3600},
+            {"intake_id": "FB-C", "age_hours": 25, "age_seconds": 25*3600},
+        ],
+    })
+    result = UnconfirmedPaymentsCheck().evaluate(bundle)
+    assert result.ok is False
+    assert result.severity.value.lower() == "red"
+
+
+def test_unconfirmed_payments_check_amber_on_minor_breach():
+    """Single breached link → AMBER, not RED."""
+    from organism_core import SignalBundle
+    from services.organism_state.checks import UnconfirmedPaymentsCheck
+
+    bundle = SignalBundle()
+    bundle.add("unconfirmed_payments", {
+        "sla_hours":      24,
+        "links_pending":  3,
+        "links_confirmed": 0,
+        "links_breached": 1,
+        "samples": [
+            {"intake_id": "FB-X", "age_hours": 30, "age_seconds": 30*3600},
+        ],
+    })
+    result = UnconfirmedPaymentsCheck().evaluate(bundle)
+    assert result.ok is False
+    assert result.severity.value.lower() == "amber"
+
+
+def test_unconfirmed_payments_check_clean_when_none_breached():
+    """No breached links → INFO."""
+    from organism_core import SignalBundle
+    from services.organism_state.checks import UnconfirmedPaymentsCheck
+
+    bundle = SignalBundle()
+    bundle.add("unconfirmed_payments", {
+        "sla_hours": 24, "links_pending": 1, "links_confirmed": 4,
+        "links_breached": 0, "samples": [],
+    })
+    result = UnconfirmedPaymentsCheck().evaluate(bundle)
+    assert result.ok is True
+    assert result.severity.value.lower() == "info"

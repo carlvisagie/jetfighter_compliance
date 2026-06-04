@@ -17,6 +17,7 @@ VALID_ACTIONS = frozenset(
         "mark_high_value",
         "archive",
         "send_payment_link",
+        "confirm_payment_received",
         "kickoff_project",
     }
 )
@@ -26,6 +27,7 @@ _STATUS_MAP = {
     "request_more_info": "needs_info",
     "mark_high_value": "high_value",
     "archive": "archived",
+    "confirm_payment_received": "paid",
 }
 
 _EVENT_MAP = {
@@ -33,6 +35,7 @@ _EVENT_MAP = {
     "request_more_info": "operator_request_more_info",
     "mark_high_value": "operator_high_value",
     "archive": "operator_archived",
+    "confirm_payment_received": "operator_payment_received",
 }
 
 
@@ -52,6 +55,9 @@ def apply_operator_action(
 
     if action == "send_payment_link":
         return _send_payment_link(intake_id, product_id, operator_note=operator_note)
+
+    if action == "confirm_payment_received":
+        return _confirm_payment_received(intake_id, operator_note=operator_note)
 
     if action == "kickoff_project":
         from .kickoff import kickoff_project_from_intake
@@ -258,4 +264,99 @@ def _send_payment_link(
         "email_result": mail,
         "email_sent": email_sent,
         "payment": payment,
+    }
+
+
+def _confirm_payment_received(
+    intake_id: str, *, operator_note: str = ""
+) -> Dict[str, Any]:
+    """Operator marks PayPal payment as received.
+
+    Closes the open loop flagged in the 2026-06-04 revenue-pipeline
+    audit: payment links are generated but PayPal has no webhook back,
+    so "did the customer pay?" relied on operators remembering to
+    check a separate inbox. This route lets the operator (or a future
+    webhook) record receipt explicitly, which:
+
+      • stamps `payment.payment_received_at_utc` on the intake,
+      • promotes review_status → "paid",
+      • emits a custody event + telemetry row so the awareness layer
+        knows the loop closed,
+      • returns kickoff-ready signal so the operator UI can prompt
+        the next step in one click.
+    """
+    from datetime import datetime, timezone
+
+    rec = _load_intake(intake_id)
+    existing = dict(rec.get("payment") or {})
+    if not existing.get("payment_link_generated_at_utc"):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Cannot confirm payment — no payment link has been "
+                "generated for this intake. Send the payment link first."
+            ),
+        )
+
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    payment = dict(existing)
+    if payment.get("payment_received_at_utc"):
+        # Idempotent — re-confirming is harmless.
+        return {
+            "ok": True,
+            "intake_id": intake_id,
+            "action": "confirm_payment_received",
+            "payment": payment,
+            "duplicate_skipped": True,
+            "review_status": rec.get("review_status"),
+        }
+    payment["payment_received_at_utc"] = now
+    payment["payment_confirmed_via"] = "operator"
+    rec["payment"] = payment
+    rec["review_status"] = "paid"
+    rec["status"] = "paid"
+    if operator_note:
+        rec["operator_note"] = operator_note.strip()[:1000]
+    _save_intake(intake_id, rec)
+
+    try:
+        from .transactions import append_transaction_event
+
+        append_transaction_event(
+            intake_id,
+            "operator_payment_received",
+            ok=True,
+            metadata={
+                "product_id":     payment.get("product_id"),
+                "product_title": payment.get("product_title"),
+                "price_display": payment.get("price_display"),
+                "received_via":  "operator",
+            },
+        )
+    except Exception:
+        pass
+
+    emit_intake_event(
+        "operator_payment_received",
+        message=f"Operator confirmed payment for {payment.get('product_title')}",
+        metadata={
+            "intake_id":     intake_id,
+            "product_id":    payment.get("product_id"),
+            "received_via": "operator",
+        },
+    )
+    record_intake_learning(
+        "operator_payment_received",
+        intake_id=intake_id,
+        success=True,
+        extra={"product_id": payment.get("product_id")},
+    )
+
+    return {
+        "ok": True,
+        "intake_id":      intake_id,
+        "action":         "confirm_payment_received",
+        "review_status": rec.get("review_status"),
+        "payment":        payment,
+        "kickoff_ready": True,
     }
