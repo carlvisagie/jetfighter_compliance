@@ -156,9 +156,13 @@ def _process_one(jpath: Path):
         jpath.write_text(json.dumps(job, indent=2))
 
 def sweep_queue():
-    for j in sorted((DATA / "jobs").glob("J-*.json")): 
-        try: _process_one(j)
-        except Exception: pass
+    """Process every queued job through _process_one (retry + telemetry + memory)."""
+    JOBS.mkdir(parents=True, exist_ok=True)
+    for j in sorted(JOBS.glob("J-*.json")):
+        try:
+            _process_one(j)
+        except Exception:
+            pass
 
 def check_slas():
     # minimal SLA escalator (email optional)
@@ -182,13 +186,46 @@ def check_slas():
 scheduler = None
 
 
+def _emit_scheduler_event(
+    event_type: str,
+    *,
+    success: bool = True,
+    severity: str = "info",
+    message: str = "",
+    metadata=None,
+) -> None:
+    try:
+        from services.memory.telemetry import emit_telemetry
+
+        emit_telemetry(
+            "system",
+            event_type,
+            success=success,
+            severity=severity,
+            message=message[:200] if message else "",
+            metadata=metadata or {},
+        )
+    except Exception:
+        pass
+
+
 def start_worker(*, heavy: bool = True) -> None:
-    """
-    STABILIZATION: APScheduler fully disabled unless KYC_SCHEDULERS_ENABLED=true.
-    Re-enable one subsystem at a time after uptime is proven.
+    """Start the background scheduler, with per-organ kill switches.
+
+    Gated by ``KYC_SAFE_MODE`` and ``KYC_SCHEDULERS_ENABLED``. Each organ
+    can be disabled individually via ``KYC_DISABLE_<ORGAN>`` so a single
+    sick subsystem cannot take the whole scheduler down. Every scheduler
+    decision (start, organ register, organ skip, failure) emits both a
+    boot-log entry and a ``system`` telemetry event so the organism's
+    awareness layer reports the live heart rate, not env-var fiction.
     """
     global scheduler
-    from services.runtime_boot import is_safe_mode, log_boot, schedulers_enabled
+    from services.runtime_boot import (
+        is_safe_mode,
+        log_boot,
+        organ_scheduler_enabled,
+        schedulers_enabled,
+    )
 
     if is_safe_mode() or not schedulers_enabled():
         log_boot(
@@ -196,24 +233,138 @@ def start_worker(*, heavy: bool = True) -> None:
             "hard_disabled",
             f"safe_mode={is_safe_mode()} schedulers_enabled={schedulers_enabled()}",
         )
+        _emit_scheduler_event(
+            "scheduler_disabled",
+            metadata={
+                "safe_mode": is_safe_mode(),
+                "schedulers_enabled": schedulers_enabled(),
+            },
+        )
         return
-    if scheduler:
+    if scheduler is not None:
+        log_boot("scheduler", "already_running", f"jobs={len(scheduler.get_jobs())}")
         return
 
-    # --- DISABLED FOR PRODUCTION STABILIZATION (re-enable incrementally) ---
-    # scheduler = BackgroundScheduler(timezone="UTC")
-    # scheduler.add_job(sweep_queue, "interval", seconds=10, id="queue")
-    # scheduler.add_job(check_slas, "interval", minutes=5, id="sla")
-    # scheduler.add_job(nightly_exports, "cron", hour=2, minute=0, id="nightly_exports")
-    # scheduler.add_job(weekly_digest, "cron", day_of_week="fri", hour=9, minute=0, id="weekly_digest")
-    # from services.compliance_intelligence.scheduler import register_scheduler_jobs
-    # register_scheduler_jobs(scheduler)
-    # from services.acquisition.scheduler import register_scheduler_jobs as register_acquisition_jobs
-    # register_acquisition_jobs(scheduler)  # usaspending + reddit cron
-    # from services.alerts.scheduler import register_scheduler_jobs as register_alert_jobs
-    # register_alert_jobs(scheduler)
-    # scheduler.start()
-    log_boot("scheduler", "not_started", "code disabled — set KYC_SCHEDULERS_ENABLED=true to re-enable")
+    try:
+        scheduler = BackgroundScheduler(timezone="UTC")
+    except Exception as exc:
+        log_boot("scheduler", "create_failed", f"{type(exc).__name__}: {exc}")
+        _emit_scheduler_event(
+            "scheduler_create_failed",
+            success=False,
+            severity="error",
+            message=f"{type(exc).__name__}: {exc}",
+        )
+        scheduler = None
+        return
+
+    def _add_job(organ: str, fn, **kw) -> bool:
+        if not organ_scheduler_enabled(organ):
+            log_boot("scheduler", "organ_disabled", organ)
+            _emit_scheduler_event(
+                "scheduler_organ_disabled", metadata={"organ": organ}
+            )
+            return False
+        try:
+            scheduler.add_job(fn, id=organ, replace_existing=True, **kw)
+            log_boot("scheduler", "organ_added", organ)
+            _emit_scheduler_event(
+                "scheduler_organ_registered", metadata={"organ": organ}
+            )
+            return True
+        except Exception as exc:
+            log_boot(
+                "scheduler",
+                "organ_add_failed",
+                f"{organ}: {type(exc).__name__}: {exc}",
+            )
+            _emit_scheduler_event(
+                "scheduler_organ_failed",
+                success=False,
+                severity="warning",
+                message=f"{type(exc).__name__}: {exc}",
+                metadata={"organ": organ},
+            )
+            return False
+
+    _add_job("queue", sweep_queue, trigger="interval", seconds=10)
+    _add_job("sla", check_slas, trigger="interval", minutes=5)
+    if heavy:
+        _add_job(
+            "nightly_exports",
+            nightly_exports,
+            trigger="cron",
+            hour=2,
+            minute=0,
+        )
+        _add_job(
+            "weekly_digest",
+            weekly_digest,
+            trigger="cron",
+            day_of_week="fri",
+            hour=9,
+            minute=0,
+        )
+
+    if heavy:
+        for organ_label, module_path in (
+            ("compliance_intel", "services.compliance_intelligence.scheduler"),
+            ("acquisition", "services.acquisition.scheduler"),
+            ("alerts", "services.alerts.scheduler"),
+        ):
+            if not organ_scheduler_enabled(organ_label):
+                log_boot("scheduler", "organ_disabled", organ_label)
+                _emit_scheduler_event(
+                    "scheduler_organ_disabled", metadata={"organ": organ_label}
+                )
+                continue
+            try:
+                from importlib import import_module
+
+                module = import_module(module_path)
+                module.register_scheduler_jobs(scheduler)
+                log_boot("scheduler", "organ_module_registered", organ_label)
+                _emit_scheduler_event(
+                    "scheduler_organ_module_registered",
+                    metadata={"organ": organ_label, "module": module_path},
+                )
+            except Exception as exc:
+                log_boot(
+                    "scheduler",
+                    "organ_module_failed",
+                    f"{organ_label}: {type(exc).__name__}: {exc}",
+                )
+                _emit_scheduler_event(
+                    "scheduler_organ_module_failed",
+                    success=False,
+                    severity="warning",
+                    message=f"{type(exc).__name__}: {exc}",
+                    metadata={"organ": organ_label, "module": module_path},
+                )
+
+    try:
+        scheduler.start()
+        log_boot(
+            "scheduler",
+            "started",
+            f"active jobs={len(scheduler.get_jobs())}",
+        )
+        _emit_scheduler_event(
+            "scheduler_started",
+            metadata={
+                "job_count": len(scheduler.get_jobs()),
+                "job_ids": [j.id for j in scheduler.get_jobs()],
+            },
+        )
+    except Exception as exc:
+        log_boot("scheduler", "start_failed", f"{type(exc).__name__}: {exc}")
+        _emit_scheduler_event(
+            "scheduler_start_failed",
+            success=False,
+            severity="error",
+            message=f"{type(exc).__name__}: {exc}",
+        )
+        scheduler = None
 
 def nightly_exports():
     """Export binders for projects touched in last 24h."""

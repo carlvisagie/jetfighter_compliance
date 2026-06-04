@@ -315,8 +315,24 @@ async def _boot_worker():
         logging.warning("[startup] %s", w)
         log_boot("startup_warning", "warn", w[:200])
 
-    log_boot("worker", "skipped", f"safe_mode={is_safe_mode()} schedulers={schedulers_enabled()}")
-    log_boot("heavy_subsystems", "skipped", "inquiry/upload/static only")
+    if is_safe_mode() or not schedulers_enabled():
+        log_boot(
+            "worker",
+            "skipped",
+            f"safe_mode={is_safe_mode()} schedulers={schedulers_enabled()}",
+        )
+        log_boot("heavy_subsystems", "skipped", "inquiry/upload/static only")
+    else:
+        try:
+            start_worker(heavy=True)
+            log_boot("worker", "started", "heavy=True")
+        except Exception as exc:
+            log_boot(
+                "worker",
+                "start_failed",
+                f"{type(exc).__name__}: {exc}",
+            )
+            logging.exception("[boot] start_worker failed: %s", exc)
 
 
 def _safe_mode_block(module: str = "acquisition") -> Optional[JSONResponse]:

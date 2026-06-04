@@ -153,7 +153,16 @@ class DiskPersistenceCheck(Check):
 
     def evaluate(self, signals: SignalBundle) -> CheckResult:
         s = signals.section("disk_persistence") or {}
-        state = (s.get("state") or "unknown").lower()
+        raw_state = s.get("state")
+        # No collector ran (legacy test paths or partial signal bundles):
+        # the check has no evidence to act on, so it must stay silent.
+        if not raw_state:
+            return CheckResult(
+                name=self.name, ok=True, severity=Severity.INFO,
+                detail="Disk persistence not probed in this signal bundle.",
+                evidence={"state": "not_probed"},
+            )
+        state = str(raw_state).lower()
         evidence = {
             "state": state,
             "verified": bool(s.get("verified")),

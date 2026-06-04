@@ -63,6 +63,19 @@ def heavy_schedulers_enabled() -> bool:
     return schedulers_enabled() and not is_safe_mode()
 
 
+def organ_scheduler_enabled(organ: str) -> bool:
+    """Per-organ kill switch.
+
+    Default: ON. Set ``KYC_DISABLE_<ORGAN>=true`` to disable a single organ
+    without taking the whole scheduler down. Operator can isolate a sick
+    organ from Render Dashboard env without a code change.
+    """
+    if not organ:
+        return False
+    env_name = f"KYC_DISABLE_{organ.upper()}"
+    return not _env_truthy(env_name, default=False)
+
+
 def should_pause_module(module: str) -> bool:
     """True when module must not run (safe mode or feature flag off)."""
     if is_safe_mode():
