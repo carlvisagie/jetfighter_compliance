@@ -18,3 +18,4 @@ data/memory/entities.jsonl
 .cloudflared/
 config_auth.json
 bin/cloudflared.exe
+.commit_msg_*.txt
