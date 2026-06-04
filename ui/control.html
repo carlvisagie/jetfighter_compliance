@@ -13,8 +13,16 @@
   <link rel="stylesheet" href="/ui/assets/styles/operator-cockpit.css">
   <link rel="stylesheet" href="/ui/assets/styles/cognitive-topology.css">
   <link rel="stylesheet" href="/ui/assets/styles/intake-queue.css">
+  <link rel="stylesheet" href="/ui/assets/styles/env-ribbon.css">
 </head>
 <body class="kyc-page kyc-surface-ops" id="org-control-root">
+
+  <!-- ── Environment ribbon (PRODUCTION_IS_THE_ONLY_TRUTH contract) ──────── -->
+  <div id="env-ribbon" class="env-ribbon env-ribbon--unknown" role="status" aria-live="polite">
+    <span class="env-ribbon-label">…</span>
+    <span class="env-ribbon-meta"></span>
+  </div>
+
   <header class="kyc-topbar">
     <a class="kyc-brand" href="/ui/shop.html">Keep<span>YourContracts</span></a>
             <nav class="kyc-nav kyc-nav--ops" aria-label="Operations">
@@ -417,6 +425,7 @@
     </div>
   </aside>
 
+  <script src="/ui/assets/js/env-ribbon.js"></script>
   <script src="/ui/assets/js/cockpit-safe-boot.js"></script>
   <script src="/ui/assets/js/cockpit-stabilization.js"></script>
   <script src="/ui/assets/js/cockpit-intake.js"></script>

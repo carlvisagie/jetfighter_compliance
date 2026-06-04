@@ -27,8 +27,20 @@ except ImportError:
     print("httpx not installed.  pip install httpx")
     sys.exit(1)
 
+# Production-Is-The-Only-Truth contract: no --target / --env / --local allowed.
+# See docs/PRODUCTION_IS_THE_ONLY_TRUTH.md and scripts/_prod_only.py
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _prod_only import (  # noqa: E402
+    PRODUCTION_BASE_URL,
+    PRODUCTION_FALLBACK_URL,
+    reject_target_flag,
+)
+reject_target_flag()
+
 # ── Config ─────────────────────────────────────────────────────────────────────
-BASE_URL = "https://jetfighter-compliance.onrender.com"
+# Bound to production only. Keep the Render fallback for the legacy --check path
+# below, but neither can be overridden by a CLI flag.
+BASE_URL = PRODUCTION_FALLBACK_URL
 ENV_FILE = Path(__file__).resolve().parent.parent / ".ops_env"
 SEED_TAG = "VIODEMO"   # marker in company name so we can find them later
 

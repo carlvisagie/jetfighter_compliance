@@ -4,6 +4,12 @@ Queries every available API endpoint for counts, records, and file listings.
 """
 import httpx, json, sys
 from datetime import datetime
+from pathlib import Path
+
+# Production-Is-The-Only-Truth contract: no --target / --env / --local allowed.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _prod_only import reject_target_flag  # noqa: E402
+reject_target_flag()
 
 BASE = "https://jetfighter-compliance.onrender.com"
 PWD  = "IZAKviss!@34"

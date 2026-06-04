@@ -89,7 +89,9 @@ def test_beta_telemetry_emits(beta_on):
     from services.memory.telemetry import load_telemetry
 
     emit_intake_event("beta_upload_started", metadata={"test": True})
-    rows = load_telemetry(limit=30, subsystem="founding_beta")
+    # emit_intake_event writes subsystem="intake" (post-beta rebrand);
+    # the event_type retains the historical name for log continuity.
+    rows = load_telemetry(limit=30, subsystem="intake")
     assert any(r.get("event_type") == "beta_upload_started" for r in rows)
 
 

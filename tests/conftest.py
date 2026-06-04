@@ -1,13 +1,145 @@
-"""Shared test fixtures for operator authentication."""
+"""
+Shared test fixtures + Production-Is-The-Only-Truth pytest isolation.
+
+Contract: docs/PRODUCTION_IS_THE_ONLY_TRUTH.md
+
+Two hard rules enforced here:
+
+  1. Before *any* test runs, KYC_DATA is pinned to a per-session temp dir
+     (`os.environ["KYC_DATA"]`) AND `services.config.DATA` / `PROJECTS` are
+     patched to point there. Tests cannot accidentally write to the
+     canonical `data/` directory.
+
+  2. At session start we snapshot the mtimes of canonical
+     `data/intakes/`, `data/projects/`, `data/founding_beta/`, and
+     `data/ledger/`. At session end we assert nothing in those paths
+     changed. A test that mutates the real disk loudly fails the session.
+
+This exists because pytest pollution of canonical `data/` was the root cause
+of the 2026-06-04 "40 intakes / 605 projects" forensic incident.
+"""
 
 import os
+import shutil
+import sys
+import tempfile
+from pathlib import Path
+
+# ── Production-Is-The-Only-Truth: pin KYC_DATA before *anything* imports services.config
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_CANONICAL_DATA = (_REPO_ROOT / "data").resolve()
+_TEST_SESSION_DATA_ROOT = Path(
+    tempfile.mkdtemp(prefix="kyc-pytest-session-")
+).resolve()
+os.environ["KYC_DATA"] = str(_TEST_SESSION_DATA_ROOT)
+os.environ.setdefault("ENVIRONMENT", "test")
+for _sub in ("intakes", "projects", "memory", "founding_beta", "ledger", "logs"):
+    (_TEST_SESSION_DATA_ROOT / _sub).mkdir(parents=True, exist_ok=True)
+
+# Mirror repo-shipped READ-ONLY seed JSON into the session tmp. Tests load
+# this via services.config.DATA / "..." so it must be present at the patched
+# root. We never copy runtime-accumulation files (`*.jsonl`, `*.log`) — those
+# are state, not seed, and starting clean each session is correct.
+_SEED_SUBDIRS = ("knowledge_cockpit",)
+
+
+def _mirror_seed_subdir(name: str) -> None:
+    src = _CANONICAL_DATA / name
+    if not src.is_dir():
+        return
+    dst = _TEST_SESSION_DATA_ROOT / name
+    dst.mkdir(parents=True, exist_ok=True)
+    for p in src.rglob("*"):
+        if not p.is_file():
+            continue
+        if p.suffix.lower() in (".jsonl", ".log"):
+            continue  # runtime accumulation, never seed
+        rel = p.relative_to(src)
+        target = dst / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(p, target)
+
+
+for _sub in _SEED_SUBDIRS:
+    _mirror_seed_subdir(_sub)
 
 import pytest
 from fastapi.testclient import TestClient
 
-from server import app
+from server import app  # noqa: E402  (must follow env-var pinning above)
+from services import config as _services_config  # noqa: E402
+
+# Force the live module-level constants onto our session tmp dir.
+_services_config.DATA = _TEST_SESSION_DATA_ROOT
+_services_config.PROJECTS = _TEST_SESSION_DATA_ROOT / "projects"
+_services_config.LOGS = _TEST_SESSION_DATA_ROOT / "logs"
 
 TEST_OPS_PASSWORD = "test-ops-password-for-pytest"
+
+
+# ── Canonical-data tripwire ─────────────────────────────────────────────────
+_CANONICAL_GUARD_PATHS = ("intakes", "projects", "founding_beta", "ledger")
+
+
+def _snapshot_canonical_data() -> dict:
+    snap: dict = {}
+    for sub in _CANONICAL_GUARD_PATHS:
+        root = _CANONICAL_DATA / sub
+        if not root.exists():
+            snap[sub] = None
+            continue
+        per_file: dict = {}
+        for p in root.rglob("*"):
+            try:
+                st = p.stat()
+            except OSError:
+                continue
+            per_file[str(p.relative_to(_CANONICAL_DATA))] = (st.st_size, st.st_mtime_ns)
+        snap[sub] = per_file
+    return snap
+
+
+_CANONICAL_SNAPSHOT_BEFORE = _snapshot_canonical_data()
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Assert no test wrote to the canonical data/ directory during the run."""
+    after = _snapshot_canonical_data()
+    diffs: list[str] = []
+    for sub in _CANONICAL_GUARD_PATHS:
+        before = _CANONICAL_SNAPSHOT_BEFORE.get(sub) or {}
+        nowmap = after.get(sub) or {}
+        added = sorted(set(nowmap) - set(before))
+        removed = sorted(set(before) - set(nowmap))
+        mutated = sorted(
+            k for k in (set(before) & set(nowmap)) if before[k] != nowmap[k]
+        )
+        for k in added:
+            diffs.append(f"ADDED   data/{k}")
+        for k in removed:
+            diffs.append(f"REMOVED data/{k}")
+        for k in mutated:
+            diffs.append(f"MUTATED data/{k}")
+    if diffs:
+        msg = (
+            "\n\n"
+            "============================================================\n"
+            "  CANONICAL DATA TRIPWIRE — TEST POLLUTED data/ DIRECTORY\n"
+            "  Contract: docs/PRODUCTION_IS_THE_ONLY_TRUTH.md\n"
+            "  Pytest is hard-isolated to KYC_DATA=" + str(_TEST_SESSION_DATA_ROOT) + "\n"
+            "  The following canonical-data paths were touched anyway:\n"
+        )
+        for d in diffs[:50]:
+            msg += "    - " + d + "\n"
+        if len(diffs) > 50:
+            msg += f"    ... and {len(diffs) - 50} more\n"
+        msg += "============================================================\n"
+        # Pytest doesn't read sessionfinish exit code from the return value
+        # (it's an int from main loop), so we raise to make this loud.
+        sys.stderr.write(msg)
+        # Force a non-zero exit if the suite would otherwise pass.
+        if exitstatus == 0:
+            session.exitstatus = 1
 
 
 @pytest.fixture(autouse=True)
@@ -15,6 +147,24 @@ def ops_password_env(monkeypatch):
     monkeypatch.setenv("OPS_PASSWORD", TEST_OPS_PASSWORD)
     monkeypatch.setenv("OPS_SECRET", "test-ops-secret-for-pytest")
     monkeypatch.delenv("ENVIRONMENT", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _isolated_kyc_data(monkeypatch):
+    """
+    Re-assert per-test that services.config.DATA / PROJECTS point at the
+    session tmp dir. Some tests monkeypatch DATA themselves; this fixture
+    runs AFTER such patches reset (function-scope teardown) and snaps the
+    canonical pin back into place for the next test.
+
+    The env var KYC_DATA is also pinned in case anything reads it lazily.
+    """
+    monkeypatch.setenv("KYC_DATA", str(_TEST_SESSION_DATA_ROOT))
+    monkeypatch.setattr(_services_config, "DATA", _TEST_SESSION_DATA_ROOT, raising=False)
+    monkeypatch.setattr(
+        _services_config, "PROJECTS", _TEST_SESSION_DATA_ROOT / "projects", raising=False
+    )
+    yield
 
 
 @pytest.fixture

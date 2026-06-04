@@ -12,6 +12,11 @@ if str(_REPO) not in sys.path:
 
 from scripts.lib.ops_client import OpsAuthError, authenticate_production  # noqa: E402
 
+# Production-Is-The-Only-Truth contract: no --target / --env / --local allowed.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _prod_only import reject_target_flag  # noqa: E402
+reject_target_flag()
+
 
 def main() -> int:
     out: dict = {"findings": {}}

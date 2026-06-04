@@ -98,6 +98,75 @@ async def ops_auth_middleware(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def env_envelope_middleware(request: Request, call_next):
+    """
+    Production-Is-The-Only-Truth contract: every operator JSON response carries
+    the environment envelope so no count can ever be quoted without provenance.
+
+    See docs/PRODUCTION_IS_THE_ONLY_TRUTH.md.
+
+    - For dict JSON: injects `_env` key (additive — backward compatible).
+    - For list / non-dict JSON: body untouched; envelope returned via the
+      `X-Env-Envelope` HTTP header so the contract still holds.
+    - Always sets `X-Env-Envelope` header for /api/operator/* responses.
+    """
+    response = await call_next(request)
+    path = request.url.path
+    if not path.startswith("/api/operator/"):
+        return response
+
+    from services.env_envelope import env_envelope as _env_envelope
+
+    env = _env_envelope()
+    env_header_json = json.dumps(env, separators=(",", ":"))
+
+    content_type = (response.headers.get("content-type") or "").lower()
+    is_json = "application/json" in content_type
+
+    if not is_json:
+        response.headers["X-Env-Envelope"] = env_header_json
+        return response
+
+    body_bytes = b""
+    async for chunk in response.body_iterator:
+        body_bytes += chunk if isinstance(chunk, (bytes, bytearray)) else chunk.encode("utf-8")
+
+    try:
+        payload = json.loads(body_bytes.decode("utf-8"))
+    except Exception:
+        new_headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+        new_headers["X-Env-Envelope"] = env_header_json
+        return Response(
+            content=body_bytes,
+            status_code=response.status_code,
+            headers=new_headers,
+            media_type=response.media_type,
+        )
+
+    if isinstance(payload, dict):
+        payload["_env"] = env
+
+    new_body = json.dumps(payload, default=str).encode("utf-8")
+    new_headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+    new_headers["X-Env-Envelope"] = env_header_json
+    return Response(
+        content=new_body,
+        status_code=response.status_code,
+        headers=new_headers,
+        media_type="application/json",
+    )
+
+
+@app.get("/api/operator/environment-label")
+async def operator_environment_label(request: Request):
+    """UI ribbon source — see services/env_envelope.environment_label()."""
+    require_ops_access(request)
+    from services.env_envelope import environment_label
+
+    return environment_label()
+
+
 # ---------- Operator auth ----------
 @app.post("/api/ops/login")
 async def ops_login(body: dict = Body(...), response: Response = None):

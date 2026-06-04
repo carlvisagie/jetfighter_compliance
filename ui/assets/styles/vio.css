@@ -839,11 +839,43 @@ html, body {
   text-decoration: none;
   border-radius: 3px;
   transition: border-color 0.18s, color 0.18s;
+  cursor: pointer;
+  font-family: inherit;
 }
 .vio-l2-side-link:hover, .vio-l2-side-btn:hover {
   color: var(--st-healthy);
   border-color: var(--st-healthy);
 }
+
+/* Drill-down rows in the side panel — clickable item in a list/tree */
+.vio-l2-side-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  margin-top: 4px;
+  background: var(--vio-bg);
+  border: 1px solid var(--vio-border);
+  color: var(--vio-text);
+  font-size: 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.18s, color 0.18s, background-color 0.18s;
+  word-break: break-word;
+}
+.vio-l2-side-row:hover {
+  border-color: var(--st-healthy);
+  background: var(--vio-surface-soft);
+  color: var(--st-healthy);
+}
+.vio-l2-side-row::after {
+  content: '›';
+  float: right;
+  color: var(--vio-text-faint);
+  margin-left: 8px;
+}
+.vio-l2-side-row:hover::after { color: var(--st-healthy); }
 .vio-l2-side-error {
   color: var(--st-failed);
   font-size: 11px;

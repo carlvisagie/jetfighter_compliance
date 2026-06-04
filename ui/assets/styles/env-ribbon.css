@@ -1,0 +1,113 @@
+/*
+ * Environment ribbon
+ * Source of truth: services/env_envelope.environment_label()
+ * Contract: docs/PRODUCTION_IS_THE_ONLY_TRUTH.md
+ *
+ * Behaviour:
+ *   - PRODUCTION   → calm, small, dark-green strip (stillness)
+ *   - NON-PROD     → giant red strip across the full width; dims the rest
+ *                    of the page to 50% so no count is visible without the
+ *                    warning being visible too.
+ *   - UNKNOWN      → same as NON-PROD until the ribbon endpoint answers.
+ */
+
+.env-ribbon {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 14px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.18);
+  user-select: none;
+  pointer-events: none;
+}
+
+.env-ribbon-label {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.env-ribbon-meta {
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-size: 10px;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── PRODUCTION — calm, hardly noticed ──────────────────────────────────── */
+.env-ribbon--prod {
+  background: #0f4128;
+  color: #c8f0d4;
+  border-bottom-color: #062518;
+}
+.env-ribbon--prod .env-ribbon-label::before {
+  content: "● ";
+  color: #6dd49b;
+  margin-right: 4px;
+}
+
+/* ── NON-PRODUCTION — impossible to miss ────────────────────────────────── */
+.env-ribbon--noprod,
+.env-ribbon--unknown {
+  background: repeating-linear-gradient(
+    45deg,
+    #7f1d1d 0,
+    #7f1d1d 18px,
+    #991b1b 18px,
+    #991b1b 36px
+  );
+  color: #fff;
+  font-size: 14px;
+  padding: 14px 18px;
+  border-bottom: 4px solid #450a0a;
+  box-shadow: 0 4px 18px rgba(127, 29, 29, 0.45);
+  animation: env-ribbon-throb 2.4s ease-in-out infinite;
+}
+.env-ribbon--noprod .env-ribbon-label,
+.env-ribbon--unknown .env-ribbon-label {
+  font-size: 16px;
+  letter-spacing: 0.14em;
+}
+.env-ribbon--noprod .env-ribbon-label::before,
+.env-ribbon--unknown .env-ribbon-label::before {
+  content: "⚠ ";
+  margin-right: 6px;
+}
+.env-ribbon--noprod .env-ribbon-meta,
+.env-ribbon--unknown .env-ribbon-meta {
+  font-size: 12px;
+  opacity: 0.95;
+}
+
+@keyframes env-ribbon-throb {
+  0%, 100% { box-shadow: 0 4px 18px rgba(127, 29, 29, 0.45); }
+  50%      { box-shadow: 0 4px 26px rgba(220, 38, 38, 0.75); }
+}
+
+/* When the ribbon says non-production, dim the rest of the page so a
+ * screenshot of any count includes the warning. The ribbon itself stays
+ * full opacity. */
+body.env-non-production > *:not(.env-ribbon):not(script):not(style) {
+  opacity: 0.55;
+  transition: opacity 0.3s ease;
+}
+body.env-production > *,
+body.env-unknown > *:not(.env-ribbon):not(script):not(style) {
+  /* prod: untouched; unknown: also dimmed via inherited unknown rule above */
+}
+body.env-unknown > *:not(.env-ribbon):not(script):not(style) {
+  opacity: 0.55;
+}

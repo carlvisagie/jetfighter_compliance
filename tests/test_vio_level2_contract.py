@@ -144,3 +144,31 @@ def test_level2_side_panel_overview_fields_exist(fb_env, anon_client, client):
     assert "next_actions" in detail
     assert "review_status" in detail
     assert "age_hours" in detail
+
+
+# ── 7. Classification block feeds the "category" branch (above classify) ─
+def test_level2_classification_block_is_present(fb_env, anon_client, client):
+    """vio-level2.js reads detail.classification.{primary_category,
+    secondary_category, scope_label} to render the category cluster above
+    the classification stage anchor. Block must exist (may be empty)."""
+    body = _upload(anon_client, ["delta.pdf"])
+    iid = body["intake_id"]
+
+    detail = client.get(f"/api/operator/vio/company/{iid}").json()
+    cls = detail.get("classification")
+    assert isinstance(cls, dict), "classification block required for L2 category branch"
+    for key in ("primary_category", "secondary_category", "scope_label"):
+        assert key in cls, f"classification missing key: {key}"
+
+
+# ── 8. Confirmation-needed list feeds the "confirmation" branch ─────────
+def test_level2_confirmation_needed_is_a_list(fb_env, anon_client, client):
+    """vio-level2.js renders a confirmation cluster from detail.confirmation_needed.
+    The key must exist as a list (possibly empty) so the renderer never
+    crashes on `undefined.length`."""
+    body = _upload(anon_client, ["epsilon.pdf"])
+    iid = body["intake_id"]
+
+    detail = client.get(f"/api/operator/vio/company/{iid}").json()
+    assert "confirmation_needed" in detail
+    assert isinstance(detail["confirmation_needed"], list)

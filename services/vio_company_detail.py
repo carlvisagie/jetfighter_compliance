@@ -295,6 +295,24 @@ def build_company_detail(intake_id: str) -> Dict[str, Any]:
     findings = _derive_findings(rec, files_payload, ei)
     bottleneck = _bottleneck(findings, review_status)
 
+    # ── Classification / category (anchored at the `classification` stage) ──
+    classification = {
+        "primary_category": str(rec.get("primary_category") or "").strip(),
+        "secondary_category": str(rec.get("secondary_category") or "").strip(),
+        "scope_label": str(rec.get("scope_label") or "").strip(),
+    }
+
+    # ── Items the customer must confirm (anchored at evidence_mapping) ──
+    confirmation_needed: List[Dict[str, Any]] = []
+    for c in (ei.get("confirmation_needed") or []):
+        if isinstance(c, dict):
+            confirmation_needed.append({
+                "field": c.get("field") or "",
+                "value": c.get("value") or "",
+                "status": c.get("status") or "",
+                "source_file": c.get("source_file") or c.get("file") or "",
+            })
+
     return {
         "ok": True,
         "intake_id": iid,
@@ -315,9 +333,13 @@ def build_company_detail(intake_id: str) -> Dict[str, Any]:
             "source_ip": rec.get("source_ip") or "",
             "user_agent": (rec.get("user_agent") or "")[:120],
         },
+        # ── Classification (used by Level 2 classification branch) ──────
+        "classification": classification,
         "uploaded_documents": documents,
         "generated_documents": generated,
         "missing_documents": missing,
+        # ── Customer-confirmation items (used by Level 2 evidence branch) ──
+        "confirmation_needed": confirmation_needed,
         "evidence": {
             "files_uploaded": int(ei.get("files_uploaded") or files_payload.get("file_count") or 0),
             "files_analyzed": int(ei.get("files_analyzed") or 0),

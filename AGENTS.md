@@ -6,15 +6,44 @@
 
 ---
 
+## FIRST RULE — PRODUCTION IS THE ONLY TRUTH
+
+There is **one** environment: **production**. Everything else is noise.
+
+- **Production** = `https://compliance.keepyourcontracts.com`, Render service `kyc-backend`, Render disk mounted at `/var/data`. The disk is the only place customer truth ever lives.
+- The local `data/` directory on a developer machine is **not** a source of truth. It contains pytest junk and old experiments. Do not `ls` it to answer "how many intakes / projects / uploads do we have." Do not cite anything you found there.
+- Pytest writes only to per-session temp dirs (`tests/conftest.py` enforces this). Test counts are invisible to humans and to you.
+
+**Before quoting any count to the operator, you MUST:**
+
+1. Hit `https://compliance.keepyourcontracts.com/api/operator/<endpoint>` with `X-Ops-Key: $OPS_API_KEY`.
+2. Read the `_env` envelope on the response.
+3. Confirm `_env.environment == "production"` AND `_env.trust == "trusted"`.
+4. Cite the count **with provenance**: environment, data_root, server_time_utc, git_commit.
+
+**Forbidden:**
+
+- Saying "we have N intakes" without the `_env` envelope alongside it.
+- Reading the local `data/` directory and treating what you find as production reality.
+- Inventing or guessing counts because the operator endpoint was slow.
+- Running scripts that write to `data/` and then quoting the result.
+
+Full doctrine and enforcement matrix: [`docs/PRODUCTION_IS_THE_ONLY_TRUTH.md`](docs/PRODUCTION_IS_THE_ONLY_TRUTH.md).
+
+Violating this rule cost the platform a forensic audit on 2026-06-04. Do not repeat that failure.
+
+---
+
 ## Mandatory read before any edit
 
 1. **This file** (`AGENTS.md`)
-2. **[`docs/KYC_CONSTITUTION.md`](docs/KYC_CONSTITUTION.md)** — binding law (IRON LAW, sacred areas, change gate)
-3. **[`docs/CENTRAL_MEMORY.md`](docs/CENTRAL_MEMORY.md)** — memory model and vessels
-4. **[`docs/KYC_ORGANISM_INTEGRATION_AUDIT.md`](docs/KYC_ORGANISM_INTEGRATION_AUDIT.md)** — engine ↔ memory wiring
-5. **[`docs/LAUNCH_PATH.md`](docs/LAUNCH_PATH.md)** — active production onboarding path
-6. **`server.py`** — real routes (HTML may lie; code is truth)
-7. **`render.yaml`** — production env contract
+2. **[`docs/PRODUCTION_IS_THE_ONLY_TRUTH.md`](docs/PRODUCTION_IS_THE_ONLY_TRUTH.md)** — environment contract (the rule above, fully expanded)
+3. **[`docs/KYC_CONSTITUTION.md`](docs/KYC_CONSTITUTION.md)** — binding law (IRON LAW, sacred areas, change gate)
+4. **[`docs/CENTRAL_MEMORY.md`](docs/CENTRAL_MEMORY.md)** — memory model and vessels
+5. **[`docs/KYC_ORGANISM_INTEGRATION_AUDIT.md`](docs/KYC_ORGANISM_INTEGRATION_AUDIT.md)** — engine ↔ memory wiring
+6. **[`docs/LAUNCH_PATH.md`](docs/LAUNCH_PATH.md)** — active production onboarding path
+7. **`server.py`** — real routes (HTML may lie; code is truth)
+8. **`render.yaml`** — production env contract
 
 Optional but useful: [`docs/PRODUCTION_ENGINEERING_DOCTRINE.md`](docs/PRODUCTION_ENGINEERING_DOCTRINE.md), [`docs/PUBLIC_UI_EXPOSURE_AUDIT.md`](docs/PUBLIC_UI_EXPOSURE_AUDIT.md).
 

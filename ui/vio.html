@@ -5,9 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <title>VIO — KYC Awareness</title>
+  <link rel="stylesheet" href="/ui/assets/styles/env-ribbon.css">
   <link rel="stylesheet" href="/ui/assets/styles/vio.css">
 </head>
 <body class="vio-root" id="vio-root">
+
+  <!-- ── Environment ribbon (PRODUCTION_IS_THE_ONLY_TRUTH contract) ──────── -->
+  <div id="env-ribbon" class="env-ribbon env-ribbon--unknown" role="status" aria-live="polite">
+    <span class="env-ribbon-label">…</span>
+    <span class="env-ribbon-meta"></span>
+  </div>
 
   <!-- ── Header ─────────────────────────────────────────────────────────── -->
   <header class="vio-header">
@@ -66,6 +73,7 @@
   <!-- ── Level 2 landscape mount (filled by vio-level2.js on click) ────── -->
   <div class="vio-level2-mount" id="vio-level2-mount" hidden></div>
 
+  <script src="/ui/assets/js/env-ribbon.js"></script>
   <script src="/ui/assets/js/vio-level2.js"></script>
   <script src="/ui/assets/js/vio.js"></script>
 </body>
