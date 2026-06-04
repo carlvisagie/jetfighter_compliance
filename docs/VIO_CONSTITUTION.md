@@ -59,42 +59,47 @@ Each row is **Company Orb + Living Timeline**. Never a table row.
 
 ---
 
-## The Boundary — VIO vs Organism Orbs
+## The Boundary — VIO Absorbs Everything
 
-**Locked rule** (Carl Visagie, 2026-06-04):
+**Locked rule** (Carl Visagie, 2026-06-04, amended after the
+[`VIO_SOURCE_BRIEF.md`](./VIO_SOURCE_BRIEF.md) was enshrined):
 
-> **If it is about a specific client / company → VIO.
-> If it is about the system watching itself → organism orb.**
+> **VIO is the only primary operator interface.**
+> No separate Control, Command, Status, Inbox, Intelligence,
+> Onboarding, or Operational pages as the primary workflow.
 
-The constellation orbs are **organism infrastructure** — the machine
-observing its own organs (acquisition pipeline, learning state,
-telemetry health, observability, alerts about the system itself,
-background-job pressure, memory state). They are vital signs of the
-substrate, not work surfaces.
+VIO contains BOTH universes:
 
-**VIO is client / company everything.** Every active client, their
-intake, their evidence, their gaps, their custody chain, their
-operator-pending actions, their alerts about *them*, the
-communications with them, their payment state, their delivery
-binder, the knowledge the operator needs about *this* client.
+1. **Client / company state** — every active client, their intake,
+   evidence, gaps, custody chain, operator-pending actions, alerts
+   about *them*, communications, payment state, delivery binder,
+   knowledge needed about *this* client. Rendered as **company spines**
+   (the sketch).
+2. **Organism / subsystem state** — telemetry health, learning state,
+   acquisition pipeline, observability, scheduler heartbeat, storage
+   durability, payment aging, integrity-proof status, knowledge base,
+   alerts about the system itself. Rendered as **organism glyphs**
+   inside the VIO canvas.
 
-The **Intake orb** is the **only bridge** between the two universes:
-clicking it is the operator's transition from *watching the organism*
-to *doing client work*. There is no second door.
+There are no separate `/ui/control.html`, `/ui/command.html`,
+`/ui/inbox.html`, `/ui/intelligence.html`, `/ui/healthz.html` etc.
+as **primary** operator surfaces. The kill-list is in
+[`VIO_SOURCE_BRIEF.md` §4](./VIO_SOURCE_BRIEF.md) — 14 surfaces by name.
 
 **Decision test for any new capability:**
-"Is this about a specific client/company?"
 
-| If yes → | If no → |
-|---|---|
-| It lives in VIO (L1 glance or L2 spine). | It lives as an organism orb (or as data inside one). |
-| Never duplicated on an organism orb. | Never duplicated in VIO. |
+| Question | Answer | Where it goes |
+|---|---|---|
+| Is it about a specific client/company? | yes | Inside VIO as a node, branch, or shape on that company's spine. |
+| Is it about the system watching itself? | yes | Inside VIO as an organism glyph (in-place, not a separate page). |
+| Could it be on a Control, Command, Inbox, Intelligence, or Operational page? | yes (today) | That page is on the kill-list. Build the capability in VIO and delete the old page in the same commit. |
 
-A capability that is currently in the wrong place (e.g. a client-
-specific alert showing on an organism orb, or a system-wide
-telemetry metric polluting a per-client view) is a doctrine
-violation and must be migrated to its correct home before any
-related work proceeds.
+A capability built into a non-VIO primary surface is a doctrine
+violation. **Migrate or delete** — there is no "and also" path.
+
+The **Intake/Upload glyph** is the door into the *company-spine
+universe*. Organism glyphs surface their organ's state without taking
+the operator off the VIO canvas.
 
 ---
 

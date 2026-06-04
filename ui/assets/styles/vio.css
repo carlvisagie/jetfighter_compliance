@@ -1295,3 +1295,207 @@ html, body {
   .vio-brand-sub { display: none; }
   .vio-org-meta { display: none; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SKETCH-FAITHFUL SPINE  (2026-06-05, see docs/VIO_SOURCE_BRIEF.md)
+
+   Replaces the prior 7-stage unified-line view. The sketch is a continuous
+   TIMELINE per company, with event shapes hung at the temporal positions
+   they happened. The shape vocabulary is the brief's §5 grammar:
+
+       □ square    = intake / document arrived
+       ⬢ hexagon   = phase completion
+       ○ circle    = milestone / awaiting confirmation
+       ▲ triangle  = issue
+       ◇ diamond   = decision (payment)
+       ✱ starburst = broken / blocker
+
+   Colours follow the brief: green/amber/red/blue/grey. Motion is reserved
+   for actively-waiting/urgent companies; everything else is stillness.
+
+   These rules INTENTIONALLY override the legacy rules above where they
+   apply to the same selectors (.vio-trace, .vio-spine, .vio-live, etc.),
+   because cascade order = later wins.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* The sketch has no fixed stage-bar; hide the legacy backbone strip
+   without removing the markup (kept for any caller binding to its id). */
+.vio-backbone { display: none; }
+
+/* The trace row is bigger now — it carries shapes, not just a thin line. */
+.vio-trace {
+  position: relative;
+  display: block;
+  height: 96px;
+  padding: 0;
+  border-bottom: 1px solid var(--vio-border);
+  cursor: pointer;
+  transition: background-color 0.18s;
+}
+.vio-trace:hover { background: var(--vio-surface-soft); }
+
+/* Identity orb (the sketch's BIG left circle, integrated as start of spine) */
+.vio-id-orb {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: var(--vio-surface-soft);
+  border: 2px solid var(--vio-text-faint);
+  color: var(--vio-text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.vio-id-orb[data-stage-state="healthy"]        { border-color: var(--st-healthy);      color: var(--vio-text); }
+.vio-id-orb[data-stage-state="stalled"]        { border-color: var(--st-stalled);      color: var(--vio-text-dim); }
+.vio-id-orb[data-stage-state="failed"]         { border-color: var(--st-failed);       color: var(--st-failed);
+                                                  box-shadow: 0 0 0 1px rgba(239,68,68,0.18); }
+.vio-id-orb[data-stage-state="waiting_client"] {
+  border-color: var(--st-waiting); color: var(--vio-text);
+  /* Opacity-only breathe — the orb is absolutely positioned via
+     translateY(-50%), so animating `transform` would fight the
+     centering. Opacity carries the same "attention" signal. */
+  animation: vio-id-breathe 4s ease-in-out infinite;
+}
+.vio-id-orb[data-stage-state="inconsistent"]   { border-color: var(--st-inconsistent); color: var(--vio-text); }
+.vio-id-orb[data-stage-state="done"]           { border-color: var(--st-done);         color: var(--vio-text-dim);
+                                                  opacity: 0.6; }
+@keyframes vio-id-breathe {
+  0%, 100% { opacity: 1.00; box-shadow: 0 0 0 0 rgba(216, 162, 74, 0.0); }
+  50%      { opacity: 0.78; box-shadow: 0 0 0 4px rgba(216, 162, 74, 0.18); }
+}
+
+/* Name + contact + attention column (sits between orb and spine) */
+.vio-name-wrap {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
+}
+.vio-name {
+  color: var(--vio-text);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vio-contact {
+  color: var(--vio-text-dim);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vio-attn {
+  color: var(--vio-text-faint);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+.vio-attn[data-stage-state="failed"]         { color: var(--st-failed); }
+.vio-attn[data-stage-state="waiting_client"] { color: var(--st-waiting); }
+.vio-attn[data-stage-state="inconsistent"]   { color: var(--st-inconsistent); }
+
+/* The spine SVG sits beside the name column, not as a flex child any more */
+.vio-spine {
+  display: block;
+  position: relative;
+}
+
+/* The spine line — past portion is bright, future portion is a ghost */
+.vio-spine-past {
+  stroke-linecap: round;
+  stroke-width: 2;
+  stroke: var(--st-healthy);
+}
+.vio-spine-past[data-stage-state="failed"]         { stroke: var(--st-failed); }
+.vio-spine-past[data-stage-state="waiting_client"] { stroke: var(--st-waiting); }
+.vio-spine-past[data-stage-state="inconsistent"]   { stroke: var(--st-inconsistent); }
+.vio-spine-past[data-stage-state="stalled"]        { stroke: var(--st-stalled); }
+.vio-spine-past[data-stage-state="done"]           { stroke: var(--st-done); }
+
+.vio-spine-past[data-activity="idle"]   { stroke-width: 1.2; }
+.vio-spine-past[data-activity="low"]    { stroke-width: 1.7; }
+.vio-spine-past[data-activity="normal"] { stroke-width: 2.2; }
+.vio-spine-past[data-activity="high"]   { stroke-width: 3.0; }
+.vio-spine-past[data-activity="peak"]   { stroke-width: 3.8; }
+
+.vio-spine-past[data-stage-age-band="fresh"]   { opacity: 1.00; }
+.vio-spine-past[data-stage-age-band="recent"]  { opacity: 0.95; }
+.vio-spine-past[data-stage-age-band="aging"]   { opacity: 0.80; }
+.vio-spine-past[data-stage-age-band="old"]     { opacity: 0.62; }
+.vio-spine-past[data-stage-age-band="ancient"] { opacity: 0.45; }
+
+.vio-spine-future {
+  stroke: var(--vio-text-faint);
+  stroke-width: 1;
+  stroke-dasharray: 1 4;
+  opacity: 0.55;
+}
+
+/* Event shapes — coloured by the brief's palette via [data-color] */
+.vio-event {
+  fill:   var(--st-healthy);
+  stroke: var(--vio-bg);
+  stroke-width: 0.5;
+  transition: fill 0.2s;
+}
+.vio-event[data-color="green"] { fill: #3a8c5a; }   /* healthy / complete */
+.vio-event[data-color="amber"] { fill: #d8a24a; }   /* attention / waiting */
+.vio-event[data-color="red"]   { fill: #ef4444; }   /* blocked */
+.vio-event[data-color="blue"]  { fill: #4dc4d6; }   /* information / active */
+.vio-event[data-color="grey"]  { fill: #6b7280; }   /* inactive / resolved */
+
+/* Starburst spokes — strokes, not fills */
+.vio-event[data-event-type="error"] {
+  fill: none;
+  stroke: #ef4444;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+.vio-event[data-event-type="error"] line { stroke: inherit; }
+
+/* Active or waiting events get the breathe — operator's eye is drawn */
+.vio-event[data-event-status="waiting"],
+.vio-event[data-event-status="active"][data-event-type="gap"] {
+  animation: vio-breathe 4s ease-in-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+/* Live point — the "you are here" marker at the frontier */
+.vio-live {
+  fill: var(--st-healthy);
+  stroke: var(--vio-bg);
+  stroke-width: 1.5;
+}
+.vio-live[data-stage-state="failed"]         { fill: var(--st-failed); }
+.vio-live[data-stage-state="waiting_client"] {
+  fill: var(--st-waiting);
+  animation: vio-breathe 4s ease-in-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+.vio-live[data-stage-state="inconsistent"]   { fill: var(--st-inconsistent); }
+.vio-live[data-stage-state="stalled"]        { fill: var(--st-stalled); }
+.vio-live[data-stage-state="done"]           { fill: var(--st-done); opacity: 0.55; }
+
+/* The 4-second gentle breathe — the ONLY motion in the system, doctrine §5 */
+@keyframes vio-breathe {
+  0%, 100% { opacity: 1.00; transform: scale(1.00); }
+  50%      { opacity: 0.72; transform: scale(1.18); }
+}
+

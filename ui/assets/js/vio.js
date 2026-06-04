@@ -1,57 +1,90 @@
 /* ══════════════════════════════════════════════════════════════════════════════
-   VIO — Visual Intelligence Observatory (Level 1: unified-line view)
+   VIO — Visual Intelligence Observatory (Level 1: sketch-faithful spine)
 
-   Doctrine (see docs/VIO_DOCTRINE.md):
-     · Stillness is the baseline. Motion is only for meaningful deviation.
-     · One company = one continuous line, top-down sorted by urgency.
-     · The LINE encodes everything: stage position, stage state, attention.
-     · No pills, no badges, no decoration. Shape is the language.
+   Source of truth: docs/VIO_SOURCE_BRIEF.md  +  docs/assets/vio_sketch.jpeg
+                    docs/VIO_CONSTITUTION.md  +  docs/VIO_DOCTRINE.md
 
-   Backbone stages (the 7-stage spine every line traces through):
-       intake → classification → validation → evidence_mapping
-              → review → approval → conversion
+   The core model (Carl Visagie's hand sketch):
 
-   Branch (off evidence_mapping):
-       client_followup  (re-enters evidence_mapping when customer replies)
+       ●━━━□━━━━━⬢━━━━━○━━━━━○━━━━━✱
+       ↑    ↑       ↑       ↑       ↑
+       │  intake   phase  milestone broken
+     identity     complete
+       orb
+                 (▲ issues / pace markers hang BELOW the spine)
+
+   · The company IS the interface object — one company = one row, one spine.
+   · The spine is a TIMELINE (not a fixed stage bar). Events hang on it at
+     the temporal position they happened.
+   · Shape vocabulary (brief §5):
+       □ square     = intake / a document arrived
+       ⬢ hexagon    = phase completion
+       ○ circle     = milestone reached  (or waiting/confirmation)
+       ▲ triangle   = an issue
+       ◇ diamond    = a decision (payment, approval)
+       ✱ starburst  = broken / blocker
+   · Color (brief §5):
+       green = healthy/complete  ·  amber = attention  ·  red = blocked
+       blue  = information       ·  grey  = inactive/not started
+   · Motion: pulse/glow only when actively waiting/urgent. Stillness is calm.
+
+   Data source: backend `services/vio_overview.py:_build_timeline` already
+   produces the per-company event list. This renderer maps event types to
+   sketch shapes and hangs them on each company's spine.
    ══════════════════════════════════════════════════════════════════════════════ */
 'use strict';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-// ── Backbone (must match services/vio_overview.STAGE_BACKBONE) ────────────────
-const BACKBONE = [
-  { key: 'intake',           label: 'intake' },
-  { key: 'classification',   label: 'class.' },
-  { key: 'validation',       label: 'valid.' },
-  { key: 'evidence_mapping', label: 'evidence' },
-  { key: 'review',           label: 'review' },
-  { key: 'approval',         label: 'approval' },
-  { key: 'conversion',       label: 'conversion' },
-];
-
-// ── Layout constants ──────────────────────────────────────────────────────────
+// ── Sketch geometry ───────────────────────────────────────────────────────────
+// The spine is a continuous timeline. The identity orb sits on the LEFT and
+// IS the start of the spine (the sketch shows it integrated, not in a
+// sidebar). The spine extends to the right; events hang on it at evenly-
+// spaced positions per index (first iteration — we'll layer real timestamps
+// in a follow-up). A short faint future-segment trails after the last event
+// to suggest "more to come".
 const LAYOUT = {
-  rowH:        56,    // px — the calm baseline; every trace is one of these
-  orbR:        14,    // px
-  orbCx:       28,    // px from row left edge
-  nameW:       190,   // px reserved for company name
-  spineX0:     240,   // px — where the 7-stage spine begins
-  spineCY:     28,    // px — vertical centre of the spine in a row
-  stageGap:    110,   // px between stage anchors
-  livePointR:  6,     // px
-  branchDx:    32,    // px the client-followup branch hangs to the right
-  branchDy:    18,    // px the client-followup branch drops below the spine
+  rowH:           96,   // px — generous because the spine carries shapes, not just a line
+  rowPadX:        20,   // px — horizontal breathing room
+  orbR:           28,   // px — BIG identity orb (the sketch's left circle)
+  orbCx:          48,   // px — orb centre from row left edge
+  nameX:          92,   // px — where name strip starts
+  nameW:          240,  // px reserved for name + contact
+  spineX0:        340,  // px — where the timeline spine starts
+  spineCY:        48,   // px — vertical centre of the spine in a row
+  spineEventGap:  64,   // px between events on the spine
+  spineMinTail:   80,   // px of faint future segment after the last event
+  eventR:         11,   // px — half-width of each event shape
+  liveR:          7,    // px — live point at the current frontier
 };
 
-function spineEndX() {
-  return LAYOUT.spineX0 + (BACKBONE.length - 1) * LAYOUT.stageGap;
-}
-
-// ── Stage-state visual lexicon (see CSS for the actual styling) ───────────────
-// Each token must map to a real semantic condition; no decoration ever.
-const STATE_TOKENS = new Set([
-  'healthy', 'stalled', 'failed', 'waiting_client', 'inconsistent', 'done',
+// Allowed timeline event types — keep in sync with services/vio_overview.py
+// _build_timeline. Anything we don't recognise renders as a neutral circle.
+const EVENT_TOKENS = new Set([
+  'intake', 'upload', 'analysis', 'gap', 'confirmation',
+  'payment', 'error', 'complete',
 ]);
+
+// Event status → semantic color token (see vio.css :root for hex values).
+const STATUS_COLOR = {
+  complete: 'green',
+  active:   'blue',
+  waiting:  'amber',
+  error:    'red',
+  resolved: 'grey',
+};
+
+// Event-type → human label for hover detail (no permanent text on the spine).
+const EVENT_LABEL = {
+  intake:       'intake',
+  upload:       'document uploaded',
+  analysis:     'evidence analysed',
+  gap:          'evidence gap',
+  confirmation: 'awaiting confirmation',
+  payment:      'payment',
+  error:        'extraction failure',
+  complete:     'engagement complete',
+};
 
 // ── In-memory state ───────────────────────────────────────────────────────────
 let _allCompanies = [];
@@ -59,7 +92,9 @@ let _searchQuery  = '';
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  renderBackbone();
+  // No fixed stage-bar legend any more — the spine IS the timeline per the
+  // sketch. We hide the legacy `vio-backbone` section in CSS rather than
+  // touching the HTML, so the markup stays stable.
 
   const searchEl = document.getElementById('vio-search');
   if (searchEl) {
@@ -92,30 +127,9 @@ document.addEventListener('DOMContentLoaded', () => {
   startAutoRefresh();
 });
 
-// ── Render the static stage backbone header ───────────────────────────────────
-function renderBackbone() {
-  const root = document.getElementById('vio-backbone');
-  if (!root) return;
-  root.innerHTML = '';
-
-  const totalW = spineEndX() + 80;
-  root.style.minWidth = totalW + 'px';
-
-  // Anchored to the same coordinate system as each trace.
-  const labels = document.createElement('div');
-  labels.className = 'vio-backbone-labels';
-  labels.style.paddingLeft = LAYOUT.spineX0 + 'px';
-  labels.style.width = (spineEndX() + 80) + 'px';
-
-  BACKBONE.forEach((s, i) => {
-    const lbl = document.createElement('span');
-    lbl.className = 'vio-backbone-label';
-    lbl.style.left = (i * LAYOUT.stageGap) + 'px';
-    lbl.textContent = s.label;
-    labels.appendChild(lbl);
-  });
-  root.appendChild(labels);
-}
+// (Legacy renderBackbone removed — the sketch has no fixed stage bar.
+//  The vio-backbone section is hidden via CSS so the markup stays stable
+//  for any caller that depends on its id.)
 
 // ── Load data ─────────────────────────────────────────────────────────────────
 async function loadVioData() {
@@ -136,13 +150,28 @@ async function loadVioData() {
     renderCount(_allCompanies.length);
     renderTraces();
 
-    // First successful render — tear down the defensive boot overlay
-    // (see <script> block at the top of ui/vio.html). If we ever
-    // forget to call this, the boot watchdog at 10s will paint
-    // "VIO did not complete first render" — which is the right
-    // failure surface, much better than a silent dark page.
-    if (window.VIO_BOOT && typeof window.VIO_BOOT.ready === 'function') {
-      window.VIO_BOOT.ready();
+    // ── Visibility safeguard ──────────────────────────────────────────
+    // We were burned by calling VIO_BOOT.ready() blind: a renderer that
+    // appended invisible / zero-sized nodes would tear the boot overlay
+    // down and leave a dark page with nothing for the operator to see.
+    //
+    // The contract now: we ONLY dismiss the boot overlay if there is at
+    // least one .vio-trace OR a .vio-empty in the DOM. If neither is
+    // present after a render attempt, that's a real failure — we route
+    // it to the boot's diagnostic surface instead of going silently dark.
+    const stage = document.getElementById('vio-stage');
+    const painted = stage && stage.querySelectorAll('.vio-trace, .vio-empty').length > 0;
+    if (window.VIO_BOOT) {
+      if (painted) {
+        window.VIO_BOOT.ready();
+      } else if (typeof window.VIO_BOOT.fault === 'function') {
+        window.VIO_BOOT.fault(
+          'render-empty',
+          `loadVioData succeeded with ${_allCompanies.length} ` +
+          `company${_allCompanies.length === 1 ? '' : 's'} but the ` +
+          'renderer produced zero visible nodes. Check vio.js renderTraces.'
+        );
+      }
     }
   } catch (err) {
     const stage = document.getElementById('vio-stage');
@@ -183,13 +212,16 @@ function startAutoRefresh() {
   }, 60_000);
 }
 
-// ── Render traces ─────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+//  RENDER  (sketch-faithful spine — see docs/VIO_SOURCE_BRIEF.md)
+// ══════════════════════════════════════════════════════════════════════════════
+
 function renderTraces() {
   const stage = document.getElementById('vio-stage');
   if (!stage) return;
 
   document.getElementById('vio-loading')?.remove();
-  stage.querySelectorAll('.vio-trace, .vio-empty').forEach(e => e.remove());
+  stage.querySelectorAll('.vio-trace, .vio-empty, .vio-error-state').forEach(e => e.remove());
 
   let rows = _allCompanies;
   if (_searchQuery) {
@@ -202,90 +234,108 @@ function renderTraces() {
   if (!rows.length) {
     const empty = document.createElement('div');
     empty.className = 'vio-empty';
-    empty.innerHTML = '<div class="vio-empty-mark">◎</div><div>no companies in the field</div>';
+    empty.innerHTML =
+      '<div class="vio-empty-mark">◎</div>' +
+      '<div>no companies in the field</div>';
     stage.appendChild(empty);
     return;
   }
 
-  // Already urgency-sorted by the backend (descending). Just render.
-  rows.forEach((c, idx) => {
-    stage.appendChild(buildTrace(c, idx));
-  });
+  // Already urgency-sorted by the backend (descending). Render top-to-bottom.
+  rows.forEach((c, idx) => stage.appendChild(buildTrace(c, idx)));
 }
 
-// ── Build one trace (one company = one continuous line) ───────────────────────
+// ── One trace per company ─────────────────────────────────────────────────────
 function buildTrace(company, idx) {
+  const events = _normaliseEvents(company.timeline || []);
+  const stateToken = _normaliseStateToken(company.stage_state);
+
+  // Spine length depends on how many events we have to hang on it. We pad
+  // the right side with `spineMinTail` so the operator can see there's a
+  // future ahead of the last event.
+  const lastEventX = LAYOUT.spineX0 + Math.max(0, events.length - 1) * LAYOUT.spineEventGap;
+  const spineEndX  = lastEventX + LAYOUT.spineMinTail;
+  const rowW       = spineEndX + LAYOUT.rowPadX;
+
   const row = document.createElement('div');
   row.className = 'vio-trace';
-  row.setAttribute('data-stage-state', _normalizeState(company.stage_state));
-  row.setAttribute('data-stage', company.stage || 'intake');
-  row.setAttribute('data-on-branch', String(!!company.on_branch));
-  row.style.minWidth = (spineEndX() + 100) + 'px';
+  row.setAttribute('data-stage-state', stateToken);
+  row.setAttribute('data-state',       company.state || '');
+  row.setAttribute('data-on-branch',   String(!!company.on_branch));
+  row.setAttribute('data-intake-id',   company.intake_id || '');
+  row.style.minWidth = rowW + 'px';
 
-  // ── Left: orb + company name (typographic, no badge clutter) ─────────────
-  const orbWrap = document.createElement('div');
-  orbWrap.className = 'vio-orb-wrap';
-
-  // Doctrine + Carl's sketch: the orb owns the identity. Surface
-  // identity facts BOTH on the orb (as a glance-tooltip) and on the
-  // adjacent name strip (visible without hover). Operator should know
-  // company + email + phone without clicking the row.
+  // ── Identity orb ──────────────────────────────────────────────────────
+  // The sketch's BIG left circle. Holds the initial and pulses if the
+  // company is in a state that requires operator/customer attention.
+  // Tooltip carries name + email + phone so the operator can read
+  // identity without opening the row.
   const orb = document.createElement('div');
-  orb.className = 'vio-orb';
-  orb.setAttribute('data-stage-state', _normalizeState(company.stage_state));
+  orb.className = 'vio-id-orb';
+  orb.setAttribute('data-stage-state', stateToken);
+  orb.style.left = (LAYOUT.orbCx - LAYOUT.orbR) + 'px';
+  orb.style.width  = (LAYOUT.orbR * 2) + 'px';
+  orb.style.height = (LAYOUT.orbR * 2) + 'px';
   orb.textContent = company.initials || '?';
-  const _identityParts = [
+  const identityParts = [
     company.company_name || 'Unknown',
     company.contact_email || '',
     company.contact_phone || '',
   ].filter(Boolean);
-  orb.title = _identityParts.join('\n');
-  orb.setAttribute('aria-label', _identityParts.join(' · '));
-  orbWrap.appendChild(orb);
+  orb.title = identityParts.join('\n');
+  orb.setAttribute('aria-label', identityParts.join(' · '));
+  row.appendChild(orb);
 
+  // ── Name + contact strip ──────────────────────────────────────────────
   const nameWrap = document.createElement('div');
   nameWrap.className = 'vio-name-wrap';
+  nameWrap.style.left  = LAYOUT.nameX + 'px';
+  nameWrap.style.width = LAYOUT.nameW + 'px';
 
   const nameEl = document.createElement('div');
   nameEl.className = 'vio-name';
   nameEl.textContent = company.company_name || 'Unknown';
-
-  const contactEl = document.createElement('div');
-  contactEl.className = 'vio-email';
-  const _contactBits = [];
-  if (company.contact_email) _contactBits.push(company.contact_email);
-  if (company.contact_phone) _contactBits.push(company.contact_phone);
-  contactEl.textContent = _contactBits.join(' · ');
-
   nameWrap.appendChild(nameEl);
-  nameWrap.appendChild(contactEl);
 
-  row.appendChild(orbWrap);
+  const contactBits = [];
+  if (company.contact_email) contactBits.push(company.contact_email);
+  if (company.contact_phone) contactBits.push(company.contact_phone);
+  if (contactBits.length) {
+    const contactEl = document.createElement('div');
+    contactEl.className = 'vio-contact';
+    contactEl.textContent = contactBits.join(' · ');
+    nameWrap.appendChild(contactEl);
+  }
+  // Attention summary (terse) — surfaces "4 evidence gaps · awaiting reply"
+  // without making the operator hover.
+  const attention = (company.attention || []).slice(0, 2);
+  if (attention.length) {
+    const attEl = document.createElement('div');
+    attEl.className = 'vio-attn';
+    attEl.setAttribute('data-stage-state', stateToken);
+    attEl.textContent = attention.join(' · ');
+    nameWrap.appendChild(attEl);
+  }
   row.appendChild(nameWrap);
 
-  // ── Right: the SVG spine ────────────────────────────────────────────────
-  const spine = buildSpine(company);
-  row.appendChild(spine);
+  // ── The spine SVG ─────────────────────────────────────────────────────
+  const svg = buildSpine(company, events, spineEndX);
+  row.appendChild(svg);
 
-  // ── Hover / click ───────────────────────────────────────────────────────
+  // ── Hover / click ─────────────────────────────────────────────────────
   row.addEventListener('mouseenter', e => showHoverCard(e, company));
   row.addEventListener('mousemove',  e => positionHoverCard(e));
   row.addEventListener('mouseleave', hideHoverCard);
-  row.addEventListener('click', () => openLevel2(company));
+  row.addEventListener('click',      () => openLevel2(company));
 
   return row;
 }
 
-// ── Build the SVG spine + live point + (optional) client-followup branch ──────
-function buildSpine(company) {
-  const stageIdx = Math.max(
-    0,
-    Math.min(BACKBONE.length - 1, company.stage_index ?? 0)
-  );
-  const liveX = LAYOUT.spineX0 + stageIdx * LAYOUT.stageGap;
-  const endX  = spineEndX();
+// ── The spine — continuous line + event shapes at temporal positions ─────────
+function buildSpine(company, events, spineEndPxX) {
+  const stateToken = _normaliseStateToken(company.stage_state);
 
-  const svgW = endX + 80;
+  const svgW = spineEndPxX + LAYOUT.rowPadX;
   const svgH = LAYOUT.rowH;
 
   const svg = document.createElementNS(SVG_NS, 'svg');
@@ -294,183 +344,201 @@ function buildSpine(company) {
   svg.setAttribute('height', svgH);
   svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
 
-  // ── Future segment (faint — what hasn't happened yet) ──
-  if (liveX < endX) {
-    const futureLine = document.createElementNS(SVG_NS, 'line');
-    futureLine.setAttribute('class', 'vio-spine-future');
-    futureLine.setAttribute('x1', liveX);
-    futureLine.setAttribute('y1', LAYOUT.spineCY);
-    futureLine.setAttribute('x2', endX);
-    futureLine.setAttribute('y2', LAYOUT.spineCY);
-    svg.appendChild(futureLine);
+  // ── 1. The base spine line ──────────────────────────────────────────
+  // Carries colour by state and activity-band thickness. The portion
+  // past the last event fades to a "future ghost" so the operator can
+  // see there's more to come.
+  const lastEventX = events.length
+    ? LAYOUT.spineX0 + (events.length - 1) * LAYOUT.spineEventGap
+    : LAYOUT.spineX0;
+
+  const past = document.createElementNS(SVG_NS, 'line');
+  past.setAttribute('class', 'vio-spine-past');
+  past.setAttribute('data-stage-state', stateToken);
+  past.setAttribute('data-activity', _activityBand(company));
+  past.setAttribute('data-stage-age-band', _stageAgeBand(company));
+  past.setAttribute('x1', LAYOUT.spineX0);
+  past.setAttribute('y1', LAYOUT.spineCY);
+  past.setAttribute('x2', lastEventX);
+  past.setAttribute('y2', LAYOUT.spineCY);
+  svg.appendChild(past);
+
+  if (spineEndPxX > lastEventX) {
+    const future = document.createElementNS(SVG_NS, 'line');
+    future.setAttribute('class', 'vio-spine-future');
+    future.setAttribute('x1', lastEventX);
+    future.setAttribute('y1', LAYOUT.spineCY);
+    future.setAttribute('x2', spineEndPxX);
+    future.setAttribute('y2', LAYOUT.spineCY);
+    svg.appendChild(future);
   }
 
-  // ── Past + present segment (the bright, lived part of the trace) ──
-  // Doctrine: the line is itself an information surface — thickness and
-  // density encode activity intensity, in addition to (not instead of)
-  // the shape vocabulary at the live point. `data-activity` is a
-  // discrete band (idle | low | normal | high | peak) the CSS reads to
-  // pick stroke width and dash density. Stage-age (time since last
-  // movement) further dims the line — a quiet line that hasn't been
-  // touched in days reads visually as quiet, not just dimmer in colour.
-  const pastLine = document.createElementNS(SVG_NS, 'line');
-  pastLine.setAttribute('class', 'vio-spine-past');
-  pastLine.setAttribute('data-stage-state', _normalizeState(company.stage_state));
-  pastLine.setAttribute('data-activity', _activityBand(company));
-  pastLine.setAttribute('data-stage-age-band', _stageAgeBand(company));
-  pastLine.setAttribute('x1', LAYOUT.spineX0);
-  pastLine.setAttribute('y1', LAYOUT.spineCY);
-  pastLine.setAttribute('x2', liveX);
-  pastLine.setAttribute('y2', LAYOUT.spineCY);
-  svg.appendChild(pastLine);
-
-  // ── Stage tick marks (small, faint anchors) ──
-  BACKBONE.forEach((_s, i) => {
-    const cx = LAYOUT.spineX0 + i * LAYOUT.stageGap;
-    const tick = document.createElementNS(SVG_NS, 'circle');
-    const past = i <= stageIdx;
-    tick.setAttribute('class', past ? 'vio-tick-past' : 'vio-tick-future');
-    tick.setAttribute('cx', cx);
-    tick.setAttribute('cy', LAYOUT.spineCY);
-    tick.setAttribute('r', 2.5);
-    svg.appendChild(tick);
+  // ── 2. Event shapes at temporal positions ───────────────────────────
+  events.forEach((ev, i) => {
+    const cx = LAYOUT.spineX0 + i * LAYOUT.spineEventGap;
+    drawEvent(svg, cx, LAYOUT.spineCY, ev);
   });
 
-  // ── Failed: render a sharp break at the live point (no live circle) ──
-  if (company.stage_state === 'failed') {
-    drawFailureBreak(svg, liveX, LAYOUT.spineCY);
-  } else if (company.stage_state === 'inconsistent') {
-    // Small turbulence — three close offset dots at the live point.
-    drawTurbulence(svg, liveX, LAYOUT.spineCY);
-  } else if (company.on_branch) {
-    // Client follow-up branch — gentle perpendicular spur with its own live point.
-    drawClientBranch(svg, liveX, LAYOUT.spineCY, company);
-  } else {
-    // Healthy / stalled / done — single live point, styled via stage_state.
-    drawLivePoint(svg, liveX, LAYOUT.spineCY, company);
+  // ── 3. Live point at the frontier ───────────────────────────────────
+  // A small pulsing/static disc at the last event, telling the operator
+  // "this is the now". Pulses if the company is waiting on something.
+  if (events.length) {
+    drawLivePoint(svg, lastEventX, LAYOUT.spineCY, stateToken);
   }
 
   return svg;
 }
 
-function drawLivePoint(svg, cx, cy, company) {
-  // Doctrine §1.4 + Carl's hand sketch: shape is the language. The live
-  // point silhouette IS the state — operator reads it without parsing
-  // colour. Falls back to a circle for any unknown state.
-  //
-  //   healthy   → square      (a clean, definite milestone)
-  //   stalled   → ▽ triangle  (the sketch's "slow")
-  //   done      → ⬢ hexagon   (a peak, dimmed)
-  //   <unknown> → circle      (graceful fallback)
-  //
-  // failed / inconsistent / waiting_client are drawn by dedicated
-  // functions elsewhere; only the non-deviation states arrive here.
-  const state = _normalizeState(company.stage_state);
-  const r = LAYOUT.livePointR;
+// ── Event shapes (the sketch's vocabulary) ───────────────────────────────────
+function drawEvent(svg, cx, cy, ev) {
+  const type   = EVENT_TOKENS.has(ev.type) ? ev.type : 'unknown';
+  const color  = STATUS_COLOR[ev.status] || 'blue';
+  const r      = LAYOUT.eventR;
+  const label  = EVENT_LABEL[type] || type;
+
   let node;
-  if (state === 'healthy') {
-    node = document.createElementNS(SVG_NS, 'rect');
-    const side = r * 1.7;
-    node.setAttribute('x', cx - side / 2);
-    node.setAttribute('y', cy - side / 2);
-    node.setAttribute('width',  side);
-    node.setAttribute('height', side);
-  } else if (state === 'stalled') {
-    node = document.createElementNS(SVG_NS, 'polygon');
-    const s = r * 1.9;
-    const h = s * 0.866;
-    // downward-pointing triangle, base above
-    node.setAttribute('points',
-      `${cx - s / 2},${cy - h / 2} ${cx + s / 2},${cy - h / 2} ${cx},${cy + h / 2}`);
-  } else if (state === 'done') {
-    node = document.createElementNS(SVG_NS, 'polygon');
-    const s = r * 1.05;
-    // pointy-top hexagon
-    const pts = [];
-    for (let i = 0; i < 6; i++) {
-      const ang = -Math.PI / 2 + i * Math.PI / 3;
-      pts.push(`${cx + s * Math.cos(ang)},${cy + s * Math.sin(ang)}`);
-    }
-    node.setAttribute('points', pts.join(' '));
-  } else {
-    node = document.createElementNS(SVG_NS, 'circle');
-    node.setAttribute('cx', cx);
-    node.setAttribute('cy', cy);
-    node.setAttribute('r', r);
+  switch (type) {
+    case 'intake':
+    case 'upload':
+      node = _svgSquare(cx, cy, r);
+      break;
+    case 'analysis':
+    case 'complete':
+      node = _svgHexagon(cx, cy, r);
+      break;
+    case 'gap':
+      node = _svgTriangle(cx, cy, r, /* down= */ false);
+      break;
+    case 'confirmation':
+      node = _svgCircle(cx, cy, r * 0.85);
+      break;
+    case 'payment':
+      node = _svgDiamond(cx, cy, r);
+      break;
+    case 'error':
+      node = _svgStarburst(cx, cy, r);
+      break;
+    default:
+      node = _svgCircle(cx, cy, r * 0.85);
   }
-  node.setAttribute('class', 'vio-live');
-  node.setAttribute('data-stage-state', state);
+  node.setAttribute('class', 'vio-event');
+  node.setAttribute('data-event-type',  type);
+  node.setAttribute('data-event-status', ev.status || '');
+  node.setAttribute('data-color',        color);
+
+  const title = document.createElementNS(SVG_NS, 'title');
+  title.textContent = `${label} — ${ev.label || ev.status || ''}`;
+  node.appendChild(title);
+
   svg.appendChild(node);
 }
 
-function drawClientBranch(svg, cx, cy, company) {
-  // The spine continues underneath; the branch is a short perpendicular
-  // limb that drops to a live point representing the customer wait.
-  const bx = cx + LAYOUT.branchDx;
-  const by = cy + LAYOUT.branchDy;
-
-  const limb = document.createElementNS(SVG_NS, 'path');
-  limb.setAttribute('class', 'vio-branch-limb');
-  limb.setAttribute('d', `M ${cx} ${cy} Q ${cx + 4} ${cy + 4}, ${cx + 14} ${cy + 14} T ${bx} ${by}`);
-  limb.setAttribute('fill', 'none');
-  svg.appendChild(limb);
-
+function drawLivePoint(svg, cx, cy, stateToken) {
   const c = document.createElementNS(SVG_NS, 'circle');
-  c.setAttribute('class', 'vio-live vio-live-branch');
-  c.setAttribute('data-stage-state', 'waiting_client');
-  c.setAttribute('cx', bx);
-  c.setAttribute('cy', by);
-  c.setAttribute('r', LAYOUT.livePointR);
+  c.setAttribute('class', 'vio-live');
+  c.setAttribute('data-stage-state', stateToken);
+  c.setAttribute('cx', cx);
+  c.setAttribute('cy', cy);
+  c.setAttribute('r', LAYOUT.liveR);
   svg.appendChild(c);
-
-  // small label "client" under the branch tip
-  const lbl = document.createElementNS(SVG_NS, 'text');
-  lbl.setAttribute('class', 'vio-branch-label');
-  lbl.setAttribute('x', bx + 9);
-  lbl.setAttribute('y', by + 3);
-  lbl.textContent = company.branch_label || 'client';
-  svg.appendChild(lbl);
 }
 
-function drawFailureBreak(svg, cx, cy) {
-  // Doctrine §3 + Carl's sketch: failed is a "sharp ✕ + line breaks" /
-  // starburst. Two strong diagonals plus two shorter spokes make the
-  // failure point unmistakable at peripheral-vision distance — read in
-  // a glance, no colour decoding required.
+// ── SVG primitives ────────────────────────────────────────────────────────────
+function _svgCircle(cx, cy, r) {
+  const n = document.createElementNS(SVG_NS, 'circle');
+  n.setAttribute('cx', cx);
+  n.setAttribute('cy', cy);
+  n.setAttribute('r',  r);
+  return n;
+}
+function _svgSquare(cx, cy, r) {
+  const n = document.createElementNS(SVG_NS, 'rect');
+  const side = r * 1.7;
+  n.setAttribute('x', cx - side / 2);
+  n.setAttribute('y', cy - side / 2);
+  n.setAttribute('width',  side);
+  n.setAttribute('height', side);
+  n.setAttribute('rx', 1);
+  return n;
+}
+function _svgTriangle(cx, cy, r, down) {
+  const n = document.createElementNS(SVG_NS, 'polygon');
+  const s = r * 1.9;
+  const h = s * 0.866;
+  const pts = down
+    ? `${cx - s / 2},${cy - h / 2} ${cx + s / 2},${cy - h / 2} ${cx},${cy + h / 2}`
+    : `${cx},${cy - h / 2} ${cx - s / 2},${cy + h / 2} ${cx + s / 2},${cy + h / 2}`;
+  n.setAttribute('points', pts);
+  return n;
+}
+function _svgHexagon(cx, cy, r) {
+  const n = document.createElementNS(SVG_NS, 'polygon');
+  const s = r * 1.1;
+  const pts = [];
+  for (let i = 0; i < 6; i++) {
+    const ang = -Math.PI / 2 + i * Math.PI / 3;
+    pts.push(`${cx + s * Math.cos(ang)},${cy + s * Math.sin(ang)}`);
+  }
+  n.setAttribute('points', pts.join(' '));
+  return n;
+}
+function _svgDiamond(cx, cy, r) {
+  const n = document.createElementNS(SVG_NS, 'polygon');
+  const s = r * 1.25;
+  n.setAttribute('points',
+    `${cx},${cy - s} ${cx + s},${cy} ${cx},${cy + s} ${cx - s},${cy}`);
+  return n;
+}
+function _svgStarburst(cx, cy, r) {
+  // Eight spokes radiating from the centre — the sketch's "broken" mark.
   const g = document.createElementNS(SVG_NS, 'g');
-  g.setAttribute('class', 'vio-failure');
-  const long  = 7;
-  const short = 4;
-  const segs = [
-    [-long, -long,  long,  long],   // ╲
-    [-long,  long,  long, -long],   // ╱
-    [    0, -short,   0,  short],   // │
-    [-short,    0, short,    0],    // ─
+  const long  = r * 1.0;
+  const short = r * 0.55;
+  const spokes = [
+    [-long, -long,  long,  long],
+    [-long,  long,  long, -long],
+    [    0, -long,    0,  long],
+    [-long,    0,  long,    0],
+    [-short,-short,short,-short],
+    [-short, short,short, short],
   ];
-  segs.forEach(([x1, y1, x2, y2]) => {
+  spokes.forEach(([x1, y1, x2, y2]) => {
     const l = document.createElementNS(SVG_NS, 'line');
     l.setAttribute('x1', cx + x1); l.setAttribute('y1', cy + y1);
     l.setAttribute('x2', cx + x2); l.setAttribute('y2', cy + y2);
     g.appendChild(l);
   });
-  svg.appendChild(g);
+  return g;
 }
 
-function drawTurbulence(svg, cx, cy) {
-  const g = document.createElementNS(SVG_NS, 'g');
-  g.setAttribute('class', 'vio-turbulence');
-  [-5, 0, 5].forEach((dx, i) => {
-    const d = document.createElementNS(SVG_NS, 'circle');
-    d.setAttribute('cx', cx + dx);
-    d.setAttribute('cy', cy + (i === 1 ? 0 : (i === 0 ? -2 : 2)));
-    d.setAttribute('r', 2);
-    g.appendChild(d);
-  });
-  svg.appendChild(g);
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function _normaliseEvents(rawEvents) {
+  // Defensive: filter out malformed entries; always guarantee at least one
+  // event (a synthetic "intake" marker) so even a sparse company has a
+  // visible orb-and-square anchor on the spine.
+  const out = [];
+  for (const ev of (rawEvents || [])) {
+    if (!ev || typeof ev !== 'object') continue;
+    const type = String(ev.type || '').toLowerCase();
+    if (!type) continue;
+    out.push({
+      type:   type,
+      status: String(ev.status || 'active').toLowerCase(),
+      label:  ev.label || '',
+      utc:    ev.utc || '',
+    });
+  }
+  if (!out.length) {
+    out.push({ type: 'intake', status: 'active', label: 'intake', utc: '' });
+  }
+  return out;
 }
 
-function _normalizeState(s) {
-  return STATE_TOKENS.has(s) ? s : 'healthy';
+function _normaliseStateToken(s) {
+  const known = new Set([
+    'healthy', 'stalled', 'failed', 'waiting_client', 'inconsistent', 'done',
+  ]);
+  return known.has(s) ? s : 'healthy';
 }
 
 // Activity band — drives line stroke width / density. Companies with
@@ -504,7 +572,10 @@ function showHoverCard(e, company) {
   const card = document.getElementById('vio-hover-card');
   if (!card) return;
 
-  const stage = BACKBONE[company.stage_index ?? 0]?.label || 'intake';
+  // Backend provides the stage label directly on the company object —
+  // we no longer hold a client-side BACKBONE table because the sketch
+  // model is a timeline, not a fixed stage bar.
+  const stage = (company.stage || 'intake').replace(/_/g, ' ');
   const state = company.stage_state || 'healthy';
   const attention = (company.attention || []).slice(0, 4);
 
@@ -524,7 +595,7 @@ function showHoverCard(e, company) {
 
   const stateRow = document.createElement('div');
   stateRow.className = 'vio-hover-state';
-  stateRow.setAttribute('data-stage-state', _normalizeState(state));
+  stateRow.setAttribute('data-stage-state', _normaliseStateToken(state));
   stateRow.textContent = `${stage.toUpperCase()} · ${state.replace(/_/g, ' ')}`;
   card.appendChild(stateRow);
 
