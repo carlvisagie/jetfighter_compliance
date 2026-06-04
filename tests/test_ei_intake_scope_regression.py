@@ -203,6 +203,43 @@ def test_customer_payload_strips_durability_sidecar_domains(ei_data_root):
 # --- Bug 4: gaps always refreshed from latest profile ---------------------
 
 
+def test_operator_payload_redetects_domain_against_scrubbed_inventory(ei_data_root):
+    """A profile whose ``document_inventory`` was poisoned with rows
+    derived from ``classification.json`` mis-classified as 'ssp' would
+    cause the auto-detector to pick CMMC for a life-coaching company.
+    Scrubbed inventory + fresh re-detect must yield 'general'."""
+    import json
+    pid = "P-POISONEDINV"
+    intel = ei_data_root / "projects" / pid / "evidence_intelligence"
+    intel.mkdir(parents=True, exist_ok=True)
+    profile = {
+        "project_id":       pid,
+        "primary_domain":   "CMMC",            # stale, wrong
+        "domain_confidence": 0.9,
+        "document_inventory": [
+            {"file": "intake.json",         "document_type": "contract", "confidence": 0.71,
+             "signals": ["contract"]},
+            {"file": "classification.json", "document_type": "ssp",      "confidence": 0.83,
+             "signals": ["system security plan", "nist 800-171"]},
+            {"file": "life_coaching_packet.txt", "document_type": "unknown",
+             "confidence": 0.1, "signals": []},
+        ],
+    }
+    (intel / "profile.json").write_text(json.dumps(profile), encoding="utf-8")
+
+    op = get_operator_evidence_intelligence(pid)
+    # Polluted CMMC signal must be removed; re-detect should fall back
+    # to 'general' since the real customer file has no signals.
+    assert op["primary_domain"] == "general", (
+        f"expected general after scrub; got {op['primary_domain']}"
+    )
+    gap_ids = {g.get("gap_id") for g in op["gaps"]}
+    assert "ssp_poam"     not in gap_ids
+    assert "mfa_evidence" not in gap_ids
+    # Universal pack should still surface.
+    assert "asset_inventory" in gap_ids
+
+
 def test_operator_payload_recomputes_gaps_ignoring_stale_cache(ei_data_root):
     """Even with a stale gaps.json on disk, the operator view must
     return the freshly-computed pack from the current profile + domain

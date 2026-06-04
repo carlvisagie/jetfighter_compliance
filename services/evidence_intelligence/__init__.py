@@ -76,6 +76,57 @@ def _is_real_customer_upload(name: str) -> bool:
     return True
 
 
+def _scrub_profile_pollution(profile: Dict[str, Any]) -> Dict[str, Any]:
+    """Remove rows / entities derived from internal metadata files.
+
+    Earlier production EI runs polluted ``profile.json`` itself with
+    rows whose source filename is ``intake.json``, ``classification.json``,
+    or ``*.durability.json``. The downstream domain detector reads
+    those inventory rows and was picking CMMC for a life-coaching
+    company because ``classification.json`` got mis-classified as
+    "ssp". Scrubbing on read keeps already-on-disk pollution out of
+    the awareness layer without needing a destructive backfill.
+    """
+    if not isinstance(profile, dict):
+        return profile
+    inv = profile.get("document_inventory")
+    if isinstance(inv, list):
+        profile["document_inventory"] = [
+            row for row in inv
+            if _is_real_customer_upload(str((row or {}).get("file") or ""))
+        ]
+    for bucket in (
+        "company_name_candidates",
+        "emails",
+        "phones",
+        "addresses",
+        "domains",
+        "websites",
+        "people",
+        "vendors",
+        "technologies",
+        "cloud_providers",
+        "identity_providers",
+        "compliance_references",
+    ):
+        items = profile.get(bucket)
+        if not isinstance(items, list):
+            continue
+        cleaned = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            src   = str(item.get("source_file") or "")
+            value = str(item.get("value") or "")
+            if src and not _is_real_customer_upload(src):
+                continue
+            if value.endswith(".durability.json"):
+                continue
+            cleaned.append(item)
+        profile[bucket] = cleaned
+    return profile
+
+
 def _already_processed(project_id: str, sha256_val: str, artifact_id: str) -> bool:
     """Return True if this exact artifact was already extracted successfully."""
     if not sha256_val and not artifact_id:
@@ -378,21 +429,26 @@ def _record_custody_event(
 
 
 def get_customer_evidence_profile(project_id: str) -> Dict[str, Any]:
-    profile = storage.load_profile(project_id)
-    # Strip any inferred "domain" entries that were lifted from internal
-    # sidecar filenames (e.g. ``image.jpg.durability.json``) so we never
-    # ask the customer to confirm orchestration metadata as if it were
-    # part of their company profile.
-    if isinstance(profile.get("domains"), list):
-        profile["domains"] = [
-            d for d in profile["domains"]
-            if _is_real_customer_upload(str(d.get("value") or ""))
-            and not str(d.get("value", "")).endswith(".durability.json")
-        ]
-    domain  = profile.get("primary_domain") or None
-    # Always recompute gaps freshly — see get_operator_evidence_intelligence
-    # for the reasoning; the cached gaps.json would otherwise mask the
-    # newer domain-aware rule pack.
+    # See _scrub_profile_pollution / get_operator_evidence_intelligence
+    # for the rationale.
+    raw_profile      = storage.load_profile(project_id)
+    inv_before       = len(raw_profile.get("document_inventory") or [])
+    profile          = _scrub_profile_pollution(raw_profile)
+    inv_after        = len(profile.get("document_inventory") or [])
+    scrub_changed    = (inv_after != inv_before)
+    persisted_domain = (profile.get("primary_domain") or "").strip()
+    from .domains import detect_compliance_domain as _detect_domain
+    if scrub_changed or not persisted_domain or persisted_domain == "general":
+        _redet = _detect_domain(profile)
+        if (_redet.score or 0) > 0:
+            domain = _redet.domain
+        elif persisted_domain and not scrub_changed:
+            domain = persisted_domain
+        else:
+            domain = None
+    else:
+        _redet = None
+        domain = persisted_domain
     gaps    = _enrich_gaps(detect_gaps(profile, domain=domain))
     missing = gaps[:3]
     return {
@@ -403,8 +459,10 @@ def get_customer_evidence_profile(project_id: str) -> Dict[str, Any]:
         "needs_confirmation": needs_confirmation(profile),
         "missing_items": missing,
         "missing_items_more": len(gaps) > 3,
-        "primary_domain":     profile.get("primary_domain") or "general",
-        "domain_confidence":  profile.get("domain_confidence") or 0.0,
+        "primary_domain":     domain or "general",
+        "domain_confidence":  _redet.confidence if (_redet and (_redet.score or 0) > 0)
+                              else (profile.get("domain_confidence") if not scrub_changed else 0.0)
+                              or 0.0,
         "document_types": [
             {
                 "file": row.get("file"),
@@ -496,19 +554,33 @@ def get_operator_evidence_intelligence(project_id: str) -> Dict[str, Any]:
         if _is_real_customer_upload(e.get("source_file") or "")
     ]
 
-    profile = storage.load_profile(project_id)
-    if isinstance(profile.get("domains"), list):
-        profile["domains"] = [
-            d for d in profile["domains"]
-            if _is_real_customer_upload(str(d.get("value") or ""))
-            and not str(d.get("value", "")).endswith(".durability.json")
-        ]
+    raw_profile     = storage.load_profile(project_id)
+    inv_before      = len(raw_profile.get("document_inventory") or [])
+    profile         = _scrub_profile_pollution(raw_profile)
+    inv_after       = len(profile.get("document_inventory") or [])
+    scrub_changed   = (inv_after != inv_before)
+    persisted_domain = (profile.get("primary_domain") or "").strip()
+
+    # The write-time detector sees the raw extracted text and is more
+    # accurate than a profile-only re-detect. We TRUST the persisted
+    # domain unless either (a) the scrub removed inventory rows (meaning
+    # the persisted detection may have been influenced by polluted rows
+    # that are now gone), or (b) no domain was ever persisted.
+    from .domains import detect_compliance_domain as _detect_domain
+    if scrub_changed or not persisted_domain or persisted_domain == "general":
+        _redet = _detect_domain(profile)
+        if (_redet.score or 0) > 0:
+            domain = _redet.domain
+        elif persisted_domain and not scrub_changed:
+            domain = persisted_domain
+        else:
+            domain = None
+    else:
+        _redet = None
+        domain = persisted_domain
     # Always recompute gaps from the latest profile so a stale gaps.json
     # written before the domain-aware pack landed cannot mask the correct
-    # rule set. Falls back to whatever the profile detected; if a profile
-    # has no `primary_domain` yet (older intake) detect_gaps will run the
-    # auto-detector itself.
-    domain = profile.get("primary_domain") or None
+    # rule set.
     gaps   = [g.model_dump() for g in detect_gaps(profile, domain=domain)]
     pending     = [e for e in extractions if e.get("pending_analysis")]
     failed      = [e for e in extractions if e.get("errors")]
@@ -527,9 +599,13 @@ def get_operator_evidence_intelligence(project_id: str) -> Dict[str, Any]:
         "confidence_summary": summarize_confidence(profile),
         "missing_item_count": len(gaps),
         "gaps": gaps[:15],
-        "primary_domain":     profile.get("primary_domain") or "general",
-        "domain_confidence":  profile.get("domain_confidence") or 0.0,
-        "domain_signals":     profile.get("domain_signals") or {},
+        "primary_domain":     domain or "general",
+        "domain_confidence":  _redet.confidence if (_redet and (_redet.score or 0) > 0)
+                              else (profile.get("domain_confidence") if not scrub_changed else 0.0)
+                              or 0.0,
+        "domain_signals":     _redet.signals if (_redet and (_redet.score or 0) > 0)
+                              else (profile.get("domain_signals") if not scrub_changed else {})
+                              or {},
         "confirmation_needed": needs_confirmation(profile),
         "entity_count": len(entities),
         "artifacts_path": str(intel_dir) if intel_dir.exists() else "",
