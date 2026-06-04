@@ -136,7 +136,7 @@ def test_level2_stage_fields_present_on_overview_row(fb_env, anon_client, client
 
 # ── 6. Bottleneck + next_actions feed the side panel overview ───────────
 def test_level2_side_panel_overview_fields_exist(fb_env, anon_client, client):
-    body = _upload(anon_client, ["beta.pdf"])
+    body = _upload(anon_client, ["gamma.pdf"])
     iid = body["intake_id"]
 
     detail = client.get(f"/api/operator/vio/company/{iid}").json()

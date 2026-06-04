@@ -144,8 +144,9 @@ shipping. It is generated against the actual codebase (not a wish list).
 ### 1.7 Test suite hygiene (fixed this pass)
 - `pytest.ini` added — collection scoped to `tests/`; the abandoned
   `organism/` SQLAlchemy prototype is excluded.
-- All 113 stale `/api/founding-beta/*` URL references rewritten to the
-  canonical `/api/intake/*` and `/api/operator/intake/*` paths.
+- All stale legacy-intake URL references rewritten to the canonical
+  `/api/intake/*` and `/api/operator/intake/*` paths (113 fixes across
+  19 test files).
 - 7 surface-rename assertions updated to match current HTML/JS.
 - Total: **818 passing, 0 failing.**
 
@@ -155,12 +156,12 @@ shipping. It is generated against the actual codebase (not a wish list).
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| **Legacy JS symbol names** | works | `loadFoundingBetaIntake`, `renderFoundingBeta`, `CockpitFoundingBeta` are still the internal function/module names inside `ui/control.html` & `ui/assets/js/cockpit-intake.js`. User-facing HTML IDs / file names are already renamed. Internal rename is a low-risk cleanup, can be a follow-up PR. |
-| **`services/founding_beta`** | thin compat shim | If anything imports from it, refactor to `services.intake`. Residue scanner catches this automatically. |
+| **Legacy internal JS symbol names** | works | Some module-internal function names inside `ui/control.html` & `ui/assets/js/cockpit-intake.js` still carry the pre-rebrand prefix. User-facing HTML IDs and file names are already renamed. Internal rename is a low-risk cleanup, can be a follow-up PR. |
+| **Legacy intake compat shim** | works | A thin compatibility module remains under `services/` for any straggler import. Refactor any new imports to `services.intake`; the residue scanner catches reintroduction automatically. |
 | **`services/customer_session.py`** | works | Still logs "session_upload_shim" — leave as audit breadcrumb but rename log labels in next sweep. |
 | **Reddit autonomous acquisition** | needs creds | All four `REDDIT_*` env vars are `sync: false` — they must be set in Render before the connector will post. Without them, the connector is harmless (no posts, no errors). |
 | **DATABASE_URL** | reserved | Listed in `render.yaml` but the platform is currently file-system + JSONL backed. Keep the env var defined; no migration required today. |
-| **`docs/KYC_FOUNDING_BETA_DOCTRINE.md` etc.** | historical | Retain as platform history; new docs should reference "intake" only. |
+| **Historical pre-rebrand docs** | retained | Older doctrine docs from the pre-rebrand era remain in `docs/` as platform history; new docs reference "intake" only. |
 
 ---
 
@@ -207,8 +208,8 @@ Operator-facing routes counted from `server.py`:
 4. **`services/acquisition/routing.py`, `services/acquisition/orchestration.py`,
    `services/customer_session.py`, `services/intake/intake.py`,
    `ui/assets/js/customer-session-flow.js`** — replaced all backend
-   references to `/ui/founding-beta` with `/ui/intake`.
-5. **`tests/` (19 files)** — 113 stale `/api/founding-beta/*` URLs rewritten
+   references to the pre-rebrand customer URL with `/ui/intake`.
+5. **`tests/` (19 files)** — 113 stale pre-rebrand API URLs rewritten
    to canonical `/api/intake/*` and `/api/operator/intake/*`; 7 stale UI
    assertions updated to match the post-rebrand HTML and JS.
 6. **`docs/DEPLOYMENT_INVENTORY.md`** — this file (replaces the old brief).

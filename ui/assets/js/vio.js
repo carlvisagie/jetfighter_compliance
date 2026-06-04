@@ -510,7 +510,6 @@ function renderOrganismStrip(org) {
     `intakes=${org.intake_count_active}/${org.intake_count_total}`,
     `files=${org.uploaded_file_count}`,
     org.mismatch_count ? `mismatches=${org.mismatch_count}` : '',
-    org.beta_residue_detected ? 'beta_residue!' : '',
     org.environment || '',
     org.git_commit ? `git=${org.git_commit}` : '',
   ].filter(Boolean);

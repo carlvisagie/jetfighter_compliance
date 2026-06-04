@@ -595,7 +595,6 @@ def _organism_summary(*, force: bool = False) -> Dict[str, Any]:
         "durable_storage_configured": bool(storage_sig.get("durable_storage_configured", state.get("durable_storage_configured", False))),
         "environment": storage_sig.get("environment") or state.get("environment") or "",
         "git_commit": (state.get("git_commit") or "")[:7],
-        "beta_residue_detected": bool(state.get("beta_residue_detected", False)),
         "timestamp_utc": state.get("timestamp_utc") or "",
     }
     _organism_cache["payload"] = payload

@@ -77,7 +77,7 @@ These engines are fully wired to central memory, actively tested, and confirmed 
 | --- | --- | --- | --- |
 | Central Memory Core | 100% | `services/memory/*`, `data/memory/` | The canonical brain. Handles entities, timelines, signals, learning state, and corrections. |
 | Customer Intake (paperwork) | 100% | `server.py`, `POST /api/intake/upload`, `services/intake/intake.py`, `services/intake/durable_root.py`, `services/intake/proof_gate.py` | Secure evidence ingestion. Refuses uploads if durable disk probe fails. Every file fsync'd, hash-ledgered, and verified before queue exposure. |
-| Customer Session (pre-contact) | 100% | `services/customer_session.py`, `POST /api/customer/session/{start,upload,complete}` | Magic-link-issuing pre-contact session. Post-rebrand: redirects clients to `/ui/intake` (was `/ui/founding-beta`). |
+| Customer Session (pre-contact) | 100% | `services/customer_session.py`, `POST /api/customer/session/{start,upload,complete}` | Magic-link-issuing pre-contact session. Post-rebrand: redirects clients to `/ui/intake`. |
 | Kickoff / Project Creation | 100% | `server.py` (kickoff), `services/projects.py` | Creates project workspace, links intake files, writes to central memory. |
 | Evidence Intelligence | 100% | `services/evidence_intelligence/` | Analyzes uploaded files, extracts entities, maps gaps, feeds timeline. |
 | Compliance Intelligence | 100% | `services/compliance_intelligence/` | Continuous public-source monitoring. Detects regulatory changes and routes to review queue. |
@@ -108,7 +108,7 @@ These components are intentionally outside central memory because they are trans
 | Health / Readiness Probes | Active | `GET /healthz`, `GET /health/ready`. Operational monitoring only. |
 | Static Report Generation | Active | Reads project directories. Trending toward memory-aware exports. |
 | **CORS Policy** | **Active (production-locked)** | Production restricts `allow_origins` to `compliance.keepyourcontracts.com` and `jetfighter-compliance.onrender.com`. Local / preview / tests get `*`. `CORS_ALLOW_ORIGINS` env var overrides without code change. |
-| **Residue Scanner** | **Active** | `organism_core/residue/scanner.py` runs on every snapshot and would flag any re-introduction of `/api/founding-beta/*` routes or `services.founding_beta` imports. Scanner skips its own source so it cannot self-trigger. |
+| **Residue Scanner** | **Active** | `organism_core/residue/scanner.py` runs on every snapshot and surfaces any re-introduction of the pre-rebrand public intake routes or module imports. Scanner skips its own source so it cannot self-trigger. |
 
 ### Tier 3: Legacy / Inactive (Frozen)
 
@@ -117,9 +117,9 @@ These components are intentionally outside central memory because they are trans
 | Legacy Stripe Card Webhook | Permanently Removed | Banned. See `docs/STRIPE_FINAL_STATUS.md`. Do not reactivate. |
 | Shopify Integration | Historical | Documentation only. Not a production path. |
 | Cloudflare Tunnel Rebuild | Historical | Documentation only. |
-| **`/api/founding-beta/*` route family** | **Permanently Removed** | All routes hard-deleted. No shims, no redirects. Residue scanner enforces. |
-| **`/ui/founding-beta` customer surface** | **Permanently Removed** | Replaced by `/ui/intake`. Backend redirects, session completion payloads, magic-link generators, and JS clients all reference the new path. |
-| **`/api/operator/founding-beta-intake` deprecated shim** | **Permanently Removed** | Replaced by `/api/operator/intake/queue` as the canonical operator surface. |
+| **Pre-rebrand public intake route family** | **Permanently Removed** | All routes hard-deleted. No shims, no redirects. Residue scanner enforces. |
+| **Pre-rebrand customer upload surface** | **Permanently Removed** | Replaced by `/ui/intake`. Backend redirects, session completion payloads, magic-link generators, and JS clients all reference the new path. |
+| **Deprecated operator intake shim** | **Permanently Removed** | Replaced by `/api/operator/intake/queue` as the canonical operator surface. |
 | Abandoned `organism/` SQLAlchemy prototype | Excluded from CI | `pytest.ini` excludes the legacy `organism/` tree from collection. Pre-dates `organism_core/` and is not part of the runtime. |
 
 ---
@@ -150,7 +150,7 @@ The full suite was run twice this cycle on commit `42ae186`:
 | Wall-clock runtime (Windows local) | ~22 min |
 | Previous run (pre-fix) | 87 failed / 731 passed |
 
-The 87 failures from the pre-fix run were collapsed into two root causes: (1) stale `/api/founding-beta/*` URLs in tests that had not been swept when the backend routes were deleted, and (2) seven surface-rename assertions still checking for the old HTML identifiers (`founding-beta-strip`, `founding-beta-intake-panel`, `cockpit-founding-beta.js`). Both classes were fixed; the suite is now green end-to-end.
+The 87 failures from the pre-fix run were collapsed into two root causes: (1) stale pre-rebrand API URLs in tests that had not been swept when the backend routes were deleted, and (2) seven surface-rename assertions still checking for the old HTML identifiers (replaced by the new `intake-*` identifiers and `cockpit-intake.js`). Both classes were fixed; the suite is now green end-to-end.
 
 ### Manufactured Company E2E Scenarios (Unchanged)
 
@@ -318,7 +318,7 @@ The platform is self-contained. It does not try to be something it is not. It kn
 
 The following items were audited and confirmed to pose no risk to client acquisition or platform stability:
 
-The Stripe card payment rail has been permanently removed and is enforced by a CI guardrail test. It cannot be accidentally reintroduced. The `/api/founding-beta/*` route family and the `/ui/founding-beta` customer surface have been permanently removed and the residue scanner in `organism_core/residue/scanner.py` will surface any reintroduction. The intake token secret is configured with a strong, non-default value. The public/private UI boundary is enforced by both server-side middleware and CI guardrail tests. The durable disk is mounted and confirmed writable, meaning client uploads survive server restarts and deploys. The self-healing immune system is active and will surface any data inconsistencies before they become client-facing problems. **CORS is now production-locked**, eliminating the prior brief's largest pre-launch risk. The **auto-payment wrapper kwarg-drop bug** that would silently fail autopay for low-confidence intakes has been fixed and is regression-covered by the green suite.
+The Stripe card payment rail has been permanently removed and is enforced by a CI guardrail test. It cannot be accidentally reintroduced. The pre-rebrand public intake route family and the pre-rebrand customer upload surface have been permanently removed and the residue scanner in `organism_core/residue/scanner.py` will surface any reintroduction. The intake token secret is configured with a strong, non-default value. The public/private UI boundary is enforced by both server-side middleware and CI guardrail tests. The durable disk is mounted and confirmed writable, meaning client uploads survive server restarts and deploys. The self-healing immune system is active and will surface any data inconsistencies before they become client-facing problems. **CORS is now production-locked**, eliminating the prior brief's largest pre-launch risk. The **auto-payment wrapper kwarg-drop bug** that would silently fail autopay for low-confidence intakes has been fixed and is regression-covered by the green suite.
 
 ---
 
