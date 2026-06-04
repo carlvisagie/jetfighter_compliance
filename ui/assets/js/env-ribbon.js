@@ -1,10 +1,15 @@
 /*
  * env-ribbon.js — operator UI environment ribbon.
  *
- * Reads GET /api/operator/environment-label and paints the ribbon at the
- * very top of vio.html / control.html.
+ * Self-installing: every operator page needs ONLY this one script tag —
  *
- * Contract: docs/PRODUCTION_IS_THE_ONLY_TRUTH.md
+ *   <script src="/ui/assets/js/env-ribbon.js" defer></script>
+ *
+ * On load it injects the stylesheet link (if missing) and the #env-ribbon
+ * DOM element at the top of <body> (if missing), then reads
+ * GET /api/operator/environment-label and paints the ribbon.
+ *
+ * Contract: docs/PRODUCTION_IS_THE_ONLY_TRUTH.md §2.
  *
  * Two visible states:
  *   - production    → calm green strip, page untouched
@@ -16,6 +21,50 @@
  */
 (function () {
   "use strict";
+
+  var STYLESHEET_HREF = "/ui/assets/styles/env-ribbon.css";
+
+  function ensureStylesheet() {
+    if (document.querySelector('link[data-env-ribbon]')) return;
+    var links = document.querySelectorAll('link[rel="stylesheet"]');
+    for (var i = 0; i < links.length; i++) {
+      if ((links[i].getAttribute("href") || "").indexOf("env-ribbon.css") !== -1) {
+        links[i].setAttribute("data-env-ribbon", "1");
+        return;
+      }
+    }
+    var link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = STYLESHEET_HREF;
+    link.setAttribute("data-env-ribbon", "1");
+    document.head.appendChild(link);
+  }
+
+  function ensureRibbonElement() {
+    if (document.getElementById("env-ribbon")) return;
+    var ribbon = document.createElement("div");
+    ribbon.id = "env-ribbon";
+    ribbon.className = "env-ribbon env-ribbon--unknown";
+    ribbon.setAttribute("role", "status");
+    ribbon.setAttribute("aria-live", "polite");
+    var label = document.createElement("span");
+    label.className = "env-ribbon-label";
+    label.textContent = "...";
+    var meta = document.createElement("span");
+    meta.className = "env-ribbon-meta";
+    ribbon.appendChild(label);
+    ribbon.appendChild(meta);
+    if (document.body.firstChild) {
+      document.body.insertBefore(ribbon, document.body.firstChild);
+    } else {
+      document.body.appendChild(ribbon);
+    }
+  }
+
+  function install() {
+    ensureStylesheet();
+    if (document.body) ensureRibbonElement();
+  }
 
   function $(id) { return document.getElementById(id); }
 
@@ -89,10 +138,15 @@
       });
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", loadRibbon);
-  } else {
+  function boot() {
+    install();
     loadRibbon();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
   }
 
   // Re-check every 5 minutes so a deploy that flipped env is noticed.

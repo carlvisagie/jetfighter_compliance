@@ -96,11 +96,41 @@ def classify_environment() -> str:
     return "production"
 
 
+def _disk_persistence_snapshot() -> Dict[str, Any]:
+    """Read the organism's disk-persistence verdict — never compute our own.
+
+    Returns a small `{state, verified}` snapshot the envelope can attach
+    so every API consumer sees the same disk truth the organism sees.
+    Failures are silent and return ``{}`` so a broken probe never breaks
+    the envelope itself (operators still get the env classification).
+    """
+    try:
+        from .durable_storage import disk_persistence_status
+    except Exception:
+        return {}
+    try:
+        s = disk_persistence_status() or {}
+    except Exception:
+        return {}
+    return {
+        "state": s.get("state") or "unknown",
+        "verified": bool(s.get("verified")),
+    }
+
+
 def env_envelope() -> Dict[str, Any]:
-    """The envelope attached to every operator response."""
+    """The envelope attached to every operator response.
+
+    The disk-persistence fields read directly from
+    ``services.durable_storage.disk_persistence_status()`` so the envelope
+    cannot drift from what the organism reports — one brain, many
+    vessels (kills the audit-flagged truth island between
+    ``env_envelope`` and ``organism_state.checks.DiskPersistenceCheck``).
+    """
     data_root = _data_root_str()
     environment = classify_environment()
     trust = "trusted" if environment == "production" else "DO_NOT_TRUST"
+    disk = _disk_persistence_snapshot()
     return {
         "environment": environment,
         "trust": trust,
@@ -111,6 +141,10 @@ def env_envelope() -> Dict[str, Any]:
         "git_commit": git_commit(),
         "server_time_utc": _utcnow_iso(),
         "ops_api_key_configured": _ops_api_key_configured(),
+        # Disk substrate verdict — the organism's call, not the envelope's.
+        # state ∈ {pending_first_restart, verified_persistent, ephemeral_lost, write_failed, unknown}
+        "disk_persistence_state": disk.get("state") or "unknown",
+        "disk_persistence_verified": disk.get("verified", False),
     }
 
 

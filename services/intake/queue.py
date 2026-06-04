@@ -69,12 +69,39 @@ def _queue_row(intake_id: str, *, persist_recovery: bool = True) -> Optional[Dic
     mismatch = bool(integrity.get("integrity_mismatch"))
 
     custody = rec.get("upload_custody") or {}
+
+    # last_movement_utc: most recent activity timestamp on the intake — the
+    # canonical input for VIO's "days_in_stage" urgency weighting per
+    # docs/VIO_DOCTRINE.md §4 (we measure how long the company has been
+    # *stuck*, not how old the intake is overall).
+    _candidates: List[str] = []
+    for f in files:
+        ts = f.get("uploaded_at_utc") or f.get("received_at") or ""
+        if ts:
+            _candidates.append(str(ts))
+    pay = rec.get("payment") or {}
+    for k in ("paid_at_utc", "recorded_at_utc", "sent_at_utc", "link_sent_at_utc"):
+        v = pay.get(k)
+        if v:
+            _candidates.append(str(v))
+    for k in ("review_recorded_at", "classified_at_utc", "updated_at_utc", "updated_utc"):
+        v = rec.get(k)
+        if v:
+            _candidates.append(str(v))
+    created = rec.get("created_at_utc") or rec.get("created_utc") or ""
+    if created:
+        _candidates.append(str(created))
+    last_movement_utc = max(_candidates) if _candidates else ""
+
     return {
         "intake_id": intake_id,
-        "created_utc": rec.get("created_at_utc") or rec.get("created_utc"),
+        "created_utc": created or rec.get("created_at_utc") or rec.get("created_utc"),
+        "last_movement_utc": last_movement_utc,
         "custody_status": rec.get("custody_status") or integrity.get("custody_status"),
         "company": rec.get("company") or "",
         "contact": rec.get("email") or rec.get("phone") or "",
+        "contact_email": rec.get("email") or "",
+        "contact_phone": rec.get("phone") or "",
         "file_count": file_count,
         "total_size_mb": round(total_bytes / (1024 * 1024), 2),
         "file_types": ext_types,

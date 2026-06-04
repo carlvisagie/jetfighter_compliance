@@ -128,7 +128,55 @@ def export_binder(pid: str) -> Path:
         )
     except Exception:
         pass
+
+    # Custody capture: binder export is the *delivery* moment — the
+    # operator handed the customer a sealed artifact. Merkle root + file
+    # count + zip name go into the chain of custody so the binder can
+    # be reconstructed and proven years later. The transaction ledger
+    # is keyed on intake_id (FB-...), so resolve the owning intake when
+    # the export is for a legacy P-... project. Best-effort write.
+    try:
+        from services.intake.transactions import append_transaction_event
+
+        intake_id = _resolve_intake_for_project(pid)
+        if intake_id:
+            append_transaction_event(
+                intake_id,
+                "binder_exported",
+                metadata={
+                    "project_id":         pid,
+                    "binder_zip":         zpath.name,
+                    "file_count":         len(files),
+                    "merkle_root_sha256": merkle,
+                    "generated_utc":      datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                },
+            )
+    except Exception:
+        pass
+
     return zpath
+
+
+def _resolve_intake_for_project(pid: str) -> str:
+    """Find the intake_id this project belongs to.
+
+    * Intake-as-project case (our new pipeline writes intake_id as the
+      project key): `pid` already starts with `FB-` → use directly.
+    * Legacy kickoff case: `pid` is `P-…` and the link lives in the
+      project `meta.json` under `canonical_intake_id`.
+    """
+    if pid.startswith("FB-"):
+        return pid
+    try:
+        meta = _project_dir(pid) / "meta.json"
+        if meta.is_file():
+            data = json.loads(meta.read_text(encoding="utf-8"))
+            iid = str(data.get("canonical_intake_id") or "").strip()
+            if iid.startswith("FB-"):
+                return iid
+    except Exception:
+        return ""
+    return ""
 
 def build_digest_html(rows: List[Dict]) -> str:
     head = "<h2>Weekly Compliance Digest</h2>"

@@ -48,12 +48,21 @@
   ];
 
   // ── Layout constants ──────────────────────────────────────────────────
+  //
+  // Doctrine §5 (Level 2 anatomy): "The L2 spine is a timeline, not a
+  // stage-grid." Left edge = intake_created_utc, right edge = now (or
+  // archived_utc when done). Stage labels slide to the timestamp at
+  // which each stage actually started. Every branch sprouts from the
+  // spine at the moment its activity began. These constants below set
+  // the *visual* extent of the spine; the time→x mapping lives in
+  // `_timeAxis(detail)` and is rebuilt each render so it always
+  // reflects the current journey duration.
   const L = {
     orbR:        24,
     orbCx:       60,
     spineY:      260,
     spineX0:     130,
-    stageGap:    180,
+    spineWidth:  1200,   // pixels the timeline expands across, regardless of duration
     stageR:      9,
     branchSpacing: 60,
     leafW:       66,
@@ -63,10 +72,118 @@
     // Collision-avoidance: minimum centre-to-centre x distance between
     // two clusters on the same side.
     clusterMinGap: 90,
+    // Custody ribbon — its own branch off the intake anchor. Layout
+    // values are doctrine: limb height ≈ leaf height so it visually
+    // belongs to the same family of branches, ribbon line stays thin
+    // by default and thickens with activity (data-activity band).
+    custodyLimbH:     38,
+    custodyRibbonGap: 18,
+    custodyShapeR:    4,
+    custodyReservedH: 96,
   };
 
   function spineEndX() {
-    return L.spineX0 + (STAGES.length - 1) * L.stageGap;
+    return L.spineX0 + L.spineWidth;
+  }
+
+  // ─── Time → X axis ───────────────────────────────────────────────────
+  // Build a closure that maps any ISO-UTC timestamp to its X coordinate
+  // on the spine. tMin floors at intake_created_utc (or the earliest
+  // custody event); tMax ceilings at now (or archived_utc). A minimum
+  // span (24 h) prevents the spine from collapsing for fresh intakes.
+  function _timeAxis(detail) {
+    const custody = (detail && detail.custody && detail.custody.events) || [];
+    const earliest = custody.length
+      ? Math.min(...custody.map(e => Date.parse(e.at_utc || '') || Infinity))
+      : Infinity;
+    const intakeTs = Date.parse((detail && detail.created_utc) || '') || 0;
+    const tMin = Math.min(
+      isFinite(earliest) ? earliest : Date.now(),
+      intakeTs > 0 ? intakeTs : Date.now(),
+    );
+    const latest = custody.length
+      ? Math.max(...custody.map(e => Date.parse(e.at_utc || '') || 0))
+      : 0;
+    const tMax = Math.max(latest, Date.now());
+    const span = Math.max(86400000, tMax - tMin); // ≥ 24 h minimum
+    const W = L.spineWidth;
+    const x0 = L.spineX0;
+    return {
+      tMin,
+      tMax,
+      span,
+      // Convert a timestamp (ISO string, number, or undefined) into the
+      // matching X. Falsy / unparseable timestamps fall back to "now"
+      // (the rightmost edge), so a branch with unknown start lands at
+      // the present rather than collapsing into the orb.
+      timeToX(t) {
+        if (!t) return x0 + W;
+        const parsed = typeof t === 'number' ? t : Date.parse(t);
+        if (!parsed || isNaN(parsed)) return x0 + W;
+        const clamped = Math.max(tMin, Math.min(tMax, parsed));
+        return x0 + ((clamped - tMin) / span) * W;
+      },
+    };
+  }
+
+  // ─── Branch start timestamp resolver ─────────────────────────────────
+  // Every branch on L2 anchors at the moment its activity *began*. This
+  // function returns that timestamp by mining the custody chain — the
+  // single substrate of truth — for the first event that opens each
+  // branch. Falls back to detail.created_utc for branches whose opening
+  // event isn't yet recorded (still beats anchoring at an arbitrary
+  // stage grid position).
+  const _BRANCH_OPENERS = {
+    context:       ['upload_received', 'intake_committed'],
+    category:      ['classification_complete'],
+    identifiers:   ['evidence_intelligence_completed'],
+    tier:          ['operator_action_approve_review', 'operator_approved'],
+    generated:     ['binder_exported'],   // best proxy until a doc-gen event exists
+    docs:          ['upload_received', 'evidence_registered', 'file_persisted'],
+    gaps:          ['evidence_intelligence_completed'],
+    confirmation:  ['evidence_intelligence_completed'],
+    findings:      ['integrity_failure', 'evidence_intelligence_failed'],
+    payment:       ['operator_payment_link_sent', 'payment_link_sent'],
+    project:       ['index_committed', 'intake_committed'],
+    custody:       ['upload_received', 'intake_committed'],
+  };
+
+  function _branchStartUtc(detail, branchKey) {
+    const events = (detail && detail.custody && detail.custody.events) || [];
+    const openers = _BRANCH_OPENERS[branchKey] || [];
+    for (let i = 0; i < events.length; i++) {
+      const ev = events[i];
+      const phase = String(ev.phase || ev.event || '');
+      if (openers.includes(phase)) return ev.at_utc;
+    }
+    return detail && detail.created_utc;
+  }
+
+  // ─── Stage start timestamp resolver ─────────────────────────────────
+  // Each backbone stage gets positioned on the timeline at the moment
+  // it actually started. If a stage hasn't been reached yet, return
+  // null and the renderer leaves the spine future-dashed past the last
+  // known stage.
+  const _STAGE_OPENERS = {
+    intake:           ['upload_received', 'intake_committed'],
+    classification:   ['classification_complete'],
+    validation:       ['hash_verified', 'audit_written'],
+    evidence_mapping: ['evidence_intelligence_completed', 'evidence_registered'],
+    review:           ['operator_review_needed', 'operator_request_more_info'],
+    approval:         ['operator_action_approve_review', 'operator_approved',
+                       'operator_payment_link_sent', 'payment_link_sent'],
+    conversion:       ['binder_exported', 'project_created'],
+  };
+
+  function _stageStartUtc(detail, stageKey) {
+    const events = (detail && detail.custody && detail.custody.events) || [];
+    const openers = _STAGE_OPENERS[stageKey] || [];
+    for (let i = 0; i < events.length; i++) {
+      const ev = events[i];
+      const phase = String(ev.phase || ev.event || '');
+      if (openers.includes(phase)) return ev.at_utc;
+    }
+    return null;
   }
 
   // ── Public entry ──────────────────────────────────────────────────────
@@ -94,6 +211,16 @@
     mount.innerHTML = '';
     mount.removeAttribute('hidden');
     document.body.style.overflow = 'hidden';
+
+    // Doctrine §5: "ESC, the back chevron, or a click outside the canvas
+    // all return the operator to Level 1." A click whose target IS the
+    // mount (i.e. the dark backdrop, not any descendant) closes Level 2.
+    if (!mount.dataset.backdropBound) {
+      mount.addEventListener('mousedown', e => {
+        if (e.target === mount) closeLevel2();
+      });
+      mount.dataset.backdropBound = '1';
+    }
 
     mount.appendChild(buildHeader(company));
     const canvas    = buildCanvas();      mount.appendChild(canvas);
@@ -336,7 +463,11 @@
       ...branches.below.map(b => b.anchorX),
     );
     const w = maxAnchorX + 240;
-    const h = Math.max(420, spineY + belowMax + 100);
+    // Reserve vertical room for the custody ribbon below the deepest
+    // `below` cluster when there are any custody events to draw.
+    const custodyEventCount = ((detail.custody || {}).events || []).length;
+    const custodyExtra = custodyEventCount > 0 ? L.custodyReservedH : 0;
+    const h = Math.max(420, spineY + belowMax + 100 + custodyExtra);
 
     const svg = svgEl('svg');
     svg.setAttribute('class', 'vio-l2-svg');
@@ -344,20 +475,40 @@
     svg.setAttribute('height', h);
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
 
-    drawSpine(svg, company, spineY);
+    const axis = _timeAxis(detail);
+    drawSpine(svg, company, spineY, axis, detail);
     branches.above.forEach(b => drawBranch(svg, b, spineY, 'above', detail));
     branches.below.forEach(b => drawBranch(svg, b, spineY, 'below', detail));
+
+    // Custody chain is its own branch — anchored at the `intake` stage
+    // (where we first start dealing with the company) and stretching
+    // rightward along time to the present moment. Doctrine §11 + §12:
+    // a line that itself communicates, with shapes on it for each
+    // discrete custody event. Sits beneath all other below-clusters so
+    // it doesn't collide with them, and only renders when there's
+    // actually custody to show.
+    drawCustodyBranch(svg, detail, spineY, belowMax);
+
     drawOrb(svg, company, spineY);
 
     canvas.appendChild(svg);
   }
 
   // ── Spine + stage anchors ─────────────────────────────────────────────
-  function drawSpine(svg, company, spineY = L.spineY) {
-    const stageIdx = Math.max(0, Math.min(STAGES.length - 1, company.stage_index ?? 0));
-    const liveX = L.spineX0 + stageIdx * L.stageGap;
+  // Doctrine §5: the spine is a timeline. Left edge = intake_created,
+  // right edge = now. Past stages render at the timestamp they actually
+  // started; future stages render as faint placeholders evenly spaced
+  // along the future-dashed segment so the 7-stage legend stays
+  // readable without lying about when those stages happened.
+  function drawSpine(svg, company, spineY = L.spineY, axis, detail) {
+    const events = (detail && detail.custody && detail.custody.events) || [];
+    const lastEventT = events.length
+      ? Math.max(...events.map(e => Date.parse(e.at_utc || '') || 0))
+      : 0;
+    const liveX = lastEventT > 0 ? axis.timeToX(lastEventT) : L.spineX0;
     const endX  = spineEndX();
 
+    // Future dashed segment — from the last known event to "now".
     if (liveX < endX) {
       const future = svgEl('line');
       future.setAttribute('class', 'vio-l2-spine-future');
@@ -367,6 +518,10 @@
       future.setAttribute('y2', spineY);
       svg.appendChild(future);
     }
+    // Past segment — from intake to the most recent event. The line
+    // itself encodes state (colour + pulse) as §11 of the doctrine
+    // requires; activity-band thickness is inherited from the company
+    // payload so the spine reads heavier for active intakes.
     const past = svgEl('line');
     past.setAttribute('class', 'vio-l2-spine-past');
     past.setAttribute('data-stage-state', company.stage_state || 'healthy');
@@ -376,17 +531,38 @@
     past.setAttribute('y2', spineY);
     svg.appendChild(past);
 
+    // Stage anchors. Past/current stages are positioned at their actual
+    // start timestamp. Future stages are evenly distributed across the
+    // remaining future-segment so the legend remains a stable backbone
+    // even when most of the journey hasn't happened yet.
+    const stageTimestamps = STAGES.map(s => _stageStartUtc(detail, s.key));
+    const startedCount = stageTimestamps.filter(t => t).length;
+    const futureCount = STAGES.length - startedCount;
+    const futureStep = futureCount > 0
+      ? Math.max(40, (endX - liveX) / (futureCount + 1))
+      : 0;
+    let futureIndex = 0;
+
     STAGES.forEach((s, i) => {
-      const cx = L.spineX0 + i * L.stageGap;
-      const past = i <= stageIdx;
+      const tStart = stageTimestamps[i];
+      let cx, isPast;
+      if (tStart) {
+        cx = axis.timeToX(tStart);
+        isPast = true;
+      } else {
+        futureIndex++;
+        cx = liveX + futureStep * futureIndex;
+        isPast = false;
+      }
       const g = svgEl('g');
-      g.setAttribute('class', past ? 'vio-l2-stage past' : 'vio-l2-stage future');
+      g.setAttribute('class', isPast ? 'vio-l2-stage past' : 'vio-l2-stage future');
       g.setAttribute('data-stage', s.key);
 
+      const isLive = isPast && cx >= liveX - 1;
       const c = svgEl('circle');
       c.setAttribute('cx', cx);
       c.setAttribute('cy', spineY);
-      c.setAttribute('r', i === stageIdx ? L.stageR + 2 : L.stageR);
+      c.setAttribute('r', isLive ? L.stageR + 2 : L.stageR);
       g.appendChild(c);
 
       const lbl = svgEl('text');
@@ -400,6 +576,24 @@
       g.addEventListener('click', () => pushFrame(stageFrame(s, company, _activeDetail)));
       svg.appendChild(g);
     });
+
+    // Quiet time-scale labels under the spine — start date on the left,
+    // "now" on the right. Identity only; no axis ticks. Doctrine §11.
+    const startLabel = svgEl('text');
+    startLabel.setAttribute('class', 'vio-l2-spine-time-label');
+    startLabel.setAttribute('x', L.spineX0);
+    startLabel.setAttribute('y', spineY - 12);
+    startLabel.setAttribute('text-anchor', 'start');
+    startLabel.textContent = new Date(axis.tMin).toISOString().slice(0, 10);
+    svg.appendChild(startLabel);
+
+    const endLabel = svgEl('text');
+    endLabel.setAttribute('class', 'vio-l2-spine-time-label');
+    endLabel.setAttribute('x', endX);
+    endLabel.setAttribute('y', spineY - 12);
+    endLabel.setAttribute('text-anchor', 'end');
+    endLabel.textContent = 'now';
+    svg.appendChild(endLabel);
   }
 
   // ── Orb ───────────────────────────────────────────────────────────────
@@ -453,11 +647,16 @@
     const cls   = detail.classification || {};
     const conf  = detail.confirmation_needed || [];
 
-    const stageX = key => L.spineX0 + STAGES.findIndex(s => s.key === key) * L.stageGap;
+    // Doctrine §5: branches anchor at the TIMESTAMP the activity began,
+    // not at a fixed stage-grid position. `axis.timeToX` maps any
+    // ISO-UTC timestamp into a spine X; `_branchStartUtc` mines the
+    // custody chain for the first event that opens each branch.
+    const axis = _timeAxis(detail);
+    const at = key => axis.timeToX(_branchStartUtc(detail, key));
 
     // ── ABOVE the spine ────────────────────────────────────────────────
     if ((ictx.context && ictx.context.length) || ictx.urgent || ictx.deadline) {
-      above.push(makeCluster('context', 'context', stageX('intake'), [
+      above.push(makeCluster('context', 'context', at('context'), [
         ictx.urgent ? { kind: 'flag', label: 'urgent' } : null,
         ictx.deadline ? { kind: 'flag', label: `deadline ${ictx.deadline}` } : null,
         ictx.context ? { kind: 'note', label: truncate(ictx.context, 18), full: ictx.context } : null,
@@ -468,7 +667,7 @@
       const leaves = [{ kind: 'flag', label: truncate(cls.primary_category, 16), full: cls.primary_category }];
       if (cls.secondary_category) leaves.push({ kind: 'flag', label: truncate(cls.secondary_category, 16), full: cls.secondary_category });
       if (cls.scope_label)        leaves.push({ kind: 'note', label: truncate(cls.scope_label, 14), full: cls.scope_label });
-      above.push(makeCluster('category', 'category', stageX('classification'), leaves));
+      above.push(makeCluster('category', 'category', at('category'), leaves));
     }
 
     const identifierLeaves = [];
@@ -478,23 +677,23 @@
     pushIdent(identifierLeaves, prof.company_names,          'company');
     if (identifierLeaves.length) {
       above.push(makeCluster('identifiers', `identifiers (${identifierLeaves.length})`,
-        stageX('evidence_mapping'), identifierLeaves));
+        at('identifiers'), identifierLeaves));
     }
 
     if (['approved', 'payment_sent', 'verified_complete', 'archived'].includes(detail.review_status)) {
-      above.push(makeCluster('tier', 'service tier', stageX('approval'), [
+      above.push(makeCluster('tier', 'service tier', at('tier'), [
         { kind: 'flag', label: detail.review_status.replace(/_/g, ' ') },
       ]));
     }
 
     if (gen.length) {
-      above.push(makeCluster('generated', `generated (${gen.length})`, stageX('conversion'),
+      above.push(makeCluster('generated', `generated (${gen.length})`, at('generated'),
         gen.map(g => ({ kind: 'gen', label: truncate(g.name, 16), full: g.name, size: g.size_bytes }))));
     }
 
     // ── BELOW the spine ────────────────────────────────────────────────
     if (docs.length) {
-      below.push(makeCluster('docs', `papers (${docs.length})`, stageX('evidence_mapping'),
+      below.push(makeCluster('docs', `papers (${docs.length})`, at('docs'),
         docs.map(d => ({
           kind: 'doc',
           label: truncate(d.original_name || d.stored_name || 'file', 16),
@@ -505,7 +704,7 @@
     }
 
     if (miss.length) {
-      below.push(makeCluster('gaps', `missing (${miss.length})`, stageX('evidence_mapping'),
+      below.push(makeCluster('gaps', `missing (${miss.length})`, at('gaps'),
         miss.map(m => ({
           kind: 'gap',
           label: truncate(m.label || 'gap', 16),
@@ -516,7 +715,7 @@
 
     if (conf.length) {
       below.push(makeCluster('confirmation', `confirmation (${conf.length})`,
-        stageX('evidence_mapping'),
+        at('confirmation'),
         conf.map(c => ({
           kind: 'note',
           label: truncate(c.field || 'field', 14),
@@ -525,7 +724,7 @@
     }
 
     if (find.length) {
-      below.push(makeCluster('findings', `findings (${find.length})`, stageX('validation'),
+      below.push(makeCluster('findings', `findings (${find.length})`, at('findings'),
         find.map(f => ({
           kind: 'finding',
           label: truncate(f.message || f.code || 'finding', 16),
@@ -536,17 +735,18 @@
 
     if (pay && (pay.link || pay.amount || pay.link_sent_utc || pay.paid)) {
       const paidLabel = pay.paid ? 'paid' : (pay.link ? 'link sent' : 'pending');
-      below.push(makeCluster('payment', 'payment', stageX('approval'), [
+      const paymentAnchorUtc = pay.link_sent_utc || _branchStartUtc(detail, 'payment');
+      below.push(makeCluster('payment', 'payment', axis.timeToX(paymentAnchorUtc), [
         { kind: 'payment', label: paidLabel, full: pay },
       ]));
     } else if (['approved', 'payment_sent', 'verified_complete', 'archived'].includes(detail.review_status)) {
-      below.push(makeCluster('payment', 'payment', stageX('approval'), [
+      below.push(makeCluster('payment', 'payment', at('payment'), [
         { kind: 'payment', label: 'awaiting record', full: pay },
       ]));
     }
 
     if (detail.project_id) {
-      below.push(makeCluster('project', 'project', stageX('conversion'), [
+      below.push(makeCluster('project', 'project', at('project'), [
         { kind: 'project', label: truncate(detail.project_id, 14), full: { project_id: detail.project_id } },
       ]));
     }
@@ -747,6 +947,175 @@
   }
 
   // ─────────────────────────────────────────────────────────────────────
+  // CUSTODY BRANCH  (splits off the intake anchor, runs along time)
+  // ─────────────────────────────────────────────────────────────────────
+  /**
+   * Render the chain-of-custody as a real branch on the L2 spine.
+   *
+   * Doctrine §11 + §12: a line that itself communicates (thickness ∝
+   * activity, opacity ∝ age) carrying shapes (channel-glyphed, ok=teal
+   * fail=red) for every recorded custody event. The branch *splits off
+   * the intake stage anchor* — the moment we start dealing with the
+   * company — and stretches rightward to the right edge of the spine,
+   * with each event placed by its real timestamp between intake_start
+   * and now. Reads as a parallel mini-spine specifically about evidence
+   * provenance, not as a row table.
+   */
+  function drawCustodyBranch(svg, detail, spineY, belowMax) {
+    const custody = detail && detail.custody;
+    const events  = (custody && custody.events) || [];
+    if (!events.length) return;
+
+    // Parse timestamps; ignore unparseable rows (rare but possible).
+    const stamped = events
+      .map(e => ({ ev: e, t: Date.parse(e.at_utc || '') || 0 }))
+      .filter(p => p.t > 0)
+      .sort((a, b) => a.t - b.t);
+    if (!stamped.length) return;
+
+    const tMin = stamped[0].t;
+    const tMax = Math.max(stamped[stamped.length - 1].t, Date.now());
+    const span = Math.max(1, tMax - tMin);
+
+    // Geometry: limb splits off the intake anchor, bends 90° down to a
+    // horizontal ribbon that runs to the right edge of the spine.
+    const limbX  = L.spineX0;
+    const ribbonY = spineY + Math.max(belowMax, 36) + L.custodyRibbonGap + L.custodyLimbH;
+    const limbTopY    = spineY;
+    const limbBottomY = ribbonY;
+    const rightX = spineEndX();
+
+    // Activity band — events per day, capped to the same vocabulary the
+    // L1 spine uses. The custody line itself encodes density, in addition
+    // to the shapes on it ("line is parallel language" — doctrine §1.4).
+    const days = Math.max(0.5, span / 86400000);
+    const perDay = stamped.length / days;
+    let band = 'normal';
+    if (perDay <= 0.5)      band = 'idle';
+    else if (perDay <= 2)   band = 'low';
+    else if (perDay <= 8)   band = 'normal';
+    else if (perDay <= 20)  band = 'high';
+    else                    band = 'peak';
+
+    const group = svgEl('g');
+    group.setAttribute('class', 'vio-l2-custody');
+    group.setAttribute('id', 'vio-l2-custody-group');
+
+    // The limb (bent path from intake anchor down to ribbon level).
+    const limb = svgEl('path');
+    limb.setAttribute('class', 'vio-l2-custody-limb');
+    limb.setAttribute('data-activity', band);
+    limb.setAttribute(
+      'd',
+      `M ${limbX} ${limbTopY} ` +
+      `Q ${limbX} ${limbTopY + 14}, ${limbX + 14} ${limbTopY + 14} ` +
+      `L ${limbX + 14} ${limbBottomY - 14} ` +
+      `Q ${limbX + 14} ${limbBottomY}, ${limbX + 28} ${limbBottomY}`,
+    );
+    group.appendChild(limb);
+
+    // The ribbon (horizontal time-axis line under the spine).
+    const ribbon = svgEl('line');
+    ribbon.setAttribute('class', 'vio-l2-custody-line');
+    ribbon.setAttribute('data-activity', band);
+    ribbon.setAttribute('x1', limbX + 28);
+    ribbon.setAttribute('x2', rightX);
+    ribbon.setAttribute('y1', ribbonY);
+    ribbon.setAttribute('y2', ribbonY);
+    group.appendChild(ribbon);
+
+    // End tick (the "now" anchor).
+    const endTick = svgEl('line');
+    endTick.setAttribute('class', 'vio-l2-custody-tick');
+    endTick.setAttribute('x1', rightX);
+    endTick.setAttribute('x2', rightX);
+    endTick.setAttribute('y1', ribbonY - 5);
+    endTick.setAttribute('y2', ribbonY + 5);
+    group.appendChild(endTick);
+
+    // Quiet label at the branch start — identity only ("custody"), per
+    // doctrine: "text is the absolute minimum needed for identity."
+    const label = svgEl('text');
+    label.setAttribute('class', 'vio-l2-custody-branch-label');
+    label.setAttribute('x', limbX + 6);
+    label.setAttribute('y', limbBottomY - 8);
+    label.textContent = `custody · ${stamped.length}`;
+    group.appendChild(label);
+
+    // Event shapes on the ribbon. Time-mapped between limb origin and
+    // right edge. Channel→silhouette, ok=teal, fail=red, hover scales.
+    const ribbonLeftX = limbX + 28;
+    const ribbonWidth = Math.max(40, rightX - ribbonLeftX);
+    stamped.forEach(({ ev, t }) => {
+      const x = ribbonLeftX + ((t - tMin) / span) * ribbonWidth;
+      const shape = _custodyShape(ev, x, ribbonY);
+      shape.setAttribute('class', 'vio-l2-custody-mark');
+      shape.setAttribute('data-source', String(ev.source || ''));
+      shape.setAttribute('data-ok',
+        String(ev.ok === false ? 'false' : 'true'));
+      shape.setAttribute('tabindex', '0');
+      const nativeTitle = svgEl('title');
+      nativeTitle.textContent =
+        `${(ev.at_utc || '').replace('T', ' ').replace('Z', '')}  ` +
+        `${String(ev.event || '').replace(/_/g, ' ')}`;
+      shape.appendChild(nativeTitle);
+      const open = () => pushFrame(_custodyEventFrame(ev));
+      shape.addEventListener('click', e => { e.stopPropagation(); open(); });
+      shape.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          open();
+        }
+      });
+      group.appendChild(shape);
+    });
+
+    svg.appendChild(group);
+  }
+
+  // Single-event frame (clicking one custody mark drills into it).
+  function _custodyEventFrame(ev) {
+    return {
+      title: `custody · ${String(ev.event || '').replace(/_/g, ' ')}`,
+      render: body => {
+        const meta = ev.metadata || {};
+        const head = el('div', 'vio-l2-custody-detail');
+        const headLine = el('div', 'vio-l2-custody-detail-head');
+        const evtSpan = el('span', 'vio-l2-custody-detail-evt');
+        evtSpan.textContent = String(ev.event || '').replace(/_/g, ' ');
+        const whenSpan = el('span', 'vio-l2-custody-detail-when');
+        whenSpan.textContent =
+          (ev.at_utc || '').replace('T', ' ').replace('Z', '');
+        headLine.appendChild(evtSpan);
+        headLine.appendChild(whenSpan);
+        head.appendChild(headLine);
+
+        const srcLine = el('div', 'vio-l2-custody-detail-src');
+        srcLine.textContent =
+          `source: ${ev.source || 'unknown'}` +
+          (ev.ok === false ? '  ·  INTEGRITY FAIL' : '');
+        head.appendChild(srcLine);
+
+        const keys = Object.keys(meta);
+        if (keys.length) {
+          const dl = el('dl', 'vio-l2-custody-detail-meta');
+          keys.forEach(k => {
+            const dt = document.createElement('dt');
+            dt.textContent = k;
+            const dd = document.createElement('dd');
+            const v = meta[k];
+            dd.textContent = (typeof v === 'object') ? JSON.stringify(v) : String(v);
+            dl.appendChild(dt);
+            dl.appendChild(dd);
+          });
+          head.appendChild(dl);
+        }
+        body.appendChild(head);
+      },
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
   // FRAMES  (root + per-leaf drill-down + per-stage drill-down)
   // ─────────────────────────────────────────────────────────────────────
   function overviewFrame(company, detail) {
@@ -754,23 +1123,73 @@
       title: 'overview',
       render: body => {
         const stage = STAGES[company.stage_index ?? 0]?.label || 'intake';
+
+        // ── At-a-glance KPI tiles (Constitution: "State Before Detail") ─
+        // Four declarative numbers so the operator reads the room without
+        // hunting for any of them. Doctrine: "Within five seconds … know
+        // who, where, healthy, waiting, broken, next action."
+        const filesCount    = (detail.uploaded_documents || []).length || (detail.file_count || 0);
+        const gapsCount     = (detail.missing_documents || []).length;
+        const findingsCount = (detail.findings || []).length;
+        const daysInStage   = company.days_in_stage ?? 0;
+        const custody       = detail.custody || {};
+        const custodyCount  = Number(custody.event_count || 0);
+        const tiles = el('div', 'vio-l2-tiles');
+        // L2 rule: "all of it clickable for more detailed information."
+        // Every tile drills into the list it represents. Tiles with a
+        // zero count have no destination and are presented as quiet
+        // not-actionable artifacts (still readable, just inert).
+        tiles.appendChild(_kpiTileDrill(
+          filesCount, 'files received', '',
+          filesCount > 0 ? () => pushFrame(listFrame('papers', detail.uploaded_documents || [],
+            d => ({ kind: 'doc', label: d.original_name || d.stored_name, full: d }),
+            null, detail)) : null,
+        ));
+        tiles.appendChild(_kpiTileDrill(
+          findingsCount, findingsCount === 1 ? 'finding' : 'findings',
+          findingsCount > 0 ? 'tile-warn' : '',
+          findingsCount > 0 ? () => pushFrame(listFrame('findings', detail.findings || [],
+            f => ({ kind: 'finding', label: f.message || f.code, severity: f.severity, full: f }),
+            null, detail)) : null,
+        ));
+        tiles.appendChild(_kpiTileDrill(
+          gapsCount, gapsCount === 1 ? 'gap' : 'gaps',
+          gapsCount > 0 ? 'tile-amber' : '',
+          gapsCount > 0 ? () => pushFrame(listFrame('missing', detail.missing_documents || [],
+            m => ({ kind: 'gap', label: m.label, priority: m.priority, full: m }),
+            null, detail)) : null,
+        ));
+        tiles.appendChild(_kpiTileDrill(
+          `${daysInStage}d`, 'in stage', '',
+          () => pushFrame(_stageHistoryFrame(company, detail)),
+        ));
+        tiles.appendChild(_kpiTileDrill(
+          custodyCount, custodyCount === 1 ? 'custody event' : 'custody events',
+          '',
+          // Doctrine: custody is rendered as a real branch on the spine
+          // (drawCustodyBranch). The tile is a navigation hint — scroll
+          // the operator to that branch and pulse it briefly so they
+          // know where their click landed. No frame, no row list.
+          custodyCount > 0 ? () => _focusCustodyBranch() : null,
+        ));
+        body.appendChild(tiles);
+
+        // ── Recommended Action (the single sentence + one-click CTA) ───
+        // Constitution: "No Hunting Rule" — the next step must present
+        // itself, not be inferred from inspecting multiple panels.
+        body.appendChild(recommendedActionBlock(company, detail));
+
+        // ── State (calmer, secondary) ─────────────────────────────────
         body.appendChild(kv('stage', `${stage} · ${(company.stage_state || 'healthy').replace(/_/g, ' ')}`));
-        body.appendChild(kv('days in stage', `${company.days_in_stage ?? 0}d`));
         body.appendChild(kv('age', `${detail.age_hours ?? 0}h`));
         body.appendChild(kv('review status', detail.review_status || '—'));
         body.appendChild(kv('intake id', detail.intake_id || '—', 'mono'));
         if (detail.project_id) body.appendChild(kv('project id', detail.project_id, 'mono'));
 
-        if (detail.bottleneck) {
-          body.appendChild(sectionTitle('bottleneck'));
-          const bn = el('div', 'vio-l2-side-bottleneck');
-          bn.textContent = detail.bottleneck;
-          body.appendChild(bn);
-        }
         const acts = detail.next_actions || [];
-        if (acts.length) {
-          body.appendChild(sectionTitle('next actions'));
-          acts.forEach(a => {
+        if (acts.length > 1) {
+          body.appendChild(sectionTitle('also'));
+          acts.slice(1).forEach(a => {
             const r = el('div', 'vio-l2-side-action');
             r.textContent = '→ ' + a;
             body.appendChild(r);
@@ -1038,11 +1457,20 @@
 
         if (!detail) return;
 
-        // Which branches anchor at this stage? Surface them as drill-down rows.
+        // Which branches anchor at this stage? Doctrine §5: branches
+        // are anchored by timestamp, not by stage. A branch "belongs to"
+        // a stage if its anchor X falls between the start of this stage
+        // and the start of the next stage. Use the time axis to compute
+        // both points and the window between them.
         const branches = computeBranches(detail);
+        const axis = _timeAxis(detail);
+        const idx = STAGES.findIndex(s => s.key === stage.key);
+        const thisX = axis.timeToX(_stageStartUtc(detail, stage.key));
+        const nextKey = STAGES[idx + 1] && STAGES[idx + 1].key;
+        const nextStart = nextKey ? _stageStartUtc(detail, nextKey) : null;
+        const nextX = nextStart ? axis.timeToX(nextStart) : (L.spineX0 + L.spineWidth);
         const own = [...branches.above, ...branches.below].filter(b => {
-          const sx = L.spineX0 + STAGES.findIndex(s => s.key === stage.key) * L.stageGap;
-          return Math.abs(b.anchorX - sx) < L.stageGap / 2;
+          return b.anchorX >= thisX - 1 && b.anchorX < nextX;
         });
         if (own.length) {
           body.appendChild(sectionTitle(`clusters here (${own.length})`));
@@ -1160,6 +1588,403 @@
     const s = el('div', 'vio-l2-side-section');
     s.textContent = text;
     return s;
+  }
+
+  // ── KPI tile (Constitution: "State Before Detail") ─────────────────
+  // A compact, declarative number + label that the operator reads in a
+  // glance. Optional severity class (`tile-warn` / `tile-amber`) turns
+  // the tile colour-positive only when the count is nonzero — staying
+  // loyal to "stillness is the baseline."
+  //
+  // L2 rule: every visual artifact inside the universe is clickable and
+  // drills to its source data. `kpiTile` keeps the calm form; the click
+  // wiring lives in `_kpiTileDrill` so the tile can be inert when there
+  // is nothing to drill to (zero count = no destination).
+  function kpiTile(value, label, severityCls) {
+    const t = el('div', 'vio-l2-tile' + (severityCls ? ' vio-l2-' + severityCls : ''));
+    const v = el('div', 'vio-l2-tile-value');
+    v.textContent = String(value);
+    const l = el('div', 'vio-l2-tile-label');
+    l.textContent = label;
+    t.appendChild(v);
+    t.appendChild(l);
+    return t;
+  }
+
+  function _kpiTileDrill(value, label, severityCls, onClick) {
+    const t = kpiTile(value, label, severityCls);
+    if (onClick) {
+      t.classList.add('vio-l2-tile--drill');
+      t.setAttribute('role', 'button');
+      t.setAttribute('tabindex', '0');
+      t.title = `open ${label}`;
+      t.addEventListener('click', onClick);
+      t.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
+      });
+    } else {
+      t.classList.add('vio-l2-tile--inert');
+    }
+    return t;
+  }
+
+  // Scroll the operator's view to the on-canvas custody branch and
+  // pulse it briefly so they can see where their click landed.
+  // Replaces the obsolete side-panel custody frame; the chain itself
+  // lives in the main L2 canvas as a real branch off the intake anchor
+  // (drawCustodyBranch above).
+  function _focusCustodyBranch() {
+    const group = document.getElementById('vio-l2-custody-group');
+    if (!group) return;
+    try {
+      group.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (_) { /* older browsers */ }
+    group.classList.remove('vio-l2-custody--pulse');
+    void group.getBoundingClientRect();
+    group.classList.add('vio-l2-custody--pulse');
+    setTimeout(() => group.classList.remove('vio-l2-custody--pulse'), 1600);
+  }
+
+  // Retained for reference but no longer wired anywhere — the row-list
+  // frame this used to render violates §11 (the line is information)
+  // and has been replaced by drawCustodyBranch. Kept temporarily as a
+  // dead block so a future contributor sees what was rejected and why.
+  // TODO: remove after one release cycle.
+  // eslint-disable-next-line no-unused-vars
+  function _custodyFrame(custody) {
+    return {
+      title: 'chain of custody',
+      render: body => {
+        const events = (custody && custody.events) || [];
+        if (!events.length) {
+          body.appendChild(asHint('no custody events recorded for this intake yet'));
+          return;
+        }
+
+        // Compute the time domain. Floor t=0 at the earliest event,
+        // ceiling at the latest (or now). Both are ISO-UTC; rendering
+        // is a simple x = (t - tMin) / (tMax - tMin) * width.
+        const stamped = events
+          .map(e => ({ ev: e, t: Date.parse(e.at_utc || '') || 0 }))
+          .filter(p => p.t > 0)
+          .sort((a, b) => a.t - b.t);
+        if (!stamped.length) {
+          body.appendChild(asHint('events present but no parseable timestamps'));
+          return;
+        }
+        const tMin = stamped[0].t;
+        const tMax = Math.max(stamped[stamped.length - 1].t, Date.now());
+        const span = Math.max(1, tMax - tMin);
+
+        // Header — minimal text, intentionally quiet.
+        const head = el('div', 'vio-l2-custody-head');
+        head.textContent =
+          `${stamped.length} event${stamped.length === 1 ? '' : 's'} · ` +
+          `custody=${custody.custody_status || 'unknown'} · ` +
+          `${_fmtSpan(span)} elapsed`;
+        body.appendChild(head);
+
+        // The branch itself — an SVG line with shape markers.
+        const SVG_NS = 'http://www.w3.org/2000/svg';
+        const W = 720, H = 56, PAD = 16;
+        const innerW = W - PAD * 2;
+        const cy = H / 2;
+
+        const svg = document.createElementNS(SVG_NS, 'svg');
+        svg.setAttribute('class', 'vio-l2-custody-spine');
+        svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('preserveAspectRatio', 'none');
+
+        // Density band — thickness encodes events / day, capped.
+        const dayMs = 86400000;
+        const days = Math.max(0.5, span / dayMs);
+        const perDay = stamped.length / days;
+        let band = 'normal';
+        if (perDay <= 0.5)  band = 'idle';
+        else if (perDay <= 2)   band = 'low';
+        else if (perDay <= 8)   band = 'normal';
+        else if (perDay <= 20)  band = 'high';
+        else                    band = 'peak';
+
+        const line = document.createElementNS(SVG_NS, 'line');
+        line.setAttribute('class', 'vio-l2-custody-line');
+        line.setAttribute('data-activity', band);
+        line.setAttribute('x1', PAD);
+        line.setAttribute('y1', cy);
+        line.setAttribute('x2', W - PAD);
+        line.setAttribute('y2', cy);
+        svg.appendChild(line);
+
+        // t=0 and now anchors.
+        const startTick = document.createElementNS(SVG_NS, 'line');
+        startTick.setAttribute('class', 'vio-l2-custody-tick');
+        startTick.setAttribute('x1', PAD);
+        startTick.setAttribute('x2', PAD);
+        startTick.setAttribute('y1', cy - 6);
+        startTick.setAttribute('y2', cy + 6);
+        svg.appendChild(startTick);
+        const endTick = document.createElementNS(SVG_NS, 'line');
+        endTick.setAttribute('class', 'vio-l2-custody-tick');
+        endTick.setAttribute('x1', W - PAD);
+        endTick.setAttribute('x2', W - PAD);
+        endTick.setAttribute('y1', cy - 6);
+        endTick.setAttribute('y2', cy + 6);
+        svg.appendChild(endTick);
+
+        // Inline detail card (created once, populated on click).
+        const detailCard = el('div', 'vio-l2-custody-detail');
+        detailCard.hidden = true;
+
+        // Shapes on the line. Channel → silhouette; ok/fail → colour.
+        stamped.forEach(({ ev, t }) => {
+          const x = PAD + ((t - tMin) / span) * innerW;
+          const shape = _custodyShape(ev, x, cy);
+          shape.setAttribute('data-source', String(ev.source || ''));
+          shape.setAttribute('data-ok',
+            String(ev.ok === false ? 'false' : 'true'));
+          shape.setAttribute('class', 'vio-l2-custody-mark');
+          shape.setAttribute('tabindex', '0');
+          const nativeTitle = document.createElementNS(SVG_NS, 'title');
+          nativeTitle.textContent =
+            `${(ev.at_utc || '').replace('T', ' ').replace('Z', '')}  ` +
+            `${String(ev.event || '').replace(/_/g, ' ')}`;
+          shape.appendChild(nativeTitle);
+          shape.addEventListener('click', () => _showCustodyDetail(detailCard, ev));
+          shape.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              _showCustodyDetail(detailCard, ev);
+            }
+          });
+          svg.appendChild(shape);
+        });
+
+        body.appendChild(svg);
+
+        // Quiet time scale beneath the branch — single label pair,
+        // not a numeric axis. Echoes the L1 temporal-scale hint.
+        const scale = el('div', 'vio-l2-custody-scale');
+        scale.innerHTML =
+          `<span>${new Date(tMin).toISOString().slice(0, 10)}</span>` +
+          `<span>${new Date(tMax).toISOString().slice(0, 10)}</span>`;
+        body.appendChild(scale);
+
+        body.appendChild(detailCard);
+      },
+    };
+  }
+
+  // Channel → shape silhouette. Same doctrinal vocabulary as L1
+  // (square=healthy/done, triangle=warn/delay, hexagon=audit/binder,
+  // diamond=communication, dot=upload/transaction). Coordinates are
+  // small (5–7 px) so the chain reads as a row of shapes on a line,
+  // not as a row of buttons.
+  function _custodyShape(ev, x, cy) {
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const s = String(ev.source || '').toLowerCase();
+    const evt = String(ev.event || '').toLowerCase();
+
+    if (s === 'communications_ledger') {
+      const p = document.createElementNS(SVG_NS, 'polygon');
+      p.setAttribute('points',
+        `${x - 5},${cy} ${x},${cy - 5} ${x + 5},${cy} ${x},${cy + 5}`);
+      return p;
+    }
+    if (s === 'audit_receipt' || evt === 'binder_exported') {
+      const p = document.createElementNS(SVG_NS, 'polygon');
+      const r = 5;
+      const pts = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (Math.PI / 3) * i - Math.PI / 2;
+        pts.push(`${x + r * Math.cos(a)},${cy + r * Math.sin(a)}`);
+      }
+      p.setAttribute('points', pts.join(' '));
+      return p;
+    }
+    if (s === 'delay_attribution') {
+      const p = document.createElementNS(SVG_NS, 'polygon');
+      p.setAttribute('points',
+        `${x - 5},${cy + 5} ${x + 5},${cy + 5} ${x},${cy - 5}`);
+      return p;
+    }
+    if (s === 'evidence_registry' || s === 'upload_custody') {
+      const r = document.createElementNS(SVG_NS, 'rect');
+      r.setAttribute('x', x - 4);
+      r.setAttribute('y', cy - 4);
+      r.setAttribute('width', 8);
+      r.setAttribute('height', 8);
+      return r;
+    }
+    if (evt === 'operator_archived' || ev.event === 'binder_exported') {
+      const r = document.createElementNS(SVG_NS, 'rect');
+      r.setAttribute('x', x - 4);
+      r.setAttribute('y', cy - 4);
+      r.setAttribute('width', 8);
+      r.setAttribute('height', 8);
+      r.setAttribute('rx', 1);
+      return r;
+    }
+    const c = document.createElementNS(SVG_NS, 'circle');
+    c.setAttribute('cx', x);
+    c.setAttribute('cy', cy);
+    c.setAttribute('r', 3.5);
+    return c;
+  }
+
+  function _showCustodyDetail(card, ev) {
+    card.hidden = false;
+    const meta = ev.metadata || {};
+    const lines = [
+      `<div class="vio-l2-custody-detail-head">`,
+      `  <span class="vio-l2-custody-detail-evt">${String(ev.event || '').replace(/_/g, ' ')}</span>`,
+      `  <span class="vio-l2-custody-detail-when">${(ev.at_utc || '').replace('T', ' ').replace('Z', '')}</span>`,
+      `</div>`,
+      `<div class="vio-l2-custody-detail-src">source: ${ev.source || 'unknown'}${ev.ok === false ? ' · <strong>INTEGRITY FAIL</strong>' : ''}</div>`,
+    ];
+    const metaKeys = Object.keys(meta);
+    if (metaKeys.length) {
+      lines.push('<dl class="vio-l2-custody-detail-meta">');
+      metaKeys.forEach(k => {
+        const v = meta[k];
+        const display = (typeof v === 'object') ? JSON.stringify(v) : String(v);
+        lines.push(`<dt>${k}</dt><dd>${display}</dd>`);
+      });
+      lines.push('</dl>');
+    }
+    card.innerHTML = lines.join('');
+  }
+
+  function _fmtSpan(ms) {
+    const days = ms / 86400000;
+    if (days >= 1) return `${days.toFixed(days < 10 ? 1 : 0)}d`;
+    const hours = ms / 3600000;
+    if (hours >= 1) return `${hours.toFixed(1)}h`;
+    const mins = ms / 60000;
+    return `${mins.toFixed(0)}m`;
+  }
+
+  // Stage history frame — what the "in stage Xd" tile drills into. Shows
+  // the chain of state transitions for this company so the operator can
+  // see why we believe the company has been here for that long. Reads
+  // straight from detail.timeline (built by services.vio_company_detail).
+  function _stageHistoryFrame(company, detail) {
+    return {
+      title: 'stage history',
+      render: body => {
+        const timeline = (detail && detail.timeline) || [];
+        if (!timeline.length) {
+          body.appendChild(asHint('no timeline events recorded yet'));
+          return;
+        }
+        body.appendChild(asProse(
+          'time-since-last-movement for this company. Each row is one event ' +
+          'that touched the intake on disk.'));
+        timeline.forEach(ev => {
+          const r = el('div', 'vio-l2-side-row');
+          const left  = el('div', 'vio-l2-side-row-l');
+          const right = el('div', 'vio-l2-side-row-r');
+          left.textContent  = ev.label || ev.kind || ev.event || '(unnamed)';
+          right.textContent = ev.when_human || ev.utc || ev.when || '';
+          r.appendChild(left); r.appendChild(right);
+          body.appendChild(r);
+        });
+      },
+    };
+  }
+
+  // ── Recommended Action block (Constitution: "No Hunting Rule") ─────
+  // One declarative sentence + one primary CTA. The sentence is the
+  // bottleneck if present, else the first next_action, else a calm
+  // confirmation. The CTA always resolves to a single click that takes
+  // the operator to where they can complete the action.
+  function recommendedActionBlock(company, detail) {
+    const wrap = el('div', 'vio-l2-recommend');
+    const sev  = (detail.bottleneck_severity || _bottleneckSeverity(company, detail));
+    wrap.classList.add('vio-l2-recommend--' + sev);
+
+    const head = el('div', 'vio-l2-recommend-head');
+    head.textContent = _recommendHeadline(company, detail);
+    wrap.appendChild(head);
+
+    const sentence = el('div', 'vio-l2-recommend-sentence');
+    sentence.textContent = _recommendSentence(company, detail);
+    wrap.appendChild(sentence);
+
+    const cta = _recommendCta(company, detail);
+    if (cta) {
+      const btn = el('a', 'vio-l2-recommend-cta');
+      btn.textContent = cta.label;
+      btn.href = cta.href;
+      if (cta.external) { btn.target = '_blank'; btn.rel = 'noopener'; }
+      wrap.appendChild(btn);
+    }
+    return wrap;
+  }
+
+  function _bottleneckSeverity(company, detail) {
+    const st = (company.stage_state || '').toLowerCase();
+    if (st === 'failed') return 'critical';
+    if (st === 'waiting_client') return 'waiting';
+    if (st === 'inconsistent') return 'amber';
+    if (st === 'stalled') return 'amber';
+    if (st === 'done') return 'complete';
+    const review = (detail.review_status || '').toLowerCase();
+    if (review === 'pending_review' || review === 'needs_review') return 'review';
+    return 'processing';
+  }
+
+  function _recommendHeadline(company, detail) {
+    const sev = _bottleneckSeverity(company, detail);
+    return ({
+      critical:   '⚡ CRITICAL — act now',
+      waiting:    '📬 waiting on client',
+      amber:      '◐ review the conflict',
+      review:     '👁 operator review',
+      processing: '🧠 organism is working',
+      complete:   '✓ complete',
+    })[sev] || 'next step';
+  }
+
+  function _recommendSentence(company, detail) {
+    if (detail.bottleneck) return detail.bottleneck;
+    const acts = detail.next_actions || [];
+    if (acts.length) return acts[0];
+    const st = (company.stage_state || '').toLowerCase();
+    if (st === 'done') return 'Engagement complete. No outstanding items.';
+    if (st === 'healthy') return 'No bottleneck. Organism is progressing the line on its own.';
+    return 'Open the cockpit to inspect this company in detail.';
+  }
+
+  function _recommendCta(company, detail) {
+    const sev    = _bottleneckSeverity(company, detail);
+    const pid    = detail.project_id || '';
+    const iid    = detail.intake_id || '';
+    const target = pid || iid;
+    if (!target) return null;
+    const cockpitLink = '/ui/control.html#intake=' + encodeURIComponent(target);
+    switch (sev) {
+      case 'critical':
+        return { label: 'Open in cockpit · resolve →', href: cockpitLink };
+      case 'waiting':
+        return { label: 'Send client reminder →', href: cockpitLink };
+      case 'amber':
+        return { label: 'Open review →', href: cockpitLink };
+      case 'review':
+        return { label: 'Open review →', href: cockpitLink };
+      case 'processing':
+        return { label: 'Monitor in cockpit →', href: cockpitLink };
+      case 'complete': {
+        if (pid) {
+          return { label: 'Download deliverable binder →',
+                   href: '/api/project/' + encodeURIComponent(pid) + '/export',
+                   external: true };
+        }
+        return { label: 'Open in cockpit →', href: cockpitLink };
+      }
+      default:
+        return { label: 'Open in cockpit →', href: cockpitLink };
+    }
   }
   function linkBtn(text, url, external) {
     const a = el('a', 'vio-l2-side-btn');

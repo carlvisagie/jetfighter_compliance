@@ -19,6 +19,14 @@ _PHASE_TO_EVENT = {
     "recovered_on_startup": "recovered_on_startup",
     "classification_complete": "classification_complete",
     "integrity_failure": "integrity_failure",
+    "evidence_intelligence_completed": "evidence_intelligence_completed",
+    "evidence_intelligence_failed":    "evidence_intelligence_failed",
+    "operator_action_approve_review":  "operator_approved",
+    "operator_action_request_more_info": "operator_request_more_info",
+    "operator_action_mark_high_value": "operator_mark_high_value",
+    "operator_action_archive":         "operator_archived",
+    "operator_payment_link_sent":      "payment_link_sent",
+    "binder_exported":                 "binder_exported",
 }
 
 

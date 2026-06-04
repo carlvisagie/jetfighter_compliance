@@ -214,10 +214,21 @@ function buildTrace(company, idx) {
   const orbWrap = document.createElement('div');
   orbWrap.className = 'vio-orb-wrap';
 
+  // Doctrine + Carl's sketch: the orb owns the identity. Surface
+  // identity facts BOTH on the orb (as a glance-tooltip) and on the
+  // adjacent name strip (visible without hover). Operator should know
+  // company + email + phone without clicking the row.
   const orb = document.createElement('div');
   orb.className = 'vio-orb';
   orb.setAttribute('data-stage-state', _normalizeState(company.stage_state));
   orb.textContent = company.initials || '?';
+  const _identityParts = [
+    company.company_name || 'Unknown',
+    company.contact_email || '',
+    company.contact_phone || '',
+  ].filter(Boolean);
+  orb.title = _identityParts.join('\n');
+  orb.setAttribute('aria-label', _identityParts.join(' · '));
   orbWrap.appendChild(orb);
 
   const nameWrap = document.createElement('div');
@@ -227,12 +238,15 @@ function buildTrace(company, idx) {
   nameEl.className = 'vio-name';
   nameEl.textContent = company.company_name || 'Unknown';
 
-  const emailEl = document.createElement('div');
-  emailEl.className = 'vio-email';
-  emailEl.textContent = company.contact_email || '';
+  const contactEl = document.createElement('div');
+  contactEl.className = 'vio-email';
+  const _contactBits = [];
+  if (company.contact_email) _contactBits.push(company.contact_email);
+  if (company.contact_phone) _contactBits.push(company.contact_phone);
+  contactEl.textContent = _contactBits.join(' · ');
 
   nameWrap.appendChild(nameEl);
-  nameWrap.appendChild(emailEl);
+  nameWrap.appendChild(contactEl);
 
   row.appendChild(orbWrap);
   row.appendChild(nameWrap);
@@ -280,9 +294,18 @@ function buildSpine(company) {
   }
 
   // ── Past + present segment (the bright, lived part of the trace) ──
+  // Doctrine: the line is itself an information surface — thickness and
+  // density encode activity intensity, in addition to (not instead of)
+  // the shape vocabulary at the live point. `data-activity` is a
+  // discrete band (idle | low | normal | high | peak) the CSS reads to
+  // pick stroke width and dash density. Stage-age (time since last
+  // movement) further dims the line — a quiet line that hasn't been
+  // touched in days reads visually as quiet, not just dimmer in colour.
   const pastLine = document.createElementNS(SVG_NS, 'line');
   pastLine.setAttribute('class', 'vio-spine-past');
   pastLine.setAttribute('data-stage-state', _normalizeState(company.stage_state));
+  pastLine.setAttribute('data-activity', _activityBand(company));
+  pastLine.setAttribute('data-stage-age-band', _stageAgeBand(company));
   pastLine.setAttribute('x1', LAYOUT.spineX0);
   pastLine.setAttribute('y1', LAYOUT.spineCY);
   pastLine.setAttribute('x2', liveX);
@@ -319,13 +342,53 @@ function buildSpine(company) {
 }
 
 function drawLivePoint(svg, cx, cy, company) {
-  const c = document.createElementNS(SVG_NS, 'circle');
-  c.setAttribute('class', 'vio-live');
-  c.setAttribute('data-stage-state', _normalizeState(company.stage_state));
-  c.setAttribute('cx', cx);
-  c.setAttribute('cy', cy);
-  c.setAttribute('r', LAYOUT.livePointR);
-  svg.appendChild(c);
+  // Doctrine §1.4 + Carl's hand sketch: shape is the language. The live
+  // point silhouette IS the state — operator reads it without parsing
+  // colour. Falls back to a circle for any unknown state.
+  //
+  //   healthy   → square      (a clean, definite milestone)
+  //   stalled   → ▽ triangle  (the sketch's "slow")
+  //   done      → ⬢ hexagon   (a peak, dimmed)
+  //   <unknown> → circle      (graceful fallback)
+  //
+  // failed / inconsistent / waiting_client are drawn by dedicated
+  // functions elsewhere; only the non-deviation states arrive here.
+  const state = _normalizeState(company.stage_state);
+  const r = LAYOUT.livePointR;
+  let node;
+  if (state === 'healthy') {
+    node = document.createElementNS(SVG_NS, 'rect');
+    const side = r * 1.7;
+    node.setAttribute('x', cx - side / 2);
+    node.setAttribute('y', cy - side / 2);
+    node.setAttribute('width',  side);
+    node.setAttribute('height', side);
+  } else if (state === 'stalled') {
+    node = document.createElementNS(SVG_NS, 'polygon');
+    const s = r * 1.9;
+    const h = s * 0.866;
+    // downward-pointing triangle, base above
+    node.setAttribute('points',
+      `${cx - s / 2},${cy - h / 2} ${cx + s / 2},${cy - h / 2} ${cx},${cy + h / 2}`);
+  } else if (state === 'done') {
+    node = document.createElementNS(SVG_NS, 'polygon');
+    const s = r * 1.05;
+    // pointy-top hexagon
+    const pts = [];
+    for (let i = 0; i < 6; i++) {
+      const ang = -Math.PI / 2 + i * Math.PI / 3;
+      pts.push(`${cx + s * Math.cos(ang)},${cy + s * Math.sin(ang)}`);
+    }
+    node.setAttribute('points', pts.join(' '));
+  } else {
+    node = document.createElementNS(SVG_NS, 'circle');
+    node.setAttribute('cx', cx);
+    node.setAttribute('cy', cy);
+    node.setAttribute('r', r);
+  }
+  node.setAttribute('class', 'vio-live');
+  node.setAttribute('data-stage-state', state);
+  svg.appendChild(node);
 }
 
 function drawClientBranch(svg, cx, cy, company) {
@@ -358,18 +421,26 @@ function drawClientBranch(svg, cx, cy, company) {
 }
 
 function drawFailureBreak(svg, cx, cy) {
-  // Two short diagonals form a clear ✕ at the failure point.
+  // Doctrine §3 + Carl's sketch: failed is a "sharp ✕ + line breaks" /
+  // starburst. Two strong diagonals plus two shorter spokes make the
+  // failure point unmistakable at peripheral-vision distance — read in
+  // a glance, no colour decoding required.
   const g = document.createElementNS(SVG_NS, 'g');
   g.setAttribute('class', 'vio-failure');
-  const len = 7;
-  const a = document.createElementNS(SVG_NS, 'line');
-  a.setAttribute('x1', cx - len); a.setAttribute('y1', cy - len);
-  a.setAttribute('x2', cx + len); a.setAttribute('y2', cy + len);
-  g.appendChild(a);
-  const b = document.createElementNS(SVG_NS, 'line');
-  b.setAttribute('x1', cx - len); b.setAttribute('y1', cy + len);
-  b.setAttribute('x2', cx + len); b.setAttribute('y2', cy - len);
-  g.appendChild(b);
+  const long  = 7;
+  const short = 4;
+  const segs = [
+    [-long, -long,  long,  long],   // ╲
+    [-long,  long,  long, -long],   // ╱
+    [    0, -short,   0,  short],   // │
+    [-short,    0, short,    0],    // ─
+  ];
+  segs.forEach(([x1, y1, x2, y2]) => {
+    const l = document.createElementNS(SVG_NS, 'line');
+    l.setAttribute('x1', cx + x1); l.setAttribute('y1', cy + y1);
+    l.setAttribute('x2', cx + x2); l.setAttribute('y2', cy + y2);
+    g.appendChild(l);
+  });
   svg.appendChild(g);
 }
 
@@ -388,6 +459,32 @@ function drawTurbulence(svg, cx, cy) {
 
 function _normalizeState(s) {
   return STATE_TOKENS.has(s) ? s : 'healthy';
+}
+
+// Activity band — drives line stroke width / density. Companies with
+// many files OR many recent events read as a "thicker" line; quiet
+// intakes read as a thinner line. Pure visual encoding — no badge, no
+// number on screen.
+function _activityBand(company) {
+  const files = Number(company.file_count || (company.quick_stats && company.quick_stats.files_uploaded) || 0);
+  const attention = (company.attention || []).length;
+  const score = files + attention * 2;
+  if (score <= 0)   return 'idle';
+  if (score <= 2)   return 'low';
+  if (score <= 6)   return 'normal';
+  if (score <= 12)  return 'high';
+  return 'peak';
+}
+
+// Stage-age band — drives line opacity / dash. A trace that hasn't moved
+// in days physically fades; one that just moved is fully present.
+function _stageAgeBand(company) {
+  const d = Number(company.days_in_stage || 0);
+  if (d < 1)  return 'fresh';
+  if (d < 3)  return 'recent';
+  if (d < 7)  return 'aging';
+  if (d < 14) return 'old';
+  return 'ancient';
 }
 
 // ── Hover card (Level 1 information surface; no permanent badges) ─────────────

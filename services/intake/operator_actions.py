@@ -59,12 +59,33 @@ def apply_operator_action(
         return kickoff_project_from_intake(intake_id, operator_note=operator_note)
 
     rec = _load_intake(intake_id)
+    prev_status = rec.get("review_status") or rec.get("status") or ""
     new_status = _STATUS_MAP[action]
     rec["review_status"] = new_status
     rec["status"] = new_status
     if operator_note:
         rec["operator_note"] = operator_note.strip()[:1000]
     _save_intake(intake_id, rec)
+
+    # Custody capture: operator review-status transition is a court-grade
+    # event ("operator X moved this intake from approved → needs_info at
+    # time T"). The intake_record source in custody_timeline only ever
+    # surfaces the *current* status, so without this transaction event
+    # the per-transition timestamp would be lost.
+    try:
+        from .transactions import append_transaction_event
+
+        append_transaction_event(
+            intake_id,
+            f"operator_action_{action}",
+            metadata={
+                "prev_review_status": prev_status,
+                "new_review_status":  new_status,
+                "operator_note":      (operator_note or "")[:200],
+            },
+        )
+    except Exception:
+        pass
 
     clf = classify_intake(intake_id)
     event_type = _EVENT_MAP[action]
@@ -184,6 +205,30 @@ def _send_payment_link(
     _save_intake(intake_id, rec)
 
     email_sent = bool(mail.get("sent"))
+
+    # Custody capture: payment-link generation/send is the moment the
+    # platform asks the customer for money — must appear in the chain
+    # of custody with the product, the recipient, and whether the email
+    # actually left the building.
+    try:
+        from .transactions import append_transaction_event
+
+        append_transaction_event(
+            intake_id,
+            "operator_payment_link_sent",
+            ok=email_sent or bool(mail.get("skipped")),
+            metadata={
+                "product_id":      product["id"],
+                "product_title":   product.get("title"),
+                "price_display":   product.get("price_display"),
+                "recipient_email": email,
+                "email_sent":      email_sent,
+                "email_skipped":   bool(mail.get("skipped")),
+            },
+        )
+    except Exception:
+        pass
+
     emit_intake_event(
         "operator_payment_link_sent",
         message=f"Payment link generated for {product.get('title')}",

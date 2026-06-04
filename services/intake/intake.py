@@ -845,6 +845,46 @@ async def _process_upload_locked(
                     intake_id=intake_id,
                 )
 
+            # ── Evidence intelligence — extract on intake, not on kickoff ──
+            # The doctrine says EI is "automated extraction, classification,
+            # profiling" of uploads. Running it only at kickoff means the
+            # operator reviews intakes with no entity/gap signal — which is
+            # what the VIO L2 KPI tiles and L1 attention strip read. We run
+            # it here using `intake_id` as the EI key; vio_overview already
+            # falls back to intake_id when project_id is missing.
+            # Best-effort: never let extraction failures break the intake.
+            try:
+                from services.evidence_intelligence import process_evidence_upload
+
+                _ei_dir = canonical_intake_dir(intake_id)
+                _ei_files = sorted(p for p in _ei_dir.rglob("*") if p.is_file())
+                for _f in _ei_files:
+                    try:
+                        process_evidence_upload(
+                            project_id=intake_id,
+                            file_path=_f,
+                            artifact_id=_f.name,
+                        )
+                    except Exception as _ei_exc:
+                        logger.warning(
+                            "Evidence extraction skipped for %s/%s: %s",
+                            intake_id, _f.name, _ei_exc,
+                        )
+                if _ei_files:
+                    emit_intake_event(
+                        "evidence_intelligence_dispatched",
+                        message=intake_id,
+                        metadata={
+                            "intake_id": intake_id,
+                            "files_dispatched": len(_ei_files),
+                        },
+                    )
+            except Exception as _ei_outer:
+                logger.warning(
+                    "Evidence intelligence dispatch failed for %s: %s",
+                    intake_id, _ei_outer,
+                )
+
             # Autonomous payment link dispatch — gated off by default per
             # docs/FIRST_SALE_OPERATOR_SOP.md (operator must review the intake
             # before any PayPal link goes to the customer). Opt in by setting

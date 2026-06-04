@@ -12,7 +12,7 @@ shipping. It is generated against the actual codebase (not a wish list).
 
 | Indicator | Value |
 | --- | --- |
-| Backend service | `kyc-backend` (FastAPI on Render Docker, plan `starter`) |
+| Backend service | **Live Render dashboard name:** `jetfighter_compliance` (Blueprint name in `render.yaml`: `kyc-backend`). FastAPI on Render Docker, plan `starter`. Open the dashboard name when working in the Render UI. |
 | Healthcheck | `GET /healthz` |
 | Production domain | `compliance.keepyourcontracts.com` |
 | Render fallback domain | `jetfighter-compliance.onrender.com` |

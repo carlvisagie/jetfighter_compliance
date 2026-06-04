@@ -32,10 +32,15 @@ the VIO layer must hold this charter as the standard of acceptance.
    never aesthetic; colour is *language*. Adding a colour without
    declaring its semantic is forbidden.
 
-4. **Shape is the language.**
-   The line itself encodes the story — position, length, density,
-   thickness, break, branch. Information that can be conveyed by shape
-   must not be duplicated in a badge, pill, column, tab, or list.
+4. **Shape is the language — and the line is a parallel language.**
+   The line and the shapes on it speak at once. The line itself encodes
+   one channel of information (thickness ∝ activity, colour ∝ state,
+   opacity ∝ time-since-movement, breaks ∝ failure). The shapes on the
+   line encode a second channel (discrete events, branches, leaves).
+   Removing one channel does not redirect its meaning into the other;
+   it deletes information from VIO. Information that can be conveyed
+   by line or shape must not be duplicated in a badge, pill, column,
+   tab, row, or list.
 
 5. **Silence is information.**
    When VIO is quiet, the organism is healthy. The absence of motion is
@@ -151,6 +156,20 @@ Each line is:
 - branch only drawn when `on_branch = true`
 
 ### Level 2 (the immersive landscape — shipped)
+
+**The L2 spine is a timeline, not a stage grid.** Operator directive,
+2026-06-04:
+
+> "If two days after intake we need to start generating documents,
+> we will have another branch flow out of main line on the 2-day mark."
+
+Left edge of the spine = `intake_created_utc`. Right edge = `now` (or
+`archived_utc` if the engagement is `done`). Stage anchors slide to the
+timestamp at which each stage actually started. **Every branch sprouts
+from the spine at the moment its activity began**, not at an arbitrary
+stage-grid position. The spine is the company's biography unrolling in
+time; the branches are the threads of work that started at the moments
+they really started.
 
 Click a company line on Level 1 → the page is taken over by a full-screen
 horizontal landscape whose visible shape *is* the entire story of that
@@ -297,3 +316,104 @@ The following have been rejected by name and must not return:
   contract.
 
 If this doctrine and the code drift, the doctrine wins. Update the code.
+
+---
+
+## § 11 — The line itself is information (parallel encodings)
+
+> "Bro the line also communicate for fucks sake it does not take the
+> place of anything!!!" — operator directive, 2026-06-04.
+
+The line is **not just a substrate** the shapes sit on. The line is its
+own information channel that speaks **in addition to** every shape,
+break, branch, and graphic placed on it. Both languages run in parallel
+on the same trace and are read simultaneously:
+
+| Channel              | Encoding surface                  | What it carries                            |
+| -------------------- | --------------------------------- | ------------------------------------------ |
+| The line's **length and position** | x-axis of the spine             | **time** — left edge = intake created, right edge = now / archive |
+| The line's **colour** + **pulse** | `data-stage-state` on the SVG line | the company's stage state (healthy / stalled / failed / waiting / inconsistent / done) |
+| The line's **thickness**          | `data-activity` band              | activity intensity (idle → low → normal → high → peak), derived from file count + attention items |
+| The line's **opacity / fade**     | `data-stage-age-band`             | time since last movement (fresh → recent → aging → old → ancient) |
+| The **shape at the live point**   | SVG square / triangle / hexagon / starburst cluster | discrete state markers — square=healthy, triangle=stalled, hexagon=done, starburst=failed |
+| **Branches sprouting off the line** | bezier limbs at the timestamp the activity began | a new thread of work (custody, generated docs, payment, project, …) anchored to when it really started |
+| **Shapes on a branch's own line** | event marks placed by their timestamp | discrete events within that thread (one custody event, one document generated, one payment attempt) |
+
+Implementation:
+
+- `ui/assets/js/vio.js` → `_activityBand()`, `_stageAgeBand()` produce
+  the per-line data attributes.
+- `ui/assets/styles/vio.css` → `.vio-spine-past[data-activity="…"]`
+  and `[data-stage-age-band="…"]` translate the bands into stroke-width
+  and opacity. Transitions are 0.25 s — fast enough to feel direct,
+  slow enough to avoid flicker.
+
+Removing or weakening one channel does not redirect its semantics into
+another channel; it deletes information from VIO. **Never** replace a
+shape with a thicker line, and **never** replace line thickness with a
+badge.
+
+---
+
+## § 12 — Provable chain of custody
+
+> "Every question can be answered a year after the job was completed
+> with perfect chain of custody provable in court."
+
+VIO must be able to reconstruct the entire life of any intake — from
+first click to delivered binder — with timestamps, signatures, and
+provenance. This is not a feature; it is a non-negotiable structural
+property of the organism.
+
+**One substrate, many writers.** All custody events for an intake live
+in a single ordered ledger and are merged by one function:
+
+- **Substrate:** `services/intake/transactions.py` →
+  `append_transaction_event(intake_id, phase, ok, metadata)` writes to
+  `data/intake/<intake_id>/transaction_lifecycle.jsonl` (durable disk).
+- **Reader:** `services/intake/custody_timeline.py` →
+  `build_custody_timeline(intake_id)` merges the transaction ledger
+  with audit receipts, evidence registry rows, upload custody,
+  intake-record state, the communications ledger (email/SMS/voice),
+  and delay attributions into a single ordered list.
+- **Surface:** the Level 2 "chain of custody" tile and frame in
+  `ui/assets/js/vio-level2.js` (`_custodyFrame`). Each event row carries
+  a channel glyph, ISO timestamp, event name, and a compact metadata
+  summary (sha256, project id, channel, integrity flag, etc.).
+
+**Required write-sites** (regression-guarded by
+`tests/test_custody_capture_doctrine.py`):
+
+| Event                              | Writer                                     | Phase string                       |
+| ---------------------------------- | ------------------------------------------ | ---------------------------------- |
+| upload received                    | `services/intake/intake.py`                | `upload_received`                  |
+| files persisted to disk            | `services/intake/intake.py`                | `files_persisted`                  |
+| durability hash verified           | `services/intake/intake.py`                | `hash_verified`                    |
+| audit receipt written              | `services/intake/intake.py`                | `audit_written`                    |
+| index committed                    | `services/intake/intake.py`                | `index_committed`                  |
+| classification complete            | `services/intake/intake.py`                | `classification_complete`          |
+| evidence intelligence completed    | `services/evidence_intelligence/__init__`  | `evidence_intelligence_completed`  |
+| evidence intelligence failed       | `services/evidence_intelligence/__init__`  | `evidence_intelligence_failed`     |
+| operator review-status transition  | `services/intake/operator_actions.py`      | `operator_action_<action>`         |
+| payment link generated/sent        | `services/intake/operator_actions.py`      | `operator_payment_link_sent`       |
+| binder exported (delivery)         | `services/reports.py`                      | `binder_exported`                  |
+| forensic recovery                  | `services/intake/forensic_recovery.py`     | `forensic_recovered`               |
+| disk recovery on startup           | `services/intake/reconcile.py`             | `recovered_on_startup`             |
+
+Adding a new operator-visible action or pipeline phase requires:
+
+1. A call to `append_transaction_event(...)` at the moment the action
+   completes (success **or** failure — both branches must record).
+2. A new entry in `services/intake/custody_timeline._PHASE_TO_EVENT`
+   so the row renders with a human-readable event label.
+3. A guard added to `tests/test_custody_capture_doctrine.py` so the
+   write is provably non-regressing.
+
+**Known capture gaps** (tracked, not yet closed):
+
+- The "first click on the portal" beacon is not recorded — custody
+  currently begins at `upload_received`. Closing this requires an
+  anonymous session beacon at the inquiry form.
+- Voice-call events are surfaced through the communications ledger
+  only when the call was recorded through the platform; off-platform
+  calls remain invisible until logged manually.

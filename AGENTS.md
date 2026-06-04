@@ -10,7 +10,7 @@
 
 There is **one** environment: **production**. Everything else is noise.
 
-- **Production** = `https://compliance.keepyourcontracts.com`, Render service `kyc-backend`, Render disk mounted at `/var/data`. The disk is the only place customer truth ever lives.
+- **Production** = `https://compliance.keepyourcontracts.com`, Render service **`jetfighter_compliance`** (the Blueprint label is `kyc-backend`, the live Dashboard service id is `jetfighter_compliance` — they refer to the same deploy; open the latter when working in the Render UI), Render disk **`kyc-data`** mounted at `/var/data`. The disk is the only place customer truth ever lives. If the disk-persistence probe ever reports `ephemeral_lost`, treat as SEV-1 and re-attach the disk before accepting new uploads — see `docs/KYC_UPLOAD_IMMUTABILITY_PROOF.md` § "2026-06-04 — Disk attach incident".
 - The local `data/` directory on a developer machine is **not** a source of truth. It contains pytest junk and old experiments. Do not `ls` it to answer "how many intakes / projects / uploads do we have." Do not cite anything you found there.
 - Pytest writes only to per-session temp dirs (`tests/conftest.py` enforces this). Test counts are invisible to humans and to you.
 
@@ -158,7 +158,7 @@ Primary onboarding: `POST /api/inquiry/submit` → `kickoff()` → intake/upload
 
 | Item | Value |
 |------|--------|
-| Service | Render `kyc-backend` (Docker) |
+| Service | Render `jetfighter_compliance` (Blueprint name `kyc-backend`; Docker) |
 | Public URL | `https://compliance.keepyourcontracts.com` |
 | Health | `GET /healthz`, `GET /health/ready` |
 | Verify scripts | `scripts/verify-render-production.ps1`, `scripts/verify-production-live.ps1` |

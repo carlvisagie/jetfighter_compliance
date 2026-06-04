@@ -355,4 +355,34 @@ def build_company_detail(intake_id: str) -> Dict[str, Any]:
         "bottleneck": bottleneck,
         "next_actions": list(ei.get("next_actions") or []),
         "payment": rec.get("payment") or {},
+        # ── Chain of custody ────────────────────────────────────────────
+        # Court-grade ordered list of every event from first click to
+        # delivery: uploads, hashes, audit receipts, evidence registry,
+        # operator actions, communications (email/SMS/voice), delay
+        # attribution, project creation. Built by `build_custody_timeline`
+        # so VIO never owns its own copy of custody — one brain, many
+        # vessels (kills truth-island risk). Best-effort: if the substrate
+        # fails we return an empty chain rather than break the detail load.
+        "custody": _custody_chain_for_detail(iid),
     }
+
+
+def _custody_chain_for_detail(intake_id: str) -> Dict[str, Any]:
+    try:
+        from services.intake.custody_timeline import build_custody_timeline
+
+        ct = build_custody_timeline(intake_id) or {}
+        return {
+            "ok":           bool(ct.get("ok")),
+            "event_count":  int(ct.get("event_count") or 0),
+            "events":       list(ct.get("events") or []),
+            "custody_status": ct.get("custody_status") or "",
+        }
+    except Exception as exc:
+        return {
+            "ok":           False,
+            "event_count":  0,
+            "events":       [],
+            "custody_status": "",
+            "error":        str(exc)[:200],
+        }

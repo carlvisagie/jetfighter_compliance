@@ -130,6 +130,75 @@ html, body {
   border-color: var(--vio-border-bright);
 }
 
+/* ── Platform organism orbs (Layer-1, in-place) ────────────────────────── */
+/*  Doctrine: VIO_CONSTITUTION.md "Layer 1 — Organism View" + Doctrine §1
+ *  "stillness is the baseline". The orbs are present but quiet — calm
+ *  monochrome rings with a single letter. Hover surfaces the name. No
+ *  idle pulse, no decorative motion. The arrow indicates the entry
+ *  semantic: everything to the left of the arrow are organs that feed
+ *  state into the universe; everything to the right is how new state
+ *  enters the universe. */
+.vio-orbs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  background: var(--vio-surface-soft);
+  border-bottom: 1px solid var(--vio-border);
+}
+.vio-orb {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--vio-text-dim);
+  border: 1px solid var(--vio-border);
+  background: transparent;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.vio-orb:hover,
+.vio-orb:focus-visible {
+  color: var(--vio-text-bright);
+  border-color: var(--vio-border-bright);
+  background: var(--vio-surface);
+  outline: none;
+}
+.vio-orb-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--vio-surface);
+  border: 1px solid var(--vio-border);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1;
+}
+.vio-orb-name {
+  white-space: nowrap;
+}
+.vio-orb--entry {
+  border-color: var(--vio-accent-cool, var(--vio-border-bright));
+  color: var(--vio-text-bright);
+}
+.vio-orb--entry .vio-orb-letter {
+  background: var(--vio-accent-cool, var(--vio-surface));
+  color: #061318;
+  border-color: var(--vio-accent-cool, var(--vio-border-bright));
+}
+.vio-orb-arrow {
+  color: var(--vio-text-dim);
+  opacity: 0.6;
+  padding: 0 4px;
+  font-size: 14px;
+}
+
 /* ── Organism strip ────────────────────────────────────────────────────── */
 .vio-organism-strip {
   background: var(--vio-surface-soft);
@@ -313,18 +382,39 @@ html, body {
   display: block;
 }
 
-/* Past / present line — bright by stage_state */
+/* ── Past / present line — the line ITSELF is information ────────────────
+ *  Two parallel encodings on the same trace, doctrine §1.4 + Carl:
+ *    (a) colour and pulse  → state          (via data-stage-state)
+ *    (b) thickness + dash  → activity level (via data-activity)
+ *    (c) opacity           → time-since-movement (via data-stage-age-band)
+ *  Shapes at the live point are a third channel that adds discrete
+ *  events; nothing here replaces them — both speak at once. */
 .vio-spine-past {
   stroke: var(--st-healthy);
   stroke-width: 2;
   stroke-linecap: round;
+  transition: stroke-width 0.25s, opacity 0.25s;
 }
 .vio-spine-past[data-stage-state="healthy"]        { stroke: var(--st-healthy); }
-.vio-spine-past[data-stage-state="stalled"]        { stroke: var(--st-stalled);      stroke-width: 1.2; }
+.vio-spine-past[data-stage-state="stalled"]        { stroke: var(--st-stalled); }
 .vio-spine-past[data-stage-state="failed"]         { stroke: var(--st-failed); }
 .vio-spine-past[data-stage-state="waiting_client"] { stroke: var(--st-waiting); }
 .vio-spine-past[data-stage-state="inconsistent"]   { stroke: var(--st-inconsistent); }
-.vio-spine-past[data-stage-state="done"]           { stroke: var(--st-done);         stroke-width: 1.4; }
+.vio-spine-past[data-stage-state="done"]           { stroke: var(--st-done); }
+
+/* (b) activity → thickness. Idle ≈ hair line, peak ≈ confident stroke. */
+.vio-spine-past[data-activity="idle"]   { stroke-width: 1.1; }
+.vio-spine-past[data-activity="low"]    { stroke-width: 1.6; }
+.vio-spine-past[data-activity="normal"] { stroke-width: 2.2; }
+.vio-spine-past[data-activity="high"]   { stroke-width: 3.0; }
+.vio-spine-past[data-activity="peak"]   { stroke-width: 3.8; }
+
+/* (c) stage-age → opacity. Fresh ≈ fully present, ancient ≈ ghost. */
+.vio-spine-past[data-stage-age-band="fresh"]   { opacity: 1.00; }
+.vio-spine-past[data-stage-age-band="recent"]  { opacity: 0.95; }
+.vio-spine-past[data-stage-age-band="aging"]   { opacity: 0.80; }
+.vio-spine-past[data-stage-age-band="old"]     { opacity: 0.62; }
+.vio-spine-past[data-stage-age-band="ancient"] { opacity: 0.45; }
 
 /* Future segment — barely visible */
 .vio-spine-future {
@@ -595,6 +685,53 @@ html, body {
 }
 .vio-l2-stage:hover .vio-l2-stage-label { fill: var(--vio-text); }
 
+/* Time-scale labels — "intake_created" on the left, "now" on the right.
+ * Doctrine §5/§11: the spine is a timeline; identity-only text. */
+.vio-l2-spine-time-label {
+  fill: var(--vio-text-faint, rgba(255,255,255,0.40));
+  font-size: 10px;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+
+/* Custody branch limb — the bent path that splits the spine at the
+ * intake anchor and dives down to the ribbon. Doctrine §11: line as
+ * information — its thickness inherits the same activity vocabulary
+ * as the ribbon itself. */
+.vio-l2-custody-limb {
+  fill: none;
+  stroke: var(--st-healthy, #6fc2c0);
+  stroke-linecap: round;
+  transition: stroke-width 0.25s, opacity 0.25s;
+}
+.vio-l2-custody-limb[data-activity="idle"]   { stroke-width: 1.1; opacity: 0.55; }
+.vio-l2-custody-limb[data-activity="low"]    { stroke-width: 1.6; opacity: 0.70; }
+.vio-l2-custody-limb[data-activity="normal"] { stroke-width: 2.2; opacity: 0.85; }
+.vio-l2-custody-limb[data-activity="high"]   { stroke-width: 3.0; opacity: 1.00; }
+.vio-l2-custody-limb[data-activity="peak"]   { stroke-width: 3.8; opacity: 1.00; }
+
+.vio-l2-custody-branch-label {
+  fill: var(--vio-text-faint, rgba(255,255,255,0.40));
+  font-size: 10px;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+/* Brief pulse when the KPI tile drills to the custody branch. */
+@keyframes vio-l2-custody-pulse {
+  0%   { filter: none; }
+  30%  { filter: drop-shadow(0 0 6px var(--st-healthy, #6fc2c0)); }
+  100% { filter: none; }
+}
+.vio-l2-custody--pulse .vio-l2-custody-line,
+.vio-l2-custody--pulse .vio-l2-custody-limb,
+.vio-l2-custody--pulse .vio-l2-custody-mark {
+  animation: vio-l2-custody-pulse 1.6s ease-out;
+}
+
 /* ── Orb ───────────────────────────────────────────────────────────────── */
 .vio-l2-orb-group { cursor: pointer; }
 .vio-l2-orb-limb {
@@ -845,6 +982,240 @@ html, body {
 .vio-l2-side-link:hover, .vio-l2-side-btn:hover {
   color: var(--st-healthy);
   border-color: var(--st-healthy);
+}
+
+/* ── L2 KPI tiles (at-a-glance state) ─────────────────────────────────── */
+/*  Doctrine: "State Before Detail" — four declarative numbers up top so
+ *  the operator reads the room without hunting. Staying loyal to
+ *  stillness: tiles are calm by default; severity classes (warn/amber)
+ *  only colour when count > 0. */
+.vio-l2-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 4px 0 12px;
+}
+.vio-l2-tile {
+  background: var(--vio-surface-soft);
+  border: 1px solid var(--vio-border);
+  padding: 8px 6px;
+  text-align: center;
+  border-radius: 4px;
+}
+.vio-l2-tile-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--vio-text-bright, var(--vio-text));
+  line-height: 1.1;
+}
+.vio-l2-tile-label {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vio-text-dim);
+  margin-top: 2px;
+}
+.vio-l2-tile.vio-l2-tile-warn {
+  border-color: var(--st-failed, #b04a3c);
+}
+.vio-l2-tile.vio-l2-tile-warn .vio-l2-tile-value {
+  color: var(--st-failed, #b04a3c);
+}
+.vio-l2-tile.vio-l2-tile-amber {
+  border-color: var(--st-waiting, #d8a24a);
+}
+.vio-l2-tile.vio-l2-tile-amber .vio-l2-tile-value {
+  color: var(--st-waiting, #d8a24a);
+}
+/* L2 rule: every visual artifact in the universe drills. Tiles with a
+ * destination get a subtle interactive affordance. Tiles with nothing
+ * to drill into stay quiet — the operator should never click a zero. */
+.vio-l2-tile--drill {
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.vio-l2-tile--drill:hover,
+.vio-l2-tile--drill:focus-visible {
+  border-color: var(--st-healthy, #6fc2c0);
+  background: var(--vio-surface, transparent);
+  outline: none;
+}
+.vio-l2-tile--drill:hover .vio-l2-tile-value,
+.vio-l2-tile--drill:focus-visible .vio-l2-tile-value {
+  color: var(--st-healthy, #6fc2c0);
+}
+.vio-l2-tile--inert {
+  opacity: 0.55;
+}
+
+/* ── L2 Chain of custody — LINEAR BRANCH (not a row list) ─────────────
+ *  Doctrine §11: "the line is information." Custody is itself a line
+ *  parallel to the main backbone — time-aligned (t=0 left, now right),
+ *  with shapes on it that mark discrete events. No rows. No table.
+ *  No badges. The branch IS the ledger; clicking a shape surfaces its
+ *  metadata in a single inline card below.
+ *
+ *  Channel → silhouette (rendered in JS): diamond=communication,
+ *  hexagon=audit/binder, triangle=delay, square=upload/evidence,
+ *  dot=transaction. Colour: teal=ok, red=fail. */
+.vio-l2-custody-head {
+  font-size: 11px;
+  opacity: 0.62;
+  margin: 4px 0 6px;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+}
+.vio-l2-custody-spine {
+  display: block;
+  margin: 4px 0 2px;
+  height: 56px;
+  overflow: visible;
+}
+.vio-l2-custody-line {
+  stroke: var(--st-healthy, #6fc2c0);
+  stroke-linecap: round;
+  transition: stroke-width 0.25s, opacity 0.25s;
+}
+/* Activity → line thickness. Mirrors the L1 spine vocabulary so the
+ * operator reads the same language at both layers. */
+.vio-l2-custody-line[data-activity="idle"]   { stroke-width: 1.1; opacity: 0.55; }
+.vio-l2-custody-line[data-activity="low"]    { stroke-width: 1.6; opacity: 0.70; }
+.vio-l2-custody-line[data-activity="normal"] { stroke-width: 2.2; opacity: 0.85; }
+.vio-l2-custody-line[data-activity="high"]   { stroke-width: 3.0; opacity: 1.00; }
+.vio-l2-custody-line[data-activity="peak"]   { stroke-width: 3.8; opacity: 1.00; }
+.vio-l2-custody-tick {
+  stroke: var(--st-healthy, #6fc2c0);
+  stroke-width: 1;
+  opacity: 0.45;
+}
+
+/* Event marks on the line. Default = healthy teal. Failure = red.
+ * Channel colour overrides only by source so the operator's peripheral
+ * vision picks up "lots of comms" vs "lots of uploads" before reading. */
+.vio-l2-custody-mark {
+  fill: var(--st-healthy, #6fc2c0);
+  stroke: var(--vio-bg, #0b1216);
+  stroke-width: 1;
+  cursor: pointer;
+  transition: transform 0.15s, fill 0.15s;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.vio-l2-custody-mark[data-source="audit_receipt"]         { fill: var(--st-done, #6f9c7a); }
+.vio-l2-custody-mark[data-source="evidence_registry"]     { fill: var(--st-healthy, #6fc2c0); }
+.vio-l2-custody-mark[data-source="upload_custody"]        { fill: var(--st-healthy, #6fc2c0); }
+.vio-l2-custody-mark[data-source="communications_ledger"] { fill: var(--st-waiting, #d8a24a); }
+.vio-l2-custody-mark[data-source="delay_attribution"]     { fill: var(--st-stalled, #b88c4a); }
+.vio-l2-custody-mark[data-source="transaction_lifecycle"] { fill: var(--st-healthy, #6fc2c0); opacity: 0.75; }
+.vio-l2-custody-mark[data-ok="false"] {
+  fill: var(--st-failed, #b04a3c);
+  opacity: 1;
+}
+.vio-l2-custody-mark:hover,
+.vio-l2-custody-mark:focus-visible {
+  outline: none;
+  transform: scale(1.5);
+}
+
+.vio-l2-custody-scale {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 10.5px;
+  opacity: 0.55;
+  padding: 0 16px;
+  margin-bottom: 8px;
+}
+
+/* Inline detail card — appears below the branch when an event is
+ * clicked. Single card, replaced in place; no modal, no sidebar. */
+.vio-l2-custody-detail {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-left: 2px solid var(--st-healthy, #6fc2c0);
+  background: rgba(255,255,255,0.02);
+  font-size: 12px;
+}
+.vio-l2-custody-detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.vio-l2-custody-detail-evt {
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.vio-l2-custody-detail-when {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  opacity: 0.7;
+  font-size: 11px;
+}
+.vio-l2-custody-detail-src {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  opacity: 0.65;
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+.vio-l2-custody-detail-meta {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 12px;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  margin: 0;
+}
+.vio-l2-custody-detail-meta dt { opacity: 0.55; }
+.vio-l2-custody-detail-meta dd { margin: 0; word-break: break-all; }
+
+/* ── L2 Recommended Action block ──────────────────────────────────────── */
+/*  Constitution: "No Hunting Rule" — one sentence + one click. The
+ *  severity variants tint the left border so the operator's peripheral
+ *  vision catches the urgency before they read the text. */
+.vio-l2-recommend {
+  margin: 6px 0 14px;
+  padding: 10px 12px;
+  background: var(--vio-surface-soft);
+  border: 1px solid var(--vio-border);
+  border-left: 3px solid var(--vio-border-bright);
+  border-radius: 3px;
+}
+.vio-l2-recommend--critical   { border-left-color: var(--st-failed,        #b04a3c); }
+.vio-l2-recommend--waiting    { border-left-color: var(--st-waiting,       #d8a24a); }
+.vio-l2-recommend--amber      { border-left-color: var(--st-inconsistent,  #b08fc8); }
+.vio-l2-recommend--review     { border-left-color: var(--vio-accent-cool,  #6fc2c0); }
+.vio-l2-recommend--processing { border-left-color: var(--st-healthy,       #6fc2c0); }
+.vio-l2-recommend--complete   { border-left-color: var(--st-done,          #547d52); }
+.vio-l2-recommend-head {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vio-text-bright, var(--vio-text));
+}
+.vio-l2-recommend-sentence {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--vio-text);
+  line-height: 1.5;
+}
+.vio-l2-recommend-cta {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 6px 14px;
+  background: var(--vio-surface);
+  border: 1px solid var(--vio-border-bright);
+  color: var(--vio-text-bright, var(--vio-text));
+  font-size: 11px;
+  text-decoration: none;
+  border-radius: 3px;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.vio-l2-recommend-cta:hover,
+.vio-l2-recommend-cta:focus-visible {
+  border-color: var(--st-healthy, #6fc2c0);
+  color: var(--st-healthy, #6fc2c0);
+  outline: none;
 }
 
 /* Drill-down rows in the side panel — clickable item in a list/tree */

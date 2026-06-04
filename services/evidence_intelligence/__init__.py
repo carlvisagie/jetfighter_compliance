@@ -205,6 +205,20 @@ def process_evidence_upload(
         )
         telemetry.emit("profile_updated", project_id=project_id)
         result.status = "completed" if not extraction.pending_analysis else "pending_analysis"
+        _record_custody_event(
+            project_id,
+            "evidence_intelligence_completed",
+            ok=True,
+            metadata={
+                "file":           name,
+                "artifact_id":    artifact_id,
+                "sha256":         actual_sha256,
+                "document_type":  classification.document_type,
+                "confidence":     classification.confidence,
+                "entity_count":   len(entities),
+                "gap_count":      len(gaps),
+            },
+        )
         return result
     except Exception as e:
         result.ok = False
@@ -216,7 +230,36 @@ def process_evidence_upload(
             severity="warning",
             message=str(e)[:120],
         )
+        _record_custody_event(
+            project_id,
+            "evidence_intelligence_failed",
+            ok=False,
+            metadata={"file": name, "error": str(e)[:200]},
+        )
         return result
+
+
+def _record_custody_event(
+    intake_id: str,
+    phase: str,
+    *,
+    ok: bool = True,
+    metadata: dict | None = None,
+) -> None:
+    """Write a custody event without ever raising into the caller.
+
+    Doctrine: "provable chain of custody" — every event from first click
+    to delivered product needs provenance. Evidence intelligence is one
+    of those events; the existing transaction lifecycle ledger is the
+    one true substrate, so we write straight there. In our intake-side
+    pipeline `project_id == intake_id`, so the same key works for both.
+    """
+    try:
+        from services.intake.transactions import append_transaction_event
+
+        append_transaction_event(intake_id, phase, ok=ok, metadata=metadata or {})
+    except Exception:
+        return
 
 
 def get_customer_evidence_profile(project_id: str) -> Dict[str, Any]:

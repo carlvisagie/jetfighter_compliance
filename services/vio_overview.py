@@ -73,6 +73,26 @@ def _ts_age_hours(utc_str: str) -> float:
         return 0.0
 
 
+def _stage_age_hours(row: Dict) -> float:
+    """Hours since the company last *moved* (not since the intake was created).
+
+    Doctrine §4 reads ``days_in_stage`` as how long the company has been
+    sitting in its current stage — i.e. time since the most recent
+    operator/customer/system event that touched the intake. Using
+    ``created_utc`` (intake birth) instead inflates urgency for old
+    customers that are actively progressing and under-inflates it for new
+    customers that already stalled out.
+
+    Falls back to ``created_utc`` only when no movement timestamp exists.
+    """
+    candidate = row.get("last_movement_utc") or ""
+    if candidate:
+        return _ts_age_hours(str(candidate))
+    return _ts_age_hours(
+        str(row.get("created_utc") or row.get("submitted_utc") or "")
+    )
+
+
 def _initials(name: str) -> str:
     parts = (_clean_company_name(name) or "?").split()
     return "".join(p[0].upper() for p in parts[:2]) or "?"
@@ -343,9 +363,12 @@ def _classify_stage(row: Dict, ei: Dict, state: str) -> Dict[str, Any]:
         # but the line itself is still moving; surface it as inconsistent.
         stage_state = STAGE_STATE_INCONSISTENT
     else:
-        # Default healthy unless aging in stage too long.
-        created = row.get("created_utc") or row.get("submitted_utc") or ""
-        if _ts_age_hours(created) > _STAGE_STALL_HOURS and stage != "conversion":
+        # Default healthy unless aging in stage too long. We use stage-age
+        # (time since the last movement) not intake-age, otherwise every
+        # company older than 48h would render as stalled — see
+        # docs/VIO_DOCTRINE.md §3 (stalled = "sitting in stage > 48h with
+        # no movement").
+        if _stage_age_hours(row) > _STAGE_STALL_HOURS and stage != "conversion":
             stage_state = STAGE_STATE_STALLED
         else:
             stage_state = STAGE_STATE_HEALTHY
@@ -378,7 +401,7 @@ def _build_attention(row: Dict, ei: Dict, stage_info: Dict[str, Any]) -> List[st
     if stage_info["on_branch"]:
         facts.append("awaiting customer reply")
     if stage_info["stage_state"] == STAGE_STATE_STALLED:
-        age_h = _ts_age_hours(row.get("created_utc") or row.get("submitted_utc") or "")
+        age_h = _stage_age_hours(row)
         facts.append(f"in stage ~{int(age_h)}h")
     return facts[:4]
 
@@ -395,7 +418,7 @@ def _compute_urgency(row: Dict, ei: Dict, stage_info: Dict[str, Any]) -> int:
     """
     failures = int(ei.get("extraction_failures") or 0)
     gaps = int(ei.get("missing_item_count") or 0) or len(row.get("missing_items") or [])
-    age_h = _ts_age_hours(row.get("created_utc") or row.get("submitted_utc") or "")
+    age_h = _stage_age_hours(row)
     days_in_stage = max(0, age_h / 24.0)
 
     stale_payment_days = 0
@@ -427,6 +450,7 @@ def _build_company_row(row: Dict, ei: Dict) -> Dict:
     timeline = _build_timeline(row, ei, state)
     created = row.get("created_utc") or row.get("submitted_utc") or ""
     age_h = _ts_age_hours(created)
+    stage_age_h = _stage_age_hours(row)
 
     stage_info = _classify_stage(row, ei, state)
     attention = _build_attention(row, ei, stage_info)
@@ -439,7 +463,9 @@ def _build_company_row(row: Dict, ei: Dict) -> Dict:
         "company_name": name,
         "initials": _initials(name),
         "contact_email": row.get("contact_email") or row.get("email") or "",
+        "contact_phone": row.get("contact_phone") or row.get("phone") or "",
         "created_utc": created,
+        "last_movement_utc": row.get("last_movement_utc") or "",
         "age_hours": round(age_h, 1),
         "review_status": row.get("review_status") or "",
         "state": state,
@@ -451,7 +477,10 @@ def _build_company_row(row: Dict, ei: Dict) -> Dict:
         "on_branch": stage_info["on_branch"],
         "branch_label": stage_info["branch_label"],
         "urgency_score": urgency,
-        "days_in_stage": round(age_h / 24.0, 2),
+        # Time spent in the current stage — what the doctrine formula
+        # actually means. Falls back to intake-age only when no movement
+        # timestamp has been recorded yet.
+        "days_in_stage": round(stage_age_h / 24.0, 2),
         "attention": attention,
         # ── Legacy fields (kept for back-compat with existing detail panel) ──
         "timeline": timeline,
