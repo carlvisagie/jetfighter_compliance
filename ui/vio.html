@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
-  <title>VIO 2.0 — KYC Awareness</title>
+  <title>VIO — KYC Awareness</title>
   <link rel="stylesheet" href="/ui/assets/styles/vio.css">
 </head>
 <body class="vio-root" id="vio-root">
@@ -13,7 +13,8 @@
   <header class="vio-header">
     <div class="vio-brand">
       <span class="vio-brand-mark">◉</span>
-      <span class="vio-brand-name">VIO <span class="vio-brand-version">2.0</span></span>
+      <span class="vio-brand-name">VIO</span>
+      <span class="vio-brand-sub">Visual Intelligence Observatory</span>
     </div>
 
     <div class="vio-search-wrap">
@@ -21,26 +22,24 @@
         id="vio-search"
         type="search"
         class="vio-search"
-        placeholder="Search companies…"
+        placeholder="search company…"
         autocomplete="off"
         spellcheck="false"
       >
     </div>
 
     <div class="vio-header-right">
-      <div class="vio-health-bar" id="vio-health-bar" aria-label="Organism health">
-        <!-- Populated by vio.js -->
-      </div>
-      <button id="vio-refresh-btn" class="vio-refresh-btn" title="Refresh awareness field">↺ Refresh</button>
-      <a href="/ui/control.html" class="vio-cockpit-link" title="Open operator cockpit">⚙ Cockpit</a>
+      <span class="vio-count" id="vio-count" aria-label="Active companies">—</span>
+      <button id="vio-refresh-btn" class="vio-refresh-btn" title="Refresh awareness">↺</button>
+      <a href="/ui/control.html" class="vio-cockpit-link" title="Open cockpit">⚙</a>
     </div>
   </header>
 
-  <!-- ── Organism awareness strip ───────────────────────────────────────── -->
+  <!-- ── Organism awareness strip (calm baseline; only speaks on deviation) -->
   <section class="vio-organism-strip" id="vio-organism-strip" aria-label="Organism awareness">
     <div class="vio-organism-strip-inner" id="vio-organism-strip-inner">
       <span class="vio-org-pill" data-state="unknown" id="vio-org-pill">…</span>
-      <span class="vio-org-text" id="vio-org-bottleneck">Awaiting organism snapshot</span>
+      <span class="vio-org-text" id="vio-org-bottleneck">listening to the organism…</span>
       <span class="vio-org-sep" aria-hidden="true">·</span>
       <span class="vio-org-text vio-org-action" id="vio-org-action"></span>
       <span class="vio-org-spacer"></span>
@@ -48,29 +47,37 @@
     </div>
   </section>
 
-  <!-- ── Company timelines ──────────────────────────────────────────────── -->
-  <main class="vio-stage" id="vio-stage" role="main" aria-label="Company awareness field">
+  <!-- ── Stage backbone legend ──────────────────────────────────────────── -->
+  <section class="vio-backbone" id="vio-backbone" aria-label="Pipeline backbone">
+    <!-- populated by vio.js -->
+  </section>
+
+  <!-- ── Company traces (one line per company, urgency-sorted) ──────────── -->
+  <main class="vio-stage" id="vio-stage" role="main" aria-label="Company traces">
     <div class="vio-loading" id="vio-loading">
       <div class="vio-loading-orb"></div>
-      <span>Loading awareness field…</span>
+      <span>Reading the field…</span>
     </div>
   </main>
 
-  <!-- ── Detail panel (slides in from right on node/orb click) ─────────── -->
-  <aside
-    class="vio-detail-panel"
-    id="vio-detail-panel"
-    hidden
-    role="dialog"
-    aria-modal="true"
-    aria-label="Company detail"
-  >
-    <div class="vio-detail-backdrop" id="vio-detail-backdrop"></div>
-    <div class="vio-detail-content">
-      <button class="vio-detail-close" id="vio-detail-close" aria-label="Close">✕</button>
-      <div class="vio-detail-body" id="vio-detail-body"></div>
+  <!-- ── Hover overlay (Level 1 information surface) ────────────────────── -->
+  <div class="vio-hover-card" id="vio-hover-card" hidden role="tooltip"></div>
+
+  <!-- ── Level 2 placeholder (click a company → not yet built) ──────────── -->
+  <div class="vio-level2-placeholder" id="vio-level2-placeholder" hidden>
+    <div class="vio-level2-card">
+      <div class="vio-level2-title">Level 2 — Company Landscape</div>
+      <div class="vio-level2-sub" id="vio-level2-sub"></div>
+      <p class="vio-level2-body">
+        Detailed visual landscape for this company is the next build. For now,
+        use the cockpit to drill into the intake.
+      </p>
+      <div class="vio-level2-actions">
+        <a id="vio-level2-cockpit" class="vio-level2-btn" href="/ui/control.html">Open in cockpit →</a>
+        <button id="vio-level2-close" class="vio-level2-btn vio-level2-btn-ghost">Close</button>
+      </div>
     </div>
-  </aside>
+  </div>
 
   <script src="/ui/assets/js/vio.js"></script>
 </body>

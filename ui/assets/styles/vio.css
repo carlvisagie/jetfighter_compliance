@@ -1,771 +1,532 @@
 /* ══════════════════════════════════════════════════════════════════════════════
-   VIO 2.0 — Visual Intelligence Observatory
-   Operator awareness instrument. One glance. Full picture.
+   VIO — Visual Intelligence Observatory  (Level 1: unified-line view)
+
+   DOCTRINE
+   ────────
+   · Stillness is the baseline.        — No idle animation.
+   · Motion is semantic.               — Only one allowed: a 4s gentle breathe
+                                         on `waiting_client` (customer must act).
+   · Color is semantic.                — Each token maps to a real condition.
+   · Shape is the language.            — Position, length, density, break.
+   · No pills. No badges. No tabs.     — Information lives in the line itself.
    ══════════════════════════════════════════════════════════════════════════════ */
 
-/* ── Design tokens ─────────────────────────────────────────────────────────── */
 :root {
-  --vio-bg:            #07070f;
-  --vio-surface:       #0d0d1c;
-  --vio-surface-raised:#111128;
-  --vio-border:        #1a1a35;
-  --vio-border-bright: #2a2a50;
+  /* ── Calm baseline palette ─────────────────────────────────────────── */
+  --vio-bg:            #07070d;
+  --vio-surface:       #0c0c16;
+  --vio-surface-soft:  #0f0f1c;
+  --vio-border:        #181828;
+  --vio-border-bright: #23233a;
 
-  --vio-text:          #e8eaf6;
-  --vio-text-dim:      #6b7280;
-  --vio-text-faint:    #374151;
+  --vio-text:          #e6e8ef;
+  --vio-text-dim:      #7d8190;
+  --vio-text-faint:    #3a3e4c;
 
-  /* State palette */
-  --s-new:      #475569;
-  --s-active:   #3b82f6;
-  --s-analyzing:#8b5cf6;
-  --s-gap:      #f59e0b;
-  --s-waiting:  #fb923c;
-  --s-payment:  #10b981;
-  --s-complete: #22c55e;
-  --s-error:    #ef4444;
-  --s-stuck:    #dc2626;
+  /* ── Stage-state semantic colors (the line's lexicon) ─────────────── */
+  --st-healthy:        #4dc4d6;   /* cool teal — confident progression */
+  --st-stalled:        #6b7280;   /* desaturated grey — no motion, no glow */
+  --st-failed:         #ef4444;   /* alarm red — paired with a sharp break */
+  --st-waiting:        #d8a24a;   /* warm amber — customer action required */
+  --st-inconsistent:   #b18bd8;   /* muted purple — turbulence visual */
+  --st-done:           #3a8c5a;   /* dim green — sinks to bottom of list */
 
-  /* Node sizes */
-  --node-r: 20px;   /* node hit-box radius */
-  --orb-r:  26px;   /* company orb radius  */
-  --line-h: 4px;    /* baseline line height */
+  /* ── Organism strip pill ──────────────────────────────────────────── */
+  --org-green: #3a8c5a;
+  --org-amber: #d8a24a;
+  --org-red:   #ef4444;
+  --org-grey:  #4a4f5c;
 }
 
-/* ── Reset / base ───────────────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; }
 
-.vio-root {
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Inter", Roboto, sans-serif;
   background: var(--vio-bg);
   color: var(--vio-text);
-  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-  font-size: 14px;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
-/* ── Header ─────────────────────────────────────────────────────────────────── */
+/* ── Header ─────────────────────────────────────────────────────────────── */
 .vio-header {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 12px 20px;
+  gap: 14px;
+  padding: 12px 18px;
   background: var(--vio-surface);
   border-bottom: 1px solid var(--vio-border);
-  flex-shrink: 0;
-  z-index: 100;
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
-
 .vio-brand {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
-  flex-shrink: 0;
 }
 .vio-brand-mark {
-  font-size: 22px;
-  color: var(--s-active);
-  animation: vio-brand-pulse 3s ease-in-out infinite;
+  color: var(--st-healthy);
+  font-size: 16px;
 }
 .vio-brand-name {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--vio-text);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-size: 14px;
 }
-.vio-brand-version {
-  font-size: 10px;
-  font-weight: 400;
-  color: var(--vio-text-dim);
-  vertical-align: super;
+.vio-brand-sub {
+  color: var(--vio-text-faint);
+  font-size: 11px;
+  letter-spacing: 0.02em;
 }
-
 .vio-search-wrap {
   flex: 1;
-  max-width: 340px;
+  display: flex;
+  justify-content: center;
 }
 .vio-search {
-  width: 100%;
-  background: var(--vio-bg);
-  border: 1px solid var(--vio-border-bright);
-  border-radius: 6px;
-  color: var(--vio-text);
+  width: 320px;
+  max-width: 100%;
   padding: 6px 12px;
-  font-size: 13px;
+  background: var(--vio-surface-soft);
+  border: 1px solid var(--vio-border);
+  border-radius: 4px;
+  color: var(--vio-text);
+  font-size: 12px;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.18s;
 }
-.vio-search:focus { border-color: var(--s-active); }
-.vio-search::placeholder { color: var(--vio-text-dim); }
-
+.vio-search:focus { border-color: var(--vio-border-bright); }
+.vio-search::placeholder { color: var(--vio-text-faint); }
 .vio-header-right {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-left: auto;
 }
-
-/* ── Organism health summary pills ─────────────────────────────────────────── */
-.vio-health-bar {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+.vio-count {
+  color: var(--vio-text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
-.vio-health-pill {
+.vio-refresh-btn, .vio-cockpit-link {
+  background: transparent;
+  border: 1px solid var(--vio-border);
+  color: var(--vio-text-dim);
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  border: 1px solid transparent;
+  justify-content: center;
   cursor: pointer;
-  transition: opacity 0.2s;
-}
-.vio-health-pill:hover { opacity: 0.8; }
-.vio-health-pill .vio-hp-dot {
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  display: inline-block;
-}
-.vio-health-pill[data-state="error"]    { background: rgba(239,68,68,.15); color:#f87171; border-color:rgba(239,68,68,.3); }
-.vio-health-pill[data-state="stuck"]    { background: rgba(220,38,38,.15); color:#fca5a5; border-color:rgba(220,38,38,.3); }
-.vio-health-pill[data-state="gap"]      { background: rgba(245,158,11,.15); color:#fcd34d; border-color:rgba(245,158,11,.3); }
-.vio-health-pill[data-state="waiting"]  { background: rgba(251,146,60,.15); color:#fdba74; border-color:rgba(251,146,60,.3); }
-.vio-health-pill[data-state="analyzing"]{ background: rgba(139,92,246,.15); color:#c4b5fd; border-color:rgba(139,92,246,.3); }
-.vio-health-pill[data-state="active"]   { background: rgba(59,130,246,.15); color:#93c5fd; border-color:rgba(59,130,246,.3); }
-.vio-health-pill[data-state="payment_pending"]{ background:rgba(16,185,129,.15); color:#6ee7b7; border-color:rgba(16,185,129,.3); }
-.vio-health-pill[data-state="complete"] { background: rgba(34,197,94,.15); color:#86efac; border-color:rgba(34,197,94,.3); }
-.vio-health-pill[data-state="new"]      { background: rgba(71,85,105,.15); color:#94a3b8; border-color:rgba(71,85,105,.3); }
-
-.vio-hp-dot[data-state="error"]     { background: var(--s-error); }
-.vio-hp-dot[data-state="stuck"]     { background: var(--s-stuck); }
-.vio-hp-dot[data-state="gap"]       { background: var(--s-gap); }
-.vio-hp-dot[data-state="waiting"]   { background: var(--s-waiting); }
-.vio-hp-dot[data-state="analyzing"] { background: var(--s-analyzing); }
-.vio-hp-dot[data-state="active"]    { background: var(--s-active); }
-.vio-hp-dot[data-state="payment_pending"]{ background: var(--s-payment); }
-.vio-hp-dot[data-state="complete"]  { background: var(--s-complete); }
-.vio-hp-dot[data-state="new"]       { background: var(--s-new); }
-
-.vio-refresh-btn,
-.vio-cockpit-link {
-  padding: 5px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
   text-decoration: none;
-  border: 1px solid var(--vio-border-bright);
-  background: var(--vio-surface-raised);
-  color: var(--vio-text-dim);
-  cursor: pointer;
-  transition: color 0.2s, border-color 0.2s, background 0.2s;
-}
-.vio-refresh-btn:hover,
-.vio-cockpit-link:hover {
-  color: var(--vio-text);
-  border-color: var(--s-active);
-  background: rgba(59,130,246,.1);
-}
-
-/* ── Stage (scrollable company list) ───────────────────────────────────────── */
-.vio-stage {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px 20px 40px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-/* Custom scrollbar */
-.vio-stage::-webkit-scrollbar { width: 6px; }
-.vio-stage::-webkit-scrollbar-track { background: transparent; }
-.vio-stage::-webkit-scrollbar-thumb { background: var(--vio-border-bright); border-radius: 3px; }
-
-/* ── Loading state ──────────────────────────────────────────────────────────── */
-.vio-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  height: 200px;
-  color: var(--vio-text-dim);
-}
-.vio-loading-orb {
-  width: 48px; height: 48px;
-  border-radius: 50%;
-  border: 2px solid var(--vio-border-bright);
-  border-top-color: var(--s-active);
-  animation: vio-spin 1.2s linear infinite;
-}
-
-/* ── Empty state ─────────────────────────────────────────────────────────────  */
-.vio-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  height: 200px;
-  color: var(--vio-text-dim);
-  font-size: 15px;
-}
-.vio-empty-icon { font-size: 40px; opacity: 0.3; }
-
-/* ── Error state ────────────────────────────────────────────────────────────── */
-.vio-error-state {
-  padding: 20px;
-  background: rgba(239,68,68,.08);
-  border: 1px solid rgba(239,68,68,.3);
-  border-radius: 8px;
-  color: #f87171;
   font-size: 13px;
+  transition: color 0.18s, border-color 0.18s;
 }
-
-/* ── Company row ────────────────────────────────────────────────────────────── */
-.vio-company-row {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  min-height: 72px;
-  border-radius: 10px;
-  background: var(--vio-surface);
-  border: 1px solid var(--vio-border);
-  overflow: hidden;
-  animation: vio-row-enter 0.4s ease both;
-  transition: border-color 0.2s, background 0.2s;
-  cursor: default;
-}
-.vio-company-row:hover {
+.vio-refresh-btn:hover, .vio-cockpit-link:hover {
+  color: var(--vio-text);
   border-color: var(--vio-border-bright);
-  background: var(--vio-surface-raised);
-}
-.vio-company-row[data-state="error"]  { border-left: 3px solid var(--s-error); animation: vio-row-enter 0.4s ease both, vio-border-flicker 3s ease-in-out infinite; }
-.vio-company-row[data-state="stuck"]  { border-left: 3px solid var(--s-stuck); }
-.vio-company-row[data-state="gap"]    { border-left: 3px solid var(--s-gap); }
-.vio-company-row[data-state="waiting"]{ border-left: 3px solid var(--s-waiting); }
-.vio-company-row[data-state="complete"]{ opacity: 0.65; }
-
-/* ── Company orb ─────────────────────────────────────────────────────────────  */
-.vio-orb-wrap {
-  width: 72px;
-  min-width: 72px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 0;
-  gap: 4px;
-  border-right: 1px solid var(--vio-border);
-  cursor: pointer;
-}
-.vio-orb {
-  width: 42px; height: 42px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  color: #fff;
-  position: relative;
-  transition: transform 0.2s, box-shadow 0.2s;
-  flex-shrink: 0;
-}
-.vio-orb-wrap:hover .vio-orb {
-  transform: scale(1.08);
 }
 
-/* Orb color by state */
-.vio-orb[data-state="new"]       { background: radial-gradient(circle at 35% 35%, #6b7280, #374151); box-shadow: 0 0 10px rgba(71,85,105,.4); }
-.vio-orb[data-state="active"]    { background: radial-gradient(circle at 35% 35%, #60a5fa, #1d4ed8); box-shadow: 0 0 14px rgba(59,130,246,.5); }
-.vio-orb[data-state="analyzing"] { background: radial-gradient(circle at 35% 35%, #a78bfa, #6d28d9); box-shadow: 0 0 14px rgba(139,92,246,.5); animation: vio-orb-spin-ring 4s linear infinite; }
-.vio-orb[data-state="gap"]       { background: radial-gradient(circle at 35% 35%, #fbbf24, #b45309); box-shadow: 0 0 14px rgba(245,158,11,.5); animation: vio-pulse 2s ease-in-out infinite; }
-.vio-orb[data-state="waiting"]   { background: radial-gradient(circle at 35% 35%, #fb923c, #c2410c); box-shadow: 0 0 14px rgba(251,146,60,.5); animation: vio-pulse-slow 2.5s ease-in-out infinite; }
-.vio-orb[data-state="payment_pending"]{ background: radial-gradient(circle at 35% 35%, #34d399, #065f46); box-shadow: 0 0 14px rgba(16,185,129,.5); }
-.vio-orb[data-state="complete"]  { background: radial-gradient(circle at 35% 35%, #4ade80, #15803d); box-shadow: 0 0 10px rgba(34,197,94,.3); }
-.vio-orb[data-state="error"]     { background: radial-gradient(circle at 35% 35%, #f87171, #991b1b); box-shadow: 0 0 18px rgba(239,68,68,.6); animation: vio-flicker 1.8s ease-in-out infinite; }
-.vio-orb[data-state="stuck"]     { background: radial-gradient(circle at 35% 35%, #fca5a5, #7f1d1d); box-shadow: 0 0 18px rgba(220,38,38,.6); animation: vio-pulse 1.2s ease-in-out infinite; }
-
-.vio-orb-label {
-  font-size: 9px;
-  color: var(--vio-text-dim);
-  max-width: 60px;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  line-height: 1.2;
-}
-
-/* ── Timeline track ─────────────────────────────────────────────────────────── */
-.vio-timeline-wrap {
-  flex: 1;
-  overflow-x: auto;
-  overflow-y: visible;
-  padding: 0 16px;
-  display: flex;
-  align-items: center;
-  min-height: 72px;
-}
-.vio-timeline-wrap::-webkit-scrollbar { height: 3px; }
-.vio-timeline-wrap::-webkit-scrollbar-thumb { background: var(--vio-border-bright); border-radius: 2px; }
-
-.vio-timeline-svg {
-  display: block;
-  overflow: visible;
-}
-
-/* ── Node shapes (SVG via CSS) ──────────────────────────────────────────────── */
-
-/* Base node label */
-.vio-node-label {
-  font-size: 9px;
-  fill: var(--vio-text-dim);
-  dominant-baseline: hanging;
-  text-anchor: middle;
-}
-.vio-node-label-top {
-  font-size: 9px;
-  fill: var(--vio-text-dim);
-  dominant-baseline: auto;
-  text-anchor: middle;
-}
-
-/* Hover targets */
-.vio-node-group { cursor: pointer; }
-.vio-node-group:hover .vio-node-shape { filter: brightness(1.3); }
-.vio-node-group:hover .vio-node-label,
-.vio-node-group:hover .vio-node-label-top { fill: var(--vio-text); }
-
-/* Node shape fills by type+state */
-.vio-node-shape[data-type="intake"]    { fill: #1d4ed8; stroke: #60a5fa; }
-.vio-node-shape[data-type="upload"][data-status="complete"] { fill: #0e7490; stroke: #22d3ee; }
-.vio-node-shape[data-type="upload"][data-status="active"]   { fill: #164e63; stroke: #67e8f9; }
-.vio-node-shape[data-type="upload"][data-status="error"]    { fill: #7f1d1d; stroke: #f87171; }
-.vio-node-shape[data-type="analysis"] { fill: #4c1d95; stroke: #a78bfa; }
-.vio-node-shape[data-type="gap"]      { fill: #78350f; stroke: #fbbf24; }
-.vio-node-shape[data-type="confirmation"] { fill: #7c2d12; stroke: #fb923c; }
-.vio-node-shape[data-type="payment"]  { fill: #064e3b; stroke: #34d399; }
-.vio-node-shape[data-type="complete"] { fill: #14532d; stroke: #4ade80; }
-.vio-node-shape[data-type="error"]    { fill: #7f1d1d; stroke: #ef4444; }
-
-/* Node animations by state */
-.vio-node-group[data-state="waiting"]   .vio-node-shape { animation: vio-pulse 2s ease-in-out infinite; }
-.vio-node-group[data-state="error"]     .vio-node-shape { animation: vio-flicker 1.5s ease-in-out infinite; }
-.vio-node-group[data-state="analyzing"] .vio-node-shape { animation: vio-spin-node 3s linear infinite; transform-origin: center; }
-.vio-node-group[data-state="active"]    .vio-node-shape { animation: vio-heartbeat 2s ease-in-out infinite; }
-.vio-node-group[data-state="complete"]  .vio-node-shape { animation: vio-glow 3s ease-in-out infinite; }
-.vio-node-group[data-state="gap"]       .vio-node-shape { animation: vio-pulse 1.8s ease-in-out infinite; }
-
-/* ── Line segment classes (applied via SVG attributes) ───────────────────────  */
-.vio-line-normal    { stroke: #2a3a5c; stroke-width: 3; }
-.vio-line-active    { stroke: #2563eb; stroke-width: 4; }
-.vio-line-analyzing { stroke: #6d28d9; stroke-width: 4; stroke-dasharray: 6 3; animation: vio-dash-march 1.2s linear infinite; }
-.vio-line-gap       { stroke: #b45309; stroke-width: 4; stroke-dasharray: 8 4; animation: vio-dash-march 2s linear infinite; }
-.vio-line-waiting   { stroke: #c2410c; stroke-width: 3; stroke-dasharray: 5 5; animation: vio-dash-march 2.5s linear infinite; }
-.vio-line-error     { stroke: #991b1b; stroke-width: 4; animation: vio-flicker-line 1.5s ease-in-out infinite; }
-.vio-line-complete  { stroke: #15803d; stroke-width: 3; filter: drop-shadow(0 0 2px #22c55e); }
-.vio-line-stub      { stroke: #1e293b; stroke-width: 2; stroke-dasharray: 4 6; }
-
-/* ── Detail panel (slide-in from right) ─────────────────────────────────────── */
-.vio-detail-panel {
-  position: fixed;
-  inset: 0;
-  z-index: 300;
-  pointer-events: none;
-}
-.vio-detail-panel:not([hidden]) { pointer-events: all; }
-
-.vio-detail-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,.55);
-  backdrop-filter: blur(2px);
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.25s;
-}
-.vio-detail-panel:not([hidden]) .vio-detail-backdrop { opacity: 1; }
-
-.vio-detail-content {
-  position: absolute;
-  right: 0; top: 0; bottom: 0;
-  width: min(480px, 100vw);
-  background: var(--vio-surface);
-  border-left: 1px solid var(--vio-border-bright);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  transform: translateX(100%);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.vio-detail-panel:not([hidden]) .vio-detail-content {
-  transform: translateX(0);
-}
-
-.vio-detail-close {
-  position: absolute;
-  top: 12px; right: 16px;
-  background: none;
-  border: none;
-  color: var(--vio-text-dim);
-  font-size: 18px;
-  cursor: pointer;
-  z-index: 10;
-  width: 32px; height: 32px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 6px;
-  transition: color 0.2s, background 0.2s;
-}
-.vio-detail-close:hover { color: var(--vio-text); background: var(--vio-border); }
-
-.vio-detail-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px;
-}
-.vio-detail-body::-webkit-scrollbar { width: 4px; }
-.vio-detail-body::-webkit-scrollbar-thumb { background: var(--vio-border-bright); border-radius: 2px; }
-
-/* ── Detail content components ─────────────────────────────────────────────── */
-.vio-detail-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--vio-border);
-}
-.vio-detail-orb {
-  width: 44px; height: 44px;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 14px; font-weight: 800;
-  color: #fff;
-  flex-shrink: 0;
-}
-.vio-detail-title { font-size: 16px; font-weight: 700; color: var(--vio-text); margin-bottom: 3px; }
-.vio-detail-sub   { font-size: 12px; color: var(--vio-text-dim); }
-
-.vio-detail-state-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 600;
-  margin-top: 4px;
-}
-
-.vio-section { margin-bottom: 20px; }
-.vio-section-title {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--vio-text-dim);
-  margin-bottom: 8px;
-}
-
-.vio-kv-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.vio-kv {
-  background: var(--vio-bg);
-  border: 1px solid var(--vio-border);
-  border-radius: 6px;
-  padding: 8px 10px;
-}
-.vio-kv-key   { font-size: 10px; color: var(--vio-text-dim); margin-bottom: 2px; }
-.vio-kv-value { font-size: 14px; font-weight: 600; color: var(--vio-text); }
-
-.vio-gap-list, .vio-doc-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
-.vio-gap-item, .vio-doc-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  background: var(--vio-bg);
-  border: 1px solid var(--vio-border);
-  border-radius: 6px;
-  font-size: 12px;
-}
-.vio-gap-item[data-priority="high"]   { border-left: 3px solid var(--s-error); }
-.vio-gap-item[data-priority="medium"] { border-left: 3px solid var(--s-gap); }
-.vio-gap-item[data-priority="low"]    { border-left: 3px solid var(--s-new); }
-.vio-gap-badge {
-  font-size: 9px; font-weight: 700;
-  padding: 1px 6px; border-radius: 8px;
-  text-transform: uppercase; flex-shrink: 0;
-}
-.vio-gap-badge[data-priority="high"]   { background: rgba(239,68,68,.2); color:#f87171; }
-.vio-gap-badge[data-priority="medium"] { background: rgba(245,158,11,.2); color:#fcd34d; }
-.vio-gap-badge[data-priority="low"]    { background: rgba(71,85,105,.2); color:#94a3b8; }
-
-.vio-doc-type {
-  font-size: 9px; font-weight: 600;
-  padding: 1px 6px; border-radius: 8px;
-  background: rgba(139,92,246,.15); color: #c4b5fd;
-  text-transform: uppercase; flex-shrink: 0;
-}
-.vio-confidence-bar {
-  flex: 1;
-  height: 3px;
-  background: var(--vio-border);
-  border-radius: 2px;
-  overflow: hidden;
-}
-.vio-confidence-fill { height: 100%; border-radius: 2px; background: var(--s-analyzing); }
-
-.vio-tag-list { display: flex; flex-wrap: wrap; gap: 5px; }
-.vio-tag {
-  padding: 2px 8px; border-radius: 10px;
-  font-size: 11px;
-  background: var(--vio-border); color: var(--vio-text-dim);
-}
-
-.vio-next-action {
-  padding: 10px 12px;
-  background: rgba(59,130,246,.08);
-  border: 1px solid rgba(59,130,246,.2);
-  border-radius: 6px;
-  font-size: 12px;
-  color: #93c5fd;
-  line-height: 1.5;
-}
-
-/* ── Tooltip ─────────────────────────────────────────────────────────────────  */
-.vio-tooltip {
-  position: fixed;
-  background: var(--vio-surface-raised);
-  border: 1px solid var(--vio-border-bright);
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 11px;
-  color: var(--vio-text);
-  pointer-events: none;
-  z-index: 400;
-  max-width: 220px;
-  box-shadow: 0 4px 20px rgba(0,0,0,.5);
-  white-space: nowrap;
-  transition: opacity 0.15s;
-}
-.vio-tooltip[hidden] { display: none; }
-
-/* ── Keyframe animations ─────────────────────────────────────────────────────  */
-@keyframes vio-brand-pulse {
-  0%, 100% { color: var(--s-active); }
-  50%       { color: #818cf8; }
-}
-
-@keyframes vio-spin {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes vio-spin-node {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-@keyframes vio-pulse {
-  0%, 100% { opacity: 1;   transform: scale(1); }
-  50%       { opacity: .75; transform: scale(1.06); }
-}
-@keyframes vio-pulse-slow {
-  0%, 100% { opacity: 1;   transform: scale(1); }
-  50%       { opacity: .8;  transform: scale(1.04); }
-}
-
-@keyframes vio-heartbeat {
-  0%, 100% { transform: scale(1); }
-  14%       { transform: scale(1.08); }
-  28%       { transform: scale(1); }
-  42%       { transform: scale(1.05); }
-  56%       { transform: scale(1); }
-}
-
-@keyframes vio-flicker {
-  0%   { opacity: 1;   filter: brightness(1); }
-  10%  { opacity: .55; filter: brightness(.5); }
-  20%  { opacity: 1;   filter: brightness(1.3); }
-  35%  { opacity: .7;  filter: brightness(.7); }
-  50%  { opacity: 1;   filter: brightness(1); }
-  65%  { opacity: .6;  filter: brightness(.6); }
-  80%  { opacity: 1;   filter: brightness(1.2); }
-  100% { opacity: 1;   filter: brightness(1); }
-}
-
-@keyframes vio-flicker-line {
-  0%, 100% { stroke-opacity: 1; }
-  25%       { stroke-opacity: .4; }
-  50%       { stroke-opacity: .9; }
-  75%       { stroke-opacity: .3; }
-}
-
-@keyframes vio-border-flicker {
-  0%, 100% { border-left-color: var(--s-error); }
-  50%       { border-left-color: #ff000088; }
-}
-
-@keyframes vio-glow {
-  0%, 100% { filter: drop-shadow(0 0 3px currentColor); }
-  50%       { filter: drop-shadow(0 0 10px currentColor); }
-}
-
-@keyframes vio-dash-march {
-  from { stroke-dashoffset: 0; }
-  to   { stroke-dashoffset: -30; }
-}
-
-@keyframes vio-row-enter {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes vio-orb-spin-ring {
-  0%, 100% { box-shadow: 0 0 14px rgba(139,92,246,.5), 0 -14px 0 0 rgba(167,139,250,.3); }
-  25%       { box-shadow: 14px 0 0 0 rgba(167,139,250,.3), 0 0 14px rgba(139,92,246,.5); }
-  50%       { box-shadow: 0 0 14px rgba(139,92,246,.5), 0 14px 0 0 rgba(167,139,250,.3); }
-  75%       { box-shadow: -14px 0 0 0 rgba(167,139,250,.3), 0 0 14px rgba(139,92,246,.5); }
-}
-
-/* ══════════════════════════════════════════════════════════════════════════════
-   VIO DOCUMENT VISIBILITY — organism strip, findings, document actions
-   ══════════════════════════════════════════════════════════════════════════════ */
-
-/* Organism strip — full-platform awareness one row below the header */
+/* ── Organism strip ────────────────────────────────────────────────────── */
 .vio-organism-strip {
-  background: var(--vio-surface);
+  background: var(--vio-surface-soft);
   border-bottom: 1px solid var(--vio-border);
-  flex-shrink: 0;
-  z-index: 50;
-  transition: background 0.15s;
+  padding: 6px 18px;
+  font-size: 11px;
+  color: var(--vio-text-dim);
 }
-.vio-organism-strip:hover { background: var(--vio-surface-raised); }
 .vio-organism-strip-inner {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 20px;
-  font-size: 11px;
-  color: var(--vio-text-dim);
-  flex-wrap: wrap;
 }
 .vio-org-pill {
-  font-size: 9px; font-weight: 800;
-  letter-spacing: 0.08em;
-  padding: 2px 8px;
-  border-radius: 10px;
-  border: 1px solid var(--vio-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 700;
+  color: #0c0c16;
+  background: var(--org-grey);
+  letter-spacing: 0;
+}
+.vio-org-pill[data-state="green"]   { background: var(--org-green); }
+.vio-org-pill[data-state="amber"]   { background: var(--org-amber); }
+.vio-org-pill[data-state="red"]     { background: var(--org-red); }
+.vio-org-pill[data-state="unknown"] { background: var(--org-grey); }
+.vio-org-text { color: var(--vio-text-dim); }
+.vio-org-action { color: var(--vio-text); }
+.vio-org-sep   { color: var(--vio-text-faint); }
+.vio-org-spacer { flex: 1; }
+.vio-org-meta  { color: var(--vio-text-faint); font-family: ui-monospace, monospace; font-size: 10px; }
+
+/* ── Stage backbone (the visible spine all traces share) ───────────────── */
+.vio-backbone {
   background: var(--vio-bg);
+  border-bottom: 1px solid var(--vio-border);
+  padding: 8px 18px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.vio-backbone-labels {
+  position: relative;
+  height: 14px;
+  display: block;
+}
+.vio-backbone-label {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--vio-text-faint);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Stage area ────────────────────────────────────────────────────────── */
+.vio-stage {
+  padding: 16px 18px 40px;
+  overflow-x: auto;
+}
+
+/* ── Loading / empty / error ───────────────────────────────────────────── */
+.vio-loading, .vio-empty, .vio-error-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px 20px;
   color: var(--vio-text-dim);
+  font-size: 13px;
+}
+.vio-empty { flex-direction: column; }
+.vio-empty-mark, .vio-loading-orb {
+  font-size: 22px;
+  color: var(--vio-text-faint);
+}
+.vio-loading-orb {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--st-healthy);
+  opacity: 0.5;
+}
+.vio-error-state {
+  color: var(--st-failed);
+  flex-direction: column;
+  font-size: 13px;
+}
+.vio-error-detail {
+  color: var(--vio-text-dim);
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE TRACE — one company = one continuous line
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.vio-trace {
+  display: flex;
+  align-items: center;
+  height: 56px;
+  border-bottom: 1px solid var(--vio-border);
+  cursor: pointer;
+  position: relative;
+  transition: background-color 0.18s;
+}
+.vio-trace:hover { background: var(--vio-surface-soft); }
+
+/* Orb (left anchor) ─ size + color encode stage_state, no glow when calm */
+.vio-orb-wrap {
+  width: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
-.vio-org-pill[data-state="green"]   { background: rgba(34,197,94,.12); color:#86efac; border-color: rgba(34,197,94,.35); }
-.vio-org-pill[data-state="amber"]   { background: rgba(245,158,11,.12); color:#fcd34d; border-color: rgba(245,158,11,.35); animation: vio-pulse-slow 3s ease-in-out infinite; }
-.vio-org-pill[data-state="red"]     { background: rgba(239,68,68,.15);  color:#fca5a5; border-color: rgba(239,68,68,.4);  animation: vio-pulse 1.5s ease-in-out infinite; }
-.vio-org-pill[data-state="unknown"] { background: rgba(71,85,105,.15);  color:#94a3b8; }
-.vio-org-text {
+.vio-orb {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--vio-surface-soft);
+  border: 2px solid var(--vio-text-faint);
+  color: var(--vio-text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  transition: border-color 0.18s, color 0.18s;
+}
+.vio-orb[data-stage-state="healthy"]        { border-color: var(--st-healthy);      color: var(--vio-text); }
+.vio-orb[data-stage-state="stalled"]        { border-color: var(--st-stalled);      color: var(--vio-text-dim); }
+.vio-orb[data-stage-state="failed"]         { border-color: var(--st-failed);       color: var(--st-failed); }
+.vio-orb[data-stage-state="waiting_client"] { border-color: var(--st-waiting);      color: var(--vio-text); animation: vio-breathe 4s ease-in-out infinite; }
+.vio-orb[data-stage-state="inconsistent"]   { border-color: var(--st-inconsistent); color: var(--vio-text); }
+.vio-orb[data-stage-state="done"]           { border-color: var(--st-done);         color: var(--vio-text-dim); }
+
+/* Company name (no badges, just typography) */
+.vio-name-wrap {
+  width: 190px;
+  flex-shrink: 0;
+  padding-right: 14px;
+  overflow: hidden;
+}
+.vio-name {
   color: var(--vio-text);
-  font-size: 11px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.vio-email {
+  color: var(--vio-text-faint);
+  font-size: 10px;
   white-space: nowrap;
-  max-width: 50ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
 }
-.vio-org-text.vio-org-action { color: #93c5fd; }
-.vio-org-sep { color: var(--vio-text-faint); }
-.vio-org-spacer { flex: 1; }
-.vio-org-meta {
-  font-size: 10px;
+
+/* Trace gets a quiet color cue from its stage_state — the line itself does
+   the heavy lifting; this is just a subtle background tint on hover. */
+.vio-trace[data-stage-state="failed"]:hover         { background: rgba(239, 68, 68, 0.06); }
+.vio-trace[data-stage-state="waiting_client"]:hover { background: rgba(216, 162, 74, 0.05); }
+.vio-trace[data-stage-state="inconsistent"]:hover   { background: rgba(177, 139, 216, 0.04); }
+.vio-trace[data-stage-state="stalled"]:hover        { background: rgba(107, 114, 128, 0.05); }
+.vio-trace[data-stage-state="done"]                 { opacity: 0.55; }
+
+/* ── The SVG spine ─────────────────────────────────────────────────────── */
+.vio-spine {
+  flex-shrink: 0;
+  display: block;
+}
+
+/* Past / present line — bright by stage_state */
+.vio-spine-past {
+  stroke: var(--st-healthy);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.vio-spine-past[data-stage-state="healthy"]        { stroke: var(--st-healthy); }
+.vio-spine-past[data-stage-state="stalled"]        { stroke: var(--st-stalled);      stroke-width: 1.2; }
+.vio-spine-past[data-stage-state="failed"]         { stroke: var(--st-failed); }
+.vio-spine-past[data-stage-state="waiting_client"] { stroke: var(--st-waiting); }
+.vio-spine-past[data-stage-state="inconsistent"]   { stroke: var(--st-inconsistent); }
+.vio-spine-past[data-stage-state="done"]           { stroke: var(--st-done);         stroke-width: 1.4; }
+
+/* Future segment — barely visible */
+.vio-spine-future {
+  stroke: var(--vio-text-faint);
+  stroke-width: 1;
+  stroke-dasharray: 1 4;
+  opacity: 0.6;
+}
+
+/* Tick marks at each stage anchor */
+.vio-tick-past   { fill: var(--vio-text-dim); }
+.vio-tick-future { fill: var(--vio-text-faint); opacity: 0.6; }
+
+/* Live point — the "you are here" mark, sized by importance */
+.vio-live {
+  fill: var(--st-healthy);
+  stroke: var(--vio-bg);
+  stroke-width: 1.5;
+}
+.vio-live[data-stage-state="healthy"]        { fill: var(--st-healthy); }
+.vio-live[data-stage-state="stalled"]        { fill: var(--st-stalled); }
+.vio-live[data-stage-state="waiting_client"] {
+  fill: var(--st-waiting);
+  animation: vio-breathe-fill 4s ease-in-out infinite;
+}
+.vio-live[data-stage-state="inconsistent"]   { fill: var(--st-inconsistent); }
+.vio-live[data-stage-state="done"]           { fill: var(--st-done); }
+
+/* Client follow-up branch */
+.vio-branch-limb {
+  stroke: var(--st-waiting);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  opacity: 0.75;
+}
+.vio-live-branch { fill: var(--st-waiting); }
+.vio-branch-label {
+  fill: var(--st-waiting);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  opacity: 0.85;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Failure break — sharp ✕ at the live point, no motion, alarm-red */
+.vio-failure line {
+  stroke: var(--st-failed);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* Turbulence — three offset dots */
+.vio-turbulence circle {
+  fill: var(--st-inconsistent);
+}
+
+/* The one allowed animation — slow, soft "alive but waiting" breathe */
+@keyframes vio-breathe {
+  0%, 100% { opacity: 0.7; }
+  50%      { opacity: 1; }
+}
+@keyframes vio-breathe-fill {
+  0%, 100% { fill-opacity: 0.65; }
+  50%      { fill-opacity: 1; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   HOVER CARD (Level 1 information surface)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.vio-hover-card {
+  position: fixed;
+  z-index: 100;
+  min-width: 220px;
+  max-width: 320px;
+  padding: 12px 14px;
+  background: var(--vio-surface);
+  border: 1px solid var(--vio-border-bright);
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+.vio-hover-title {
+  color: var(--vio-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.vio-hover-sub {
   color: var(--vio-text-dim);
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  letter-spacing: 0.02em;
-}
-
-/* Findings list inside detail panel */
-.vio-finding {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 8px;
-  align-items: start;
-  padding: 8px 10px;
-  background: var(--vio-bg);
-  border: 1px solid var(--vio-border);
-  border-left-width: 3px;
-  border-radius: 6px;
-  font-size: 12px;
-  margin-bottom: 6px;
-}
-.vio-finding[data-severity="red"]   { border-left-color: var(--s-error); }
-.vio-finding[data-severity="amber"] { border-left-color: var(--s-gap); }
-.vio-finding[data-severity="info"]  { border-left-color: var(--s-active); }
-.vio-finding-badge {
-  font-size: 9px; font-weight: 800;
-  letter-spacing: 0.06em;
-  padding: 1px 6px; border-radius: 8px;
-  text-transform: uppercase;
-  align-self: start;
-}
-.vio-finding-badge[data-severity="red"]   { background: rgba(239,68,68,.2);  color:#f87171; }
-.vio-finding-badge[data-severity="amber"] { background: rgba(245,158,11,.2); color:#fcd34d; }
-.vio-finding-badge[data-severity="info"]  { background: rgba(59,130,246,.18); color:#93c5fd; }
-.vio-finding-msg { color: var(--vio-text); line-height: 1.4; }
-.vio-finding-hint {
-  grid-column: 2;
-  margin-top: 4px;
-  color: var(--vio-text-dim);
-  font-size: 10px;
-  font-style: italic;
-}
-
-/* Document action buttons (view / dl) */
-.vio-doc-action {
-  font-size: 10px; font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 8px;
-  background: var(--vio-border);
-  color: var(--vio-text-dim);
-  text-decoration: none;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  transition: color 0.15s, background 0.15s;
-}
-.vio-doc-action:hover { color: var(--vio-text); background: var(--vio-border-bright); }
-
-/* Document status-driven borders */
-.vio-doc-item[data-status="missing"],
-.vio-doc-item[data-status="broken"] { border-left: 3px solid var(--s-error); }
-.vio-doc-item[data-status="on_disk_unindexed"] { border-left: 3px solid var(--s-gap); }
-.vio-doc-item[data-status="verified"],
-.vio-doc-item[data-status="durable"] { border-left: 3px solid var(--s-complete); }
-
-/* Composite detail loading hint */
-.vio-detail-loading {
-  padding: 12px;
   font-size: 11px;
+  margin-top: 2px;
+}
+.vio-hover-state {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  margin-top: 8px;
+  color: var(--st-healthy);
+}
+.vio-hover-state[data-stage-state="healthy"]        { color: var(--st-healthy); }
+.vio-hover-state[data-stage-state="stalled"]        { color: var(--st-stalled); }
+.vio-hover-state[data-stage-state="failed"]         { color: var(--st-failed); }
+.vio-hover-state[data-stage-state="waiting_client"] { color: var(--st-waiting); }
+.vio-hover-state[data-stage-state="inconsistent"]   { color: var(--st-inconsistent); }
+.vio-hover-state[data-stage-state="done"]           { color: var(--st-done); }
+.vio-hover-meta {
+  color: var(--vio-text-faint);
+  font-size: 10px;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.vio-hover-attention {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+}
+.vio-hover-attention li {
   color: var(--vio-text-dim);
-  font-style: italic;
-  text-align: center;
+  font-size: 11px;
+  padding: 2px 0;
+  padding-left: 10px;
+  position: relative;
+}
+.vio-hover-attention li::before {
+  content: "·";
+  position: absolute;
+  left: 0;
+  color: var(--vio-text-faint);
+}
+.vio-hover-hint {
+  color: var(--vio-text-faint);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--vio-border);
+  text-align: right;
 }
 
-/* ── Responsive (tablet) ─────────────────────────────────────────────────────  */
-@media (max-width: 768px) {
-  .vio-header { gap: 8px; padding: 10px 12px; }
-  .vio-health-bar { display: none; }
-  .vio-stage { padding: 10px 12px 30px; }
-  .vio-detail-content { width: 100vw; }
-  .vio-organism-strip-inner { padding: 6px 12px; gap: 6px; }
-  .vio-org-text { max-width: 30ch; }
+/* ══════════════════════════════════════════════════════════════════════════
+   LEVEL 2 PLACEHOLDER  (the landscape build is next)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.vio-level2-placeholder {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 7, 13, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+.vio-level2-card {
+  background: var(--vio-surface);
+  border: 1px solid var(--vio-border-bright);
+  border-radius: 6px;
+  padding: 22px 26px;
+  max-width: 460px;
+  width: calc(100% - 40px);
+}
+.vio-level2-title {
+  color: var(--vio-text);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.vio-level2-sub {
+  color: var(--st-healthy);
+  font-size: 13px;
+  margin-top: 4px;
+}
+.vio-level2-body {
+  color: var(--vio-text-dim);
+  font-size: 12px;
+  margin: 16px 0;
+}
+.vio-level2-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.vio-level2-btn {
+  background: var(--vio-surface-soft);
+  border: 1px solid var(--vio-border-bright);
+  color: var(--vio-text);
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 12px;
+  transition: background 0.18s;
+}
+.vio-level2-btn:hover { background: var(--vio-border); }
+.vio-level2-btn-ghost {
+  background: transparent;
+  color: var(--vio-text-dim);
+}
+
+/* ── Responsive: small screens collapse the strip + reduce padding ────── */
+@media (max-width: 900px) {
+  .vio-search { width: 180px; }
+  .vio-brand-sub { display: none; }
   .vio-org-meta { display: none; }
 }

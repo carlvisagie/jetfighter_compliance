@@ -1,9 +1,12 @@
 # VIO 2.0 Constitution
 
-**Status:** Binding design law for Visual Intelligence Organism (VIO) work.  
+**Status:** Binding design law for Visual Intelligence Organism (VIO) work.
 **Supersedes:** Dashboard-first, queue-first, card-first operator UI as primary navigation.
+**Companion doctrine:** [`VIO_DOCTRINE.md`](./VIO_DOCTRINE.md) — the visual-language and motion charter the Level 1 unified-line build is implemented against. The Constitution defines *what* VIO is; the Doctrine defines *how it must look and behave*.
 
 Design anchors: Carl Visagie hand-drawn sketches (Organism View + per-company Living Timeline). Engineering may improve implementation; engineering may **not** replace the core model.
+
+> **2026-06-04 update — Level 1 redesign shipped.** The first-screen view has been rebuilt as the doctrine-compliant *unified-line* surface: every company is now exactly one continuous SVG trace through the 7-stage backbone (`intake → classification → validation → evidence mapping → review → approval → conversion`), with a single allowed branch for `client follow-up`. Lines are urgency-sorted top-down. Stillness is the default; the only animation in the entire system is the 4-second breathe on `waiting_client`. Level 2 (the per-company immersive landscape) is the explicit next build; a clear placeholder is shown when an operator clicks a line.
 
 ---
 

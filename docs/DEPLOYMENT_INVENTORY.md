@@ -42,16 +42,39 @@ shipping. It is generated against the actual codebase (not a wish list).
 - **Raw disk scan:** `/api/operator/intake/raw-disk-scan` — never cached.
 - **Test coverage:** 87 hardening / durability / integrity tests, all green.
 
-### 1.2 Visual Intelligence Observatory (VIO 2.0)
+### 1.2 Visual Intelligence Observatory — Level 1 (unified-line view)
+- **Doctrine:** [`docs/VIO_DOCTRINE.md`](./VIO_DOCTRINE.md) — the binding
+  visual-language and motion charter the Level 1 build is implemented against.
+  Companion to [`docs/VIO_CONSTITUTION.md`](./VIO_CONSTITUTION.md).
 - **UI:** `ui/vio.html` + `ui/assets/js/vio.js` + `ui/assets/styles/vio.css`
-- **Overview API:** `GET /api/operator/vio/overview` — includes a global
-  `organism` block (system health, bottleneck, mismatches) cached 45s.
+- **Surface:** every company renders as one continuous SVG trace through the
+  7-stage backbone (`intake → classification → validation → evidence_mapping
+  → review → approval → conversion`), with a single allowed branch for
+  `client follow-up`. Lines are urgency-sorted top-down, `done` companies
+  always last. Stillness is the baseline; the only animation in the system
+  is a 4-second breathe on `waiting_client`.
+- **Overview API:** `GET /api/operator/vio/overview` — each company row now
+  carries `stage`, `stage_index`, `stage_state`, `urgency_score`,
+  `days_in_stage`, `on_branch`, `branch_label`, and `attention[]` alongside
+  the legacy `state`, `timeline`, and `quick_stats` for back-compat. Includes
+  a global `organism` block (system health, bottleneck, mismatches),
+  cached 45 s, plus `stage_backbone` and `stage_counts` for the header
+  legend.
 - **Per-company composite API:** `GET /api/operator/vio/company/{intake_id}`
   — returns uploaded docs (with view/download URLs), generated docs,
   missing docs, evidence summary, identifiers, and derived findings
   (extraction failures, payment-link stale, file-on-disk mismatch, etc.).
-- **Header organism strip:** live system awareness pinned at top of VIO.
-- **Status:** functionally complete. Polish remaining is cosmetic only.
+  Currently powers the cockpit drill-down; Level 2 landscape (next build)
+  will consume this same payload.
+- **Header organism strip:** live system awareness pinned at the top of
+  VIO. Silent when the organism is healthy.
+- **Defensive hygiene:** `services/vio_overview._clean_company_name`
+  scrubs URL-pasted company fields down to the apex domain, both at
+  display time and at intake creation. Covered by
+  `tests/test_vio_company_name_sanitiser.py`.
+- **Level 2 (per-company immersive landscape):** **next build.** A clear
+  placeholder is shown when an operator clicks a Level 1 line.
+- **Status:** Level 1 functionally complete and doctrine-compliant.
 
 ### 1.3 Awareness / organism layer
 - **`organism_core/`** — domain-agnostic, reusable package:

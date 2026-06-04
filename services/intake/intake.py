@@ -214,13 +214,21 @@ def create_intake(
     idir.mkdir(parents=True, exist_ok=True)
     (idir / "uploads").mkdir(exist_ok=True)
     urgent = bool((deadline or "").strip())
+    # Sanitise the company name at the boundary — if a customer pasted a URL
+    # into the form by mistake, store the apex domain instead of garbage.
+    # The same sanitiser is applied at display time inside VIO; doing it here
+    # too means we never accumulate dirty data in the index going forward.
+    from services.vio_overview import _clean_company_name as _cln
+    clean_company = _cln((company or "").strip()[:200])
+    if clean_company == "Unknown":
+        clean_company = ""  # preserve empty intent rather than the literal word
     record = {
         "intake_id": intake_id,
         "created_at_utc": _utc_now(),
         "updated_at_utc": _utc_now(),
         "status": "pending_review",
         "review_status": "pending_review",
-        "company": (company or "").strip()[:200],
+        "company": clean_company[:200],
         "email": (email or "").strip().lower()[:200],
         "phone": (phone or "").strip()[:40],
         "context": (context or "").strip()[:2000],
@@ -239,7 +247,7 @@ def create_intake(
             "intake_id": intake_id,
             "created_at_utc": record["created_at_utc"],
             "status": "pending_review",
-            "company": record["company"],
+            "company": clean_company,
             "email": record["email"],
             "urgent": urgent,
             "file_count": 0,

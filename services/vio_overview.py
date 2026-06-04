@@ -1,8 +1,39 @@
-"""VIO 2.0 — aggregate company awareness data for the visual timeline interface."""
+"""VIO 2.0 — aggregate company awareness data for the visual timeline interface.
+
+Pipeline backbone (the 7 stages every company traces through):
+
+    intake → classification → validation → evidence mapping → review
+            → approval → conversion
+
+Plus a single branch:
+
+    evidence mapping ──▶ client follow-up   (returns to evidence mapping
+                                              once the customer responds)
+
+See ``docs/VIO_DOCTRINE.md`` for the full visual-language doctrine.
+"""
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+
+
+# ── Pipeline backbone (the 7-stage doctrine) ──────────────────────────────────
+# Order matters — index is what the front-end uses to place the live point on
+# each company's trace.
+STAGE_BACKBONE: List[str] = [
+    "intake",
+    "classification",
+    "validation",
+    "evidence_mapping",
+    "review",
+    "approval",
+    "conversion",
+]
+# Branch that hangs off ``evidence_mapping`` — the company is "off the spine"
+# until the customer responds and we re-enter ``evidence_mapping``.
+STAGE_BRANCH_CLIENT_FOLLOWUP = "client_followup"
 
 
 # ── state priority (lower = more urgent) ──────────────────────────────────────
@@ -19,6 +50,20 @@ _STATE_PRIORITY = {
 }
 
 
+# ── Stage-state lexicon (doctrine §2) ──────────────────────────────────────────
+# Maps the operator-facing visual semantic to the canonical token the front-end
+# can switch on. The front-end is allowed to render stillness for "healthy" and
+# discrete deviation for everything else.
+STAGE_STATE_HEALTHY = "healthy"
+STAGE_STATE_STALLED = "stalled"
+STAGE_STATE_FAILED = "failed"
+STAGE_STATE_WAITING_CLIENT = "waiting_client"
+STAGE_STATE_INCONSISTENT = "inconsistent"
+STAGE_STATE_DONE = "done"
+# Hours after which a company sitting in one stage starts to look stalled.
+_STAGE_STALL_HOURS = 48.0
+
+
 def _ts_age_hours(utc_str: str) -> float:
     """Return how many hours ago a UTC ISO string was."""
     try:
@@ -29,8 +74,46 @@ def _ts_age_hours(utc_str: str) -> float:
 
 
 def _initials(name: str) -> str:
-    parts = (name or "?").split()
+    parts = (_clean_company_name(name) or "?").split()
     return "".join(p[0].upper() for p in parts[:2]) or "?"
+
+
+# ── Company-name sanitiser ────────────────────────────────────────────────────
+_URL_LIKE = re.compile(r"^\s*https?://", re.IGNORECASE)
+_BARE_DOMAIN = re.compile(r"^\s*(www\.)?[\w-]+\.[a-z]{2,}(/|$)", re.IGNORECASE)
+
+
+def _clean_company_name(raw: Optional[str]) -> str:
+    """Defensive sanitiser — VIO never displays a URL or empty string as a name.
+
+    Customers occasionally paste a URL into the company-name field, and some
+    historical pipelines copied URL fragments into ``company_name``. VIO is
+    the operator's primary view — it must never present garbage. We accept
+    the input but return a *display-safe* string:
+
+        ``"http://www.example.com/path"``  →  ``"example.com"``
+        ``"   "``                          →  ``"Unknown"``
+        ``"Acme Corp"``                    →  ``"Acme Corp"``  (untouched)
+    """
+    if not raw:
+        return "Unknown"
+    s = str(raw).strip()
+    if not s:
+        return "Unknown"
+    if _URL_LIKE.match(s) or _BARE_DOMAIN.match(s):
+        # Reduce to the apex domain — best human-readable substitute.
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(s if "://" in s else f"http://{s}")
+            host = (parsed.netloc or parsed.path or "").split("/")[0]
+            host = host.replace("www.", "").strip().lower()
+            return host or "Unknown"
+        except Exception:
+            return "Unknown"
+    # Trim absurdly long names (likely paste-error)
+    if len(s) > 120:
+        return s[:117] + "…"
+    return s
 
 
 def _calc_state(row: Dict, ei: Dict) -> str:
@@ -195,9 +278,142 @@ def _build_timeline(row: Dict, ei: Dict, state: str) -> List[Dict]:
 
 
 def _priority_score(state: str, created_utc: str) -> float:
-    """Lower is more urgent — used for secondary sort within same state."""
+    """Lower is more urgent — used for secondary sort within same state.
+
+    Preserved for backward compatibility with existing callers; the canonical
+    sort key going forward is ``urgency_score`` (higher = more urgent).
+    """
     age = _ts_age_hours(created_utc)
     return _STATE_PRIORITY.get(state, 9) * 1000 - age
+
+
+# ── Stage classification ──────────────────────────────────────────────────────
+def _classify_stage(row: Dict, ei: Dict, state: str) -> Dict[str, Any]:
+    """Map an intake/EI snapshot to one of the 7 backbone stages.
+
+    Returns ``{stage, stage_index, stage_state, on_branch, branch_label}``.
+    """
+    review_status = (row.get("review_status") or "").lower()
+    files_up = ei.get("files_uploaded", 0) or int(row.get("file_count") or 0)
+    files_an = int(ei.get("files_analyzed") or 0)
+    failures = int(ei.get("extraction_failures") or 0)
+    classified = bool(row.get("primary_category") or (ei.get("profile") or {}).get("company_names"))
+
+    # ── Stage index ────────────────────────────────────────────────────────
+    if review_status == "archived":
+        stage = "conversion"
+    elif review_status in ("approved", "payment_sent", "verified_complete"):
+        stage = "approval"
+    elif files_an > 0 and files_an >= files_up and not failures:
+        # All uploaded files have been mapped — operator is the gate now.
+        stage = "review"
+    elif files_up > 0:
+        # We have files but they haven't all been mapped yet.
+        if classified and (failures or files_an > 0):
+            stage = "evidence_mapping"
+        elif classified:
+            stage = "validation"
+        else:
+            stage = "classification"
+    else:
+        stage = "intake"
+
+    # ── Branch detection ──────────────────────────────────────────────────
+    on_branch = False
+    branch_label = ""
+    if review_status in ("needs_info", "abandoned_upload", "partial_upload"):
+        on_branch = True
+        branch_label = "client follow-up"
+    elif ei.get("confirmation_needed"):
+        # Waiting on the customer to confirm extracted entities.
+        on_branch = True
+        branch_label = "client follow-up"
+
+    # ── Stage state (the visual deviation) ────────────────────────────────
+    if state == "complete":
+        stage_state = STAGE_STATE_DONE
+    elif state == "error" or failures > 0:
+        stage_state = STAGE_STATE_FAILED
+    elif on_branch:
+        stage_state = STAGE_STATE_WAITING_CLIENT
+    elif state == "stuck":
+        stage_state = STAGE_STATE_STALLED
+    elif state == "gap":
+        # Gap means evidence mapping flagged missing items — visible deviation
+        # but the line itself is still moving; surface it as inconsistent.
+        stage_state = STAGE_STATE_INCONSISTENT
+    else:
+        # Default healthy unless aging in stage too long.
+        created = row.get("created_utc") or row.get("submitted_utc") or ""
+        if _ts_age_hours(created) > _STAGE_STALL_HOURS and stage != "conversion":
+            stage_state = STAGE_STATE_STALLED
+        else:
+            stage_state = STAGE_STATE_HEALTHY
+
+    return {
+        "stage": stage,
+        "stage_index": STAGE_BACKBONE.index(stage),
+        "stage_state": stage_state,
+        "on_branch": on_branch,
+        "branch_label": branch_label,
+    }
+
+
+def _build_attention(row: Dict, ei: Dict, stage_info: Dict[str, Any]) -> List[str]:
+    """Short, terse facts the operator needs to know — at most a few items.
+
+    These ride along the line as small marks. They are NOT decoration; each
+    entry must map to a real condition that warrants operator awareness.
+    """
+    facts: List[str] = []
+    failures = int(ei.get("extraction_failures") or 0)
+    if failures:
+        facts.append(f"{failures} extraction failure" + ("s" if failures != 1 else ""))
+    gaps = int(ei.get("missing_item_count") or 0) or len(row.get("missing_items") or [])
+    if gaps:
+        facts.append(f"{gaps} evidence gap" + ("s" if gaps != 1 else ""))
+    confirm = len(ei.get("confirmation_needed") or [])
+    if confirm:
+        facts.append(f"{confirm} need confirmation")
+    if stage_info["on_branch"]:
+        facts.append("awaiting customer reply")
+    if stage_info["stage_state"] == STAGE_STATE_STALLED:
+        age_h = _ts_age_hours(row.get("created_utc") or row.get("submitted_utc") or "")
+        facts.append(f"in stage ~{int(age_h)}h")
+    return facts[:4]
+
+
+def _compute_urgency(row: Dict, ei: Dict, stage_info: Dict[str, Any]) -> int:
+    """Higher = more urgent. Drives the top-down ordering in Level 1.
+
+    Formula (doctrine §3):
+        failure_flags × 1000
+      + days_in_stage × 50
+      + gap_count × 10
+      + stale_payment_days × 5
+      − completion_credit
+    """
+    failures = int(ei.get("extraction_failures") or 0)
+    gaps = int(ei.get("missing_item_count") or 0) or len(row.get("missing_items") or [])
+    age_h = _ts_age_hours(row.get("created_utc") or row.get("submitted_utc") or "")
+    days_in_stage = max(0, age_h / 24.0)
+
+    stale_payment_days = 0
+    if (row.get("review_status") or "").lower() in ("payment_sent", "approved"):
+        # Payment sent but not converted — every day this drifts adds urgency.
+        stale_payment_days = days_in_stage
+
+    score = (
+        failures * 1000
+        + days_in_stage * 50
+        + gaps * 10
+        + stale_payment_days * 5
+    )
+    if stage_info["stage_state"] == STAGE_STATE_DONE:
+        # Completed companies are still listed (operator may want to revisit)
+        # but always last.
+        score = -1
+    return int(score)
 
 
 def _build_company_row(row: Dict, ei: Dict) -> Dict:
@@ -205,10 +421,16 @@ def _build_company_row(row: Dict, ei: Dict) -> Dict:
     project_id = row.get("project_id") or ""
     # Prefer intake_id as the row key so VIO can call /api/operator/vio/company/{intake_id}
     pid = intake_id or project_id
-    name = row.get("company_name") or row.get("company") or "Unknown"
+    raw_name = row.get("company_name") or row.get("company") or ""
+    name = _clean_company_name(raw_name)
     state = _calc_state(row, ei)
     timeline = _build_timeline(row, ei, state)
     created = row.get("created_utc") or row.get("submitted_utc") or ""
+    age_h = _ts_age_hours(created)
+
+    stage_info = _classify_stage(row, ei, state)
+    attention = _build_attention(row, ei, stage_info)
+    urgency = _compute_urgency(row, ei, stage_info)
 
     return {
         "project_id": project_id,
@@ -218,10 +440,20 @@ def _build_company_row(row: Dict, ei: Dict) -> Dict:
         "initials": _initials(name),
         "contact_email": row.get("contact_email") or row.get("email") or "",
         "created_utc": created,
-        "age_hours": round(_ts_age_hours(created), 1),
+        "age_hours": round(age_h, 1),
         "review_status": row.get("review_status") or "",
         "state": state,
         "priority_score": _priority_score(state, created),
+        # ── Doctrine fields (Level 1 unified-line rendering) ────────────
+        "stage": stage_info["stage"],
+        "stage_index": stage_info["stage_index"],
+        "stage_state": stage_info["stage_state"],
+        "on_branch": stage_info["on_branch"],
+        "branch_label": stage_info["branch_label"],
+        "urgency_score": urgency,
+        "days_in_stage": round(age_h / 24.0, 2),
+        "attention": attention,
+        # ── Legacy fields (kept for back-compat with existing detail panel) ──
         "timeline": timeline,
         "quick_stats": {
             "files_uploaded": ei.get("files_uploaded", 0) or int(row.get("file_count") or 0),
@@ -267,12 +499,18 @@ def build_vio_overview(limit: int = 60, *, include_organism: bool = True) -> Dic
                 ei = {}
         companies.append(_build_company_row(row, ei))
 
-    companies.sort(key=lambda c: c["priority_score"])
+    # Doctrine §3: top-down ordering by urgency descending. Done companies
+    # always sink to the bottom (their urgency_score is -1).
+    companies.sort(key=lambda c: (-c["urgency_score"], c.get("priority_score", 0)))
 
     state_counts: Dict[str, int] = {}
+    stage_counts: Dict[str, int] = {s: 0 for s in STAGE_BACKBONE}
     for c in companies:
         s = c["state"]
         state_counts[s] = state_counts.get(s, 0) + 1
+        st = c.get("stage")
+        if st in stage_counts:
+            stage_counts[st] += 1
 
     payload: Dict = {
         "ok": True,
@@ -281,6 +519,8 @@ def build_vio_overview(limit: int = 60, *, include_organism: bool = True) -> Dic
             "total": len(companies),
             **state_counts,
         },
+        "stage_backbone": STAGE_BACKBONE,
+        "stage_counts": stage_counts,
         "queue_depth": queue_data.get("queue_depth", 0),
         "urgent_count": queue_data.get("urgent_count", 0),
     }

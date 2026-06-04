@@ -82,6 +82,9 @@ QUARANTINE_ALLOWLIST = ALLOWLIST_FILES | {
     ROOT / "docs" / "LAUNCH_PATH.md",
     ROOT / "docs" / "KYC_CONSTITUTION.md",
     ROOT / "docs" / "README.md",
+    # Deployment readiness brief documents the removal of Stripe — it
+    # references the name to declare its banned status, same as STRIPE_FINAL_STATUS.md.
+    ROOT / "docs" / "KYC_DEPLOYMENT_READINESS_BRIEF_v2.md",
 }
 
 FORBIDDEN_PATTERNS = [

@@ -768,12 +768,12 @@
       metric('Pending', m.pending_review) +
       metric('Urgent', m.urgent_count) +
       '</div>';
-    if (nodeId === 'upload_pipeline' && global.CockpitFoundingBeta) {
+    if (nodeId === 'upload_pipeline') {
+      // VIO is the sole command surface for upload-pipeline awareness.
       detail.innerHTML +=
-        '<p class="org-metric-foot"><button type="button" class="kyc-btn kyc-btn--secondary" id="coteUploadScrollQueue">Jump to Founding Beta Queue</button></p>';
-      document.getElementById('coteUploadScrollQueue')?.addEventListener('click', function () {
-        global.CockpitFoundingBeta.scrollToQueue();
-      });
+        '<p class="org-metric-foot">' +
+        '<a class="kyc-btn kyc-btn--primary" href="/ui/vio.html" target="_self">' +
+        'Open VIO →</a></p>';
     }
     if (!hoverOnly) state.selected = nodeId;
   }
