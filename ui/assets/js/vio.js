@@ -135,6 +135,15 @@ async function loadVioData() {
     renderOrganismStrip(data.organism);
     renderCount(_allCompanies.length);
     renderTraces();
+
+    // First successful render — tear down the defensive boot overlay
+    // (see <script> block at the top of ui/vio.html). If we ever
+    // forget to call this, the boot watchdog at 10s will paint
+    // "VIO did not complete first render" — which is the right
+    // failure surface, much better than a silent dark page.
+    if (window.VIO_BOOT && typeof window.VIO_BOOT.ready === 'function') {
+      window.VIO_BOOT.ready();
+    }
   } catch (err) {
     const stage = document.getElementById('vio-stage');
     if (stage) {
@@ -146,6 +155,9 @@ async function loadVioData() {
       stage.appendChild(errEl);
     }
     console.error('[VIO]', err);
+    if (window.VIO_BOOT && typeof window.VIO_BOOT.fault === 'function') {
+      window.VIO_BOOT.fault('loadVioData', err.message || String(err));
+    }
   }
 }
 

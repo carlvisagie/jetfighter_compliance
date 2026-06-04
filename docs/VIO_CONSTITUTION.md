@@ -59,6 +59,45 @@ Each row is **Company Orb + Living Timeline**. Never a table row.
 
 ---
 
+## The Boundary — VIO vs Organism Orbs
+
+**Locked rule** (Carl Visagie, 2026-06-04):
+
+> **If it is about a specific client / company → VIO.
+> If it is about the system watching itself → organism orb.**
+
+The constellation orbs are **organism infrastructure** — the machine
+observing its own organs (acquisition pipeline, learning state,
+telemetry health, observability, alerts about the system itself,
+background-job pressure, memory state). They are vital signs of the
+substrate, not work surfaces.
+
+**VIO is client / company everything.** Every active client, their
+intake, their evidence, their gaps, their custody chain, their
+operator-pending actions, their alerts about *them*, the
+communications with them, their payment state, their delivery
+binder, the knowledge the operator needs about *this* client.
+
+The **Intake orb** is the **only bridge** between the two universes:
+clicking it is the operator's transition from *watching the organism*
+to *doing client work*. There is no second door.
+
+**Decision test for any new capability:**
+"Is this about a specific client/company?"
+
+| If yes → | If no → |
+|---|---|
+| It lives in VIO (L1 glance or L2 spine). | It lives as an organism orb (or as data inside one). |
+| Never duplicated on an organism orb. | Never duplicated in VIO. |
+
+A capability that is currently in the wrong place (e.g. a client-
+specific alert showing on an organism orb, or a system-wide
+telemetry metric polluting a per-client view) is a doctrine
+violation and must be migrated to its correct home before any
+related work proceeds.
+
+---
+
 ## The Company Orb
 
 The Company Orb **owns** the story.
