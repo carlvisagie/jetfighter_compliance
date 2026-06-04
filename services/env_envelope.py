@@ -8,12 +8,18 @@ by `env_envelope()`. The operator UI ribbon reads the same shape via
 Contract: see docs/PRODUCTION_IS_THE_ONLY_TRUTH.md.
 
 There are exactly two trust states:
-    - "trusted"        → environment == "production" AND data_root under /var/data AND OPS_API_KEY set
-    - "DO_NOT_TRUST"   → anything else (local dev, pytest, broken config, missing secrets)
+    - "trusted"        → environment == "production" AND data_root under /var/data
+                         AND OPS_API_KEY set AND disk persistence verified (or pending)
+    - "DO_NOT_TRUST"   → anything else (local dev, pytest, broken config, missing secrets,
+                         lost disk substrate)
 
 There is no "test" or "staging" middle ground. Anything that is not production
 is noise and must be visibly marked as noise so no agent or operator can
 mistake a count for reality.
+
+The disk-substrate verdict is owned by the organism — this envelope reads
+`services.durable_storage.disk_persistence_status()` (cached once per process)
+instead of computing its own. One brain, many vessels.
 """
 from __future__ import annotations
 

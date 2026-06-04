@@ -134,6 +134,75 @@ class ArchivesVsActiveCheck(Check):
         )
 
 
+class DiskPersistenceCheck(Check):
+    """
+    Surfaces the disk-substrate verdict from DiskPersistenceCollector as a
+    first-class organism check.
+
+    States → Severity:
+      verified_persistent      → INFO  (disk survived a restart — trusted)
+      pending_first_restart    → AMBER (first boot of a fresh disk;
+                                        provable only after next restart)
+      ephemeral_lost           → RED   (marker disappeared between boots —
+                                        likely customer data loss event)
+      unconfigured             → RED   (no disk substrate to verify)
+      write_failed             → RED   (marker write raised OSError)
+    """
+
+    name = "disk_persistence_check"
+
+    def evaluate(self, signals: SignalBundle) -> CheckResult:
+        s = signals.section("disk_persistence") or {}
+        state = (s.get("state") or "unknown").lower()
+        evidence = {
+            "state": state,
+            "verified": bool(s.get("verified")),
+            "marker_birth_utc": s.get("marker_birth_utc"),
+            "marker_birth_disk_id": s.get("marker_birth_disk_id"),
+            "age_before_process_seconds": s.get("age_before_process_seconds"),
+            "process_started_utc": s.get("process_started_utc"),
+            "marker_path": s.get("marker_path"),
+        }
+        if state == "verified_persistent":
+            return CheckResult(
+                name=self.name, ok=True, severity=Severity.INFO,
+                detail="Disk birth marker survived a restart — substrate is persistent.",
+                evidence=evidence,
+            )
+        if state == "pending_first_restart":
+            return CheckResult(
+                name=self.name, ok=True, severity=Severity.AMBER,
+                detail="First boot on this disk — persistence will be confirmed after the next restart.",
+                evidence=evidence,
+            )
+        if state == "ephemeral_lost":
+            return CheckResult(
+                name=self.name, ok=False, severity=Severity.RED,
+                detail=(
+                    "DISK PERSISTENCE LOST — birth marker missing on this boot. "
+                    "Previous customer data was likely destroyed. SEV-1 incident logged."
+                ),
+                evidence=evidence,
+            )
+        if state == "write_failed":
+            return CheckResult(
+                name=self.name, ok=False, severity=Severity.RED,
+                detail="Disk birth marker write failed — storage is unwritable.",
+                evidence=evidence,
+            )
+        if state == "unconfigured":
+            return CheckResult(
+                name=self.name, ok=False, severity=Severity.RED,
+                detail="No durable disk configured (KYC_DATA unset or invalid).",
+                evidence=evidence,
+            )
+        return CheckResult(
+            name=self.name, ok=False, severity=Severity.AMBER,
+            detail=f"Disk persistence state unrecognised: {state!r}",
+            evidence=evidence,
+        )
+
+
 class BetaResidueCheck(Check):
     name = "beta_residue_scan"
 
@@ -194,8 +263,9 @@ class BetaResidueCheck(Check):
 
 
 def all_checks():
-    """Ordered tuple of KYC's 8 checks."""
+    """Ordered tuple of KYC's 9 checks."""
     return (
+        DiskPersistenceCheck(),
         DiskVsIntakeIndexCheck(),
         IntakeIndexVsQueueCheck(),
         QueueVsVioCheck(),

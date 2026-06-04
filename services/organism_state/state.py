@@ -17,6 +17,7 @@ from organism_core.persistence.snapshot_writer import write_snapshot
 
 from services.organism_state.checks import all_checks
 from services.organism_state.collectors import (
+    DiskPersistenceCollector,
     EvidenceCollector,
     GitCollector,
     IntakeCollector,
@@ -45,10 +46,29 @@ ORGANISM_STATE_PATH = _default_snapshot_path
 
 
 def _kyc_gating(signals: SignalBundle):
-    """In production, durable storage misconfiguration forces RED."""
+    """
+    In production, two substrate failures force RED before any other check runs:
+
+    1. KYC_DATA misconfiguration → disk not even attempted.
+    2. Disk persistence lost (`ephemeral_lost`) → previous boot's data destroyed.
+
+    A fresh disk (`pending_first_restart`) is NOT RED — uploads still proceed
+    and persistence is confirmed by the next restart. That state is AMBER in
+    the check, surfaced as a warning, but does not gate the organism.
+    """
     storage = signals.section("storage") or {}
     if storage.get("environment") == "production" and not storage.get("durable_storage_configured", False):
         return ("durable_storage_not_configured", "KYC_DATA env not configured in production")
+    persistence = signals.section("disk_persistence") or {}
+    state = (persistence.get("state") or "").lower()
+    if storage.get("environment") == "production":
+        if state == "ephemeral_lost":
+            return (
+                "disk_persistence_lost",
+                "Disk birth marker missing on this boot — previous customer data likely destroyed.",
+            )
+        if state == "write_failed":
+            return ("disk_persistence_write_failed", "Cannot write disk birth marker.")
     return None
 
 
@@ -74,6 +94,7 @@ def build_kyc_engine(*, repo_root: Optional[Path] = None) -> AwarenessEngine:
             projects,
             EvidenceCollector(project_ids_provider=_project_ids_provider),
             StorageCollector(),
+            DiskPersistenceCollector(),
             GitCollector(repo_root=root),
         ],
         checks=list(all_checks()),
@@ -101,6 +122,7 @@ def _flatten_for_legacy_api(core_snapshot: Dict[str, Any]) -> Dict[str, Any]:
     projects = sigs.get("projects", {}) or {}
     evidence = sigs.get("evidence", {}) or {}
     storage = sigs.get("storage", {}) or {}
+    persistence = sigs.get("disk_persistence", {}) or {}
     git = sigs.get("git", {}) or {}
     residue = core_snapshot.get("residue", {}) or {}
 
@@ -127,6 +149,9 @@ def _flatten_for_legacy_api(core_snapshot: Dict[str, Any]) -> Dict[str, Any]:
         "environment": storage.get("environment", "development"),
         "data_root": storage.get("data_root", ""),
         "durable_storage_configured": bool(storage.get("durable_storage_configured", False)),
+        "disk_persistence_state": persistence.get("state", "unknown"),
+        "disk_persistence_verified": bool(persistence.get("verified", False)),
+        "disk_persistence": dict(persistence),
         "intake_count_total": int(intake.get("intake_count_total", 0)),
         "intake_count_active": int(intake.get("intake_count_active", 0)),
         "intake_count_archived": int(intake.get("intake_count_archived", 0)),

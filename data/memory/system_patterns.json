@@ -1,52 +1,34 @@
 {
   "version": 1,
-  "updated_utc": "2026-06-02T21:57:00Z",
+  "updated_utc": "2026-06-04T07:15:12Z",
   "subsystem_health": {
     "intake": {
       "success_rate": 1.0,
-      "events": 266,
-      "failures": 0,
-      "status": "healthy"
-    },
-    "acquisition_organism": {
-      "success_rate": 1.0,
-      "events": 35,
+      "events": 367,
       "failures": 0,
       "status": "healthy"
     },
     "operational_alerts": {
       "success_rate": 1.0,
-      "events": 34,
+      "events": 58,
       "failures": 0,
       "status": "healthy"
     },
-    "job_queue": {
+    "acquisition_organism": {
       "success_rate": 1.0,
-      "events": 2,
-      "failures": 0,
-      "status": "healthy"
-    },
-    "evidence_intelligence": {
-      "success_rate": 0.993,
-      "events": 150,
-      "failures": 1,
-      "status": "healthy"
-    },
-    "customer_session": {
-      "success_rate": 1.0,
-      "events": 4,
+      "events": 46,
       "failures": 0,
       "status": "healthy"
     },
     "email": {
       "success_rate": 0.5,
-      "events": 8,
-      "failures": 4,
+      "events": 22,
+      "failures": 11,
       "status": "unhealthy"
     },
-    "customer_friction": {
+    "customer_session": {
       "success_rate": 1.0,
-      "events": 1,
+      "events": 7,
       "failures": 0,
       "status": "healthy"
     }
@@ -54,24 +36,20 @@
   "repeated_failures": [
     {
       "key": "email:smtp_unconfigured",
-      "count": 4,
+      "count": 11,
       "suggestion": "Review email:smtp_unconfigured failures"
     }
   ],
   "reliability_patterns": {
     "intake": 1.0,
-    "acquisition_organism": 1.0,
     "operational_alerts": 1.0,
-    "job_queue": 1.0,
-    "evidence_intelligence": 0.993,
-    "customer_session": 1.0,
+    "acquisition_organism": 1.0,
     "email": 0.5,
-    "customer_friction": 1.0
+    "customer_session": 1.0
   },
   "conversion_patterns": {},
   "failure_patterns": {
-    "email:smtp_unconfigured": 4,
-    "evidence_intelligence:evidence_mapping_failure": 1
+    "email:smtp_unconfigured": 11
   },
   "bottleneck_patterns": {},
   "best_paths": {

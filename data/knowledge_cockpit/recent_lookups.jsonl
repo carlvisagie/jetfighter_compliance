@@ -284,3 +284,53 @@
 {"event_id": "KL-64a1528f", "event_type": "explanation_generated", "concept_id": "cmmc", "query": "Which CMMC level?", "when_utc": "2026-06-02T19:16:19Z", "metadata": {}}
 {"event_id": "KL-f82769e6", "event_type": "overlay_opened", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-02T19:16:20Z", "metadata": {"view": "telemetry_signal", "panel": null}}
 {"event_id": "KL-00a0110c", "event_type": "explanation_generated", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-02T19:16:21Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}
+{"event_id": "KL-4531f1f4", "event_type": "explanation_generated", "concept_id": "ssp", "query": "", "when_utc": "2026-06-02T23:43:44Z", "metadata": {}}
+{"event_id": "KL-49c13b20", "event_type": "concept_lookup", "concept_id": "ssp", "query": "ssp test", "when_utc": "2026-06-02T23:43:46Z", "metadata": {}}
+{"event_id": "KL-07640878", "event_type": "explanation_generated", "concept_id": "cmmc", "query": "Which CMMC level?", "when_utc": "2026-06-02T23:43:48Z", "metadata": {}}
+{"event_id": "KL-66d8419f", "event_type": "overlay_opened", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-02T23:43:49Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KL-2dc41247", "event_type": "explanation_generated", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-02T23:43:49Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}
+{"event_id": "KL-3cb8ec1c", "event_type": "explanation_generated", "concept_id": "ssp", "query": "", "when_utc": "2026-06-03T00:06:58Z", "metadata": {}}
+{"event_id": "KL-a7f07397", "event_type": "concept_lookup", "concept_id": "ssp", "query": "ssp test", "when_utc": "2026-06-03T00:06:59Z", "metadata": {}}
+{"event_id": "KL-e6ce7af8", "event_type": "explanation_generated", "concept_id": "cmmc", "query": "Which CMMC level?", "when_utc": "2026-06-03T00:07:01Z", "metadata": {}}
+{"event_id": "KL-d1f4952c", "event_type": "overlay_opened", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-03T00:07:02Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KL-a137d53e", "event_type": "explanation_generated", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-03T00:07:03Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}
+{"event_id": "KL-1ec32d00", "event_type": "explanation_generated", "concept_id": "ssp", "query": "", "when_utc": "2026-06-03T00:50:23Z", "metadata": {}}
+{"event_id": "KL-f1e8a707", "event_type": "concept_lookup", "concept_id": "ssp", "query": "ssp test", "when_utc": "2026-06-03T00:50:24Z", "metadata": {}}
+{"event_id": "KL-932d584b", "event_type": "explanation_generated", "concept_id": "cmmc", "query": "Which CMMC level?", "when_utc": "2026-06-03T00:50:26Z", "metadata": {}}
+{"event_id": "KL-6652cf67", "event_type": "overlay_opened", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-03T00:50:27Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KL-13ad3480", "event_type": "explanation_generated", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-03T00:50:27Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}
+{"event_id": "KL-87ba83e5", "event_type": "explanation_generated", "concept_id": "ssp", "query": "", "when_utc": "2026-06-03T09:28:32Z", "metadata": {}}
+{"event_id": "KL-4c731e4d", "event_type": "concept_lookup", "concept_id": "ssp", "query": "ssp test", "when_utc": "2026-06-03T09:28:33Z", "metadata": {}}
+{"event_id": "KL-74439977", "event_type": "explanation_generated", "concept_id": "cmmc", "query": "Which CMMC level?", "when_utc": "2026-06-03T09:28:36Z", "metadata": {}}
+{"event_id": "KL-fc36d1a8", "event_type": "overlay_opened", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-03T09:28:37Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KL-f71a91c5", "event_type": "explanation_generated", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-03T09:28:38Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}
+{"event_id": "KL-12ed7bcc", "event_type": "explanation_generated", "concept_id": "ssp", "query": "", "when_utc": "2026-06-03T14:24:54Z", "metadata": {}}
+{"event_id": "KL-e61ee226", "event_type": "concept_lookup", "concept_id": "ssp", "query": "ssp test", "when_utc": "2026-06-03T14:24:55Z", "metadata": {}}
+{"event_id": "KL-b47550e7", "event_type": "explanation_generated", "concept_id": "cmmc", "query": "Which CMMC level?", "when_utc": "2026-06-03T14:24:56Z", "metadata": {}}
+{"event_id": "KL-26c50028", "event_type": "overlay_opened", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-03T14:24:57Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KL-451981aa", "event_type": "explanation_generated", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-03T14:24:58Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}
+{"event_id": "KL-cc433f69", "event_type": "explanation_generated", "concept_id": "ssp", "query": "", "when_utc": "2026-06-03T14:36:44Z", "metadata": {}}
+{"event_id": "KL-9a6814f6", "event_type": "concept_lookup", "concept_id": "ssp", "query": "ssp test", "when_utc": "2026-06-03T14:36:45Z", "metadata": {}}
+{"event_id": "KL-23d28909", "event_type": "explanation_generated", "concept_id": "cmmc", "query": "Which CMMC level?", "when_utc": "2026-06-03T14:36:47Z", "metadata": {}}
+{"event_id": "KL-96feb6be", "event_type": "overlay_opened", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-03T14:36:48Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KL-7178bf7a", "event_type": "explanation_generated", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-03T14:36:48Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}
+{"event_id": "KL-eaf6d7c9", "event_type": "explanation_generated", "concept_id": "ssp", "query": "", "when_utc": "2026-06-03T14:58:19Z", "metadata": {}}
+{"event_id": "KL-25c89c35", "event_type": "concept_lookup", "concept_id": "ssp", "query": "ssp test", "when_utc": "2026-06-03T14:58:21Z", "metadata": {}}
+{"event_id": "KL-b7245b36", "event_type": "explanation_generated", "concept_id": "cmmc", "query": "Which CMMC level?", "when_utc": "2026-06-03T14:58:22Z", "metadata": {}}
+{"event_id": "KL-960ed67e", "event_type": "overlay_opened", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-03T14:58:23Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KL-ead15c8e", "event_type": "explanation_generated", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-03T14:58:24Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}
+{"event_id": "KL-25196c7c", "event_type": "explanation_generated", "concept_id": "ssp", "query": "", "when_utc": "2026-06-03T15:23:29Z", "metadata": {}}
+{"event_id": "KL-c68ca9fd", "event_type": "concept_lookup", "concept_id": "ssp", "query": "ssp test", "when_utc": "2026-06-03T15:23:30Z", "metadata": {}}
+{"event_id": "KL-fd7d1de8", "event_type": "explanation_generated", "concept_id": "cmmc", "query": "Which CMMC level?", "when_utc": "2026-06-03T15:23:32Z", "metadata": {}}
+{"event_id": "KL-cb6e1a98", "event_type": "overlay_opened", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-03T15:23:33Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KL-0fd23924", "event_type": "explanation_generated", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-03T15:23:33Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}
+{"event_id": "KL-a82c8cdd", "event_type": "explanation_generated", "concept_id": "ssp", "query": "", "when_utc": "2026-06-04T05:14:22Z", "metadata": {}}
+{"event_id": "KL-73c66098", "event_type": "concept_lookup", "concept_id": "ssp", "query": "ssp test", "when_utc": "2026-06-04T05:14:23Z", "metadata": {}}
+{"event_id": "KL-8348a51a", "event_type": "explanation_generated", "concept_id": "cmmc", "query": "Which CMMC level?", "when_utc": "2026-06-04T05:14:25Z", "metadata": {}}
+{"event_id": "KL-e882af43", "event_type": "overlay_opened", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-04T05:14:26Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KL-4e09c0b3", "event_type": "explanation_generated", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-04T05:14:26Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}
+{"event_id": "KL-0baba473", "event_type": "explanation_generated", "concept_id": "ssp", "query": "", "when_utc": "2026-06-04T06:26:48Z", "metadata": {}}
+{"event_id": "KL-73f8640f", "event_type": "concept_lookup", "concept_id": "ssp", "query": "ssp test", "when_utc": "2026-06-04T06:26:49Z", "metadata": {}}
+{"event_id": "KL-e7e960a6", "event_type": "explanation_generated", "concept_id": "cmmc", "query": "Which CMMC level?", "when_utc": "2026-06-04T06:26:51Z", "metadata": {}}
+{"event_id": "KL-df4e5b4f", "event_type": "overlay_opened", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-04T06:26:52Z", "metadata": {"view": "telemetry_signal", "panel": null}}
+{"event_id": "KL-9f538915", "event_type": "explanation_generated", "concept_id": "", "query": "telemetry_signal", "when_utc": "2026-06-04T06:26:53Z", "metadata": {"view": "telemetry_signal", "explanation_type": "telemetry_signal"}}

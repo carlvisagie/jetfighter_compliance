@@ -55,6 +55,10 @@ EVENT_GOALS: Dict[str, Dict[str, str]] = {
         "orphan_upload_detected": "Stuck session without project",
         "stuck_session_detected": "Abandoned mid-flow",
     },
+    "storage": {
+        "disk_persistence_probe": "Detect ephemeral-disk regressions before customer data loss",
+        "disk_persistence_lost": "SEV-1: previous boot's customer data likely destroyed",
+    },
 }
 
 

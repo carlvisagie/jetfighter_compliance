@@ -1,11 +1,24 @@
 services:
+  # IMPORTANT: This service was created via the Render dashboard, NOT applied from
+  # this blueprint. The live service ID is srv-d83gut57vvec739efv6g and is named
+  # `jetfighter_compliance` (NOT `kyc-backend`). On 2026-06-04 we discovered the
+  # blueprint was never applied — the live service ran without a disk for weeks,
+  # silently destroying every upload at each deploy. The kyc-data disk
+  # (dsk-d8gj7sog4nts739ng1jg) was attached via API on 2026-06-04T08:14:43Z.
+  #
+  # Do not "fix" the name mismatch by reapplying this blueprint — that would
+  # create a NEW service and lose the now-persistent disk. Manage the live
+  # service via API/dashboard until a planned migration moves it under blueprint
+  # management. See docs/PRODUCTION_IS_THE_ONLY_TRUTH.md.
   - type: web
     name: kyc-backend
     env: docker
     plan: starter
     autoDeploy: true
     healthCheckPath: /healthz
-    # Persistent disk required for founding beta client paperwork (survives deploys).
+    # Persistent disk for customer paperwork. Mounted on the live service since
+    # 2026-06-04T08:14:43Z. Any divergence between this block and the live disk
+    # config means uploads will be destroyed on the next deploy.
     disk:
       name: kyc-data
       mountPath: /var/data

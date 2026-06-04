@@ -126,6 +126,35 @@ class StorageCollector(SignalCollector):
         }
 
 
+class DiskPersistenceCollector(SignalCollector):
+    """
+    Observes the disk-substrate proof — distinct from StorageCollector which
+    only knows "is KYC_DATA writable". This collector knows "did the disk
+    survive a restart".
+
+    Contract: docs/KYC_UPLOAD_IMMUTABILITY_PROOF.md (2026-06-04 incident).
+    The first probe per process writes the birth marker and emits a
+    telemetry row (`storage / disk_persistence_probe`). Subsequent probes
+    return the cached verdict.
+    """
+
+    name = "disk_persistence"
+
+    def collect(self) -> Dict[str, Any]:
+        from services.durable_storage import disk_persistence_status
+
+        s = disk_persistence_status() or {}
+        return {
+            "state": s.get("state") or "unknown",
+            "verified": bool(s.get("verified")),
+            "marker_path": s.get("marker_path"),
+            "marker_birth_utc": s.get("marker_birth_utc"),
+            "marker_birth_disk_id": s.get("marker_birth_disk_id"),
+            "age_before_process_seconds": s.get("age_before_process_seconds"),
+            "process_started_utc": s.get("process_started_utc"),
+        }
+
+
 class GitCollector(SignalCollector):
     name = "git"
 
