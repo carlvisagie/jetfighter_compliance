@@ -604,9 +604,8 @@ def intake_resolve(token: str):
     return out
 
 
-@app.get("/ui/intake", response_class=HTMLResponse)
-def intake_page():
-    return FileResponse(str(ROOT / "ui" / "intake.html"))
+# /ui/intake, /ui/intake.html, /ui/paperwork are all served by the canonical
+# intake_page() handler defined at the top of this module (see line ~43).
 
 @app.post("/api/intake/submit")
 async def intake_submit(
