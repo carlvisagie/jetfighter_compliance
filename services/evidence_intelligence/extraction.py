@@ -79,6 +79,105 @@ def _extract_csv(data: bytes) -> Tuple[str, str]:
         return text[:MAX_PREVIEW], "csv_raw"
 
 
+def _extract_docx(data: bytes) -> Tuple[str, str]:
+    try:
+        from docx import Document
+    except ImportError:
+        return "", "docx_unavailable"
+    try:
+        doc = Document(io.BytesIO(data))
+        parts: list[str] = []
+        for para in doc.paragraphs:
+            t = (para.text or "").strip()
+            if t:
+                parts.append(t)
+            if sum(len(p) for p in parts) > MAX_PREVIEW * 4:
+                break
+        for table in doc.tables:
+            for row in table.rows:
+                cells = [(c.text or "").strip() for c in row.cells]
+                if any(cells):
+                    parts.append(" | ".join(cells))
+                if sum(len(p) for p in parts) > MAX_PREVIEW * 4:
+                    break
+        return "\n".join(parts), "docx_text"
+    except Exception:
+        return "", "docx_failed"
+
+
+def _extract_xlsx(data: bytes) -> Tuple[str, str]:
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        return "", "xlsx_unavailable"
+    try:
+        wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+        parts: list[str] = []
+        for sheet in wb.worksheets:
+            parts.append(f"# Sheet: {sheet.title}")
+            count = 0
+            for row in sheet.iter_rows(values_only=True):
+                cells = [
+                    (str(v).strip() if v is not None else "") for v in row
+                ]
+                if any(cells):
+                    parts.append(" | ".join(cells))
+                    count += 1
+                if count >= 200:
+                    break
+            if sum(len(p) for p in parts) > MAX_PREVIEW * 4:
+                break
+        wb.close()
+        return "\n".join(parts), "xlsx_text"
+    except Exception:
+        return "", "xlsx_failed"
+
+
+def _extract_image_metadata(data: bytes, ext: str) -> Tuple[str, str]:
+    """Surface image metadata as a textual summary.
+
+    No OCR (deferred — requires tesseract system binary). What we extract here
+    is enough to (a) prove the upload is a real image, (b) route it for human
+    review, (c) feed classification signals (filename + dimensions + format).
+    """
+    try:
+        from PIL import Image, ExifTags
+    except ImportError:
+        return "", "image_metadata_unavailable"
+    try:
+        img = Image.open(io.BytesIO(data))
+        img.load()
+        width, height = img.size
+        mode = img.mode
+        fmt = img.format or ext.lstrip(".").upper()
+        exif_lines: list[str] = []
+        try:
+            exif = img.getexif() or {}
+            for tag_id, value in exif.items():
+                tag_name = ExifTags.TAGS.get(tag_id, str(tag_id))
+                if isinstance(value, bytes):
+                    continue
+                v = str(value).strip()
+                if v and len(v) < 200:
+                    exif_lines.append(f"{tag_name}: {v}")
+                if len(exif_lines) >= 20:
+                    break
+        except Exception:
+            pass
+        summary = [
+            f"image_format: {fmt}",
+            f"dimensions: {width}x{height}",
+            f"mode: {mode}",
+        ]
+        if exif_lines:
+            summary.append("exif:")
+            summary.extend(exif_lines)
+        summary.append("note: OCR not enabled — text inside image awaits manual review.")
+        return "\n".join(summary), "image_metadata"
+    except Exception:
+        return "", "image_metadata_failed"
+
+
 def extract_from_file(path: Path, *, size_bytes: int = 0) -> ExtractionResult:
     name = path.name
     ext = path.suffix.lower()
@@ -118,14 +217,36 @@ def extract_from_file(path: Path, *, size_bytes: int = 0) -> ExtractionResult:
             result.pending_analysis = True
     elif ext in (".csv",):
         text, method = _extract_csv(data)
-    elif ext in (".doc", ".docx", ".xlsx", ".xls"):
+    elif ext == ".docx":
+        text, method = _extract_docx(data)
+        if method == "docx_unavailable":
+            result.warnings.append("docx_extraction_unavailable")
+            result.pending_analysis = True
+        elif method == "docx_failed":
+            result.warnings.append("docx_extraction_failed")
+            result.pending_analysis = True
+    elif ext == ".xlsx":
+        text, method = _extract_xlsx(data)
+        if method == "xlsx_unavailable":
+            result.warnings.append("xlsx_extraction_unavailable")
+            result.pending_analysis = True
+        elif method == "xlsx_failed":
+            result.warnings.append("xlsx_extraction_failed")
+            result.pending_analysis = True
+    elif ext in (".doc", ".xls"):
+        # Legacy binary Office formats — not in scope for v1 extraction.
+        # Customer should re-export as .docx/.xlsx; flag for human review.
         result.pending_analysis = True
-        result.warnings.append("office_format_pending")
-        method = "office_pending"
-    elif ext in (".png", ".jpg", ".jpeg", ".gif", ".webp"):
-        result.pending_analysis = True
-        result.warnings.append("image_ocr_not_enabled_v1")
-        method = "image_pending"
+        result.warnings.append("legacy_office_binary_format")
+        method = "office_legacy_pending"
+    elif ext in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tiff", ".tif"):
+        text, method = _extract_image_metadata(data, ext)
+        # Image METADATA is real text; mark pending only if metadata extraction
+        # itself failed. The image still goes through classification + entity
+        # extraction on filename + metadata; OCR awaits a deliberate add.
+        result.warnings.append("image_text_awaits_ocr_for_full_extraction")
+        if method in ("image_metadata_unavailable", "image_metadata_failed"):
+            result.pending_analysis = True
     else:
         text, method = _extract_txt(data)
         if not text.strip():
