@@ -26,6 +26,7 @@ from services.organism_state.collectors import (
     GitCollector,
     IntakeCollector,
     ProjectsCollector,
+    SchedulerHeartbeatCollector,
     StorageCollector,
     VioCollector,
 )
@@ -99,6 +100,7 @@ def build_kyc_engine(*, repo_root: Optional[Path] = None) -> AwarenessEngine:
             EvidenceCollector(project_ids_provider=_project_ids_provider),
             StorageCollector(),
             DiskPersistenceCollector(),
+            SchedulerHeartbeatCollector(),
             GitCollector(repo_root=root),
         ],
         checks=list(all_checks()),

@@ -4,12 +4,26 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from organism_core import SignalCollector
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_utc(value: Optional[str]) -> Optional[datetime]:
+    if not value or not isinstance(value, str):
+        return None
+    try:
+        clean = value.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(clean)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except (ValueError, TypeError):
+        return None
 
 
 class IntakeCollector(SignalCollector):
@@ -152,6 +166,116 @@ class DiskPersistenceCollector(SignalCollector):
             "marker_birth_disk_id": s.get("marker_birth_disk_id"),
             "age_before_process_seconds": s.get("age_before_process_seconds"),
             "process_started_utc": s.get("process_started_utc"),
+        }
+
+
+class SchedulerHeartbeatCollector(SignalCollector):
+    """Observes the background scheduler's pulse.
+
+    Forensic-audit fix (2026-06-04, Organism Awareness): the scheduler
+    emits `system / scheduler_*` telemetry rows when it starts, when
+    organs are registered, and when each periodic job runs. Until now
+    nothing read those rows back — so a silently-starved scheduler
+    looked identical to a healthy one in the awareness layer.
+
+    This collector scans recent telemetry and surfaces:
+      • `last_started_utc`   — most recent scheduler_started row
+      • `last_organ_run_utc` — most recent scheduler_*_ran row
+      • `seconds_since_last_run`
+      • `recent_failure_count`
+      • `expected_max_interval_seconds` — what the awareness check
+        treats as "still alive" (defaults to 90 minutes — slightly
+        more than the longest interval job to avoid false alarms).
+    """
+
+    name = "scheduler_heartbeat"
+
+    # Job IDs we expect to fire periodically.
+    _LIVENESS_EVENTS = {
+        "scheduler_started",
+        "scheduler_organ_registered",
+        "scheduler_organ_module_registered",
+        "scheduler_forensic_reconcile_ran",
+    }
+    _FAILURE_EVENTS = {
+        "scheduler_create_failed",
+        "scheduler_start_failed",
+        "scheduler_organ_failed",
+        "scheduler_organ_module_failed",
+        "scheduler_forensic_reconcile_failed",
+        "scheduler_forensic_reconcile_import_failed",
+    }
+
+    def __init__(self, *, expected_max_interval_seconds: int = 90 * 60):
+        self._expected = int(expected_max_interval_seconds)
+
+    def collect(self) -> Dict[str, Any]:
+        try:
+            from services.memory.telemetry import load_telemetry
+        except Exception:
+            return {
+                "available": False,
+                "reason": "telemetry_unavailable",
+            }
+
+        try:
+            rows = load_telemetry(limit=500) or []
+        except Exception:
+            return {
+                "available": False,
+                "reason": "telemetry_read_failed",
+            }
+
+        last_started: Optional[datetime] = None
+        last_run: Optional[datetime] = None
+        recent_failures = 0
+        sample_failures: List[Dict[str, Any]] = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            event = str(row.get("event_type") or row.get("event") or "")
+            ts = _parse_utc(
+                row.get("created_utc")
+                or row.get("ts")
+                or row.get("timestamp")
+            )
+            if not ts:
+                continue
+            if event == "scheduler_started" and (
+                last_started is None or ts > last_started
+            ):
+                last_started = ts
+            if event in self._LIVENESS_EVENTS and (
+                last_run is None or ts > last_run
+            ):
+                last_run = ts
+            if event in self._FAILURE_EVENTS:
+                recent_failures += 1
+                if len(sample_failures) < 5:
+                    sample_failures.append({
+                        "event": event,
+                        "ts": row.get("created_utc")
+                              or row.get("ts")
+                              or row.get("timestamp"),
+                        "message": row.get("message"),
+                    })
+
+        now_utc = datetime.now(timezone.utc)
+        seconds_since_last_run = (
+            int((now_utc - last_run).total_seconds()) if last_run else None
+        )
+        return {
+            "available":              True,
+            "last_started_utc":       last_started.isoformat().replace(
+                                          "+00:00", "Z")
+                                      if last_started else None,
+            "last_organ_run_utc":     last_run.isoformat().replace(
+                                          "+00:00", "Z")
+                                      if last_run else None,
+            "seconds_since_last_run": seconds_since_last_run,
+            "expected_max_interval_seconds": self._expected,
+            "recent_failure_count":   recent_failures,
+            "recent_failure_samples": sample_failures,
         }
 
 

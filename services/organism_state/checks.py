@@ -333,8 +333,71 @@ class BetaResidueCheck(Check):
         )
 
 
+class SchedulerHeartbeatCheck(Check):
+    """Awareness check: the background scheduler is alive and ticking.
+
+    Forensic-audit fix (2026-06-04, Organism Awareness): a starved
+    scheduler used to be invisible to the awareness layer. Now any
+    scheduler signal absence or stale heartbeat surfaces as AMBER/RED
+    so the operator notices before customers do.
+
+    Stays INFO when the heartbeat signal is unavailable (legacy paths
+    or fresh boots before telemetry rolls in) so we don't false-alarm.
+    """
+
+    name = "scheduler_heartbeat"
+
+    def evaluate(self, signals: SignalBundle) -> CheckResult:
+        section = signals.section("scheduler_heartbeat") or {}
+        if not section.get("available"):
+            return CheckResult(
+                name=self.name, ok=True, severity=Severity.INFO,
+                detail=(
+                    f"No scheduler heartbeat signal "
+                    f"({section.get('reason') or 'no_data'})."
+                ),
+                evidence=dict(section),
+            )
+        last_run = section.get("last_organ_run_utc")
+        seconds_since = section.get("seconds_since_last_run")
+        expected_max = int(section.get(
+            "expected_max_interval_seconds") or 0)
+        fail_count = int(section.get("recent_failure_count") or 0)
+
+        if last_run is None or seconds_since is None:
+            return CheckResult(
+                name=self.name, ok=False, severity=Severity.AMBER,
+                detail=("Scheduler heartbeat MISSING — no "
+                        "scheduler_*_ran rows in recent telemetry."),
+                evidence=dict(section),
+            )
+
+        if expected_max and int(seconds_since) > expected_max:
+            return CheckResult(
+                name=self.name, ok=False, severity=Severity.RED,
+                detail=(f"Scheduler heartbeat STALE — "
+                        f"{seconds_since}s since last run "
+                        f"(threshold {expected_max}s)."),
+                evidence=dict(section),
+            )
+
+        if fail_count > 0:
+            return CheckResult(
+                name=self.name, ok=False, severity=Severity.AMBER,
+                detail=(f"Scheduler running but {fail_count} recent "
+                        f"failure(s) in telemetry."),
+                evidence=dict(section),
+            )
+
+        return CheckResult(
+            name=self.name, ok=True, severity=Severity.INFO,
+            detail=f"Scheduler alive — last run {seconds_since}s ago.",
+            evidence=dict(section),
+        )
+
+
 def all_checks():
-    """Ordered tuple of KYC's 9 checks."""
+    """Ordered tuple of KYC's 10 checks."""
     return (
         DiskPersistenceCheck(),
         DiskVsIntakeIndexCheck(),
@@ -345,4 +408,5 @@ def all_checks():
         ProjectsVsCompletedIntakesCheck(),
         ArchivesVsActiveCheck(),
         BetaResidueCheck(),
+        SchedulerHeartbeatCheck(),
     )

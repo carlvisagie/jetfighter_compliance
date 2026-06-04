@@ -120,6 +120,90 @@ def append_entity(entity: Dict[str, Any], base: Optional[Path] = None) -> Dict[s
     return entity
 
 
+def compact_entities(
+    base: Optional[Path] = None, *, keep_last_per_entity: bool = True
+) -> Dict[str, Any]:
+    """Rewrite `entities.jsonl` keeping one row per entity_id.
+
+    Forensic-audit fix (2026-06-04, Central Memory): every upsert
+    appends a full new row, so the entity graph accumulates many
+    redundant snapshots of the same entity. Read code already dedupes
+    (build_indexes() keeps the last row per id), but the file size
+    grows without bound and the operator sees "7k rows for 200 real
+    entities" — looks like a bug under inspection.
+
+    This function performs an atomic compaction: load all rows, group
+    by entity_id, keep the last one per group, and replace the file
+    via a temp swap so we never lose the source of truth mid-write.
+    Returns a small accounting payload for telemetry / operator
+    visibility.
+    """
+    path = _entities_path(base)
+    if not path.is_file():
+        return {
+            "ok": True,
+            "rows_before": 0,
+            "rows_after":  0,
+            "rows_removed": 0,
+            "entities_kept": 0,
+            "compacted": False,
+        }
+    rows_before = 0
+    last_by_id: Dict[str, Dict[str, Any]] = {}
+    other_rows: List[Dict[str, Any]] = []
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            rows_before += 1
+            try:
+                row = json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            eid = (row or {}).get("entity_id")
+            if not eid:
+                # Preserve rows without an entity_id rather than
+                # silently dropping them.
+                other_rows.append(row)
+                continue
+            if keep_last_per_entity:
+                last_by_id[eid] = row
+            else:
+                other_rows.append(row)
+
+        kept_rows = list(last_by_id.values()) + other_rows
+        rows_after = len(kept_rows)
+        if rows_after == rows_before:
+            return {
+                "ok": True,
+                "rows_before": rows_before,
+                "rows_after":  rows_after,
+                "rows_removed": 0,
+                "entities_kept": len(last_by_id),
+                "compacted": False,
+            }
+        # Atomic swap.
+        tmp = path.with_suffix(path.suffix + ".compact.tmp")
+        tmp.write_text(
+            "\n".join(json.dumps(r, ensure_ascii=False) for r in kept_rows)
+            + ("\n" if kept_rows else ""),
+            encoding="utf-8",
+        )
+        tmp.replace(path)
+        return {
+            "ok": True,
+            "rows_before": rows_before,
+            "rows_after":  rows_after,
+            "rows_removed": rows_before - rows_after,
+            "entities_kept": len(last_by_id),
+            "compacted": True,
+        }
+    except OSError as exc:
+        return {"ok": False, "error": str(exc),
+                "rows_before": rows_before, "rows_after": rows_before}
+
+
 def upsert_entity(
     *,
     email: str = "",

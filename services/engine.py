@@ -200,6 +200,16 @@ def _scheduled_forensic_reconcile():
         )
         return
 
+    # Opportunistic entity-graph compaction. Cheap; dedupes the
+    # append-only entities.jsonl that the forensic audit flagged as
+    # bloated. Never raises.
+    compact_report: Dict[str, Any] = {}
+    try:
+        from services.memory.entity_graph import compact_entities
+        compact_report = compact_entities() or {}
+    except Exception as exc:
+        compact_report = {"ok": False, "error": str(exc)}
+
     _emit_scheduler_event(
         "scheduler_forensic_reconcile_ran",
         success=True,
@@ -213,6 +223,11 @@ def _scheduled_forensic_reconcile():
             "ghost_intake_count":      proof.get("ghost_intake_count", 0),
             "reconcile_intakes":       report.get("intakes_checked")
                                        if isinstance(report, dict) else None,
+            "entity_compact":          {
+                k: compact_report.get(k)
+                for k in ("ok", "rows_before", "rows_after",
+                          "rows_removed", "entities_kept", "compacted")
+            },
         },
     )
 

@@ -408,3 +408,58 @@ def test_snapshot_history_endpoint_returns_rows(client):
     assert body.get("ok") is True
     assert body.get("count", 0) >= 1
     assert isinstance(body.get("rows"), list)
+
+
+# ── Scheduler heartbeat — 2026-06-04 audit (Organism Awareness) ─────
+
+
+def test_scheduler_heartbeat_check_flags_stale_signal():
+    """REGRESSION GUARD — when the scheduler hasn't run in longer than
+    the expected interval, the check must escalate to RED."""
+    from organism_core import SignalBundle
+    from services.organism_state.checks import SchedulerHeartbeatCheck
+
+    bundle = SignalBundle()
+    bundle.add("scheduler_heartbeat", {
+        "available": True,
+        "last_organ_run_utc": "2026-01-01T00:00:00Z",
+        "seconds_since_last_run": 60 * 60 * 5,
+        "expected_max_interval_seconds": 60 * 60,
+        "recent_failure_count": 0,
+    })
+    result = SchedulerHeartbeatCheck().evaluate(bundle)
+    assert result.ok is False
+    assert result.severity.value.lower() == "red"
+
+
+def test_scheduler_heartbeat_check_amber_on_failures():
+    """Recent scheduler failures must surface as AMBER even if last
+    run was recent."""
+    from organism_core import SignalBundle
+    from services.organism_state.checks import SchedulerHeartbeatCheck
+
+    bundle = SignalBundle()
+    bundle.add("scheduler_heartbeat", {
+        "available": True,
+        "last_organ_run_utc": "2026-06-04T00:00:00Z",
+        "seconds_since_last_run": 30,
+        "expected_max_interval_seconds": 60 * 60,
+        "recent_failure_count": 2,
+    })
+    result = SchedulerHeartbeatCheck().evaluate(bundle)
+    assert result.ok is False
+    assert result.severity.value.lower() == "amber"
+
+
+def test_scheduler_heartbeat_check_silent_when_unavailable():
+    """No telemetry available → check stays INFO so we don't false-
+    alarm at fresh boot."""
+    from organism_core import SignalBundle
+    from services.organism_state.checks import SchedulerHeartbeatCheck
+
+    bundle = SignalBundle()
+    bundle.add("scheduler_heartbeat",
+               {"available": False, "reason": "telemetry_unavailable"})
+    result = SchedulerHeartbeatCheck().evaluate(bundle)
+    assert result.ok is True
+    assert result.severity.value.lower() == "info"

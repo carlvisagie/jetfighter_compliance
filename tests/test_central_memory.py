@@ -224,3 +224,51 @@ def test_kickoff_journey_full_chain(mem_tmp):
     assert "inquiry_submitted" in stage_types
     assert "lead_linked" in stage_types
     assert "intake_completed" in stage_types
+
+
+def test_compact_entities_dedupes_history(mem_tmp):
+    """REGRESSION GUARD — entity-graph compaction must keep only the
+    most recent row per entity_id.
+
+    The forensic audit (2026-06-04) flagged entities.jsonl as
+    append-on-every-upsert, producing thousands of duplicate snapshots
+    for a small entity set. compact_entities() rewrites the file
+    atomically so read paths and inspection both see one row per id.
+    """
+    from services.memory.entity_graph import (
+        compact_entities,
+        load_entities,
+        upsert_entity,
+    )
+
+    mem, _ = mem_tmp
+    # Same entity (email + company), upserted many times.
+    for i in range(12):
+        upsert_entity(
+            email="dup@compact.example.com",
+            company="Compact Co",
+            contact_name=f"Carl {i}",
+            base=mem,
+        )
+    rows_before = len(load_entities(mem, limit=10_000))
+    assert rows_before >= 12, (
+        "expected many appended rows for a single entity; "
+        f"got {rows_before}"
+    )
+
+    report = compact_entities(mem)
+    assert report["ok"] is True
+    assert report["compacted"] is True
+    assert report["entities_kept"] == 1
+    assert report["rows_after"] == 1
+    assert report["rows_removed"] == rows_before - 1
+
+    rows_after = load_entities(mem, limit=10_000)
+    assert len(rows_after) == 1
+    raw = (mem / "entities.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(raw) == 1
+    kept = rows_after[0]
+    assert kept["entity_id"].startswith("E-")
+    assert kept.get("updated_utc"), (
+        "compacted entity row must carry an updated_utc timestamp"
+    )
