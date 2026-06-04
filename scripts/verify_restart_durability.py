@@ -42,7 +42,8 @@ BASE = "https://compliance.keepyourcontracts.com"
 FN = "restart-durability-proof.pdf"
 PAYLOAD = b"%PDF-1.4 restart durability proof"
 EXPECTED_SHA256 = hashlib.sha256(PAYLOAD).hexdigest()
-OUT_PATH = _REPO / "sev1_closeout.json"
+OUT_PATH = _REPO / "data" / "audit" / "sev1_closeout.json"
+OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 RESTART_SERVICE_NAMES = ("kyc-backend", "jetfighter_compliance", "jetfighter-compliance")
 
