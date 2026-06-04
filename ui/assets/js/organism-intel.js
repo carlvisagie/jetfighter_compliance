@@ -355,7 +355,7 @@
       '<div class="org-bar">' +
       keys
         .map((k) => {
-          const h = Math.round((((eff[k].success || 0) + (eff[k].fail || 0)) / max) * 100));
+          const h = Math.round((((eff[k].success || 0) + (eff[k].fail || 0)) / max) * 100);
           return (
             '<span title="' +
             escapeHtml(k) +

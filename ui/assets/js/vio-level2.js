@@ -1598,7 +1598,12 @@
         // both points and the window between them.
         const branches = computeBranches(detail);
         const axis = _timeAxis(detail);
-        const idx = STAGES.findIndex(s => s.key === stage.key);
+        // (idx already computed above; reuse it — re-declaring as const
+        //  here is a SyntaxError that crashes parse of the entire file,
+        //  which in turn prevents vio.js from running and leaves VIO
+        //  rendering as a black void below the env-ribbon. Caught by
+        //  `node --check` on the JS bundle during the doctrine sweep
+        //  on 2026-06-04 — root cause of the "VIO not connected" bug.)
         const thisX = axis.timeToX(_stageStartUtc(detail, stage.key));
         const nextKey = STAGES[idx + 1] && STAGES[idx + 1].key;
         const nextStart = nextKey ? _stageStartUtc(detail, nextKey) : null;
