@@ -606,30 +606,27 @@ html, body {
 }
 .vio-l2-back:hover { color: var(--vio-text); border-color: var(--st-healthy); }
 
-/* Operator action button — re-run Evidence Intelligence for this intake.
- * Visual rhythm mirrors `.vio-l2-back` so the header keeps its language;
- * border uses the inconsistent (turbulence) token because reprocess is
- * exactly the gesture that resolves polluted / inconsistent extraction
- * state (VIO_DOCTRINE §1: colour is semantic). Stillness baseline
- * preserved — no idle motion, no hover glow beyond a border brighten. */
+/* Operator override — re-run EI. Ghost at rest (opacity 0.1 so it
+ * stays clickable but is invisible at a glance). Only surfaces on
+ * hover — two-phase confirm built into JS prevents accidental fire.
+ * Doctrine: operator actions must not pollute the visual story. */
 .vio-l2-reproc {
-  background:     transparent;
-  border:         1px solid var(--st-inconsistent);
-  color:          var(--st-inconsistent);
-  padding:        5px 12px;
-  border-radius:  4px;
-  cursor:         pointer;
-  font-size:      11px;
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--vio-text-faint);
+  color: var(--vio-text-faint);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 10px;
   letter-spacing: 0.04em;
   text-transform: lowercase;
+  opacity: 0.12;
+  transition: opacity 0.2s;
 }
-.vio-l2-reproc:hover    { color: var(--vio-text); border-color: var(--st-inconsistent); }
-.vio-l2-reproc:disabled { cursor: progress; opacity: 0.55; }
-/* With the title/sub/state pills removed (2026-06-05, "pictures over
-   text" doctrine — the orb passport carries identity/state/contacts),
-   push the override button to the right edge so the header reads as
-   "← exit | … | override". */
-.vio-l2-reproc { margin-left: auto; }
+.vio-l2-reproc:hover           { opacity: 0.7; }
+.vio-l2-reproc[data-armed="1"] { opacity: 1; border-color: #d8a24a; color: #d8a24a; }
+.vio-l2-reproc:disabled        { cursor: progress; opacity: 0.08; }
 
 /* ── L2 canvas (the landscape SVG container) ───────────────────────────── */
 .vio-l2-canvas {

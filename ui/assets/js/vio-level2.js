@@ -1411,10 +1411,16 @@
     }
 
     // ── Missing gaps (below the spine, dashed) ────────────────────────
+    // Gaps are PRESENT obligations, not historical events. Anchoring them
+    // to the intake timestamp (when EI ran) compresses them into the intake
+    // cluster on the left — the same spot as the uploaded papers — and the
+    // story reads "nothing changed." Using Date.now() anchors them at the
+    // live tip so the operator reads: "papers arrived (left) → gaps still
+    // open (right, NOW)." The contrast across the spine IS the story.
     miss.forEach(m => {
       events.push({
         kind: 'gap', side: 'below',
-        ts: _branchStartUtc(detail, 'gaps'),
+        ts: null,   // null → timeToX returns the "now" (rightmost) position
         label: m.label || 'gap',
         priority: m.priority || 'medium',
         sub: 'missing',
@@ -1422,11 +1428,11 @@
       });
     });
 
-    // ── Confirmation needed (above the spine, open circle) ────────────
+    // ── Confirmation needed (above the spine, same logic as gaps) ────
     conf.forEach(c => {
       events.push({
         kind: 'confirmation', side: 'above',
-        ts: _branchStartUtc(detail, 'confirmation'),
+        ts: null,   // confirmation = current need, anchors at now
         label: c.field || 'field needed',
         sub: 'confirmation',
         full: c,
@@ -2019,14 +2025,18 @@
     const demand = computeDemand(detail);
     if (!demand) return;
 
-    // X-anchor: prefer the branch-opener timestamp; fall back to live
-    // tip; fall back to "now" so the marker always lands somewhere
-    // meaningful on the spine.
+    // X-anchor: gaps and confirmations live at "now" (rightmost position)
+    // because they are present obligations, not historical events. Other
+    // demands anchor to their branch-start timestamp.
     const events = (detail && detail.custody && detail.custody.events) || [];
     const liveT  = events.reduce((m, e) => Math.max(m, Date.parse(e.at_utc || '') || 0), 0);
-    const liveX  = liveT > 0 ? axis.timeToX(liveT) : axis.timeToX(Date.now());
+    const liveX  = liveT > 0 ? axis.timeToX(liveT) : axis.timeToX(null);
+    const nowX   = axis.timeToX(null);  // the "now" position = rightmost
     let x = liveX;
-    if (demand.anchor) {
+    if (demand.anchor === 'gaps' || demand.anchor === 'confirmation') {
+      // Point at the gap cluster, which is anchored at the now position.
+      x = nowX;
+    } else if (demand.anchor) {
       const t = _branchStartUtc(detail, demand.anchor);
       if (t) x = axis.timeToX(t);
     }
@@ -2064,14 +2074,11 @@
     halo.setAttribute('ry', 36);
     g.insertBefore(halo, arrow);
 
-    // The single sanctioned text label on the canvas — 2-3 words.
-    const label = svgEl('text');
-    label.setAttribute('class', 'vio-l2-demand-label');
-    label.setAttribute('x', x);
-    label.setAttribute('y', topY - 12);
-    label.setAttribute('text-anchor', 'middle');
-    label.textContent = demand.label;
-    g.appendChild(label);
+    // Tooltip only — the arrow shape IS the demand signal; no text on canvas.
+    // Carl 2026-06-05: "WE USE TEXT AS ABSOLUTE LAST RESORT."
+    const tip = svgEl('title');
+    tip.textContent = demand.label;
+    g.appendChild(tip);
 
     svg.appendChild(g);
   }
