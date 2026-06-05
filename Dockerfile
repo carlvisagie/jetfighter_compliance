@@ -22,7 +22,20 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Bake the git commit into the image at build time so /api/public/build-info
+# can always answer "what's actually running" — independent of whether the
+# host has set RENDER_GIT_COMMIT (the live service on Render was hand-
+# created, not Blueprint-managed, and the runtime env var wasn't being
+# injected, so build-info returned "unknown" for every deploy). The git
+# directory is in the build context, so `git rev-parse HEAD` works.
+# Fallback to the build-arg / "unknown" so non-git build contexts still
+# pass through cleanly.
 ARG KYC_GIT_COMMIT=unknown
+RUN if [ -d .git ]; then \
+      git rev-parse HEAD > /app/.build_commit 2>/dev/null || echo "${KYC_GIT_COMMIT}" > /app/.build_commit; \
+    else \
+      echo "${KYC_GIT_COMMIT}" > /app/.build_commit; \
+    fi
 ENV KYC_GIT_COMMIT=${KYC_GIT_COMMIT}
 
 ENV PORT=10000
