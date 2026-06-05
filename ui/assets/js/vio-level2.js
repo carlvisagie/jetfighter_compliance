@@ -97,35 +97,41 @@
   // on the spine. tMin floors at intake_created_utc (or the earliest
   // custody event); tMax ceilings at now (or archived_utc). A minimum
   // span (24 h) prevents the spine from collapsing for fresh intakes.
-  // Carl 2026-06-05: "pull the timeline out in seconds increments or
-  // fractions its your universe make it awesome"
+  // Carl 2026-06-05: "as time goes on you are still keeping a real
+  // timeline just not scrunched into one tiny space make everything
+  // have its own space and make it tell as much with one glance as
+  // possible"
   //
-  // The spine is no longer a real-time ruler. It's an EVENT-SEQUENCE
-  // canvas where each event gets equal visual weight regardless of how
-  // many milliseconds elapsed between them. The operator reads the
-  // STORY ORDER (what happened, then what, then what), not the clock.
+  // ADAPTIVE TIME AXIS — respects chronology but gives every event
+  // room to breathe. Dense bursts (47 uploads in 60 seconds) get
+  // clustered into a readable swell. Long silences (3 days waiting
+  // for client) stretch visually. The spine's X-rhythm itself tells
+  // the story: busy → quiet → stalled → burst → done.
   //
-  // This function builds a synthetic axis that spreads N timeline
-  // events across the full spine width. Stage hexagons land at even
-  // intervals. Everything breathes. No more cramming 47 events into
-  // 60px because they happened in the same minute.
+  // Algorithm:
+  //   1. Sort all distinct timestamps ascending (the real timeline).
+  //   2. For each inter-event gap, assign a visual weight:
+  //        - Minimum 28px (events never crowd closer than this)
+  //        - Logarithmic scale for gaps 1min...24h
+  //        - Cap at 180px for multi-day silences (so we don't waste
+  //          1000px on one long stall)
+  //   3. Normalize the total weighted-distance to fit spineWidth.
+  //   4. Build cumulative X positions.
+  //
+  // Result: The operator reads both WHAT (sequence) and WHEN (rhythm)
+  // at a glance. The spine itself is a visual histogram of activity.
   function _timeAxis(detail) {
-    // We'll still accept timestamps and convert them, but the mapping
-    // is now index-based. Build a sorted list of all distinct event
-    // timestamps from the custody chain + stage openers + detail fields.
+    // Collect all distinct timestamps from custody + stages + detail.
     const stamps = new Set();
     const custody = (detail && detail.custody && detail.custody.events) || [];
     custody.forEach(e => {
       const t = Date.parse(e.at_utc || '');
       if (t) stamps.add(t);
     });
-    // Add stage-opener timestamps so the backbone hexagons land on
-    // real sequence positions.
     STAGES.forEach(s => {
       const t = Date.parse(_stageStartUtc(detail, s.key) || '');
       if (t) stamps.add(t);
     });
-    // Add detail-level timestamps (created, uploaded docs, etc.)
     const intakeT = Date.parse((detail && detail.created_utc) || '');
     if (intakeT) stamps.add(intakeT);
     (detail.uploaded_documents || []).forEach(d => {
@@ -143,39 +149,77 @@
     const pay = detail.payment || {};
     const payT = Date.parse(pay.link_sent_utc || '');
     if (payT) stamps.add(payT);
+    stamps.add(Date.now());  // "now" always included
 
-    // Sort into ascending order. This is the STORY SEQUENCE.
     const sorted = Array.from(stamps).sort((a, b) => a - b);
-    const tMin = sorted[0] || Date.now();
-    const tMax = sorted[sorted.length - 1] || Date.now();
-    stamps.add(Date.now());  // ensure "now" is in the index
+    if (sorted.length === 0) {
+      // Fallback: no events, just render a skeleton.
+      const now = Date.now();
+      return {
+        tMin: now, tMax: now, span: 1,
+        timeToX: () => L.spineX0,
+      };
+    }
 
-    // Rebuild sorted with "now" included.
-    const sortedWithNow = Array.from(stamps).sort((a, b) => a - b);
+    const tMin = sorted[0];
+    const tMax = sorted[sorted.length - 1];
 
-    const W = L.spineWidth;
-    const x0 = L.spineX0;
-    const N = Math.max(1, sortedWithNow.length - 1);  // number of gaps
-    const stepX = W / N;
+    // ── Adaptive spacing: weight each inter-event gap ───────────────
+    const MIN_PX = 28;    // minimum breathing room
+    const MAX_PX = 180;   // cap for multi-day silences
+    const LOG_BASE = 60000;  // 1 minute in ms — the inflection point
 
+    const weights = [];
+    for (let i = 1; i < sorted.length; i++) {
+      const dt = sorted[i] - sorted[i - 1];
+      // Logarithmic scale: log2(1 + dt/LOG_BASE)
+      // This maps:
+      //   dt=0         → 0 → MIN_PX
+      //   dt=1min      → log2(2)=1 → ~40px
+      //   dt=1h        → log2(61)≈6 → ~80px
+      //   dt=1day      → log2(1441)≈10.5 → ~120px
+      //   dt=3days     → log2(4321)≈12 → capped at MAX_PX
+      const ratio = dt / LOG_BASE;
+      const logW = Math.log2(1 + ratio);
+      const visualW = MIN_PX + logW * 12;  // scale factor
+      weights.push(Math.min(MAX_PX, visualW));
+    }
+
+    const totalW = weights.reduce((s, w) => s + w, 0);
+    const scale = totalW > 0 ? L.spineWidth / totalW : 1;
+
+    // Build cumulative X positions.
+    const positions = [L.spineX0];  // first event at spine start
+    let cumul = 0;
+    weights.forEach(w => {
+      cumul += w * scale;
+      positions.push(L.spineX0 + cumul);
+    });
+
+    // Map: timestamp → X via binary search in sorted array.
     return {
       tMin,
       tMax,
-      span: tMax - tMin || 1,  // keep for legacy callers
-      // Map timestamp → X by finding its index in the sorted sequence.
-      // Unknown timestamps fall back to the rightmost (now) position.
+      span: tMax - tMin || 1,
       timeToX(t) {
-        if (!t) return x0 + W;
+        if (!t) return positions[positions.length - 1];  // fallback to "now"
         const parsed = typeof t === 'number' ? t : Date.parse(t);
-        if (!parsed || isNaN(parsed)) return x0 + W;
-        const idx = sortedWithNow.indexOf(parsed);
+        if (!parsed || isNaN(parsed)) return positions[positions.length - 1];
+        const idx = sorted.indexOf(parsed);
         if (idx === -1) {
-          // Timestamp not in the known sequence — likely a branch-
-          // fallback that didn't match any custody event. Put it at
-          // the end so it's visible rather than collapsing into orb.
-          return x0 + W;
+          // Timestamp not in known set — find insertion point and
+          // interpolate. This handles branch-fallback timestamps that
+          // don't match any custody event.
+          for (let i = 0; i < sorted.length - 1; i++) {
+            if (parsed > sorted[i] && parsed < sorted[i + 1]) {
+              const frac = (parsed - sorted[i]) / (sorted[i + 1] - sorted[i]);
+              return positions[i] + frac * (positions[i + 1] - positions[i]);
+            }
+          }
+          // Before tMin or after tMax — clamp to edges.
+          return parsed < tMin ? positions[0] : positions[positions.length - 1];
         }
-        return x0 + idx * stepX;
+        return positions[idx];
       },
     };
   }
