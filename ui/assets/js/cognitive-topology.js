@@ -456,8 +456,17 @@
     field.querySelectorAll('.cote-node').forEach(function (node) {
       node.addEventListener('click', function () {
         var nid = node.getAttribute('data-node');
-        if (nid === 'upload_pipeline' && global.CockpitFoundingBeta) {
-          global.CockpitFoundingBeta.scrollToQueue();
+        // Carl's directive (2026-06-04): "ONLY ONE DOOR INTO VIO —
+        // Upload." Clicking the upload_pipeline orb on the constellation
+        // goes DIRECTLY to VIO. No intermediate detail panel, no scroll-
+        // to-queue inside the legacy cockpit. Every other orb still
+        // shows its detail panel (it represents organism infrastructure,
+        // not a VIO door). Hovering the Upload orb still previews its
+        // detail via the mouseenter handler below, so operators can
+        // still see the at-a-glance numbers without committing.
+        if (nid === 'upload_pipeline') {
+          window.location.href = '/ui/vio.html';
+          return;
         }
         showDetail(nid, false, nid === 'telemetry');
       });
