@@ -306,12 +306,116 @@ html, body {
 .vio-trace {
   display: flex;
   align-items: center;
-  height: 56px;
+  min-height: 56px;
   border-bottom: 1px solid var(--vio-border);
   cursor: pointer;
   position: relative;
   transition: background-color 0.18s;
+  flex-wrap: wrap;
+  gap: 0;
 }
+
+/* ── L1 Row badges: state pill + dot indicators + KPI button ─── */
+.vio-row-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding-right: 16px;
+  flex-shrink: 0;
+}
+
+.vio-row-dots {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.vio-row-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.vio-row-dot-green { background: #00e5a0; opacity: 0.7; }
+.vio-row-dot-red   { background: #ff3d3d; animation: vio-breathe 1.2s ease-in-out infinite; }
+
+/* State pill */
+.vio-state-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.pill-blocked  { background: rgba(255,61,61,0.15);   color: #ff3d3d;  border: 1px solid rgba(255,61,61,0.4);  }
+.pill-stalled  { background: rgba(74,85,104,0.2);    color: #9ca3af;  border: 1px solid rgba(74,85,104,0.4);  }
+.pill-waiting  { background: rgba(255,184,0,0.15);   color: #ffb800;  border: 1px solid rgba(255,184,0,0.4);  }
+.pill-review   { background: rgba(177,139,216,0.15); color: #b18bd8;  border: 1px solid rgba(177,139,216,0.4);}
+.pill-done     { background: rgba(74,222,128,0.12);  color: #4ade80;  border: 1px solid rgba(74,222,128,0.3); }
+.pill-active   { background: rgba(0,229,160,0.1);    color: #00e5a0;  border: 1px solid rgba(0,229,160,0.3);  }
+
+/* KPI expand button */
+.vio-kpi-btn {
+  background: rgba(56,189,248,0.08);
+  border: 1px dashed rgba(56,189,248,0.35);
+  color: #38bdf8;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  padding: 2px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.vio-kpi-btn:hover {
+  background: rgba(56,189,248,0.18);
+  color: #7dd3fc;
+}
+
+/* KPI drawer (expands below the trace row) */
+.vio-kpi-drawer {
+  width: 100%;
+  display: flex;
+  gap: 0;
+  border-top: 1px solid rgba(56,189,248,0.12);
+  background: rgba(8,12,28,0.6);
+  padding: 8px 16px;
+  animation: vio-panel-enter 0.15s ease-out both;
+}
+
+.vio-kpi-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  padding: 4px 8px;
+  border-right: 1px solid rgba(255,255,255,0.05);
+}
+.vio-kpi-cell:last-child { border-right: none; }
+
+.vio-kpi-icon { font-size: 14px; line-height: 1; }
+.vio-kpi-val  {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+.vio-kpi-lbl  {
+  font-size: 9px;
+  color: #6b7280;
+  font-family: 'Space Grotesk', ui-monospace, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.vio-kpi-good    .vio-kpi-val { color: #4ade80; }
+.vio-kpi-warn    .vio-kpi-val { color: #ffb800; }
+.vio-kpi-bad     .vio-kpi-val { color: #ff3d3d; }
+.vio-kpi-neutral .vio-kpi-val { color: #9ca3af; }
 .vio-trace:hover { background: var(--vio-surface-soft); }
 
 /* ──────────────────────────────────────────────────────────────────────
@@ -817,7 +921,48 @@ html, body {
 .vio-icon-rule            { stroke: var(--vio-bg);     stroke-width: 0.7; opacity: 0.6; }
 .vio-icon-bolt            { fill: var(--st-done);      stroke: var(--st-done); stroke-width: 0.6; }
 .vio-icon-inner           { fill: var(--vio-bg);       fill-opacity: 0.35; stroke: none; }
+.vio-icon-window          { fill: rgba(56,189,248,0.25); stroke: rgba(56,189,248,0.6); stroke-width: 1; }
 .vio-icon-check           { fill: none; stroke: var(--st-done); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ── New icon kinds — tinted by VIO_PALETTE via SVG filter (glow) ── */
+/* Folder / intake — complete (green) */
+.vio-tle-intake .vio-icon-fill,
+.vio-tle-folder .vio-icon-fill  { fill: #4ade80; }
+.vio-tle-intake .vio-icon-fold,
+.vio-tle-folder .vio-icon-fold  { fill: rgba(74,222,128,0.18); stroke: none; }
+
+/* Magnifier / review — processing (blue) */
+.vio-tle-review    .vio-icon-outline,
+.vio-tle-magnifier .vio-icon-outline { stroke: #38bdf8; }
+.vio-tle-review    .vio-icon-fill,
+.vio-tle-magnifier .vio-icon-fill    { fill: #38bdf8; }
+.vio-tle-review    .vio-icon-stroke-bold,
+.vio-tle-magnifier .vio-icon-stroke-bold { stroke: #38bdf8; stroke-width: 2.5; }
+
+/* Scale / compliance — healthy (teal) */
+.vio-tle-compliance .vio-icon-fill,
+.vio-tle-scale      .vio-icon-fill      { fill: #00e5a0; }
+.vio-tle-compliance .vio-icon-stroke,
+.vio-tle-scale      .vio-icon-stroke    { stroke: #00e5a0; }
+.vio-tle-compliance .vio-icon-stroke-bold,
+.vio-tle-scale      .vio-icon-stroke-bold { stroke: #00e5a0; }
+
+/* Flag / note — amber */
+.vio-tle-flag .vio-icon-fill,
+.vio-tle-note .vio-icon-fill { fill: #ffb800; }
+.vio-tle-flag .vio-icon-stroke-bold,
+.vio-tle-note .vio-icon-stroke-bold { stroke: #ffb800; }
+
+/* Clock — amber (time pressure) */
+.vio-tle-clock .vio-icon-outline      { stroke: #ffb800; }
+.vio-tle-clock .vio-icon-fill         { fill: #ffb800; }
+.vio-tle-clock .vio-icon-stroke-bold  { stroke: #ffb800; }
+
+/* Broker / rocket — complete (green) */
+.vio-tle-broker .vio-icon-fill    { fill: #4ade80; }
+.vio-tle-broker .vio-icon-inner   { fill: rgba(0,0,0,0.4); }
+.vio-tle-broker .vio-icon-window  { fill: rgba(56,189,248,0.35); stroke: rgba(56,189,248,0.8); }
+.vio-tle-broker .vio-icon-stroke  { stroke: #4ade80; }
 .vio-icon-glyph {
   fill: var(--vio-bg);
   font-size: 13px;

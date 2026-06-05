@@ -782,7 +782,8 @@
     const events = computeTimelineEvents(detail, axis);
 
     const w = Math.max(spineEndX(), L.spineX0 + L.spineWidth) + 240;
-    const h = spineY + 160;
+    // Extra height: labels + age sub-labels extend ~40px below below-spine nodes
+    const h = spineY + 200;
 
     const svg = svgEl('svg');
     svg.setAttribute('class', 'vio-l2-svg');
@@ -796,6 +797,7 @@
     drawOrb(svg, company, spineY);
     drawStatsPanel(svg, detail, w);
     drawDemandMarker(svg, detail, axis, spineY);
+    _drawVelocityLegend(svg, w, spineY);
 
     canvas.appendChild(svg);
   }
@@ -1105,6 +1107,50 @@
     if (nowX < xEnd - 4) {
       _drawSpineSegment(svg, nowX, xEnd, spineY, 'stalled');
     }
+  }
+
+  // ── Velocity legend — small key in bottom-right corner ───────────────
+  // Shows what each spine colour means at a glance.
+  // Exact port of the inline legend in vio-demo/VioCanvas.tsx.
+  function _drawVelocityLegend(svg, canvasW, spineY) {
+    const ENTRIES = [
+      ['fast',    'Fast'   ],
+      ['normal',  'Normal' ],
+      ['slow',    'Slow'   ],
+      ['stalled', 'Stalled'],
+      ['broken',  'Broken' ],
+    ];
+    const rowH = 14;
+    const legX = canvasW - 14;  // right-align
+    const legY = spineY + 54;   // below the spine
+    const g = svgEl('g');
+    g.setAttribute('class', 'vio-l2-vel-legend');
+    ENTRIES.forEach(([vel, lbl], i) => {
+      const s   = _SV[vel] || _SV.normal;
+      const y   = legY + i * rowH;
+      const row = svgEl('g');
+      // Sample line segment
+      const line = svgEl('line');
+      line.setAttribute('x1', legX - 50); line.setAttribute('y1', y);
+      line.setAttribute('x2', legX - 30); line.setAttribute('y2', y);
+      line.setAttribute('stroke', s.stroke);
+      line.setAttribute('stroke-width', String(Math.max(s.width * 0.7, 1)));
+      if (s.dash) line.setAttribute('stroke-dasharray', s.dash);
+      line.setAttribute('opacity', String(s.opacity));
+      line.setAttribute('stroke-linecap', 'round');
+      row.appendChild(line);
+      // Label
+      const txt = svgEl('text');
+      txt.setAttribute('x', legX - 26);
+      txt.setAttribute('y', y + 4);
+      txt.setAttribute('font-size', '8');
+      txt.setAttribute('fill', '#4a5568');
+      txt.setAttribute('font-family', "'Space Grotesk', ui-monospace, sans-serif");
+      txt.textContent = lbl;
+      row.appendChild(txt);
+      g.appendChild(row);
+    });
+    svg.appendChild(g);
   }
 
   // Critical/high finding scars — drawn ON TOP of the river at the
@@ -1681,6 +1727,23 @@
     const find   = detail.findings || [];
     const conf   = detail.confirmation_needed || [];
 
+    // ── INTAKE EVENT — always first on the spine ──────────────────────
+    // Shows the operator WHEN this company first arrived. The age label
+    // tells them "we've had this for 3w" at a glance. Without this,
+    // the timeline has no anchor to the left.
+    const intakeTs = ictx.submitted_utc || ictx.created_utc
+                  || _branchStartUtc(detail, 'docs')
+                  || _branchStartUtc(detail, 'context');
+    if (intakeTs) {
+      events.push({
+        kind: 'intake', side: 'on',
+        ts: intakeTs,
+        label: 'intake',
+        sub: 'intake',
+        full: ictx,
+      });
+    }
+
     // ── Issues / context flags (above the spine) ──────────────────────
     if (ictx.urgent) {
       events.push({
@@ -1746,10 +1809,16 @@
     // story reads "nothing changed." Using Date.now() anchors them at the
     // live tip so the operator reads: "papers arrived (left) → gaps still
     // open (right, NOW)." The contrast across the spine IS the story.
+    // The intake timestamp is the earliest we could have known a doc was needed.
+    // Using it for the gap's age label gives "missing for 3w" which is accurate.
+    const intakeTsForGap = ictx.submitted_utc || ictx.created_utc
+                        || _branchStartUtc(detail, 'docs')
+                        || _branchStartUtc(detail, 'context');
     miss.forEach(m => {
       events.push({
         kind: 'gap', side: 'below',
-        ts: null,   // null → timeToX returns the "now" (rightmost) position
+        ts: null,                    // null → timeToX anchors at NOW
+        ageTs: m.flagged_utc || intakeTsForGap,  // used ONLY for _ageLabel
         label: m.label || 'gap',
         priority: m.priority || 'medium',
         sub: 'missing',
@@ -1956,11 +2025,11 @@
     g.appendChild(lbl);
 
     // Age sub-label: "3d" / "2w" / "4mo" — how long since this event.
-    // For gap/missing docs this reads as: "been missing this long".
-    // For received docs: "had this for X".
-    const ageStr = _ageLabel(ev.ts);
+    // For gaps: use ev.ageTs (intake date) so it reads "missing for 3w".
+    // For received docs: ev.ts is the upload date — "had this for 3w".
+    const ageStr = _ageLabel(ev.ts || ev.ageTs);
     if (ageStr) {
-      const ageColor = _ageLabelColor(ev.ts, ev.kind);
+      const ageColor = _ageLabelColor(ev.ts || ev.ageTs, ev.kind);
       const age = svgEl('text');
       age.setAttribute('x', cx);
       age.setAttribute('y', cy + r + 27);
@@ -2052,27 +2121,35 @@
     return ['document', 'inactive'];
   }
 
-  // ── ICON DISPATCH (Carl 2026-06-05: "go hog wild") ────────────────────
+  // ── ICON DISPATCH ────────────────────────────────────────────────────
   //
-  // Each event renders as a rich, recognizable PICTOGRAM (a folded-
-  // corner page, an hourglass, a warning triangle with `!`, a finish
-  // flag, an envelope, a dollar coin, a stop sign, a star, a checkmark
-  // hexagon) instead of a generic geometric primitive. The pictogram
-  // IS the meaning — the operator never needs to ask "what is this
-  // shape?" because the shape already says.
+  // Every event renders as a rich pictogram — the shape IS the meaning.
+  // Operator never asks "what is this?" because the glyph already says.
   //
-  // Every icon is a <g> containing 1..N styled paths so we can paint
-  // multi-element glyphs (e.g. a paper with ruling-lines or a flag
-  // with a stripe). All paths use one of a small palette of utility
-  // classes (.vio-icon-fill, .vio-icon-outline, .vio-icon-stroke,
-  // .vio-icon-glyph, etc.) and the kind class on the outer group
-  // re-tints those utilities by event semantics.
+  // Full catalog:
+  //   paper/doc   → folded-corner page (ruled lines = uploaded, bolt = generated)
+  //   gap         → ghost dashed page with "?"
+  //   issue       → flame / hourglass / speech-bubble / warning-triangle by sub
+  //   finding     → stop-sign octagon (critical) or warning-triangle
+  //   phase       → hexagon-with-check (KYC stage complete)
+  //   milestone   → 5-point star
+  //   confirmation → "?" in a circle
+  //   payment     → "$" coin (paid) or envelope (link sent)
+  //   broker      → rocket silhouette
+  //   intake/folder → open folder with tab
+  //   review/magnifier → magnifying-glass circle with handle
+  //   compliance/scale → balance-scale beam + two pans
+  //   flag/note   → finish flag on pole
+  //   clock       → circle with clock hands (deadline/urgency)
+  //   gen         → page with bolt (same as generated paper)
   function _shapeForEvent(ev, cx, cy) {
     const r = _shapeRadiusFor(ev);
     const g = svgEl('g');
     g.setAttribute('class', 'vio-icon vio-icon-' + _iconNameFor(ev));
     switch (ev.kind) {
       case 'paper':        _iconPaper       (g, cx, cy, r, ev); break;
+      case 'doc':          _iconPaper       (g, cx, cy, r, ev); break;
+      case 'gen':          _iconPaper       (g, cx, cy, r, { ...ev, sub: 'generated' }); break;
       case 'gap':          _iconGap         (g, cx, cy, r);     break;
       case 'issue':        _iconIssue       (g, cx, cy, r, ev); break;
       case 'phase':        _iconPhase       (g, cx, cy, r);     break;
@@ -2080,7 +2157,16 @@
       case 'confirmation': _iconConfirmation(g, cx, cy, r);     break;
       case 'payment':      _iconPayment     (g, cx, cy, r, ev); break;
       case 'finding':      _iconFinding     (g, cx, cy, r, ev); break;
-      case 'broker':       _iconBroker      (g, cx, cy, r);     break;
+      case 'broker':       _iconRocket      (g, cx, cy, r);     break;
+      case 'intake':
+      case 'folder':       _iconFolder      (g, cx, cy, r);     break;
+      case 'review':
+      case 'magnifier':    _iconMagnifier   (g, cx, cy, r);     break;
+      case 'compliance':
+      case 'scale':        _iconScale       (g, cx, cy, r);     break;
+      case 'flag':
+      case 'note':         _iconFlag        (g, cx, cy, r);     break;
+      case 'clock':        _iconClock       (g, cx, cy, r);     break;
       default: {
         const c = svgEl('circle');
         c.setAttribute('class', 'vio-icon-fill');
@@ -2376,6 +2462,209 @@
     g.appendChild(band);
   }
 
+  // ── Rocket — broker / final-delivery (replaces old flag-on-pole broker) ──
+  // Body tapers to a nose cone, two delta fins at the base, exhaust nozzle.
+  function _iconRocket(g, cx, cy, r) {
+    // Body: pointed top, wide base
+    const body = svgEl('path');
+    body.setAttribute('class', 'vio-icon-fill');
+    body.setAttribute('d',
+      `M ${cx} ${cy - r} ` +
+      `Q ${cx + r * 0.45} ${cy - r * 0.2} ${cx + r * 0.38} ${cy + r * 0.45} ` +
+      `L ${cx + r * 0.38} ${cy + r * 0.6} ` +
+      `L ${cx - r * 0.38} ${cy + r * 0.6} ` +
+      `L ${cx - r * 0.38} ${cy + r * 0.45} ` +
+      `Q ${cx - r * 0.45} ${cy - r * 0.2} ${cx} ${cy - r} Z`);
+    g.appendChild(body);
+    // Fins — left and right deltas
+    [[-1,1]].forEach(([s]) => {
+      [s, -s].forEach(side => {
+        const fin = svgEl('path');
+        fin.setAttribute('class', 'vio-icon-inner');
+        fin.setAttribute('d',
+          `M ${cx + side * r * 0.38} ${cy + r * 0.45} ` +
+          `L ${cx + side * r * 0.85} ${cy + r * 0.85} ` +
+          `L ${cx + side * r * 0.38} ${cy + r * 0.6} Z`);
+        g.appendChild(fin);
+      });
+    });
+    // Window porthole
+    const port = svgEl('circle');
+    port.setAttribute('cx', cx); port.setAttribute('cy', cy + r * 0.05);
+    port.setAttribute('r', r * 0.2);
+    port.setAttribute('class', 'vio-icon-window');
+    g.appendChild(port);
+    // Exhaust nozzle
+    const noz = svgEl('rect');
+    noz.setAttribute('class', 'vio-icon-stroke');
+    noz.setAttribute('x', cx - r * 0.22);
+    noz.setAttribute('y', cy + r * 0.6);
+    noz.setAttribute('width', r * 0.44);
+    noz.setAttribute('height', r * 0.25);
+    noz.setAttribute('rx', r * 0.06);
+    g.appendChild(noz);
+  }
+
+  // ── Folder (intake / case file) ───────────────────────────────────────
+  // Open folder: back rect with raised tab on top-left, front rect below.
+  function _iconFolder(g, cx, cy, r) {
+    // Back panel (slightly taller, shows above front)
+    const back = svgEl('path');
+    back.setAttribute('class', 'vio-icon-fold');
+    back.setAttribute('d',
+      `M ${cx - r} ${cy - r * 0.1} ` +
+      `L ${cx - r} ${cy + r} ` +
+      `L ${cx + r} ${cy + r} ` +
+      `L ${cx + r} ${cy - r * 0.1} ` +
+      `L ${cx + r * 0.15} ${cy - r * 0.1} ` +
+      `L ${cx + r * 0.05} ${cy - r * 0.45} ` +
+      `L ${cx - r * 0.55} ${cy - r * 0.45} ` +
+      `L ${cx - r} ${cy - r * 0.1} Z`);
+    g.appendChild(back);
+    // Front panel (main folder body)
+    const front = svgEl('rect');
+    front.setAttribute('class', 'vio-icon-fill');
+    front.setAttribute('x', cx - r);
+    front.setAttribute('y', cy - r * 0.05);
+    front.setAttribute('width', r * 2);
+    front.setAttribute('height', r * 1.05);
+    front.setAttribute('rx', r * 0.08);
+    g.appendChild(front);
+    // Tab on top
+    const tab = svgEl('path');
+    tab.setAttribute('class', 'vio-icon-fill');
+    tab.setAttribute('d',
+      `M ${cx - r} ${cy - r * 0.05} ` +
+      `L ${cx - r} ${cy - r * 0.42} ` +
+      `L ${cx - r * 0.55} ${cy - r * 0.42} ` +
+      `L ${cx - r * 0.40} ${cy - r * 0.05} Z`);
+    g.appendChild(tab);
+  }
+
+  // ── Magnifier (review / scan) ─────────────────────────────────────────
+  // Large lens circle + diagonal handle.
+  function _iconMagnifier(g, cx, cy, r) {
+    const lensR = r * 0.62;
+    const lx = cx - r * 0.12;
+    const ly = cy - r * 0.12;
+    const lens = svgEl('circle');
+    lens.setAttribute('class', 'vio-icon-outline');
+    lens.setAttribute('cx', lx); lens.setAttribute('cy', ly);
+    lens.setAttribute('r', lensR);
+    g.appendChild(lens);
+    // Inner tint
+    const tint = svgEl('circle');
+    tint.setAttribute('cx', lx); tint.setAttribute('cy', ly);
+    tint.setAttribute('r', lensR - 2);
+    tint.setAttribute('class', 'vio-icon-fill');
+    tint.setAttribute('opacity', '0.2');
+    g.appendChild(tint);
+    // Highlight gleam
+    const gleam = svgEl('circle');
+    gleam.setAttribute('cx', lx - lensR * 0.28); gleam.setAttribute('cy', ly - lensR * 0.28);
+    gleam.setAttribute('r', lensR * 0.22);
+    gleam.setAttribute('fill', 'rgba(255,255,255,0.3)');
+    g.appendChild(gleam);
+    // Handle — fat diagonal line
+    const handle = svgEl('line');
+    handle.setAttribute('class', 'vio-icon-stroke-bold');
+    handle.setAttribute('x1', lx + lensR * 0.68); handle.setAttribute('y1', ly + lensR * 0.68);
+    handle.setAttribute('x2', cx + r * 0.82);     handle.setAttribute('y2', cy + r * 0.82);
+    g.appendChild(handle);
+  }
+
+  // ── Scale (compliance / balance) ─────────────────────────────────────
+  // Horizontal beam balanced on a triangle fulcrum, two hanging pans.
+  function _iconScale(g, cx, cy, r) {
+    const bY = cy - r * 0.1;
+    // Fulcrum (triangle)
+    const ful = svgEl('path');
+    ful.setAttribute('class', 'vio-icon-fill');
+    ful.setAttribute('d',
+      `M ${cx} ${bY} L ${cx - r * 0.25} ${cy + r} L ${cx + r * 0.25} ${cy + r} Z`);
+    g.appendChild(ful);
+    // Beam
+    const beam = svgEl('line');
+    beam.setAttribute('class', 'vio-icon-stroke-bold');
+    beam.setAttribute('x1', cx - r * 0.85); beam.setAttribute('y1', bY);
+    beam.setAttribute('x2', cx + r * 0.85); beam.setAttribute('y2', bY);
+    g.appendChild(beam);
+    // Center pivot
+    const pivot = svgEl('circle');
+    pivot.setAttribute('cx', cx); pivot.setAttribute('cy', bY);
+    pivot.setAttribute('r', r * 0.1);
+    pivot.setAttribute('class', 'vio-icon-fill');
+    g.appendChild(pivot);
+    // Two pans — left lower (slight imbalance = more realistic)
+    const panPts = [
+      { bx: cx - r * 0.85, hang: r * 0.28, lean: r * 0.04 },
+      { bx: cx + r * 0.85, hang: r * 0.20, lean: -r * 0.04 },
+    ];
+    panPts.forEach(({ bx, hang, lean }) => {
+      const chainL = svgEl('line');
+      chainL.setAttribute('x1', bx - r * 0.22 + lean); chainL.setAttribute('y1', bY);
+      chainL.setAttribute('x2', bx - r * 0.22 + lean); chainL.setAttribute('y2', bY + hang);
+      chainL.setAttribute('class', 'vio-icon-stroke'); g.appendChild(chainL);
+      const chainR = svgEl('line');
+      chainR.setAttribute('x1', bx + r * 0.22 + lean); chainR.setAttribute('y1', bY);
+      chainR.setAttribute('x2', bx + r * 0.22 + lean); chainR.setAttribute('y2', bY + hang);
+      chainR.setAttribute('class', 'vio-icon-stroke'); g.appendChild(chainR);
+      const pan = svgEl('path');
+      pan.setAttribute('class', 'vio-icon-fill');
+      pan.setAttribute('d',
+        `M ${bx - r * 0.3 + lean} ${bY + hang} ` +
+        `Q ${bx + lean} ${bY + hang + r * 0.2} ${bx + r * 0.3 + lean} ${bY + hang} Z`);
+      g.appendChild(pan);
+    });
+  }
+
+  // ── Flag (milestone marker / note) ───────────────────────────────────
+  // Simple triangular flag on a pole — same as old _iconBroker but cleaner.
+  function _iconFlag(g, cx, cy, r) {
+    const pole = svgEl('line');
+    pole.setAttribute('class', 'vio-icon-stroke-bold');
+    pole.setAttribute('x1', cx - r * 0.35); pole.setAttribute('x2', cx - r * 0.35);
+    pole.setAttribute('y1', cy - r);         pole.setAttribute('y2', cy + r);
+    g.appendChild(pole);
+    const flag = svgEl('polygon');
+    flag.setAttribute('class', 'vio-icon-fill');
+    flag.setAttribute('points',
+      `${cx - r * 0.35},${cy - r} ` +
+      `${cx + r * 0.85},${cy - r * 0.45} ` +
+      `${cx - r * 0.35},${cy + r * 0.05}`);
+    g.appendChild(flag);
+  }
+
+  // ── Clock (deadline / time pressure) ─────────────────────────────────
+  // Circle clock face with hour and minute hands pointing to ~10:10.
+  function _iconClock(g, cx, cy, r) {
+    const face = svgEl('circle');
+    face.setAttribute('class', 'vio-icon-outline');
+    face.setAttribute('cx', cx); face.setAttribute('cy', cy); face.setAttribute('r', r);
+    g.appendChild(face);
+    const fill = svgEl('circle');
+    fill.setAttribute('cx', cx); fill.setAttribute('cy', cy); fill.setAttribute('r', r);
+    fill.setAttribute('class', 'vio-icon-fill'); fill.setAttribute('opacity', '0.12');
+    g.appendChild(fill);
+    // Minute hand — points to 12 (up)
+    const minH = svgEl('line');
+    minH.setAttribute('class', 'vio-icon-stroke-bold');
+    minH.setAttribute('x1', cx); minH.setAttribute('y1', cy);
+    minH.setAttribute('x2', cx); minH.setAttribute('y2', cy - r * 0.78);
+    g.appendChild(minH);
+    // Hour hand — points to ~2 o'clock
+    const hourH = svgEl('line');
+    hourH.setAttribute('class', 'vio-icon-stroke-bold');
+    hourH.setAttribute('x1', cx); hourH.setAttribute('y1', cy);
+    hourH.setAttribute('x2', cx + r * 0.52); hourH.setAttribute('y2', cy - r * 0.28);
+    g.appendChild(hourH);
+    // Center dot
+    const center = svgEl('circle');
+    center.setAttribute('cx', cx); center.setAttribute('cy', cy); center.setAttribute('r', r * 0.1);
+    center.setAttribute('class', 'vio-icon-fill');
+    g.appendChild(center);
+  }
+
   function _hexagon(cx, cy, r) {
     const pts = [];
     for (let i = 0; i < 6; i++) {
@@ -2452,6 +2741,15 @@
     if (ev.kind) {
       const typeVal = ev.kind + (ev.sub ? ` · ${ev.sub}` : '');
       fields.push({ icon: '🏷️', label: 'type', value: typeVal });
+    }
+    // "Age" — how long we've had this or how long it's been missing
+    const ageTs  = ev.ts || ev.ageTs;
+    const ageStr = _ageLabel(ageTs);
+    if (ageStr) {
+      const ageColor = _ageLabelColor(ageTs, ev.kind);
+      const ageLabel = (ev.kind === 'gap' || ev.kind === 'issue')
+                     ? 'missing for' : 'had for';
+      fields.push({ icon: '⏱️', label: ageLabel, value: ageStr, valueColor: ageColor });
     }
     if (ev.ts && !isNaN(new Date(ev.ts))) {
       fields.push({ icon: '🕐', label: 'when', value: new Date(ev.ts).toLocaleString() });

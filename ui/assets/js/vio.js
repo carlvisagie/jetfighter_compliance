@@ -301,26 +301,71 @@ function buildTrace(company, idx) {
   nameEl.textContent = company.company_name || 'Unknown';
   nameWrap.appendChild(nameEl);
 
-  const contactBits = [];
-  if (company.contact_email) contactBits.push(company.contact_email);
-  if (company.contact_phone) contactBits.push(company.contact_phone);
-  if (contactBits.length) {
+  // Contact line: name + email (separate if we have a name)
+  const contactParts = [];
+  if (company.contact_name)  contactParts.push(company.contact_name);
+  if (company.contact_email) contactParts.push(company.contact_email);
+  if (company.contact_phone && !company.contact_email) contactParts.push(company.contact_phone);
+  if (contactParts.length) {
     const contactEl = document.createElement('div');
     contactEl.className = 'vio-contact';
-    contactEl.textContent = contactBits.join(' · ');
+    contactEl.textContent = contactParts.join('   ');
     nameWrap.appendChild(contactEl);
   }
-  // Attention summary (terse) — surfaces "4 evidence gaps · awaiting reply"
-  // without making the operator hover.
-  const attention = (company.attention || []).slice(0, 2);
-  if (attention.length) {
-    const attEl = document.createElement('div');
-    attEl.className = 'vio-attn';
-    attEl.setAttribute('data-stage-state', stateToken);
-    attEl.textContent = attention.join(' · ');
-    nameWrap.appendChild(attEl);
-  }
   row.appendChild(nameWrap);
+
+  // ── State badge + KPI strip (right of name wrap) ──────────────────────
+  // Shows blocked/stalled pill + blocker/attention dot indicators + KPIs expand
+  const badges = document.createElement('div');
+  badges.className = 'vio-row-badges';
+
+  // Dot indicators: green (healthy events) + grey (neutral) + red (blockers)
+  const evts = company.timeline || [];
+  const redCount   = evts.filter(e => (e.state || e.event || '').match(/fail|block|critical/i)).length;
+  const greenCount = Math.max(0, evts.length - redCount);
+  if (evts.length) {
+    const dotsEl = document.createElement('div');
+    dotsEl.className = 'vio-row-dots';
+    const maxDots = 8;
+    Array.from({ length: Math.min(greenCount, maxDots) }).forEach(() => {
+      const d = document.createElement('span');
+      d.className = 'vio-row-dot vio-row-dot-green'; dotsEl.appendChild(d);
+    });
+    Array.from({ length: Math.min(redCount, 4) }).forEach(() => {
+      const d = document.createElement('span');
+      d.className = 'vio-row-dot vio-row-dot-red'; dotsEl.appendChild(d);
+    });
+    badges.appendChild(dotsEl);
+  }
+
+  // State pill — only shown for notable states
+  const STATE_PILL = {
+    failed:         { label: 'Blocked', cls: 'pill-blocked' },
+    stalled:        { label: 'Stalled', cls: 'pill-stalled' },
+    waiting_client: { label: 'Awaiting', cls: 'pill-waiting' },
+    inconsistent:   { label: 'Review', cls: 'pill-review' },
+    done:           { label: 'Done', cls: 'pill-done' },
+    healthy:        { label: 'Active', cls: 'pill-active' },
+  };
+  const pillDef = STATE_PILL[stateToken];
+  if (pillDef) {
+    const pill = document.createElement('span');
+    pill.className = `vio-state-pill ${pillDef.cls}`;
+    pill.textContent = pillDef.label;
+    badges.appendChild(pill);
+  }
+
+  // KPIs expand button (opens a compact metrics drawer below the row)
+  const kpiBtn = document.createElement('button');
+  kpiBtn.className = 'vio-kpi-btn';
+  kpiBtn.setAttribute('aria-label', 'KPIs');
+  kpiBtn.textContent = '▾ KPIs';
+  kpiBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    _toggleKpiDrawer(row, company);
+  });
+  badges.appendChild(kpiBtn);
+  row.appendChild(badges);
 
   // ── The spine SVG ─────────────────────────────────────────────────────
   const svg = buildSpine(company, events, spineEndX, axis);
@@ -679,6 +724,43 @@ function _stageAgeBand(company) {
   if (d < 7)  return 'aging';
   if (d < 14) return 'old';
   return 'ancient';
+}
+
+// ── KPI drawer — compact metrics row under the L1 trace ──────────────────────
+// Toggles a metrics strip beneath the row showing: papers / gaps / stage age.
+// Clicking ▾ KPIs again collapses it.
+function _toggleKpiDrawer(row, company) {
+  const existing = row.querySelector('.vio-kpi-drawer');
+  if (existing) { existing.remove(); return; }
+
+  const d = document.createElement('div');
+  d.className = 'vio-kpi-drawer';
+
+  const detail = company._cachedDetail || {};
+  const docs   = (detail.uploaded_documents || []).length || (company.doc_count || 0);
+  const miss   = (detail.missing_documents  || []).length || (company.gap_count || 0);
+  const finds  = (detail.findings || []).filter(f => f.severity === 'critical' || f.severity === 'high').length;
+  const pay    = detail.payment || {};
+  const rs     = (company.review_status || company.stage_label || '').replace(/_/g, ' ');
+
+  const metrics = [
+    { icon: '📂', label: 'papers',   value: docs  || '—', tone: docs ? 'good' : 'neutral' },
+    { icon: '⚠️',  label: 'missing',  value: miss  || '—', tone: miss ? 'warn' : 'good'    },
+    { icon: '🚫', label: 'blockers', value: finds || '—', tone: finds ? 'bad' : 'good'    },
+    { icon: '💰', label: 'payment',  value: pay.paid ? 'paid' : (pay.link ? 'link sent' : '—'), tone: pay.paid ? 'good' : (pay.link ? 'warn' : 'neutral') },
+    { icon: '📋', label: 'stage',    value: rs || '—', tone: 'neutral' },
+  ];
+
+  metrics.forEach(m => {
+    const cell = document.createElement('div');
+    cell.className = `vio-kpi-cell vio-kpi-${m.tone}`;
+    cell.innerHTML = `<span class="vio-kpi-icon">${m.icon}</span>` +
+                     `<span class="vio-kpi-val">${m.value}</span>` +
+                     `<span class="vio-kpi-lbl">${m.label}</span>`;
+    d.appendChild(cell);
+  });
+
+  row.appendChild(d);
 }
 
 // ── Hover card (Level 1 information surface; no permanent badges) ─────────────
