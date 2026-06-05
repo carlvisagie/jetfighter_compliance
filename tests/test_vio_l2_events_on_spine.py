@@ -70,16 +70,21 @@ def test_renderLandscape_uses_timeline_events_not_clusters():
     assert end != -1, "renderLandscape body not found"
     body = js[start:end]
 
-    assert "computeTimelineEvents(" in body, (
-        "renderLandscape must call computeTimelineEvents(detail, axis)"
+    # renderLandscape may delegate to _renderLandscapeInner; check both.
+    inner_start = js.find("function _renderLandscapeInner(")
+    inner_body  = js[inner_start:js.find("\n  }\n", inner_start)] if inner_start != -1 else ""
+    combined    = body + inner_body
+
+    assert "computeTimelineEvents(" in combined, (
+        "renderLandscape (or its inner delegate) must call computeTimelineEvents(detail, axis)"
     )
-    assert "drawTimelineEvents(" in body, (
-        "renderLandscape must call drawTimelineEvents(svg, events, spineY)"
+    assert "drawTimelineEvents(" in combined, (
+        "renderLandscape (or its inner delegate) must call drawTimelineEvents(svg, events, spineY)"
     )
 
     # Legacy cluster helpers must NOT be called from the active body.
     for legacy in ("computeBranches(", "drawBranch(", "spreadClusters("):
-        assert legacy not in body, (
+        assert legacy not in combined, (
             f"renderLandscape still calls legacy cluster helper {legacy!r} "
             f"— Carl 2026-06-05: 'put everything ON THE TIMELINE instead "
             f"of under over below'. Comment it out or remove it."

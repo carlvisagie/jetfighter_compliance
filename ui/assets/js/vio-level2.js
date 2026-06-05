@@ -347,11 +347,23 @@
       renderLandscape(canvas, company, detail);
     } catch (err) {
       console.error('[VIO L2]', err);
-      // Defensive visibility contract: tell the boot watchdog something
-      // failed so the operator never gets a silent empty canvas. A side
-      // hint alone is easy to miss when the canvas itself is black.
+      // Paint the error ONTO the canvas so it can never go silently blank.
+      canvas.innerHTML = '';
+      const errSvg = svgEl('svg');
+      errSvg.setAttribute('width', '100%');
+      errSvg.setAttribute('height', '120');
+      const errText = svgEl('text');
+      errText.setAttribute('x', '50%');
+      errText.setAttribute('y', '50');
+      errText.setAttribute('text-anchor', 'middle');
+      errText.setAttribute('fill', '#ef4444');
+      errText.setAttribute('font-size', '13');
+      errText.setAttribute('font-family', 'ui-monospace, monospace');
+      errText.textContent = 'canvas fault: ' + (err && err.message ? err.message : String(err)).slice(0, 120);
+      errSvg.appendChild(errText);
+      canvas.appendChild(errSvg);
       if (window.VIO_BOOT && typeof window.VIO_BOOT.fault === 'function') {
-        try { window.VIO_BOOT.fault('l2-load-failed', err); } catch (_) { /* boot script absent in tests */ }
+        try { window.VIO_BOOT.fault('l2-load-failed', err); } catch (_) {}
       }
     }
   }
@@ -484,16 +496,43 @@
   // ─────────────────────────────────────────────────────────────────────
   // OPERATOR ACTION — re-run Evidence Intelligence
   // ─────────────────────────────────────────────────────────────────────
+  // Two-phase inline confirm — no window.confirm(), no native dialogs.
+  // Phase 1: button turns amber + shows "confirm?" text
+  // Phase 2: second click within 3s executes reprocess
+  // A timer resets the button if the operator doesn't confirm.
+  let _reprocPendingTimer = null;
+
   async function triggerReprocess(intakeId, btnEl) {
     if (!intakeId) return;
-    const ok = window.confirm(
-      'Re-run Evidence Intelligence for ' + intakeId + '?\n\n'
-      + 'This will wipe and rebuild profile.json, gaps.json, '
-      + 'extractions.jsonl, classifications.jsonl, and entities.jsonl, '
-      + 'then re-extract from the real customer uploads.\n\n'
-      + 'Review queue history is preserved.'
-    );
-    if (!ok) return;
+    if (!btnEl)    return;
+
+    // If we're in "armed" (phase-1) state, clear timer and proceed.
+    if (btnEl.dataset.armed === '1') {
+      clearTimeout(_reprocPendingTimer);
+      _reprocPendingTimer = null;
+      btnEl.dataset.armed = '0';
+      btnEl.removeAttribute('data-armed');
+      btnEl.disabled = true;
+      btnEl.textContent = 'reprocessing…';
+      btnEl.style.background = '';
+      btnEl.style.color = '';
+    } else {
+      // Phase 1 — arm the button; a second click within 3s will fire.
+      btnEl.dataset.armed = '1';
+      btnEl.textContent = '⚠ confirm?';
+      btnEl.style.background = 'rgba(216,162,74,0.25)';
+      btnEl.style.color = '#d8a24a';
+      _reprocPendingTimer = setTimeout(() => {
+        if (btnEl.dataset.armed === '1') {
+          btnEl.dataset.armed = '0';
+          btnEl.removeAttribute('data-armed');
+          btnEl.textContent = 'reprocess EI';
+          btnEl.style.background = '';
+          btnEl.style.color = '';
+        }
+      }, 3000);
+      return;  // wait for second click
+    }
 
     if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'reprocessing…'; }
     showSideHint('reprocessing — wiping artifacts and re-extracting…');
@@ -689,6 +728,28 @@
   }
 
   function renderLandscape(canvas, company, detail) {
+    try {
+      _renderLandscapeInner(canvas, company, detail);
+    } catch (err) {
+      console.error('[VIO L2 renderLandscape]', err);
+      canvas.innerHTML = '';
+      const errSvg = svgEl('svg');
+      errSvg.setAttribute('width', '100%');
+      errSvg.setAttribute('height', '120');
+      const errText = svgEl('text');
+      errText.setAttribute('x', '50%');
+      errText.setAttribute('y', '50');
+      errText.setAttribute('text-anchor', 'middle');
+      errText.setAttribute('fill', '#ef4444');
+      errText.setAttribute('font-size', '13');
+      errText.setAttribute('font-family', 'ui-monospace, monospace');
+      errText.textContent = 'render fault: ' + (err && err.message ? err.message : String(err)).slice(0, 120);
+      errSvg.appendChild(errText);
+      canvas.appendChild(errSvg);
+    }
+  }
+
+  function _renderLandscapeInner(canvas, company, detail) {
     canvas.innerHTML = '';
 
     // Carl 2026-06-05 (the revolution mandate): "Make it a true work of
