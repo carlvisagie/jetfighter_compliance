@@ -90,8 +90,25 @@ async def ops_auth_middleware(request: Request, call_next):
         return blocked
     response = await call_next(request)
     path = request.url.path
+    # ── Cache discipline ────────────────────────────────────────────────────
+    # Background (2026-06-05 "WTF?" incident): the previous policy was
+    # `Cache-Control: public, max-age=3600` for /ui/assets/*. That meant
+    # browsers kept stale CSS/JS for an hour after every deploy. Operators
+    # who reloaded the page during that window saw an HTML pointing at
+    # cached CSS that no longer matched the renderer the HTML had loaded.
+    # The L2-mount overlay fix shipped but operators saw a dark page until
+    # they remembered to hard-refresh. Unacceptable for a primary surface.
+    #
+    # New policy (cheaper than it sounds — most responses are 304 Not
+    # Modified, no body transfer):
+    #   - /ui/assets/*  → no-cache, must-revalidate
+    #       Browser caches the file but MUST revalidate with the server on
+    #       every request. If the file hasn't changed, server returns 304
+    #       (no body). If it has, fresh bytes ship. Operator never sees
+    #       stale CSS/JS again.
+    #   - /ui/*.html    → unchanged (no-cache, must-revalidate)
     if path.startswith("/ui/assets/"):
-        response.headers.setdefault("Cache-Control", "public, max-age=3600")
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
     elif path.startswith("/ui/") and (path.endswith(".html") or path in ("/ui", "/ui/")):
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
         response.headers["Pragma"] = "no-cache"

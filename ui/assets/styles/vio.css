@@ -314,59 +314,26 @@ html, body {
 }
 .vio-trace:hover { background: var(--vio-surface-soft); }
 
-/* Orb (left anchor) ─ size + color encode stage_state, no glow when calm */
-.vio-orb-wrap {
-  width: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.vio-orb {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--vio-surface-soft);
-  border: 2px solid var(--vio-text-faint);
-  color: var(--vio-text-dim);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  transition: border-color 0.18s, color 0.18s;
-}
-.vio-orb[data-stage-state="healthy"]        { border-color: var(--st-healthy);      color: var(--vio-text); }
-.vio-orb[data-stage-state="stalled"]        { border-color: var(--st-stalled);      color: var(--vio-text-dim); }
-.vio-orb[data-stage-state="failed"]         { border-color: var(--st-failed);       color: var(--st-failed); }
-.vio-orb[data-stage-state="waiting_client"] { border-color: var(--st-waiting);      color: var(--vio-text); animation: vio-breathe 4s ease-in-out infinite; }
-.vio-orb[data-stage-state="inconsistent"]   { border-color: var(--st-inconsistent); color: var(--vio-text); }
-.vio-orb[data-stage-state="done"]           { border-color: var(--st-done);         color: var(--vio-text-dim); }
+/* ──────────────────────────────────────────────────────────────────────
+   LEGACY TRACE-ORB STYLES REMOVED  (2026-06-05)
 
-/* Company name (no badges, just typography) */
-.vio-name-wrap {
-  width: 190px;
-  flex-shrink: 0;
-  padding-right: 14px;
-  overflow: hidden;
-}
-.vio-name {
-  color: var(--vio-text);
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.vio-email {
-  color: var(--vio-text-faint);
-  font-size: 10px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 2px;
-}
+   The pre-sketch renderer used class `.vio-orb` on the per-trace
+   identity orb AND the top-of-page platform orb strip uses the SAME
+   class `.vio-orb` (different element, same class name). When the
+   trace styles were defined later in the cascade, they OVERRODE the
+   platform-orb pill styling — the platform orbs lost their pill
+   layout and got squished into 28×28 circles, mashing all the labels
+   together in the screenshot at the top of the page.
+
+   Sketch-faithful renderer now uses `.vio-id-orb` for the trace
+   identity (see the SKETCH-FAITHFUL block at the end of this file).
+   The legacy `.vio-orb`, `.vio-orb-wrap`, `.vio-name-wrap (190px)`,
+   `.vio-name (13px)`, `.vio-email` rules were deleted entirely
+   because they were dead AND actively harming the only surface that
+   still uses the bare `.vio-orb` class. Always remove dead CSS in
+   the same commit that removes the JS that produced its target
+   elements. Cascade poisoning is invisible until someone hits it.
+   ────────────────────────────────────────────────────────────────────── */
 
 /* Trace gets a quiet color cue from its stage_state — the line itself does
    the heavy lifting; this is just a subtle background tint on hover. */

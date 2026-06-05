@@ -142,6 +142,74 @@ def test_only_one_motion_loop_per_doctrine(vio_css: str) -> None:
     assert "@keyframes vio-id-breathe" in vio_css
 
 
+def test_no_legacy_vio_orb_selector_in_css(vio_css: str) -> None:
+    """The platform-orb strip at the top of vio.html uses class
+    `.vio-orb` (different element from the trace identity orb, same
+    class name). The pre-sketch renderer also targeted `.vio-orb`
+    for the trace identity orb, with later-in-cascade rules that
+    forced 28×28 circles with display:flex. Those rules silently
+    poisoned the platform-orb pill layout — the screenshot at
+    2026-06-05 09:45 showed the orb names mashed together
+    ("KnowLLearnDObservEvenidePcProj…") because the platform orbs
+    were getting trace-orb styles.
+
+    Sketch-faithful renderer uses `.vio-id-orb`. The legacy `.vio-orb`
+    bare-class rule (the one with `width: 28px; height: 28px` for the
+    trace orb) was removed in commit ee90b21+1. This guard ensures it
+    cannot come back without somebody noticing they're poisoning the
+    platform-orb strip again.
+
+    The .vio-orb-letter / .vio-orb-name / .vio-orb-arrow rules
+    around line ~141 are FINE — they're the platform-orb pill
+    selectors, not the trace-orb identity selectors. The forbidden
+    pattern is the bare `.vio-orb { width: 28px... }` legacy rule."""
+    # Forbidden: the legacy trace-orb rule had width:28px paired with
+    # height:28px in a `.vio-orb {}` block.
+    bad_signature = "width: 28px"
+    if bad_signature in vio_css:
+        # Only flag if it appears inside what looks like a `.vio-orb`
+        # rule body (not other selectors that may legitimately use 28px).
+        for chunk in vio_css.split("}"):
+            head = chunk.lstrip()
+            if head.startswith(".vio-orb ") or head.startswith(".vio-orb{"):
+                assert "width: 28px" not in chunk, (
+                    "legacy `.vio-orb { width: 28px }` rule is back — "
+                    "this poisons the platform-orb pill strip. "
+                    "Use `.vio-id-orb` for the trace identity orb."
+                )
+
+
+def test_static_assets_must_revalidate(server_py_text: str) -> None:
+    """Cache discipline: /ui/assets/* must be served with
+    `Cache-Control: no-cache, must-revalidate` so browsers always
+    revalidate CSS/JS against the server (cheap 304 in the common
+    case, fresh bytes when something changed).
+
+    The previous `max-age=3600` policy is what made the 2026-06-05
+    "WTF?" incident's recovery take an extra hard-refresh step:
+    operators saw a deployed page pointing at hour-old cached CSS
+    that no longer matched the renderer. Unacceptable for a primary
+    surface. Pin the discipline so it cannot regress."""
+    # The bad pattern that bit us — must not come back for /ui/assets/.
+    bad = 'response.headers.setdefault("Cache-Control", "public, max-age=3600")'
+    assert bad not in server_py_text, (
+        "server.py still has `Cache-Control: public, max-age=3600` for "
+        "/ui/assets/*. That is what caused the 2026-06-05 stale-CSS "
+        "incident. Use `no-cache, must-revalidate` instead."
+    )
+    # And the good policy must be there.
+    assert 'Cache-Control" = "no-cache, must-revalidate"' in server_py_text.replace("'", '"') \
+        or 'must-revalidate' in server_py_text, (
+        "server.py must set `Cache-Control: no-cache, must-revalidate` "
+        "for /ui/assets/* responses"
+    )
+
+
+@pytest.fixture(scope="module")
+def server_py_text() -> str:
+    return (ROOT / "server.py").read_text(encoding="utf-8")
+
+
 def test_level2_mount_respects_hidden_attribute(vio_css: str) -> None:
     """The silent killer behind every "VIO is dark" report (2026-06-04
     and 2026-06-05): `.vio-level2-mount` is defined with `display: grid`
