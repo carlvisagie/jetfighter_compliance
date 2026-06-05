@@ -248,6 +248,12 @@
     } catch (err) {
       showSideHint('could not load landscape: ' + err.message);
       console.error('[VIO L2]', err);
+      // Defensive visibility contract: tell the boot watchdog something
+      // failed so the operator never gets a silent empty canvas. A side
+      // hint alone is easy to miss when the canvas itself is black.
+      if (window.VIO_BOOT && typeof window.VIO_BOOT.fault === 'function') {
+        try { window.VIO_BOOT.fault('l2-load-failed', err); } catch (_) { /* boot script absent in tests */ }
+      }
     }
   }
 
@@ -635,6 +641,14 @@
   // along the future-dashed segment so the 7-stage legend stays
   // readable without lying about when those stages happened.
   function drawSpine(svg, company, spineY = L.spineY, axis, detail) {
+    // SAFETY: skeleton renders (renderSkeletonSpine) call drawSpine without
+    // an axis. Until 2026-06-05 this silently threw `Cannot read properties
+    // of undefined (reading 'tMin')` inside the async openLevel2 — caught
+    // only as an unhandled rejection, leaving operators staring at an empty
+    // canvas with just "overview" in the side panel. _timeAxis(undefined)
+    // is total: it returns a one-day-wide axis anchored at "now", which is
+    // the right skeleton behaviour (no past, just a placeholder spine).
+    if (!axis) axis = _timeAxis(detail);
     const events = (detail && detail.custody && detail.custody.events) || [];
     const lastEventT = events.length
       ? Math.max(...events.map(e => Date.parse(e.at_utc || '') || 0))

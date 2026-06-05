@@ -243,6 +243,62 @@ def test_level2_mount_respects_hidden_attribute(vio_css: str) -> None:
     )
 
 
+# ── L2 skeleton must survive a missing axis ─────────────────────────────────
+
+@pytest.fixture(scope="module")
+def vio_l2_js() -> str:
+    return (ROOT / "ui" / "assets" / "js" / "vio-level2.js").read_text(encoding="utf-8")
+
+
+def test_l2_drawspine_defends_against_missing_axis(vio_l2_js: str) -> None:
+    """The silent killer behind every "L2 is empty / just shows overview"
+    report from 2026-06-05: `renderSkeletonSpine` calls
+    `drawSpine(svg, company)` without passing an `axis`, but `drawSpine`
+    used to read `axis.tMin` and `axis.timeToX(...)` unconditionally.
+
+    Because `openLevel2` is `async`, the sync `TypeError: Cannot read
+    properties of undefined (reading 'tMin')` became an unhandled
+    promise rejection — silent to console-light operators. The fetch
+    after the skeleton never even fired, leaving a black canvas and
+    only the default "overview" side title. Every L2 click looked
+    broken from the operator's seat.
+
+    The fix is one line: `if (!axis) axis = _timeAxis(detail);` at the
+    top of `drawSpine`. _timeAxis(undefined) returns a total axis
+    anchored at "now", which is the right skeleton behaviour. If this
+    guard ever regresses, L2 silently breaks again."""
+    sig_idx = vio_l2_js.find("function drawSpine(")
+    assert sig_idx >= 0, "drawSpine() must exist in vio-level2.js"
+    # Inspect the first ~600 chars of the function body.
+    body = vio_l2_js[sig_idx:sig_idx + 800]
+    assert "if (!axis)" in body and "_timeAxis(" in body, (
+        "drawSpine() must default `axis` when not supplied — without "
+        "this guard the skeleton render crashes silently inside the "
+        "async openLevel2() and L2 stays a black canvas with only "
+        "'overview' visible. See `axis.tMin` reference downstream."
+    )
+
+
+def test_l2_load_failure_calls_vio_boot_fault(vio_l2_js: str) -> None:
+    """If the L2 landscape fetch fails (network, 5xx, malformed JSON,
+    etc.), the side-panel hint is easy to miss against a black canvas.
+    The defensive boot watchdog already exists for L1; L2 must use the
+    same escape hatch so operators always see a visible diagnostic.
+
+    This pins that the catch block in openLevel2 calls
+    `window.VIO_BOOT.fault(...)`. Without it, future regressions in
+    the network layer or backend payload shape will reproduce the
+    "everything looks black, no idea what broke" experience."""
+    catch_idx = vio_l2_js.find("'could not load landscape:")
+    assert catch_idx >= 0, "L2 must surface load failures via side hint"
+    window = vio_l2_js[catch_idx:catch_idx + 600]
+    assert "VIO_BOOT" in window and "fault(" in window, (
+        "openLevel2() catch block must call window.VIO_BOOT.fault(...) "
+        "so a failed landscape load surfaces a visible diagnostic "
+        "instead of a silent black canvas"
+    )
+
+
 # ── Brief enshrined in repo ─────────────────────────────────────────────────
 
 def test_brief_enshrined() -> None:
