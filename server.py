@@ -1883,13 +1883,39 @@ def operator_organism_observability(request: Request, limit: int = 500):
 
 
 @app.get("/api/operator/evidence-intelligence")
-def operator_evidence_intelligence(project_id: str = ""):
+def operator_evidence_intelligence(
+    project_id: str = "",
+    intake_id:  str = "",
+):
+    """Read EI snapshot for a project (P-*) OR intake (FB-*).
+
+    Historical mismatch: this endpoint was wired through
+    `validate_project_id` which rejects anything not prefixed `P-`.
+    But the founding-beta pipeline (the ONLY pipeline currently in
+    production) keys its EI artifacts on `FB-*` intake IDs — so every
+    operator request for an FB-* EI snapshot returned 400 with
+    "Invalid project_id" even though the artifacts existed on disk
+    at `data/projects/FB-*/evidence_intelligence/`. Discovered 2026-
+    06-05 while verifying the autonomous reprocess landed correctly.
+
+    Accept BOTH `intake_id` (the new, correct identifier) AND
+    `project_id` (the legacy parameter name, still passed by some
+    older operator surfaces). The path under the hood is the same.
+    The validator is local — relaxed to allow P-* or FB-* and to
+    reject path-traversal / separator characters — so this endpoint
+    doesn't need the full project-existence check the legacy
+    validator imposed.
+    """
     from services.evidence_intelligence import get_operator_evidence_intelligence
 
-    if not project_id:
-        return {"ok": False, "error": "project_id required"}
-    validate_project_id(project_id)
-    return get_operator_evidence_intelligence(project_id)
+    subject = (intake_id or project_id or "").strip()
+    if not subject:
+        return {"ok": False, "error": "intake_id or project_id required"}
+    if not (subject.startswith("P-") or subject.startswith("FB-")):
+        return {"ok": False, "error": "id must start with P- or FB-"}
+    if "/" in subject or ".." in subject or "\\" in subject:
+        return {"ok": False, "error": "invalid id characters"}
+    return get_operator_evidence_intelligence(subject)
 
 
 @app.get("/api/operator/evidence-intelligence/review-queue")
