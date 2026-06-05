@@ -3137,6 +3137,33 @@
       panel.appendChild(body);
     }
 
+    // ── Branch expand button (demo: "⎇ Branch: {label} ({N} nodes)") ──
+    // Shows in the panel footer when the node has branch children.
+    if (ev.branches && ev.branches.length) {
+      const branchSec = el('div', 'vio-dp-branch-section');
+      const branchBtn = el('button', 'vio-dp-branch-btn');
+      branchBtn.innerHTML = `⎇ Branch: ${truncate(ev.label || ev.kind, 16)} <span class="vio-dp-branch-count">(${ev.branches.length} nodes)</span>`;
+      branchBtn.style.borderColor = 'rgba(56,189,248,0.35)';
+      branchBtn.style.background  = 'rgba(56,189,248,0.08)';
+      branchBtn.style.color       = '#38bdf8';
+      branchBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        panel.remove();
+        // Find the "⎇" button on the canvas SVG and simulate a click to expand branches
+        const svgEl2 = canvas.querySelector('svg');
+        if (!svgEl2) return;
+        const btnGroup = Array.from(svgEl2.querySelectorAll('.vio-tle-branch-btn'))
+          .find(g => {
+            const txt = g.querySelector('text');
+            const circ = g.querySelector('circle');
+            return txt && circ;
+          });
+        if (btnGroup) btnGroup.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      });
+      branchSec.appendChild(branchBtn);
+      panel.appendChild(branchSec);
+    }
+
     canvas.appendChild(panel);
 
     // Dismiss when clicking outside the panel
