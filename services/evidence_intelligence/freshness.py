@@ -317,12 +317,21 @@ def sweep_intakes_for_staleness(
         try:
             from services.evidence_intelligence import reprocess_intake_evidence
             report = reprocess_intake_evidence(iid, wipe=True)
+            # NOTE: reprocess_intake_evidence's return shape uses
+            # `files_processed` / `files_failed` / `files_seen` /
+            # `ocr_succeeded` — NOT the short keys we used previously.
+            # Mismatch was producing `processed_count: 0` in every
+            # autonomous report even when files were processed (caught
+            # 2026-06-05 when the production sweep reported "fresh"
+            # but the reprocess summary lied about the work done).
             reprocessed.append({
                 **record,
                 "ok": bool(report.get("ok")),
-                "processed_count": len(report.get("processed", []) or []),
-                "ocr_attempts": report.get("ocr_attempts", 0),
-                "ocr_ok": report.get("ocr_ok", 0),
+                "processed_count": len(report.get("files_processed", []) or []),
+                "failed_count":    len(report.get("files_failed", []) or []),
+                "files_seen":      int(report.get("files_seen", 0) or 0),
+                "ocr_attempts":    int(report.get("ocr_attempts", 0) or 0),
+                "ocr_ok":          int(report.get("ocr_succeeded", 0) or 0),
             })
             # Record the staleness reasons in custody so a year from now
             # the operator can see WHY the organism reprocessed by itself.
@@ -368,10 +377,11 @@ def _record_custody(
             metadata={
                 "trigger": "freshness_sweep",
                 "signals": list(signals),
-                "processed_count": len(report.get("processed", []) or []),
-                "failed_count": len(report.get("failed", []) or []),
-                "ocr_attempts": report.get("ocr_attempts", 0),
-                "ocr_ok": report.get("ocr_ok", 0),
+                "processed_count": len(report.get("files_processed", []) or []),
+                "failed_count":    len(report.get("files_failed", []) or []),
+                "files_seen":      int(report.get("files_seen", 0) or 0),
+                "ocr_attempts":    int(report.get("ocr_attempts", 0) or 0),
+                "ocr_succeeded":   int(report.get("ocr_succeeded", 0) or 0),
             },
         )
     except Exception:

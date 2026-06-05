@@ -295,6 +295,58 @@ def test_sweep_route_never_500s_on_helper_failure(monkeypatch):
     assert "list_intakes_failed" in summary["failed"][0]["error"]
 
 
+def test_freshness_reads_reprocess_report_with_correct_keys(stale_intake_unindexed):
+    """Pin the contract between freshness.sweep and
+    reprocess_intake_evidence's return shape.
+
+    reprocess_intake_evidence returns:
+        files_processed (list)
+        files_failed    (list)
+        files_seen      (int)
+        ocr_succeeded   (int)
+        ocr_attempts    (int)
+
+    The freshness sweep originally read `processed` / `ocr_ok` —
+    short keys that don't exist in the reprocess payload. Result:
+    every autonomous report claimed `processed_count: 0` even when
+    the reprocess actually did work, so the operator-visible report
+    (and the custody event) lied about the autonomous activity.
+
+    This test runs a REAL reprocess against a stale intake and
+    asserts the freshness summary's reprocessed[0] row reports a
+    non-zero processed_count + a non-zero files_seen. If the keys
+    drift again this catches it immediately.
+    """
+    iid, _ = stale_intake_unindexed
+    summary = sweep_intakes_for_staleness(
+        intake_ids=[iid], max_reprocess=1, dry_run=False,
+    )
+    assert len(summary["reprocessed"]) == 1
+    row = summary["reprocessed"][0]
+
+    # The reprocess walked at least one file (the policy.txt we wrote
+    # to the fixture's uploads dir). If processed_count is 0 here, the
+    # key mismatch is back.
+    assert row["files_seen"] >= 1, (
+        f"freshness summary says files_seen=0 but the stale fixture "
+        f"has a real upload; reprocess key mismatch is back. Full row: {row!r}"
+    )
+    assert row["processed_count"] >= 1, (
+        f"freshness summary says processed_count=0 even though the "
+        f"reprocess saw {row['files_seen']} file(s); key mismatch back. "
+        f"Full row: {row!r}"
+    )
+    # The shape of the row must contain ALL the documented keys so
+    # downstream consumers (custody event, telemetry, operator UI)
+    # don't break on missing fields.
+    for key in (
+        "intake_id", "signals", "ok",
+        "processed_count", "failed_count", "files_seen",
+        "ocr_attempts", "ocr_ok",
+    ):
+        assert key in row, f"freshness reprocess row missing key {key!r}: {row!r}"
+
+
 def test_scheduler_registers_ei_freshness_sweep_organ():
     """The scheduler MUST add an `ei_freshness_sweep` organ job at boot
     time so the autonomy story isn't just 'we built a helper, but
