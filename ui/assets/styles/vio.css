@@ -577,6 +577,25 @@ html, body {
     "canvas side";
 }
 
+/* ── CRITICAL OVERRIDE ─────────────────────────────────────────────────────
+   The HTML defines `<div id="vio-level2-mount" hidden>`. The `hidden`
+   attribute is supposed to make the element `display: none` via the
+   user-agent stylesheet. But `.vio-level2-mount { display: grid }` above
+   has higher specificity than `[hidden]` in the UA sheet, so the mount
+   was rendering as a full-viewport (1920x1080) dark `background: var(--vio-bg)`
+   overlay at z-index 200, sitting on top of EVERYTHING below the env-ribbon
+   (env-ribbon has z-index 9999 so it stayed visible).
+
+   This was the silent killer behind every "VIO is dark / nothing in VIO"
+   report. The renderer was always working; the L2 mount was masking it.
+
+   Fix: respect the `hidden` attribute explicitly. The author rule wins
+   only when L2 is actively open (JS removes the `hidden` attribute via
+   `mount.removeAttribute('hidden')`). */
+.vio-level2-mount[hidden] {
+  display: none !important;
+}
+
 /* ── L2 header ─────────────────────────────────────────────────────────── */
 .vio-l2-header {
   grid-area: header;

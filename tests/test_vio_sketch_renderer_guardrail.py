@@ -142,6 +142,39 @@ def test_only_one_motion_loop_per_doctrine(vio_css: str) -> None:
     assert "@keyframes vio-id-breathe" in vio_css
 
 
+def test_level2_mount_respects_hidden_attribute(vio_css: str) -> None:
+    """The silent killer behind every "VIO is dark" report (2026-06-04
+    and 2026-06-05): `.vio-level2-mount` is defined with `display: grid`
+    and `background: var(--vio-bg)`. The HTML element has the `hidden`
+    attribute by default. The browser's UA stylesheet rule
+    `[hidden] { display: none }` has lower specificity than
+    `.vio-level2-mount { display: grid }`, so without an explicit
+    override the mount renders as a 1920x1080 dark overlay at z-index
+    200, hiding the entire VIO surface below the env-ribbon.
+
+    Diagnosis was only possible via CDP `document.elementFromPoint(x, y)`
+    showing that every point below the env-ribbon resolved to the L2
+    mount, not the trace beneath it.
+
+    The fix is an explicit `.vio-level2-mount[hidden] { display: none }`
+    rule. If this rule is ever removed by a refactor, every operator
+    sees a black page again. This test stops that."""
+    assert ".vio-level2-mount[hidden]" in vio_css, (
+        "missing `.vio-level2-mount[hidden]` rule — without it the L2 "
+        "mount overlays the entire viewport and hides VIO. See the "
+        "comment above this rule in ui/assets/styles/vio.css for the "
+        "incident backstory."
+    )
+    # And it MUST set display:none — anything else doesn't actually
+    # collapse the overlay.
+    idx = vio_css.find(".vio-level2-mount[hidden]")
+    snippet = vio_css[idx:idx + 200]
+    assert "display: none" in snippet, (
+        "the `.vio-level2-mount[hidden]` rule must set `display: none` "
+        "— anything else leaves the overlay covering the page"
+    )
+
+
 # ── Brief enshrined in repo ─────────────────────────────────────────────────
 
 def test_brief_enshrined() -> None:
