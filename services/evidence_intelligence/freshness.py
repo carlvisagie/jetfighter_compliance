@@ -59,7 +59,23 @@ DEFAULT_MAX_REPROCESS_PER_SWEEP = 10
 
 def _ocr_runtime_available() -> bool:
     """True iff OCR can actually run right now: app flag is on AND the
-    binaries are installed in the container."""
+    binaries are installed in the container.
+
+    Resilient on purpose: any failure path returns False rather than
+    raising. The freshness sweep treats False as "don't fire the
+    ocr_now_available signal", which is the correct conservative
+    behaviour when we can't prove OCR works. The route handler MUST
+    NOT 500 because a probe blew up.
+
+    Previous bug (2026-06-05, fixed in same commit): treated
+    check_ocr_availability()'s return value as a dict with .get(
+    "tesseract") / .get("poppler"). It's actually an OcrAvailability
+    dataclass with .available / .reason / .detail. The AttributeError
+    propagated out of sweep_intakes_for_staleness and produced a 500
+    on /api/ops/ei-freshness on production. Now we use the dataclass
+    field correctly AND wrap the whole thing so a future schema
+    change in ocr.py never takes the sweep down again.
+    """
     try:
         from services.evidence_intelligence.ocr import (
             check_ocr_availability,
@@ -67,13 +83,15 @@ def _ocr_runtime_available() -> bool:
         )
     except Exception:
         return False
-    if not ocr_enabled():
-        return False
     try:
-        info = check_ocr_availability() or {}
+        if not ocr_enabled():
+            return False
+        info = check_ocr_availability()
+        if info is None:
+            return False
+        return bool(getattr(info, "available", False))
     except Exception:
         return False
-    return bool(info.get("tesseract") and info.get("poppler"))
 
 
 def _list_intake_ids() -> List[str]:
@@ -242,8 +260,25 @@ def sweep_intakes_for_staleness(
         except ValueError:
             max_reprocess = DEFAULT_MAX_REPROCESS_PER_SWEEP
 
-    targets = list(intake_ids) if intake_ids is not None else _list_intake_ids()
-    runtime_ok = _ocr_runtime_available()
+    # Defensive against every possible failure path in the helpers.
+    # The /api/ops/ei-freshness route MUST NOT 500 because a probe
+    # blew up — operators have to be able to see "what's the organism
+    # currently seeing" even when something downstream is broken.
+    try:
+        targets = list(intake_ids) if intake_ids is not None else _list_intake_ids()
+    except Exception as exc:
+        return {
+            "scanned": 0, "fresh": 0,
+            "stale": [], "reprocessed": [], "deferred": [],
+            "failed": [{
+                "error": f"list_intakes_failed:{type(exc).__name__}",
+                "detail": str(exc)[:200],
+            }],
+            "ocr_runtime_available": False,
+            "max_reprocess": max_reprocess,
+            "dry_run": dry_run,
+        }
+    runtime_ok = _ocr_runtime_available()  # already exception-safe
 
     scanned = 0
     fresh = 0

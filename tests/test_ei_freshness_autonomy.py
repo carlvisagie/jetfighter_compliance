@@ -245,6 +245,56 @@ def test_autonomous_phase_has_custody_label():
 # ── scheduler wiring (job is registered + cadence is sane) ────────────
 
 
+def test_ocr_runtime_available_does_not_raise_on_dataclass_return():
+    """Regression for the 2026-06-05 production 500.
+
+    ``check_ocr_availability()`` returns an ``OcrAvailability``
+    dataclass (.available / .reason / .detail). The original freshness
+    code treated it as a dict (.get("tesseract") / .get("poppler"))
+    which raised AttributeError in the live container where OCR is
+    enabled and the probe actually ran. That AttributeError propagated
+    out of sweep_intakes_for_staleness and produced a 500 on
+    /api/ops/ei-freshness.
+
+    This test:
+      · imports the real ocr module so we use the real dataclass
+      · monkeypatches ocr_enabled → True so the probe path runs
+      · asserts _ocr_runtime_available returns a bool, never raises
+    """
+    from services.evidence_intelligence import freshness as F
+    from services.evidence_intelligence import ocr as O
+
+    original = O.ocr_enabled
+    try:
+        O.ocr_enabled = lambda: True
+        out = F._ocr_runtime_available()
+        assert isinstance(out, bool), (
+            "_ocr_runtime_available must return a bool — never raise "
+            "even when the OCR probe path is exercised on a host with "
+            "no binaries installed"
+        )
+    finally:
+        O.ocr_enabled = original
+
+
+def test_sweep_route_never_500s_on_helper_failure(monkeypatch):
+    """Even if _list_intake_ids raises (corrupted FS, IO error,
+    whatever), the sweep MUST return a structured payload, not bubble
+    up an exception. /api/ops/ei-freshness has to stay reachable."""
+    from services.evidence_intelligence import freshness as F
+
+    def boom():
+        raise RuntimeError("simulated FS catastrophe")
+
+    monkeypatch.setattr(F, "_list_intake_ids", boom)
+    summary = F.sweep_intakes_for_staleness(dry_run=True)
+    assert summary["scanned"] == 0
+    assert summary["fresh"] == 0
+    assert summary["stale"] == []
+    assert len(summary["failed"]) == 1
+    assert "list_intakes_failed" in summary["failed"][0]["error"]
+
+
 def test_scheduler_registers_ei_freshness_sweep_organ():
     """The scheduler MUST add an `ei_freshness_sweep` organ job at boot
     time so the autonomy story isn't just 'we built a helper, but
