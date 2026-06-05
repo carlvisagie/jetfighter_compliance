@@ -782,8 +782,9 @@
     const events = computeTimelineEvents(detail, axis);
 
     const w = Math.max(spineEndX(), L.spineX0 + L.spineWidth) + 240;
-    // Extra height: labels + age sub-labels extend ~40px below below-spine nodes
-    const h = spineY + 200;
+    // Extra height: labels + age sub-labels + branch sub-timeline
+    // BRANCH_Y_OFFSET = 130 below spineY, then branch nodes + labels + ~50px
+    const h = spineY + BRANCH_Y_OFFSET + 100;
 
     const svg = svgEl('svg');
     svg.setAttribute('class', 'vio-l2-svg');
@@ -1821,9 +1822,10 @@
   // over words).
   // ─────────────────────────────────────────────────────────────────────
 
-  const TL_SHAPE   = 16;
-  const TL_GAP     = 6;
-  const TL_OFFSET  = 30;   // px above/below the spine for off-spine kinds
+  const TL_SHAPE        = 16;
+  const TL_GAP          = 6;
+  const TL_OFFSET       = 30;   // px above/below the spine for off-spine kinds
+  const BRANCH_Y_OFFSET = 130;  // px below spine for branch sub-timeline
 
   function computeTimelineEvents(detail, axis) {
     const events = [];
@@ -1840,9 +1842,18 @@
     // Shows the operator WHEN this company first arrived. The age label
     // tells them "we've had this for 3w" at a glance. Without this,
     // the timeline has no anchor to the left.
+    // Branches = all uploaded documents (expand to see what arrived).
     const intakeTs = ictx.submitted_utc || ictx.created_utc
                   || _branchStartUtc(detail, 'docs')
                   || _branchStartUtc(detail, 'context');
+    // Build branch children for intake: each uploaded doc is a branch sub-node
+    const docBranches = docs.map(d => ({
+      kind: 'paper', side: 'on',
+      ts: d.uploaded_utc || d.received_utc || intakeTs,
+      label: d.original_name || d.stored_name || 'paper',
+      status: d.status || 'on_disk', sub: 'uploaded', full: d,
+      isBranch: true,
+    }));
     if (intakeTs) {
       events.push({
         kind: 'intake', side: 'on',
@@ -1850,6 +1861,7 @@
         label: 'intake',
         sub: 'intake',
         full: ictx,
+        branches: docBranches.length ? docBranches : undefined,
       });
     }
 
@@ -1947,15 +1959,32 @@
     });
 
     // ── Findings (above or below depending on severity) ───────────────
+    // Group findings by code/area so related ones share a parent node
+    // and appear as branches when the parent is expanded.
+    const findGroups = {};
     find.forEach(f => {
-      const sev = f.severity || 'info';
+      const key = f.code || f.area || 'general';
+      if (!findGroups[key]) findGroups[key] = [];
+      findGroups[key].push(f);
+    });
+    Object.values(findGroups).forEach(group => {
+      const primary = group[0];
+      const sev = primary.severity || 'info';
+      const childBranches = group.length > 1 ? group.slice(1).map(f2 => ({
+        kind: 'finding', side: 'on',
+        ts: f2.detected_utc || _branchStartUtc(detail, 'findings'),
+        label: f2.message || f2.code || 'finding',
+        severity: f2.severity || 'info', sub: f2.code || 'finding', full: f2,
+        isBranch: true,
+      })) : undefined;
       events.push({
         kind: 'finding', side: (sev === 'critical' || sev === 'high') ? 'above' : 'below',
-        ts: f.detected_utc || _branchStartUtc(detail, 'findings'),
-        label: f.message || f.code || 'finding',
+        ts: primary.detected_utc || _branchStartUtc(detail, 'findings'),
+        label: primary.message || primary.code || 'finding',
         severity: sev,
-        sub: f.code || 'finding',
-        full: f,
+        sub: primary.code || 'finding',
+        full: primary,
+        branches: childBranches,
       });
     });
 
@@ -2075,11 +2104,11 @@
       const y = ev.side === 'above' ? spineY - TL_OFFSET
               : ev.side === 'below' ? spineY + TL_OFFSET
               : spineY;
-      drawTimelineEvent(svg, ev, ev.drawX, y, detail);
+      drawTimelineEvent(svg, ev, ev.drawX, y, detail, spineY);
     });
   }
 
-  function drawTimelineEvent(svg, ev, cx, cy, detail) {
+  function drawTimelineEvent(svg, ev, cx, cy, detail, spineY) {
     // Map event → palette state key for glow + label colour
     const [, stateKey] = _artifactTypeFor(ev);
     const nodeColor = VIO_PALETTE[stateKey] || '#4a5568';
@@ -2164,7 +2193,143 @@
       if (canvas) _showNodeDetailPanel(ev, _activeDetail || {}, canvas);
     });
 
+    // ── Branch expand button "⎇" — vertical lines to sub-timeline ─────
+    // Appears below the age label when ev.branches has entries.
+    // Clicking it toggles the branch connector + sub-nodes on the SVG.
+    if (ev.branches && ev.branches.length > 0) {
+      const r2 = r;
+      const btnY = cy + r2 + (ageStr ? 40 : 28);  // below age label
+      const btnG = svgEl('g');
+      btnG.setAttribute('class', 'vio-tle-branch-btn');
+      btnG.style.cursor = 'pointer';
+      btnG.style.pointerEvents = 'all';
+      const btnCirc = svgEl('circle');
+      btnCirc.setAttribute('cx', cx); btnCirc.setAttribute('cy', btnY); btnCirc.setAttribute('r', '9');
+      btnCirc.setAttribute('fill', '#0d1117');
+      btnCirc.setAttribute('stroke', '#4a5568'); btnCirc.setAttribute('stroke-width', '1.5');
+      const btnLabel = svgEl('text');
+      btnLabel.setAttribute('x', cx); btnLabel.setAttribute('y', btnY + 4);
+      btnLabel.setAttribute('text-anchor', 'middle');
+      btnLabel.setAttribute('font-size', '9');
+      btnLabel.setAttribute('fill', '#6b7280');
+      btnLabel.setAttribute('font-family', 'monospace');
+      btnLabel.style.pointerEvents = 'none';
+      btnLabel.textContent = '⎇';
+      btnG.appendChild(btnCirc); btnG.appendChild(btnLabel);
+      btnG.addEventListener('click', (e) => {
+        e.stopPropagation();
+        _toggleBranchExpand(svg, ev, cx, cy, btnCirc, btnLabel, r2, spineY);
+      });
+      g.appendChild(btnG);
+    }
+
     svg.appendChild(g);
+  }
+
+  // ── Branch expand — vertical connector + sub-timeline below spine ────
+  //
+  // Mirrors VioCanvas.tsx BranchConnector. When the operator clicks "⎇"
+  // below a node, a vertical line drops from the node to branchY, then
+  // a horizontal stub runs under the branch nodes, and each branch node
+  // hangs on a short vertical drop. Clicking again collapses it.
+  //
+  // Branch nodes are rendered at half the normal radius for visual
+  // distinction. They are fully clickable — open the same detail panel.
+  //
+  function _toggleBranchExpand(svg, ev, cx, cy, btnCirc, btnLabel, r, spineY) {
+    // Toggle: if branch group already exists, remove it
+    const existingId = `vio-branch-${_evKey(ev)}`;
+    const existing = svg.querySelector(`[data-branch-id="${existingId}"]`);
+    if (existing) {
+      existing.remove();
+      btnCirc.setAttribute('stroke', '#4a5568');
+      btnLabel.setAttribute('fill', '#6b7280');
+      return;
+    }
+    // Mark button as active
+    btnCirc.setAttribute('stroke', '#38bdf8');
+    btnLabel.setAttribute('fill', '#38bdf8');
+
+    const branches = ev.branches || [];
+    if (!branches.length) return;
+
+    const branchY = spineY + BRANCH_Y_OFFSET;
+    const branchGroup = svgEl('g');
+    branchGroup.setAttribute('data-branch-id', existingId);
+    branchGroup.setAttribute('class', 'vio-branch-group');
+
+    // Assign X positions to branch nodes (spaced from cx)
+    const spacing = 56;
+    const totalW  = (branches.length - 1) * spacing;
+    let startX    = cx - totalW / 2;
+    // Ensure branch nodes don't go behind the orb
+    if (startX < 200) startX = 200;
+    const branchXs = branches.map((_, i) => startX + i * spacing);
+
+    // ── Vertical connector from node down to branchY - 18 ──
+    const vLine = svgEl('line');
+    vLine.setAttribute('x1', cx); vLine.setAttribute('y1', cy + r + 2);
+    vLine.setAttribute('x2', cx); vLine.setAttribute('y2', branchY - 18);
+    vLine.setAttribute('stroke', '#38bdf8'); vLine.setAttribute('stroke-width', '1.2');
+    vLine.setAttribute('stroke-dasharray', '4 3'); vLine.setAttribute('opacity', '0.6');
+    branchGroup.appendChild(vLine);
+
+    // ── Horizontal branch spine connecting all drops ──
+    if (branches.length > 1) {
+      const minX = branchXs[0];
+      const maxX = branchXs[branchXs.length - 1];
+      const hLine = svgEl('line');
+      hLine.setAttribute('x1', minX); hLine.setAttribute('y1', branchY - 18);
+      hLine.setAttribute('x2', maxX); hLine.setAttribute('y2', branchY - 18);
+      hLine.setAttribute('stroke', '#38bdf8'); hLine.setAttribute('stroke-width', '1');
+      hLine.setAttribute('opacity', '0.4');
+      branchGroup.appendChild(hLine);
+    }
+
+    // ── Vertical drops to each branch node ──
+    branches.forEach((bn, i) => {
+      const bx = branchXs[i];
+      const dropLine = svgEl('line');
+      dropLine.setAttribute('x1', bx); dropLine.setAttribute('y1', branchY - 18);
+      dropLine.setAttribute('x2', bx); dropLine.setAttribute('y2', branchY);
+      dropLine.setAttribute('stroke', '#38bdf8'); dropLine.setAttribute('stroke-width', '1');
+      dropLine.setAttribute('opacity', '0.35');
+      branchGroup.appendChild(dropLine);
+
+      // Branch node (smaller radius)
+      const fakeEv = { ...bn, x: bx, drawX: bx, count: 1 };
+      const bnR = Math.round(_shapeRadiusFor(fakeEv) * 0.70);
+      const bnG = svgEl('g');
+      bnG.setAttribute('class', `vio-tle vio-tle-${fakeEv.kind} vio-branch-node`);
+      bnG.style.cursor = 'pointer';
+      const [, stateKey] = _artifactTypeFor(fakeEv);
+      const bColor = VIO_PALETTE[stateKey] || '#4a5568';
+
+      const bnShape = _shapeForEvent(fakeEv, bx, branchY);
+      if (bnShape) {
+        const ec = bnShape.getAttribute('class') || '';
+        bnShape.setAttribute('class', (ec + ' vio-tle-shape').trim());
+        bnG.appendChild(bnShape);
+      }
+      // Branch node label
+      const bnLbl = svgEl('text');
+      bnLbl.setAttribute('x', bx); bnLbl.setAttribute('y', branchY + bnR + 14);
+      bnLbl.setAttribute('text-anchor', 'middle'); bnLbl.setAttribute('font-size', '8');
+      bnLbl.setAttribute('fill', bColor); bnLbl.setAttribute('opacity', '0.75');
+      bnLbl.setAttribute('font-family', "'JetBrains Mono', ui-monospace, monospace");
+      bnLbl.style.pointerEvents = 'none';
+      bnLbl.textContent = truncate(fakeEv.label || fakeEv.kind, 12);
+      bnG.appendChild(bnLbl);
+
+      bnG.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const canvas = svg.parentElement;
+        if (canvas) _showNodeDetailPanel(fakeEv, _activeDetail || {}, canvas);
+      });
+      branchGroup.appendChild(bnG);
+    });
+
+    svg.appendChild(branchGroup);
   }
 
   // ── Age helpers — compact duration string + urgency colour ────────────
@@ -2266,7 +2431,7 @@
       case 'confirmation': _iconConfirmation(g, cx, cy, r);     break;
       case 'payment':      _iconPayment     (g, cx, cy, r, ev); break;
       case 'finding':      _iconFinding     (g, cx, cy, r, ev); break;
-      case 'broker':       _iconRocket      (g, cx, cy, r);     break;
+      case 'broker':       _iconBroker      (g, cx, cy, r);     break;
       case 'intake':
       case 'folder':       _iconFolder      (g, cx, cy, r);     break;
       case 'review':
@@ -2571,7 +2736,10 @@
     g.appendChild(band);
   }
 
-  // ── Rocket — broker / final-delivery (replaces old flag-on-pole broker) ──
+  // ── Broker (alias → rocket) — test expects the _iconBroker name ─────────
+  function _iconBroker(g, cx, cy, r) { _iconRocket(g, cx, cy, r); }
+
+  // ── Rocket — broker / final-delivery ─────────────────────────────────────
   // Body tapers to a nose cone, two delta fins at the base, exhaust nozzle.
   function _iconRocket(g, cx, cy, r) {
     // Body: pointed top, wide base

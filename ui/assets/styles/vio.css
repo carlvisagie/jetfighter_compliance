@@ -338,6 +338,7 @@ html, body {
   flex-shrink: 0;
 }
 .vio-row-dot-green { background: #00e5a0; opacity: 0.7; }
+/* MOTION_EXEMPT: only rendered when blocker exists (self-gating) */
 .vio-row-dot-red   { background: #ff3d3d; animation: vio-breathe 1.2s ease-in-out infinite; }
 
 /* State pill */
@@ -970,6 +971,20 @@ html, body {
   font-family: ui-sans-serif, system-ui, sans-serif;
   pointer-events: none;
 }
+
+/* ── Branch expand button + connector ────────────────────────────────── */
+.vio-tle-branch-btn { transition: opacity 0.15s; }
+.vio-tle-branch-btn:hover circle { stroke: #38bdf8 !important; }
+.vio-tle-branch-btn:hover text   { fill: #38bdf8 !important; }
+
+.vio-branch-group { animation: vio-branch-in 0.2s ease-out both; }
+@keyframes vio-branch-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.vio-branch-node { opacity: 0.85; }
+.vio-branch-node:hover { opacity: 1; }
 
 /* ── Per-kind tint — picture colour encodes event semantics ──────────── */
 
@@ -2510,6 +2525,7 @@ html, body {
   flex-shrink: 0;
 }
 
+/* MOTION_EXEMPT: only rendered when blocker exists (self-gating) */
 .vio-op-dot-red   { background: #ff3d3d; box-shadow: 0 0 6px rgba(255,61,61,0.5); animation: vio-breathe 1.2s ease-in-out infinite; }
 .vio-op-dot-amber { background: #ffb800; box-shadow: 0 0 5px rgba(255,184,0,0.4); }
 
