@@ -644,19 +644,68 @@ html, body {
   min-width: 100%;
 }
 
-/* ── Spine + stages ────────────────────────────────────────────────────── */
+/* ── Spine — the story line (2026-06-05 revolution) ──────────────────── */
+
+/* PAST RIVER — filled variable-thickness path. Stage-state drives
+ * colour; activity-density drives the local thickness (computed in JS
+ * so the path's geometry already carries the information).            */
+.vio-l2-spine-river {
+  fill: var(--st-healthy);
+  fill-opacity: 0.92;
+  pointer-events: none;
+}
+.vio-l2-spine-river[data-stage-state="healthy"]        { fill: var(--st-healthy); }
+.vio-l2-spine-river[data-stage-state="stalled"]        { fill: var(--st-stalled);      fill-opacity: 0.78; }
+.vio-l2-spine-river[data-stage-state="failed"]         { fill: var(--st-failed); }
+.vio-l2-spine-river[data-stage-state="waiting_client"] { fill: var(--st-waiting); }
+.vio-l2-spine-river[data-stage-state="inconsistent"]   { fill: var(--st-inconsistent); }
+.vio-l2-spine-river[data-stage-state="done"]           { fill: var(--st-done); }
+
+/* LIVE TIP — soft glow at the rightmost end of the past river.
+ * STATIC (no animation; recent activity is not a demand for
+ * attention). Reads "the journey has reached up to here". */
+.vio-l2-spine-livetip {
+  fill: var(--st-healthy);
+  fill-opacity: 0.35;
+  pointer-events: none;
+  filter: drop-shadow(0 0 6px var(--st-healthy));
+}
+.vio-l2-spine-livetip[data-stage-state="stalled"]        { fill: var(--st-stalled);      filter: drop-shadow(0 0 6px var(--st-stalled)); }
+.vio-l2-spine-livetip[data-stage-state="failed"]         { fill: var(--st-failed);       filter: drop-shadow(0 0 6px var(--st-failed)); }
+.vio-l2-spine-livetip[data-stage-state="waiting_client"] { fill: var(--st-waiting);      filter: drop-shadow(0 0 6px var(--st-waiting)); }
+.vio-l2-spine-livetip[data-stage-state="inconsistent"]   { fill: var(--st-inconsistent); filter: drop-shadow(0 0 6px var(--st-inconsistent)); }
+.vio-l2-spine-livetip[data-stage-state="done"]           { fill: var(--st-done);         filter: drop-shadow(0 0 6px var(--st-done)); }
+
+/* BREAK SCAR — red X marks at the X-positions of critical/high
+ * findings. Sits on top of the river so the operator's eye lands
+ * on "this is where it broke" without any text.                    */
+.vio-l2-spine-scar line {
+  stroke: var(--st-failed);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px var(--st-failed));
+}
+.vio-l2-spine-scar[data-severity="high"] line {
+  stroke: var(--st-waiting);
+  stroke-width: 1.8;
+  filter: drop-shadow(0 0 2px var(--st-waiting));
+}
+.vio-l2-spine-scar { pointer-events: auto; cursor: help; }
+
+/* Skeleton fallback — used by renderSkeletonSpine and by tiny
+ * pipelines with no past events yet. */
 .vio-l2-spine-past {
   stroke: var(--st-healthy);
   stroke-width: 2.5;
   stroke-linecap: round;
 }
-.vio-l2-spine-past[data-stage-state="healthy"]        { stroke: var(--st-healthy); }
 .vio-l2-spine-past[data-stage-state="stalled"]        { stroke: var(--st-stalled);      stroke-width: 1.6; }
 .vio-l2-spine-past[data-stage-state="failed"]         { stroke: var(--st-failed); }
 .vio-l2-spine-past[data-stage-state="waiting_client"] { stroke: var(--st-waiting); }
 .vio-l2-spine-past[data-stage-state="inconsistent"]   { stroke: var(--st-inconsistent); }
 .vio-l2-spine-past[data-stage-state="done"]           { stroke: var(--st-done);         stroke-width: 1.8; }
 
+/* FUTURE TAIL — dashed thin line from live tip to spine end. */
 .vio-l2-spine-future {
   stroke: var(--vio-text-faint);
   stroke-width: 1.2;
@@ -664,54 +713,277 @@ html, body {
   opacity: 0.55;
 }
 
-/* ── L2 spine SIGNAL layers ────────────────────────────────────────────
- * Carl's 2026-06-05 directive: "the yellow line is a form of
- * communication getting thicker thinner have breakes pulse in certain
- * areas — I AM DESCRIBING A REVOLUTION IN COMUNICATING BIG CHUNKS OF
- * INFORMATION TO OPERATOR AT A GLANCE WITHOUT USING WORDS/TEXT."
- *
- * Three layers ride on top of the base spine and turn the line into a
- * conversation rendered in light:
- *   · density band — vertical micro-bars below the spine, one per
- *     activity bucket. Tall bars = busy stretch, short bars = quiet.
- *   · gap markers — `||` glyphs at long silences (>12h) between events.
- *   · live pulse — soft animated halo at the live tip when the most
- *     recent event landed in the last 60 minutes. */
-.vio-l2-spine-signal {
-  fill: var(--st-healthy);
-  pointer-events: none;
-}
+/* GAP MARKERS — `||` glyphs at >=12h silences in the past. Still. */
 .vio-l2-spine-gap {
   stroke: var(--vio-text-faint);
   stroke-width: 1.2;
   opacity: 0.7;
   pointer-events: none;
 }
-/* No `.vio-l2-spine-live` rule. The spine terminates at the live point;
- * that line-end IS the "you are here" marker, statically. Carl's rule
- * (2026-06-05): continuous motion is reserved for unresolved demand on
- * operator attention. Recent activity is not a demand. */
 
-.vio-l2-stage {
-  cursor: pointer;
+/* NOW MARKER — vertical bright bar at present-time X. Static. The cap
+ * on top is a tiny inverted triangle, so the operator's eye snaps to
+ * "you are here" without text. */
+.vio-l2-now { pointer-events: none; }
+.vio-l2-now-line {
+  stroke: var(--vio-text);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  opacity: 0.85;
 }
-.vio-l2-stage circle {
+.vio-l2-now-cap {
+  fill: var(--vio-text);
+  opacity: 0.9;
+}
+/* State-tinted version — when the company is in a critical or
+ * waiting state, the now-marker takes on that colour so the eye
+ * registers both "where" and "why" at the same time. */
+.vio-l2-now[data-stage-state="failed"]  .vio-l2-now-line,
+.vio-l2-now[data-stage-state="failed"]  .vio-l2-now-cap  { stroke: var(--st-failed);  fill: var(--st-failed); }
+.vio-l2-now[data-stage-state="stalled"] .vio-l2-now-line,
+.vio-l2-now[data-stage-state="stalled"] .vio-l2-now-cap  { stroke: var(--st-stalled); fill: var(--st-stalled); }
+.vio-l2-now[data-stage-state="waiting_client"] .vio-l2-now-line,
+.vio-l2-now[data-stage-state="waiting_client"] .vio-l2-now-cap { stroke: var(--st-waiting); fill: var(--st-waiting); }
+.vio-l2-now[data-stage-state="done"] .vio-l2-now-line,
+.vio-l2-now[data-stage-state="done"] .vio-l2-now-cap     { stroke: var(--st-done);    fill: var(--st-done); }
+
+/* STAGE BACKBONE — 7 hexagons across the spine. Past=filled state colour,
+ * Current=stroke + glow + larger, Future=ghost-dashed empty. NO TEXT. */
+.vio-l2-stage-hex { cursor: default; }
+.vio-l2-stage-hex-shape { transition: stroke-width 0.15s ease; }
+
+.vio-l2-stage-past .vio-l2-stage-hex-shape {
+  fill: var(--st-healthy);
+  stroke: var(--st-healthy);
+  stroke-width: 1;
+  opacity: 0.78;
+}
+.vio-l2-stage-current .vio-l2-stage-hex-shape {
   fill: var(--vio-bg);
-  stroke: var(--vio-text-dim);
-  stroke-width: 1.5;
-  transition: stroke 0.18s;
+  stroke: var(--st-healthy);
+  stroke-width: 2.4;
+  filter: drop-shadow(0 0 4px var(--st-healthy));
 }
-.vio-l2-stage.past circle   { fill: var(--st-healthy); stroke: var(--st-healthy); }
-.vio-l2-stage.future circle { fill: var(--vio-bg);     stroke: var(--vio-text-faint); }
-.vio-l2-stage:hover circle  { stroke: var(--vio-text); }
-.vio-l2-stage-label {
-  fill: var(--vio-text-faint);
+.vio-l2-stage-current[data-stage-state="stalled"]        .vio-l2-stage-hex-shape { stroke: var(--st-stalled);      filter: drop-shadow(0 0 4px var(--st-stalled)); }
+.vio-l2-stage-current[data-stage-state="failed"]         .vio-l2-stage-hex-shape { stroke: var(--st-failed);       filter: drop-shadow(0 0 4px var(--st-failed)); }
+.vio-l2-stage-current[data-stage-state="waiting_client"] .vio-l2-stage-hex-shape { stroke: var(--st-waiting);      filter: drop-shadow(0 0 4px var(--st-waiting)); }
+.vio-l2-stage-current[data-stage-state="inconsistent"]   .vio-l2-stage-hex-shape { stroke: var(--st-inconsistent); filter: drop-shadow(0 0 4px var(--st-inconsistent)); }
+.vio-l2-stage-current[data-stage-state="done"]           .vio-l2-stage-hex-shape { stroke: var(--st-done);         filter: drop-shadow(0 0 4px var(--st-done)); }
+
+.vio-l2-stage-future .vio-l2-stage-hex-shape {
+  fill: none;
+  stroke: var(--vio-text-faint);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+  opacity: 0.55;
+}
+
+/* Time-scale labels — single quiet date on the left edge. */
+.vio-l2-spine-time-label {
+  fill: var(--vio-text-faint, rgba(255,255,255,0.40));
   font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+
+/* ── Timeline-event bundle count badge ───────────────────────────────── */
+.vio-tle-count {
+  fill: var(--vio-bg);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  pointer-events: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────────── *
+ *  ICON PALETTE — pictogram primitives (Carl 2026-06-05: "go hog wild")
+ *
+ *  Each event renders as a recognizable pictogram (folded-corner page,
+ *  hourglass, warning triangle, dollar coin, finish flag, etc.). The
+ *  pictogram IS the meaning; tooltip <title> still carries the label
+ *  for hover, but the operator's eye registers the *kind* of event
+ *  from the picture alone. Per-kind tint comes from the parent
+ *  .vio-tle-${kind} selector overriding the utility fills/strokes
+ *  below.
+ * ─────────────────────────────────────────────────────────────────────── */
+.vio-icon                 { pointer-events: none; }
+
+/* Utility primitives — drawers reuse these to keep the line-work
+ * consistent across pictograms. */
+.vio-icon-fill            { fill: var(--vio-text);     stroke: none; }
+.vio-icon-outline         { fill: none; stroke: var(--vio-text); stroke-width: 1.4; stroke-linejoin: round; }
+.vio-icon-stroke          { fill: none; stroke: var(--vio-text); stroke-width: 1.2; stroke-linejoin: round; stroke-linecap: round; }
+.vio-icon-stroke-bold     { fill: none; stroke: var(--vio-text); stroke-width: 1.8; stroke-linecap: round; }
+.vio-icon-fold            { fill: none; stroke: var(--vio-bg);   stroke-width: 0.8; stroke-linejoin: round; opacity: 0.85; }
+.vio-icon-rule            { stroke: var(--vio-bg);     stroke-width: 0.7; opacity: 0.6; }
+.vio-icon-bolt            { fill: var(--st-done);      stroke: var(--st-done); stroke-width: 0.6; }
+.vio-icon-inner           { fill: var(--vio-bg);       fill-opacity: 0.35; stroke: none; }
+.vio-icon-check           { fill: none; stroke: var(--st-done); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.vio-icon-glyph {
+  fill: var(--vio-bg);
+  font-size: 13px;
+  font-weight: 800;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  pointer-events: none;
+}
+
+/* ── Per-kind tint — picture colour encodes event semantics ──────────── */
+
+/* Paper — neutral; ruling lines visible. Generated docs are organism-
+ * produced so they take the "done" green tint. */
+.vio-tle-paper .vio-icon-fill { fill: var(--vio-text-dim); }
+.vio-tle-paper[data-sub="generated"] .vio-icon-fill { fill: var(--st-done); opacity: 0.92; }
+
+/* Gap — ghost-paper outline tints by priority; `?` glyph matches. */
+.vio-tle-gap .vio-icon-outline { stroke: var(--st-waiting); stroke-dasharray: 3 2; }
+.vio-tle-gap .vio-icon-glyph   { fill:   var(--st-waiting); }
+.vio-tle-gap[data-priority="high"]     .vio-icon-outline,
+.vio-tle-gap[data-priority="critical"] .vio-icon-outline { stroke: var(--st-failed); stroke-width: 1.8; }
+.vio-tle-gap[data-priority="high"]     .vio-icon-glyph,
+.vio-tle-gap[data-priority="critical"] .vio-icon-glyph   { fill:   var(--st-failed); }
+
+/* Issue — flame/hourglass/bubble all driven from sub on parent. */
+.vio-tle-issue .vio-icon-fill { fill: var(--st-waiting); }
+.vio-tle-issue .vio-icon-glyph { fill: var(--vio-bg); }
+.vio-tle-issue[data-sub="urgent"]   .vio-icon-fill  { fill: var(--st-failed); }
+.vio-tle-issue[data-sub="urgent"]   .vio-icon-inner { fill: var(--st-waiting); fill-opacity: 0.75; }
+.vio-tle-issue[data-sub="deadline"] .vio-icon-fill  { fill: var(--st-waiting); }
+.vio-tle-issue[data-sub="note"]     .vio-icon-outline { stroke: var(--vio-text-dim); fill: var(--vio-surface-soft, rgba(255,255,255,0.05)); }
+
+/* Phase — hexagon with green check. */
+.vio-tle-phase .vio-icon-outline { stroke: var(--st-done); fill: var(--vio-bg); }
+.vio-tle-phase .vio-icon-check   { stroke: var(--st-done); }
+
+/* Milestone — green star. */
+.vio-tle-milestone .vio-icon-fill { fill: var(--st-done); }
+
+/* Confirmation — open circle + `?` in amber. */
+.vio-tle-confirmation .vio-icon-outline { stroke: var(--st-waiting); }
+.vio-tle-confirmation .vio-icon-glyph   { fill:   var(--st-waiting); }
+
+/* Payment — envelope outline in healthy-green; coin in done-green. */
+.vio-tle-payment .vio-icon-outline      { stroke: var(--st-healthy); }
+.vio-tle-payment .vio-icon-stroke       { stroke: var(--st-healthy); }
+.vio-tle-payment[data-status="paid"] .vio-icon-fill  { fill: var(--st-done); }
+.vio-tle-payment[data-status="paid"] .vio-icon-glyph { fill: var(--vio-bg); }
+
+/* Finding — warning triangle (amber→red), critical = stop-sign octagon. */
+.vio-tle-finding .vio-icon-fill { fill: var(--st-waiting); }
+.vio-tle-finding .vio-icon-glyph { fill: var(--vio-bg); }
+.vio-tle-finding[data-severity="high"]     .vio-icon-fill { fill: var(--st-failed); }
+.vio-tle-finding[data-severity="critical"] .vio-icon-fill { fill: var(--st-failed); }
+
+/* Broker — done-green finish flag on a neutral pole. */
+.vio-tle-broker .vio-icon-fill        { fill: var(--st-done); }
+.vio-tle-broker .vio-icon-stroke-bold { stroke: var(--vio-text); }
+
+/* ── Stats panel (top-right glance numbers) ──────────────────────────── */
+.vio-l2-stats { pointer-events: none; }
+.vio-l2-stat-big {
+  fill: var(--vio-text);
+  font-size: 32px;
+  font-weight: 700;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.02em;
+}
+.vio-l2-stat-tiny {
+  fill: var(--vio-text-dim);
+  font-size: 14px;
+  font-weight: 500;
   font-family: ui-sans-serif, system-ui, sans-serif;
 }
-.vio-l2-stage:hover .vio-l2-stage-label { fill: var(--vio-text); }
+.vio-l2-stat-label {
+  fill: var(--vio-text-faint);
+  font-size: 10px;
+  font-weight: 600;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  text-transform: lowercase;
+  letter-spacing: 0.08em;
+}
+.vio-l2-stat[data-tone="healthy"] .vio-l2-stat-big { fill: var(--st-healthy); }
+.vio-l2-stat[data-tone="done"]    .vio-l2-stat-big { fill: var(--st-done); }
+.vio-l2-stat[data-tone="waiting"] .vio-l2-stat-big { fill: var(--st-waiting); }
+.vio-l2-stat[data-tone="stalled"] .vio-l2-stat-big { fill: var(--st-stalled); }
+.vio-l2-stat[data-tone="failed"]  .vio-l2-stat-big { fill: var(--st-failed); }
+
+/* ── Demand marker (the ONE breathing arrow) ─────────────────────────── */
+/* Carl 2026-06-05 + VIO doctrine §13: continuous motion is reserved
+ * exclusively for unresolved demands on operator attention. THIS is
+ * that motion. The DOM element only exists while computeDemand()
+ * returns a demand — the moment the demand is resolved, the element
+ * is removed entirely on the next render, so the animation can never
+ * run against a resolved state. The whole element is the attention-
+ * demand state; gating per-selector via data-stage-state would be
+ * redundant. */
+.vio-l2-demand { pointer-events: none; }
+.vio-l2-demand-arrow {
+  fill: var(--st-waiting);
+  stroke: var(--st-waiting);
+  stroke-width: 1;
+  transform-origin: center;
+  transform-box: fill-box;
+  /* MOTION_EXEMPT: element only exists while demand unresolved. */
+  animation: vio-demand-breathe 2.4s ease-in-out infinite;
+}
+.vio-l2-demand-halo {
+  fill: var(--st-waiting);
+  fill-opacity: 0.18;
+  stroke: none;
+  transform-origin: center;
+  transform-box: fill-box;
+  /* MOTION_EXEMPT: element only exists while demand unresolved. */
+  animation: vio-demand-halo 2.4s ease-in-out infinite;
+}
+.vio-l2-demand-label {
+  fill: var(--vio-text);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+}
+.vio-l2-demand[data-kind="finding"] .vio-l2-demand-arrow,
+.vio-l2-demand[data-kind="finding"] .vio-l2-demand-halo { fill: var(--st-failed); stroke: var(--st-failed); }
+.vio-l2-demand[data-kind="failed"]  .vio-l2-demand-arrow,
+.vio-l2-demand[data-kind="failed"]  .vio-l2-demand-halo { fill: var(--st-failed); stroke: var(--st-failed); }
+.vio-l2-demand[data-kind="stall"]   .vio-l2-demand-arrow,
+.vio-l2-demand[data-kind="stall"]   .vio-l2-demand-halo { fill: var(--st-stalled); stroke: var(--st-stalled); }
+.vio-l2-demand[data-kind="payment"] .vio-l2-demand-arrow,
+.vio-l2-demand[data-kind="payment"] .vio-l2-demand-halo { fill: var(--st-healthy); stroke: var(--st-healthy); }
+
+@keyframes vio-demand-breathe {
+  0%, 100% { transform: translateY(0)    scale(1);    opacity: 1; }
+  50%      { transform: translateY(-3px) scale(1.05); opacity: 0.92; }
+}
+@keyframes vio-demand-halo {
+  0%, 100% { transform: scale(1);    opacity: 0.18; }
+  50%      { transform: scale(1.18); opacity: 0.32; }
+}
+
+/* ── Orb age arc — thin ring inset showing time-in-stage as % of SLA ── */
+.vio-l2-orb-age-arc {
+  stroke: var(--vio-text-dim);
+  stroke-width: 2;
+  stroke-linecap: round;
+  fill: none;
+  opacity: 0.85;
+  pointer-events: none;
+}
+.vio-l2-orb-age-arc[data-overdue="1"] {
+  stroke: var(--st-stalled);
+  opacity: 1;
+}
+
+/* Orb state tint — the static orb stroke takes on the company's state
+ * colour so the operator reads "what state is this company in" without
+ * any text. State lives on the group via data-stage-state. */
+.vio-l2-orb-group[data-stage-state="healthy"]        .vio-l2-orb { stroke: var(--st-healthy); }
+.vio-l2-orb-group[data-stage-state="stalled"]        .vio-l2-orb { stroke: var(--st-stalled); }
+.vio-l2-orb-group[data-stage-state="failed"]         .vio-l2-orb { stroke: var(--st-failed);  stroke-width: 3.2; }
+.vio-l2-orb-group[data-stage-state="waiting_client"] .vio-l2-orb { stroke: var(--st-waiting); }
+.vio-l2-orb-group[data-stage-state="inconsistent"]   .vio-l2-orb { stroke: var(--st-inconsistent); }
+.vio-l2-orb-group[data-stage-state="done"]           .vio-l2-orb { stroke: var(--st-done); }
 
 /* Time-scale labels — "intake_created" on the left, "now" on the right.
  * Doctrine §5/§11: the spine is a timeline; identity-only text. */

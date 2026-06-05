@@ -599,25 +599,30 @@
   function renderLandscape(canvas, company, detail) {
     canvas.innerHTML = '';
 
-    // Carl 2026-06-05: "let us put everything ON THE TIMELINE instead
-    // of under over below". The legacy cluster layout (computeBranches
-    // / drawBranch / spreadClusters) is no longer called. Every piece
-    // of activity becomes a discrete SHAPE on the spine at its real
-    // timestamp — squares for papers, triangles for issues + gaps,
-    // hexagons for phase completion, circles for milestones,
-    // starbursts for findings/broker, diamonds for payment. The
-    // sketch's grammar, one event = one mark.
+    // Carl 2026-06-05 (the revolution mandate): "Make it a true work of
+    // new level of Genius, imagination serving as the Apex of giving as
+    // much information at a glance as we can imagine."
+    //
+    // The composition layers, drawn in z-order:
+    //
+    //   1. SPINE RIVER     — variable-thickness past + dashed future
+    //   2. STAGE BACKBONE  — 7 ghost-hexagons across the spine (no text)
+    //   3. NOW MARKER      — vertical glow at present-time X
+    //   4. EVENT SHAPES    — papers / gaps / findings / etc. on/near spine,
+    //                        sized by severity & bundled when crowded
+    //   5. ORB             — state-coloured ring + age arc + initials,
+    //                        click reveals card with full identity
+    //   6. STATS PANEL     — top-right: 3 glance-numbers (papers, gaps,
+    //                        stage age) for the unavoidable counts
+    //   7. DEMAND MARKER   — the one breathing arrow above the spine
+    //                        pointing at the most important next action
 
     const spineY = L.spineY;
     const axis   = _timeAxis(detail);
     const events = computeTimelineEvents(detail, axis);
 
-    // Width = the spine's pixel extent plus the orb's left margin and
-    // a right-side breathing room for the rightmost shape's tooltip
-    // hit-area. Height stays compact now that nothing stacks above or
-    // below in distant clusters.
     const w = Math.max(spineEndX(), L.spineX0 + L.spineWidth) + 240;
-    const h = spineY + 120;
+    const h = spineY + 160;
 
     const svg = svgEl('svg');
     svg.setAttribute('class', 'vio-l2-svg');
@@ -628,24 +633,38 @@
     drawSpine(svg, company, spineY, axis, detail);
     drawTimelineEvents(svg, events, spineY, detail);
     drawOrb(svg, company, spineY);
+    drawStatsPanel(svg, detail, w);
+    drawDemandMarker(svg, detail, axis, spineY);
 
     canvas.appendChild(svg);
   }
 
-  // ── Spine + stage anchors ─────────────────────────────────────────────
-  // Doctrine §5: the spine is a timeline. Left edge = intake_created,
-  // right edge = now. Past stages render at the timestamp they actually
-  // started; future stages render as faint placeholders evenly spaced
-  // along the future-dashed segment so the 7-stage legend stays
-  // readable without lying about when those stages happened.
+  // ── Spine — the story line (Carl 2026-06-05 revolution) ──────────────
+  //
+  // Doctrine §11 made flesh: the spine is no longer a flat ruler. It is
+  // a RIVER whose thickness encodes activity density per time-window, a
+  // dashed-future ghost extending to the right edge, a glowing NOW
+  // marker, and a ghost-hexagon backbone of the 7 KYC stages.
+  //
+  // Five forensic substrates speak through the spine:
+  //
+  //   1. River (past)  — variable-width filled path. Thin where nothing
+  //      happened in a window, thick where many custody events landed.
+  //      An operator reads the rhythm of work at one glance.
+  //   2. Future tail   — thin dashed line from live-tip to spine end,
+  //      signalling "journey not yet complete".
+  //   3. Now marker    — vertical glowing bar at the X corresponding
+  //      to Date.now(); a tiny inverted-triangle cap on top says
+  //      "this is the present moment".
+  //   4. Stage backbone — 7 hexagons across the spine (past=filled
+  //      with state colour, current=glowing larger, future=ghost-
+  //      dashed). NO TEXT LABELS. The shape order IS the meaning.
+  //   5. Gap markers   — `||` glyphs at long quiet stretches between
+  //      events (>=12h). Visible silences are themselves information.
+  //
+  // The skeleton path (no axis, no detail) renders just the flat thin
+  // spine + future tail so the L2 canvas is never empty during loading.
   function drawSpine(svg, company, spineY = L.spineY, axis, detail) {
-    // SAFETY: skeleton renders (renderSkeletonSpine) call drawSpine without
-    // an axis. Until 2026-06-05 this silently threw `Cannot read properties
-    // of undefined (reading 'tMin')` inside the async openLevel2 — caught
-    // only as an unhandled rejection, leaving operators staring at an empty
-    // canvas with just "overview" in the side panel. _timeAxis(undefined)
-    // is total: it returns a one-day-wide axis anchored at "now", which is
-    // the right skeleton behaviour (no past, just a placeholder spine).
     if (!axis) axis = _timeAxis(detail);
     const events = (detail && detail.custody && detail.custody.events) || [];
     const lastEventT = events.length
@@ -653,8 +672,23 @@
       : 0;
     const liveX = lastEventT > 0 ? axis.timeToX(lastEventT) : L.spineX0;
     const endX  = spineEndX();
+    const state = company.stage_state || (detail && detail.stage_state) || 'healthy';
 
-    // Future dashed segment — from the last known event to "now".
+    // ── PAST: variable-thickness river (or thin flat line if no events) ──
+    if (events.length && liveX > L.spineX0) {
+      _drawSpineRiver(svg, spineY, events, axis, L.spineX0, liveX, state);
+    } else {
+      const flat = svgEl('line');
+      flat.setAttribute('class', 'vio-l2-spine-past');
+      flat.setAttribute('data-stage-state', state);
+      flat.setAttribute('x1', L.spineX0);
+      flat.setAttribute('x2', Math.max(L.spineX0 + 4, liveX));
+      flat.setAttribute('y1', spineY);
+      flat.setAttribute('y2', spineY);
+      svg.appendChild(flat);
+    }
+
+    // ── FUTURE: dashed thin tail from live tip to spine end ──
     if (liveX < endX) {
       const future = svgEl('line');
       future.setAttribute('class', 'vio-l2-spine-future');
@@ -664,143 +698,228 @@
       future.setAttribute('y2', spineY);
       svg.appendChild(future);
     }
-    // Past segment — from intake to the most recent event. The line
-    // itself encodes state (colour + pulse) as §11 of the doctrine
-    // requires; activity-band thickness is inherited from the company
-    // payload so the spine reads heavier for active intakes.
-    const past = svgEl('line');
-    past.setAttribute('class', 'vio-l2-spine-past');
-    past.setAttribute('data-stage-state', company.stage_state || 'healthy');
-    past.setAttribute('x1', L.spineX0);
-    past.setAttribute('x2', liveX);
-    past.setAttribute('y1', spineY);
-    past.setAttribute('y2', spineY);
-    svg.appendChild(past);
 
-    // Stage anchors. Past/current stages are positioned at their actual
-    // start timestamp. Future stages are evenly distributed across the
-    // remaining future-segment so the legend remains a stable backbone
-    // even when most of the journey hasn't happened yet.
+    // ── GAP MARKERS: `||` at >=12h silences ──
+    _drawSpineGaps(svg, spineY, events, axis);
+
+    // ── BREAK SCARS: red X-marks where critical/high findings landed ──
+    // The river itself just shows activity density; the scar overlay
+    // tells the operator "this is where it broke" without a single word.
+    if (detail) _drawSpineScars(svg, spineY, detail, axis);
+
+    // ── STAGE BACKBONE: 7 ghost-hexagons across the spine, no text ──
+    _drawStageBackbone(svg, detail, axis, spineY, liveX);
+
+    // ── NOW MARKER: glowing vertical bar at present-time X ──
+    if (detail) _drawNowMarker(svg, axis, spineY, state);
+
+    // ── Single quiet date label at the spine's left edge ──
+    if (detail && axis.tMin) {
+      const startLabel = svgEl('text');
+      startLabel.setAttribute('class', 'vio-l2-spine-time-label');
+      startLabel.setAttribute('x', L.spineX0);
+      startLabel.setAttribute('y', spineY + 28);
+      startLabel.setAttribute('text-anchor', 'start');
+      startLabel.textContent = new Date(axis.tMin).toISOString().slice(0, 10);
+      svg.appendChild(startLabel);
+    }
+  }
+
+  // Build the river — a filled SVG path whose vertical extent at each
+  // X encodes a MYRIAD of situations along the timeline (Carl 2026-
+  // 06-05: "the timeline itself must convey a myriad of information
+  // and situations — thicker lines for some things thinner for others
+  // a broken line for some a choked out line in some cases"):
+  //
+  //   · BUSY  — many events in a window → river SWELLS
+  //   · QUIET — few events              → river NARROWS
+  //   · STALL — gap >= 24h with no events → river CHOKES (collapses
+  //                                          to a hairline through
+  //                                          the stall window)
+  //   · BREAK — critical/high finding present → at the finding's X,
+  //              river is OVERLAID with a vivid red X-scar via a
+  //              second pass (drawn outside this function in JS so
+  //              the scar always sits ON TOP of the river)
+  //
+  // Smoothed with a 3-point kernel so dense bursts read as a swell
+  // instead of a comb. One <path> element, cheap to render.
+  function _drawSpineRiver(svg, spineY, events, axis, x0, x1, state) {
+    const BUCKETS = 80;
+    const W = Math.max(1, x1 - x0);
+    const counts = new Array(BUCKETS).fill(0);
+    // Stamps sorted for stall detection.
+    const stamps = [];
+    events.forEach(e => {
+      const t = Date.parse(e.at_utc || '') || 0;
+      if (!t) return;
+      stamps.push(t);
+      const x = axis.timeToX(t);
+      if (x < x0 || x > x1) return;
+      const idx = Math.min(BUCKETS - 1, Math.max(0, Math.floor(((x - x0) / W) * BUCKETS)));
+      counts[idx]++;
+    });
+    stamps.sort((a, b) => a - b);
+
+    // Smooth counts.
+    const smooth = counts.map((b, i) => {
+      const a = counts[i - 1] || 0;
+      const c = counts[i + 1] || 0;
+      return (a + 2 * b + c) / 4;
+    });
+    const peak = Math.max(0.001, ...smooth);
+
+    // ── STALL DETECTION ─────────────────────────────────────────────
+    // Any inter-event gap >= 24h is a stall — the river chokes through
+    // that X-range. Build a per-bucket boolean mask.
+    const STALL_MS = 24 * 60 * 60 * 1000;
+    const stallMask = new Array(BUCKETS).fill(false);
+    for (let i = 1; i < stamps.length; i++) {
+      const dt = stamps[i] - stamps[i - 1];
+      if (dt < STALL_MS) continue;
+      const xA = axis.timeToX(stamps[i - 1]);
+      const xB = axis.timeToX(stamps[i]);
+      const idxA = Math.max(0, Math.floor(((xA - x0) / W) * BUCKETS));
+      const idxB = Math.min(BUCKETS - 1, Math.ceil(((xB - x0) / W) * BUCKETS));
+      for (let j = idxA + 1; j < idxB; j++) stallMask[j] = true;
+    }
+
+    const MIN_HALF   = 1.4;   // px — quiet baseline
+    const MAX_HALF   = 8.0;   // px — peak swell
+    const STALL_HALF = 0.35;  // px — choked (almost invisible)
+    const halves = smooth.map((v, i) => {
+      if (stallMask[i]) return STALL_HALF;
+      return MIN_HALF + (MAX_HALF - MIN_HALF) * (v / peak);
+    });
+
+    // Build the river path: top edge then bottom edge in reverse.
+    const pts = halves.map((h, i) => ({
+      x:   x0 + ((i + 0.5) / BUCKETS) * W,
+      top: spineY - h,
+      bot: spineY + h,
+    }));
+    let d = `M ${x0} ${spineY} `;
+    pts.forEach(p => { d += `L ${p.x.toFixed(2)} ${p.top.toFixed(2)} `; });
+    d += `L ${x1.toFixed(2)} ${spineY} `;
+    for (let i = pts.length - 1; i >= 0; i--) {
+      d += `L ${pts[i].x.toFixed(2)} ${pts[i].bot.toFixed(2)} `;
+    }
+    d += 'Z';
+
+    const river = svgEl('path');
+    river.setAttribute('class', 'vio-l2-spine-river');
+    river.setAttribute('data-stage-state', state);
+    river.setAttribute('d', d);
+    svg.appendChild(river);
+
+    // Soft live-tip glow at the rightmost end of the past river —
+    // STATIC (no animation; recent activity is not a demand per
+    // motion discipline). Reads as "the journey reaches up to here".
+    const tip = svgEl('circle');
+    tip.setAttribute('class', 'vio-l2-spine-livetip');
+    tip.setAttribute('data-stage-state', state);
+    tip.setAttribute('cx', x1);
+    tip.setAttribute('cy', spineY);
+    tip.setAttribute('r', 6);
+    svg.appendChild(tip);
+  }
+
+  // Critical/high finding scars — drawn ON TOP of the river at the
+  // X-positions where those findings landed. A small red X mark
+  // visibly BREAKS the river at the moment of the failure. Called
+  // after the river so the scar always sits above the fill.
+  function _drawSpineScars(svg, spineY, detail, axis) {
+    const findings = (detail && detail.findings) || [];
+    findings.forEach(f => {
+      const sev = f.severity || 'info';
+      if (sev !== 'critical' && sev !== 'high') return;
+      const t = Date.parse(f.detected_utc || f.at_utc || '') || 0;
+      if (!t) return;
+      const x = axis.timeToX(t);
+      const r = 7;
+      const scar = svgEl('g');
+      scar.setAttribute('class', 'vio-l2-spine-scar');
+      scar.setAttribute('data-severity', sev);
+      const a = svgEl('line');
+      a.setAttribute('x1', x - r); a.setAttribute('x2', x + r);
+      a.setAttribute('y1', spineY - r); a.setAttribute('y2', spineY + r);
+      scar.appendChild(a);
+      const b = svgEl('line');
+      b.setAttribute('x1', x - r); b.setAttribute('x2', x + r);
+      b.setAttribute('y1', spineY + r); b.setAttribute('y2', spineY - r);
+      scar.appendChild(b);
+      const title = svgEl('title');
+      title.textContent = (f.message || f.code || sev) + ' (' + sev + ')';
+      scar.appendChild(title);
+      svg.appendChild(scar);
+    });
+  }
+
+  // Vertical glowing "you are here" bar — Doctrine §11. The cap on top
+  // is a tiny inverted triangle pointing down at the spine so the
+  // operator's eye snaps to NOW without a text label.
+  function _drawNowMarker(svg, axis, spineY, state) {
+    const x = axis.timeToX(Date.now());
+    const g = svgEl('g');
+    g.setAttribute('class', 'vio-l2-now');
+    g.setAttribute('data-stage-state', state);
+
+    const line = svgEl('line');
+    line.setAttribute('class', 'vio-l2-now-line');
+    line.setAttribute('x1', x); line.setAttribute('x2', x);
+    line.setAttribute('y1', spineY - 60); line.setAttribute('y2', spineY + 60);
+    g.appendChild(line);
+
+    const cap = svgEl('polygon');
+    cap.setAttribute('class', 'vio-l2-now-cap');
+    cap.setAttribute('points',
+      `${x},${spineY - 60} ${x - 6},${spineY - 70} ${x + 6},${spineY - 70}`);
+    g.appendChild(cap);
+
+    svg.appendChild(g);
+  }
+
+  // 7 hexagons across the spine — the canonical KYC backbone. NO TEXT
+  // LABELS (Carl's directive — pictures over words). Past stages render
+  // filled with the company's state colour; current stage glows; future
+  // stages are ghost-dashed empty hexagons. Stage names live in <title>
+  // for tooltip-on-hover only.
+  function _drawStageBackbone(svg, detail, axis, spineY, liveX) {
     const stageTimestamps = STAGES.map(s => _stageStartUtc(detail, s.key));
     const startedCount = stageTimestamps.filter(t => t).length;
     const futureCount = STAGES.length - startedCount;
+    const endX = spineEndX();
     const futureStep = futureCount > 0
       ? Math.max(40, (endX - liveX) / (futureCount + 1))
       : 0;
     let futureIndex = 0;
+    const state = (detail && detail.stage_state) || 'healthy';
 
     STAGES.forEach((s, i) => {
       const tStart = stageTimestamps[i];
-      let cx, isPast;
+      let cx, kind;
       if (tStart) {
         cx = axis.timeToX(tStart);
-        isPast = true;
+        const isCurrent = (i === startedCount - 1);
+        kind = isCurrent ? 'current' : 'past';
       } else {
         futureIndex++;
         cx = liveX + futureStep * futureIndex;
-        isPast = false;
+        kind = 'future';
       }
       const g = svgEl('g');
-      g.setAttribute('class', isPast ? 'vio-l2-stage past' : 'vio-l2-stage future');
+      g.setAttribute('class', `vio-l2-stage-hex vio-l2-stage-${kind}`);
       g.setAttribute('data-stage', s.key);
+      if (kind === 'current') g.setAttribute('data-stage-state', state);
 
-      const isLive = isPast && cx >= liveX - 1;
-      const c = svgEl('circle');
-      c.setAttribute('cx', cx);
-      c.setAttribute('cy', spineY);
-      c.setAttribute('r', isLive ? L.stageR + 2 : L.stageR);
-      g.appendChild(c);
+      const hex = _hexagon(cx, spineY, kind === 'current' ? 11 : 9);
+      hex.setAttribute('class', 'vio-l2-stage-hex-shape');
+      g.appendChild(hex);
 
-      const lbl = svgEl('text');
-      lbl.setAttribute('class', 'vio-l2-stage-label');
-      lbl.setAttribute('x', cx);
-      lbl.setAttribute('y', spineY + L.stageR + 18);
-      lbl.setAttribute('text-anchor', 'middle');
-      lbl.textContent = s.label;
-      g.appendChild(lbl);
+      const title = svgEl('title');
+      title.textContent = s.label;
+      g.appendChild(title);
 
-      g.addEventListener('click', () => pushFrame(stageFrame(s, company, _activeDetail)));
       svg.appendChild(g);
-    });
-
-    // Quiet time-scale labels under the spine — start date on the left,
-    // "now" on the right. Identity only; no axis ticks. Doctrine §11.
-    const startLabel = svgEl('text');
-    startLabel.setAttribute('class', 'vio-l2-spine-time-label');
-    startLabel.setAttribute('x', L.spineX0);
-    startLabel.setAttribute('y', spineY - 12);
-    startLabel.setAttribute('text-anchor', 'start');
-    startLabel.textContent = new Date(axis.tMin).toISOString().slice(0, 10);
-    svg.appendChild(startLabel);
-
-    const endLabel = svgEl('text');
-    endLabel.setAttribute('class', 'vio-l2-spine-time-label');
-    endLabel.setAttribute('x', endX);
-    endLabel.setAttribute('y', spineY - 12);
-    endLabel.setAttribute('text-anchor', 'end');
-    endLabel.textContent = 'now';
-    svg.appendChild(endLabel);
-
-    // ── SIGNAL LAYERS — Carl's revolution-without-words directive ──────
-    //
-    // The spine isn't a line, it's a CONVERSATION between client and
-    // organism rendered in light. Three overlays make it speak:
-    //
-    //   1. density band — vertical micro-bars below the spine, one per
-    //      activity-bucket; taller bars = denser activity in that window.
-    //      An operator reads the rhythm of work at a glance.
-    //   2. gap markers — `||` glyphs at long quiet stretches between
-    //      events (>= 12 h). Visible pause-points in the journey.
-    //   3. live pulse — soft animated halo at the live tip when the most
-    //      recent event landed in the last 60 minutes. "Right now" is a
-    //      distinct visual class from "yesterday".
-    //
-    // Both layers are subordinate to the base spine line — they overlay
-    // the same X-axis so the operator's eye stays on one timeline.
-    //
-    // MOTION DISCIPLINE (docs/VIO_DOCTRINE.md §6, Carl 2026-06-05):
-    // "Continuous motion MUST point to something that demands attention,
-    //  UNTIL it is handled. Once resolved, motion stops." Density bars
-    //  and gap markers are STILL — they are visual weight, not motion.
-    //  An earlier `_drawSpineLive` pulsed at the spine tip whenever the
-    //  last event landed in the last 60 minutes. Recent activity is NOT
-    //  an unresolved demand, so it was removed.
-    _drawSpineSignal(svg, spineY, events, axis);
-    _drawSpineGaps(svg, spineY, events, axis);
-  }
-
-  // Pack timestamps into N x-buckets along the spine and render each
-  // bucket's count as a small vertical bar BELOW the spine. Opacity and
-  // height scale together so a single event whispers and a busy cluster
-  // shouts. Buckets are based on screen-space X (not time) so visual
-  // density mirrors what the operator sees, not an abstract rate.
-  function _drawSpineSignal(svg, spineY, events, axis) {
-    if (!events || !events.length) return;
-    const BUCKETS = 48;                    // ~25 px per bucket at 1200 px wide
-    const w = L.spineWidth;
-    const counts = new Array(BUCKETS).fill(0);
-    events.forEach(ev => {
-      const t = Date.parse(ev.at_utc || '') || 0;
-      if (!t) return;
-      const x = axis.timeToX(t) - L.spineX0;
-      if (x < 0 || x > w) return;
-      const idx = Math.min(BUCKETS - 1, Math.floor((x / w) * BUCKETS));
-      counts[idx]++;
-    });
-    const peak = Math.max(1, ...counts);
-    const bucketWidth = w / BUCKETS;
-    counts.forEach((n, i) => {
-      if (n === 0) return;
-      const xMid = L.spineX0 + (i + 0.5) * bucketWidth;
-      const h = 2 + Math.round((n / peak) * 12);   // 2..14 px bar
-      const bar = svgEl('rect');
-      bar.setAttribute('class', 'vio-l2-spine-signal');
-      bar.setAttribute('x', xMid - 1.2);
-      bar.setAttribute('y', spineY + 2);
-      bar.setAttribute('width', 2.4);
-      bar.setAttribute('height', h);
-      bar.setAttribute('opacity', 0.35 + 0.55 * (n / peak));
-      svg.appendChild(bar);
     });
   }
 
@@ -860,17 +979,39 @@
     const detail = _activeDetail || {};
     const ictx   = detail.intake_context || {};
     const prof   = (detail.evidence && detail.evidence.profile) || {};
+    const state  = detail.stage_state || company.stage_state || 'healthy';
 
     const g = svgEl('g');
     g.setAttribute('class', 'vio-l2-orb-group');
+    g.setAttribute('data-stage-state', state);
 
-    // Single static circle. Stroke only.
+    // Core static circle — stroke now driven by state colour via CSS
+    // selectors keyed on data-stage-state on the parent group.
     const core = svgEl('circle');
     core.setAttribute('class', 'vio-l2-orb');
     core.setAttribute('cx', L.orbCx);
     core.setAttribute('cy', spineY);
     core.setAttribute('r', L.orbR);
     g.appendChild(core);
+
+    // ── Age arc — thin ring inside the orb showing how much of the
+    // stage-SLA window has been consumed. Starts at 12 o'clock and
+    // sweeps clockwise. data-overdue="1" when ageH > SLA so CSS can
+    // tint it red. Operator reads "this stage is fresh" vs "this stage
+    // has been sitting" without a number.
+    const ageH = _stageAgeHours(detail);
+    const SLA_H = 48;
+    const frac = Math.min(0.999, ageH / SLA_H);
+    if (frac > 0.02) {
+      const arc = _arc(
+        L.orbCx, spineY, L.orbR - 7,
+        -Math.PI / 2,
+        -Math.PI / 2 + frac * 2 * Math.PI,
+      );
+      arc.setAttribute('class', 'vio-l2-orb-age-arc');
+      arc.setAttribute('data-overdue', ageH > SLA_H ? '1' : '0');
+      g.appendChild(arc);
+    }
 
     // Initials inside — always fit, never overflow.
     const initials = _initialsForOrb(company);
@@ -1171,17 +1312,80 @@
       });
     }
 
-    // ── Compute X for each event + resolve same-row collisions ────────
+    // ── Compute X for each event ──────────────────────────────────────
     events.forEach(ev => { ev.x = axis.timeToX(ev.ts); });
-    const sorted = events.slice().sort((a, b) => a.x - b.x);
-    const lastX = { on: -Infinity, above: -Infinity, below: -Infinity };
+
+    // ── Bundle same-kind same-side neighbors into one weighted glyph ──
+    // Within a 24-px window, N events of the same kind on the same
+    // side collapse into ONE shape carrying a count badge. The worst
+    // severity/priority among the children survives so the bundle's
+    // colour and size still reflect the most important member.
+    const bundled = _bundleTimelineEvents(events);
+
+    // ── Resolve remaining same-row collisions ────────────────────────
+    const sorted = bundled.slice().sort((a, b) => a.x - b.x);
+    const lastX  = { on: -Infinity, above: -Infinity, below: -Infinity };
     sorted.forEach(ev => {
-      const minNext = lastX[ev.side] + TL_SHAPE + TL_GAP;
+      const gap = _shapeRadiusFor(ev) * 2 + TL_GAP;
+      const minNext = lastX[ev.side] + gap;
       ev.drawX = Math.max(ev.x, minNext);
       lastX[ev.side] = ev.drawX;
     });
 
     return sorted;
+  }
+
+  // ─── Bundling — collapse same-kind same-side neighbors ─────────────
+  const _SEV_RANK = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
+  const _PRI_RANK = { low: 0, medium: 1, high: 2, critical: 3 };
+  function _sevRank(s) { return _SEV_RANK[s] != null ? _SEV_RANK[s] : 0; }
+  function _priRank(p) { return _PRI_RANK[p] != null ? _PRI_RANK[p] : 0; }
+
+  function _bundleTimelineEvents(events) {
+    const BUNDLE_X = 24;
+    const sorted = events.slice().sort((a, b) => {
+      // Keep same-kind same-side neighbors adjacent in the input order
+      if (a.x !== b.x) return a.x - b.x;
+      if (a.side !== b.side) return a.side.localeCompare(b.side);
+      return a.kind.localeCompare(b.kind);
+    });
+    const result = [];
+    sorted.forEach(ev => {
+      const last = result[result.length - 1];
+      const sameTrack = last
+        && last.side === ev.side
+        && last.kind === ev.kind
+        && Math.abs(last.x - ev.x) < BUNDLE_X;
+      if (sameTrack) {
+        last.count    = (last.count || 1) + 1;
+        last.children = last.children || [last.full];
+        last.children.push(ev.full);
+        if (ev.severity && _sevRank(ev.severity) > _sevRank(last.severity)) last.severity = ev.severity;
+        if (ev.priority && _priRank(ev.priority) > _priRank(last.priority)) last.priority = ev.priority;
+        last.label    = `${last.kind} ×${last.count}`;
+      } else {
+        result.push(ev);
+      }
+    });
+    return result;
+  }
+
+  // ─── Weight 0..1 by importance — drives both shape radius and X-gap ──
+  function _eventWeight(ev) {
+    if (ev.severity != null) {
+      const w = { critical: 1, high: 0.78, medium: 0.55, low: 0.30, info: 0.10 };
+      return w[ev.severity] != null ? w[ev.severity] : 0.40;
+    }
+    if (ev.priority != null) {
+      const w = { critical: 1, high: 0.78, medium: 0.55, low: 0.30 };
+      return w[ev.priority] != null ? w[ev.priority] : 0.40;
+    }
+    if (ev.count && ev.count > 1) return Math.min(1, 0.4 + ev.count * 0.1);
+    return 0.35;
+  }
+  function _shapeRadiusFor(ev) {
+    const baseR = TL_SHAPE / 2;
+    return baseR + baseR * 1.6 * _eventWeight(ev);   // 8..~21 px
   }
 
   function drawTimelineEvents(svg, events, spineY, detail) {
@@ -1201,11 +1405,29 @@
     if (ev.severity) g.setAttribute('data-severity', ev.severity);
     if (ev.priority) g.setAttribute('data-priority', ev.priority);
     if (ev.status)   g.setAttribute('data-status',   ev.status);
+    if (ev.count && ev.count > 1) g.setAttribute('data-bundled', String(ev.count));
 
     const shape = _shapeForEvent(ev, cx, cy);
     if (shape) {
-      shape.setAttribute('class', 'vio-tle-shape');
+      // _shapeForEvent now returns a rich icon group with its own
+      // `vio-icon vio-icon-${name}` class chain. APPEND the legacy
+      // `vio-tle-shape` token so existing per-kind CSS rules keep
+      // matching, but do not overwrite the icon's own classes.
+      const existing = shape.getAttribute('class') || '';
+      shape.setAttribute('class', (existing + ' vio-tle-shape').trim());
       g.appendChild(shape);
+    }
+
+    // Bundle count badge — only visible when N>1 collapsed into this glyph
+    if (ev.count && ev.count > 1) {
+      const r = _shapeRadiusFor(ev);
+      const badge = svgEl('text');
+      badge.setAttribute('class', 'vio-tle-count');
+      badge.setAttribute('x', cx);
+      badge.setAttribute('y', cy + 4);
+      badge.setAttribute('text-anchor', 'middle');
+      badge.textContent = String(ev.count);
+      g.appendChild(badge);
     }
 
     // Tooltip — the label lives in SVG <title> so the canvas itself
@@ -1217,74 +1439,328 @@
     svg.appendChild(g);
   }
 
+  // ── ICON DISPATCH (Carl 2026-06-05: "go hog wild") ────────────────────
+  //
+  // Each event renders as a rich, recognizable PICTOGRAM (a folded-
+  // corner page, an hourglass, a warning triangle with `!`, a finish
+  // flag, an envelope, a dollar coin, a stop sign, a star, a checkmark
+  // hexagon) instead of a generic geometric primitive. The pictogram
+  // IS the meaning — the operator never needs to ask "what is this
+  // shape?" because the shape already says.
+  //
+  // Every icon is a <g> containing 1..N styled paths so we can paint
+  // multi-element glyphs (e.g. a paper with ruling-lines or a flag
+  // with a stripe). All paths use one of a small palette of utility
+  // classes (.vio-icon-fill, .vio-icon-outline, .vio-icon-stroke,
+  // .vio-icon-glyph, etc.) and the kind class on the outer group
+  // re-tints those utilities by event semantics.
   function _shapeForEvent(ev, cx, cy) {
-    const r = TL_SHAPE / 2;
+    const r = _shapeRadiusFor(ev);
+    const g = svgEl('g');
+    g.setAttribute('class', 'vio-icon vio-icon-' + _iconNameFor(ev));
     switch (ev.kind) {
-      case 'paper': {
-        const rect = svgEl('rect');
-        rect.setAttribute('x', cx - r);
-        rect.setAttribute('y', cy - r);
-        rect.setAttribute('width',  TL_SHAPE);
-        rect.setAttribute('height', TL_SHAPE);
-        rect.setAttribute('rx', 2);
-        return rect;
-      }
-      case 'gap': {
-        // Triangle pointing DOWN — missing is "below the line we're
-        // trying to reach". Stroke + dashed for not-yet-supplied.
-        const tri = svgEl('polygon');
-        tri.setAttribute(
-          'points',
-          `${cx},${cy + r} ${cx - r},${cy - r} ${cx + r},${cy - r}`,
-        );
-        return tri;
-      }
-      case 'issue': {
-        // Triangle pointing UP — issue is rising out of the spine,
-        // demanding attention from above.
-        const tri = svgEl('polygon');
-        tri.setAttribute(
-          'points',
-          `${cx},${cy - r} ${cx - r},${cy + r} ${cx + r},${cy + r}`,
-        );
-        return tri;
-      }
-      case 'phase': {
-        return _hexagon(cx, cy, r);
-      }
-      case 'milestone': {
-        const c = svgEl('circle');
-        c.setAttribute('cx', cx); c.setAttribute('cy', cy);
-        c.setAttribute('r', r);
-        return c;
-      }
-      case 'confirmation': {
-        // Open (hollow) circle — distinguishes "waiting on input"
-        // from a filled milestone.
-        const c = svgEl('circle');
-        c.setAttribute('cx', cx); c.setAttribute('cy', cy);
-        c.setAttribute('r', r);
-        return c;
-      }
-      case 'payment': {
-        const d = svgEl('polygon');
-        d.setAttribute(
-          'points',
-          `${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`,
-        );
-        return d;
-      }
-      case 'finding':
-      case 'broker': {
-        return _starburst(cx, cy, r + (ev.kind === 'broker' ? 2 : 0));
-      }
+      case 'paper':        _iconPaper       (g, cx, cy, r, ev); break;
+      case 'gap':          _iconGap         (g, cx, cy, r);     break;
+      case 'issue':        _iconIssue       (g, cx, cy, r, ev); break;
+      case 'phase':        _iconPhase       (g, cx, cy, r);     break;
+      case 'milestone':    _iconMilestone   (g, cx, cy, r);     break;
+      case 'confirmation': _iconConfirmation(g, cx, cy, r);     break;
+      case 'payment':      _iconPayment     (g, cx, cy, r, ev); break;
+      case 'finding':      _iconFinding     (g, cx, cy, r, ev); break;
+      case 'broker':       _iconBroker      (g, cx, cy, r);     break;
       default: {
         const c = svgEl('circle');
+        c.setAttribute('class', 'vio-icon-fill');
         c.setAttribute('cx', cx); c.setAttribute('cy', cy);
-        c.setAttribute('r', 3);
-        return c;
+        c.setAttribute('r', Math.max(3, r * 0.35));
+        g.appendChild(c);
       }
     }
+    return g;
+  }
+
+  function _iconNameFor(ev) {
+    if (ev.kind === 'paper'   && ev.sub      === 'generated') return 'paper-gen';
+    if (ev.kind === 'issue'   && ev.sub      === 'urgent'   ) return 'urgent';
+    if (ev.kind === 'issue'   && ev.sub      === 'deadline' ) return 'deadline';
+    if (ev.kind === 'issue'   && ev.sub      === 'note'     ) return 'note';
+    if (ev.kind === 'payment' && ev.status   === 'paid'     ) return 'coin';
+    if (ev.kind === 'finding' && ev.severity === 'critical' ) return 'stop';
+    return ev.kind;
+  }
+
+  // ── Pictogram drawers — each appends paths into the supplied group ───
+
+  // Folded-corner page — universal "document" symbol. Generated docs
+  // earn a lightning bolt inside (org-produced); uploaded docs get
+  // three ruling lines (client-supplied).
+  function _iconPaper(g, cx, cy, r, ev) {
+    const c = r * 0.34;
+    const body = svgEl('path');
+    body.setAttribute('class', 'vio-icon-fill');
+    body.setAttribute('d',
+      `M ${cx - r} ${cy - r} ` +
+      `L ${cx + r - c} ${cy - r} ` +
+      `L ${cx + r} ${cy - r + c} ` +
+      `L ${cx + r} ${cy + r} ` +
+      `L ${cx - r} ${cy + r} Z`);
+    g.appendChild(body);
+    const fold = svgEl('path');
+    fold.setAttribute('class', 'vio-icon-fold');
+    fold.setAttribute('d',
+      `M ${cx + r - c} ${cy - r} ` +
+      `L ${cx + r - c} ${cy - r + c} ` +
+      `L ${cx + r} ${cy - r + c}`);
+    g.appendChild(fold);
+    if (ev.sub === 'generated') {
+      const bolt = svgEl('path');
+      bolt.setAttribute('class', 'vio-icon-bolt');
+      bolt.setAttribute('d',
+        `M ${cx + r * 0.15} ${cy - r * 0.4} ` +
+        `L ${cx - r * 0.25} ${cy + r * 0.05} ` +
+        `L ${cx + r * 0.05} ${cy + r * 0.05} ` +
+        `L ${cx - r * 0.15} ${cy + r * 0.5}`);
+      g.appendChild(bolt);
+    } else {
+      [-0.20, 0.00, 0.20].forEach(yOff => {
+        const ln = svgEl('line');
+        ln.setAttribute('class', 'vio-icon-rule');
+        ln.setAttribute('x1', cx - r * 0.45);
+        ln.setAttribute('x2', cx + r * 0.45);
+        ln.setAttribute('y1', cy + r * yOff);
+        ln.setAttribute('y2', cy + r * yOff);
+        g.appendChild(ln);
+      });
+    }
+  }
+
+  // Ghost paper — dashed outline with `?` inside. Reads as "an empty
+  // document slot we don't yet have what should go there".
+  function _iconGap(g, cx, cy, r) {
+    const c = r * 0.34;
+    const body = svgEl('path');
+    body.setAttribute('class', 'vio-icon-outline');
+    body.setAttribute('d',
+      `M ${cx - r} ${cy - r} ` +
+      `L ${cx + r - c} ${cy - r} ` +
+      `L ${cx + r} ${cy - r + c} ` +
+      `L ${cx + r} ${cy + r} ` +
+      `L ${cx - r} ${cy + r} Z`);
+    g.appendChild(body);
+    const mark = svgEl('text');
+    mark.setAttribute('class', 'vio-icon-glyph');
+    mark.setAttribute('x', cx);
+    mark.setAttribute('y', cy + r * 0.36);
+    mark.setAttribute('text-anchor', 'middle');
+    mark.textContent = '?';
+    g.appendChild(mark);
+  }
+
+  // Issue — branches by sub: urgent→flame, deadline→hourglass,
+  // note→speech-bubble, default→warning-triangle.
+  function _iconIssue(g, cx, cy, r, ev) {
+    if (ev.sub === 'deadline') return _drawHourglass(g, cx, cy, r);
+    if (ev.sub === 'note')     return _drawSpeechBubble(g, cx, cy, r);
+    if (ev.sub === 'urgent')   return _drawFlame(g, cx, cy, r);
+    return _drawWarning(g, cx, cy, r);
+  }
+
+  function _drawHourglass(g, cx, cy, r) {
+    const p = svgEl('path');
+    p.setAttribute('class', 'vio-icon-fill');
+    p.setAttribute('d',
+      `M ${cx - r} ${cy - r} ` +
+      `L ${cx + r} ${cy - r} ` +
+      `L ${cx} ${cy} ` +
+      `L ${cx + r} ${cy + r} ` +
+      `L ${cx - r} ${cy + r} ` +
+      `L ${cx} ${cy} Z`);
+    g.appendChild(p);
+    [-1, +1].forEach(s => {
+      const cap = svgEl('line');
+      cap.setAttribute('class', 'vio-icon-stroke-bold');
+      cap.setAttribute('x1', cx - r - 1); cap.setAttribute('x2', cx + r + 1);
+      cap.setAttribute('y1', cy + s * r); cap.setAttribute('y2', cy + s * r);
+      g.appendChild(cap);
+    });
+  }
+
+  function _drawSpeechBubble(g, cx, cy, r) {
+    const rx = r * 0.25;
+    const left = cx - r, right = cx + r, top = cy - r, bot = cy + r * 0.45;
+    const body = svgEl('path');
+    body.setAttribute('class', 'vio-icon-outline');
+    body.setAttribute('d',
+      `M ${left + rx} ${top} L ${right - rx} ${top} ` +
+      `Q ${right} ${top} ${right} ${top + rx} ` +
+      `L ${right} ${bot - rx} Q ${right} ${bot} ${right - rx} ${bot} ` +
+      `L ${cx + r * 0.05} ${bot} L ${cx - r * 0.35} ${bot + r * 0.55} ` +
+      `L ${cx - r * 0.15} ${bot} L ${left + rx} ${bot} ` +
+      `Q ${left} ${bot} ${left} ${bot - rx} ` +
+      `L ${left} ${top + rx} Q ${left} ${top} ${left + rx} ${top} Z`);
+    g.appendChild(body);
+  }
+
+  function _drawFlame(g, cx, cy, r) {
+    const p = svgEl('path');
+    p.setAttribute('class', 'vio-icon-fill');
+    p.setAttribute('d',
+      `M ${cx} ${cy - r} ` +
+      `Q ${cx + r} ${cy - r * 0.2} ${cx + r * 0.75} ${cy + r * 0.5} ` +
+      `Q ${cx + r * 0.3} ${cy + r} ${cx} ${cy + r} ` +
+      `Q ${cx - r * 0.3} ${cy + r} ${cx - r * 0.75} ${cy + r * 0.5} ` +
+      `Q ${cx - r} ${cy - r * 0.2} ${cx} ${cy - r} Z`);
+    g.appendChild(p);
+    const inner = svgEl('path');
+    inner.setAttribute('class', 'vio-icon-inner');
+    inner.setAttribute('d',
+      `M ${cx} ${cy - r * 0.4} ` +
+      `Q ${cx + r * 0.32} ${cy + r * 0.05} ${cx + r * 0.22} ${cy + r * 0.55} ` +
+      `Q ${cx} ${cy + r * 0.75} ${cx - r * 0.22} ${cy + r * 0.55} ` +
+      `Q ${cx - r * 0.32} ${cy + r * 0.05} ${cx} ${cy - r * 0.4} Z`);
+    g.appendChild(inner);
+  }
+
+  function _drawWarning(g, cx, cy, r) {
+    const p = svgEl('path');
+    p.setAttribute('class', 'vio-icon-fill');
+    p.setAttribute('d',
+      `M ${cx} ${cy - r} L ${cx + r} ${cy + r * 0.86} L ${cx - r} ${cy + r * 0.86} Z`);
+    g.appendChild(p);
+    const bang = svgEl('text');
+    bang.setAttribute('class', 'vio-icon-glyph');
+    bang.setAttribute('x', cx);
+    bang.setAttribute('y', cy + r * 0.55);
+    bang.setAttribute('text-anchor', 'middle');
+    bang.textContent = '!';
+    g.appendChild(bang);
+  }
+
+  // Phase completion — hexagon (echoes the stage backbone) with check.
+  function _iconPhase(g, cx, cy, r) {
+    const hex = _hexagon(cx, cy, r);
+    hex.setAttribute('class', 'vio-icon-outline');
+    g.appendChild(hex);
+    const check = svgEl('path');
+    check.setAttribute('class', 'vio-icon-check');
+    check.setAttribute('d',
+      `M ${cx - r * 0.45} ${cy + r * 0.05} ` +
+      `L ${cx - r * 0.10} ${cy + r * 0.35} ` +
+      `L ${cx + r * 0.50} ${cy - r * 0.35}`);
+    g.appendChild(check);
+  }
+
+  // Milestone — 5-point star.
+  function _iconMilestone(g, cx, cy, r) {
+    const pts = [];
+    for (let i = 0; i < 10; i++) {
+      const a   = (Math.PI / 5) * i - Math.PI / 2;
+      const rad = i % 2 === 0 ? r : r * 0.42;
+      pts.push(
+        (cx + rad * Math.cos(a)).toFixed(2) + ',' +
+        (cy + rad * Math.sin(a)).toFixed(2)
+      );
+    }
+    const star = svgEl('polygon');
+    star.setAttribute('class', 'vio-icon-fill');
+    star.setAttribute('points', pts.join(' '));
+    g.appendChild(star);
+  }
+
+  // Confirmation needed — `?` in a circle.
+  function _iconConfirmation(g, cx, cy, r) {
+    const c = svgEl('circle');
+    c.setAttribute('class', 'vio-icon-outline');
+    c.setAttribute('cx', cx); c.setAttribute('cy', cy); c.setAttribute('r', r);
+    g.appendChild(c);
+    const q = svgEl('text');
+    q.setAttribute('class', 'vio-icon-glyph');
+    q.setAttribute('x', cx);
+    q.setAttribute('y', cy + r * 0.32);
+    q.setAttribute('text-anchor', 'middle');
+    q.textContent = '?';
+    g.appendChild(q);
+  }
+
+  // Payment — envelope (link sent) or dollar coin (paid).
+  function _iconPayment(g, cx, cy, r, ev) {
+    if (ev.status === 'paid') {
+      const c = svgEl('circle');
+      c.setAttribute('class', 'vio-icon-fill');
+      c.setAttribute('cx', cx); c.setAttribute('cy', cy); c.setAttribute('r', r);
+      g.appendChild(c);
+      const d = svgEl('text');
+      d.setAttribute('class', 'vio-icon-glyph');
+      d.setAttribute('x', cx);
+      d.setAttribute('y', cy + r * 0.32);
+      d.setAttribute('text-anchor', 'middle');
+      d.textContent = '$';
+      g.appendChild(d);
+      return;
+    }
+    const rect = svgEl('rect');
+    rect.setAttribute('class', 'vio-icon-outline');
+    rect.setAttribute('x', cx - r);
+    rect.setAttribute('y', cy - r * 0.7);
+    rect.setAttribute('width',  r * 2);
+    rect.setAttribute('height', r * 1.4);
+    rect.setAttribute('rx', 1);
+    g.appendChild(rect);
+    const flap = svgEl('path');
+    flap.setAttribute('class', 'vio-icon-stroke');
+    flap.setAttribute('d',
+      `M ${cx - r} ${cy - r * 0.7} L ${cx} ${cy} L ${cx + r} ${cy - r * 0.7}`);
+    g.appendChild(flap);
+  }
+
+  // Finding — critical → stop-sign octagon; everything else → warning.
+  function _iconFinding(g, cx, cy, r, ev) {
+    if (ev.severity === 'critical') {
+      const pts = [];
+      for (let i = 0; i < 8; i++) {
+        const a = (Math.PI / 4) * i + Math.PI / 8;
+        pts.push(
+          (cx + r * Math.cos(a)).toFixed(2) + ',' +
+          (cy + r * Math.sin(a)).toFixed(2)
+        );
+      }
+      const oct = svgEl('polygon');
+      oct.setAttribute('class', 'vio-icon-fill');
+      oct.setAttribute('points', pts.join(' '));
+      g.appendChild(oct);
+      const bang = svgEl('text');
+      bang.setAttribute('class', 'vio-icon-glyph');
+      bang.setAttribute('x', cx);
+      bang.setAttribute('y', cy + r * 0.32);
+      bang.setAttribute('text-anchor', 'middle');
+      bang.textContent = '!';
+      g.appendChild(bang);
+      return;
+    }
+    _drawWarning(g, cx, cy, r);
+  }
+
+  // Broker — finish flag on a pole.
+  function _iconBroker(g, cx, cy, r) {
+    const pole = svgEl('line');
+    pole.setAttribute('class', 'vio-icon-stroke-bold');
+    pole.setAttribute('x1', cx - r * 0.5); pole.setAttribute('x2', cx - r * 0.5);
+    pole.setAttribute('y1', cy - r);       pole.setAttribute('y2', cy + r);
+    g.appendChild(pole);
+    const flag = svgEl('polygon');
+    flag.setAttribute('class', 'vio-icon-fill');
+    flag.setAttribute('points',
+      `${cx - r * 0.5},${cy - r} ` +
+      `${cx + r},${cy - r * 0.55} ` +
+      `${cx - r * 0.5},${cy - r * 0.10}`);
+    g.appendChild(flag);
+    const stripe = svgEl('rect');
+    stripe.setAttribute('class', 'vio-icon-inner');
+    stripe.setAttribute('x', cx - r * 0.2);
+    stripe.setAttribute('y', cy - r * 0.85);
+    stripe.setAttribute('width',  r * 0.5);
+    stripe.setAttribute('height', r * 0.3);
+    g.appendChild(stripe);
   }
 
   function _hexagon(cx, cy, r) {
@@ -1309,6 +1785,248 @@
     const poly = svgEl('polygon');
     poly.setAttribute('points', pts.join(' '));
     return poly;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // DEMAND MARKER — the ONE thing the operator must do next
+  //
+  // Doctrine §6 (motion discipline) + Carl 2026-06-05: continuous motion
+  // is reserved exclusively for an unresolved demand on attention.
+  // This marker IS that demand. It is the ONLY animated element on the
+  // L2 canvas. The breathing stops the moment the demand is resolved.
+  //
+  // The label below the arrow is the one place on the canvas where text
+  // is sanctioned — it's what the operator must do, expressed in 2-3
+  // words, deliberately bigger than anything else on screen.
+  // ─────────────────────────────────────────────────────────────────────
+
+  function computeDemand(detail) {
+    if (!detail) return null;
+    const findings   = detail.findings || [];
+    const miss       = detail.missing_documents || [];
+    const conf       = detail.confirmation_needed || [];
+    const pay        = detail.payment || {};
+    const rs         = (detail.review_status || '').toLowerCase();
+    const stageState = detail.stage_state || '';
+
+    // Highest-priority demand wins. Ordered so safety/integrity beats
+    // procedural backlog beats hygiene.
+    const crit = findings.find(f => f.severity === 'critical' || f.severity === 'high');
+    if (crit) {
+      return { kind: 'finding', label: 'review finding', anchor: 'findings' };
+    }
+    if (rs === 'needs_info' || rs === 'abandoned_upload') {
+      return { kind: 'client',  label: 'request info', anchor: 'context' };
+    }
+    if (stageState === 'failed') {
+      return { kind: 'failed',  label: 'unblock — failed', anchor: null };
+    }
+    if (stageState === 'stalled') {
+      return { kind: 'stall',   label: 'follow up · stalled', anchor: null };
+    }
+    if (stageState === 'waiting_client') {
+      return { kind: 'client',  label: 'send reminder', anchor: 'gaps' };
+    }
+    const highMiss = miss.find(m => m.priority === 'high' || m.priority === 'critical');
+    if (highMiss) {
+      return { kind: 'gap',     label: 'request missing doc', anchor: 'gaps' };
+    }
+    if (conf.length) {
+      return { kind: 'confirm', label: 'confirm fields', anchor: 'confirmation' };
+    }
+    if (miss.length) {
+      return { kind: 'gap',     label: 'request missing', anchor: 'gaps' };
+    }
+    if (rs === 'pending_review' && (detail.uploaded_documents || []).length) {
+      return { kind: 'review',  label: 'review intake', anchor: 'docs' };
+    }
+    if (pay && pay.link && !pay.paid) {
+      return { kind: 'payment', label: 'follow up · payment', anchor: 'payment' };
+    }
+    return null;   // healthy / done — no demand, no motion
+  }
+
+  function drawDemandMarker(svg, detail, axis, spineY) {
+    const demand = computeDemand(detail);
+    if (!demand) return;
+
+    // X-anchor: prefer the branch-opener timestamp; fall back to live
+    // tip; fall back to "now" so the marker always lands somewhere
+    // meaningful on the spine.
+    const events = (detail && detail.custody && detail.custody.events) || [];
+    const liveT  = events.reduce((m, e) => Math.max(m, Date.parse(e.at_utc || '') || 0), 0);
+    const liveX  = liveT > 0 ? axis.timeToX(liveT) : axis.timeToX(Date.now());
+    let x = liveX;
+    if (demand.anchor) {
+      const t = _branchStartUtc(detail, demand.anchor);
+      if (t) x = axis.timeToX(t);
+    }
+
+    const g = svgEl('g');
+    g.setAttribute('class', 'vio-l2-demand');
+    g.setAttribute('data-kind', demand.kind);
+
+    // Arrow points DOWN at the spine. Geometry: a chevron with a thin
+    // shaft above, wings near the bottom, tip touching the event row.
+    const tipY   = spineY - 38;
+    const wingY  = spineY - 60;
+    const topY   = spineY - 100;
+    const wing   = 16;
+    const shaft  = 6;
+    const arrow = svgEl('polygon');
+    arrow.setAttribute('class', 'vio-l2-demand-arrow');
+    arrow.setAttribute('points',
+      `${x},${tipY} ` +
+      `${x - wing},${wingY} ` +
+      `${x - shaft},${wingY} ` +
+      `${x - shaft},${topY} ` +
+      `${x + shaft},${topY} ` +
+      `${x + shaft},${wingY} ` +
+      `${x + wing},${wingY}`);
+    g.appendChild(arrow);
+
+    // Halo behind arrow — softer second pulse layer so the breathing
+    // reads even at the edges of the operator's vision.
+    const halo = svgEl('ellipse');
+    halo.setAttribute('class', 'vio-l2-demand-halo');
+    halo.setAttribute('cx', x);
+    halo.setAttribute('cy', (topY + tipY) / 2);
+    halo.setAttribute('rx', 24);
+    halo.setAttribute('ry', 36);
+    g.insertBefore(halo, arrow);
+
+    // The single sanctioned text label on the canvas — 2-3 words.
+    const label = svgEl('text');
+    label.setAttribute('class', 'vio-l2-demand-label');
+    label.setAttribute('x', x);
+    label.setAttribute('y', topY - 12);
+    label.setAttribute('text-anchor', 'middle');
+    label.textContent = demand.label;
+    g.appendChild(label);
+
+    svg.appendChild(g);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // STATS PANEL — three giant glance-numbers in the top-right
+  //
+  // The ONLY unavoidable text + numerals on the canvas. They answer
+  // the three quantitative questions the operator must answer in <5s:
+  //   • papers in hand vs expected
+  //   • gaps remaining (and how dangerous)
+  //   • hours in current stage (and whether stalled)
+  // Tone (--st-* colour) encodes severity without any extra text.
+  // ─────────────────────────────────────────────────────────────────────
+  function drawStatsPanel(svg, detail, canvasW) {
+    if (!detail) return;
+    const docs = detail.uploaded_documents || [];
+    const miss = detail.missing_documents || [];
+    const expected = (detail.intake_context || {}).expected_file_count
+                     || (detail.expected_file_count || 0);
+    const stageAgeH = _stageAgeHours(detail);
+
+    const worstMissPri = miss.reduce((w, m) => {
+      const p = _priRank(m.priority || 'medium');
+      return p > w ? p : w;
+    }, 0);
+
+    const stats = [
+      {
+        big:    String(docs.length),
+        tiny:   expected ? `/ ${expected}` : '',
+        label:  'papers',
+        tone:   (expected && docs.length >= expected) ? 'done'
+              : (docs.length === 0)                    ? 'waiting'
+              :                                          'healthy',
+      },
+      {
+        big:    String(miss.length),
+        tiny:   '',
+        label:  'gaps',
+        tone:   miss.length === 0   ? 'done'
+              : worstMissPri >= 2   ? 'failed'
+              :                       'waiting',
+      },
+      {
+        big:    stageAgeH > 0 ? String(Math.round(stageAgeH)) : '–',
+        tiny:   stageAgeH > 0 ? 'h'  : '',
+        label:  'in stage',
+        tone:   stageAgeH > 48 ? 'stalled'
+              : stageAgeH > 24 ? 'waiting'
+              :                  'healthy',
+      },
+    ];
+
+    const colW = 110;
+    const panelW = colW * stats.length;
+    const panelX = canvasW - panelW - 24;
+    const panelY = 28;
+
+    const g = svgEl('g');
+    g.setAttribute('class', 'vio-l2-stats');
+    stats.forEach((s, i) => {
+      const sx = panelX + i * colW;
+      const block = svgEl('g');
+      block.setAttribute('class', 'vio-l2-stat');
+      block.setAttribute('data-tone', s.tone);
+
+      const big = svgEl('text');
+      big.setAttribute('class', 'vio-l2-stat-big');
+      big.setAttribute('x', sx);
+      big.setAttribute('y', panelY + 30);
+      big.setAttribute('text-anchor', 'start');
+      big.textContent = s.big;
+      block.appendChild(big);
+
+      if (s.tiny) {
+        const tiny = svgEl('text');
+        tiny.setAttribute('class', 'vio-l2-stat-tiny');
+        // Position tiny suffix to the right of the big number — adjust
+        // X based on big string length so different magnitudes don't
+        // collide.
+        tiny.setAttribute('x', sx + 16 + (s.big.length * 18));
+        tiny.setAttribute('y', panelY + 30);
+        tiny.setAttribute('text-anchor', 'start');
+        tiny.textContent = s.tiny;
+        block.appendChild(tiny);
+      }
+
+      const lbl = svgEl('text');
+      lbl.setAttribute('class', 'vio-l2-stat-label');
+      lbl.setAttribute('x', sx);
+      lbl.setAttribute('y', panelY + 48);
+      lbl.setAttribute('text-anchor', 'start');
+      lbl.textContent = s.label;
+      block.appendChild(lbl);
+
+      g.appendChild(block);
+    });
+    svg.appendChild(g);
+  }
+
+  // Hours since the most recent custody event — a proxy for how long
+  // the current stage has been active without progress.
+  function _stageAgeHours(detail) {
+    const events = (detail && detail.custody && detail.custody.events) || [];
+    if (!events.length) return 0;
+    const last = events.reduce((m, e) => Math.max(m, Date.parse(e.at_utc || '') || 0), 0);
+    if (!last) return 0;
+    return Math.max(0, (Date.now() - last) / 3600000);
+  }
+
+  // SVG arc primitive — used for the orb's age-arc ring.
+  function _arc(cx, cy, r, aStart, aEnd) {
+    const x0 = cx + r * Math.cos(aStart);
+    const y0 = cy + r * Math.sin(aStart);
+    const x1 = cx + r * Math.cos(aEnd);
+    const y1 = cy + r * Math.sin(aEnd);
+    const large = (aEnd - aStart) > Math.PI ? 1 : 0;
+    const path = svgEl('path');
+    path.setAttribute('d',
+      `M ${x0.toFixed(2)} ${y0.toFixed(2)} ` +
+      `A ${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`);
+    path.setAttribute('fill', 'none');
+    return path;
   }
 
   function computeBranches(detail) {

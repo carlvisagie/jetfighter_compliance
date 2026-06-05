@@ -129,16 +129,23 @@ def test_shape_kind_classes_styled_in_css():
 def test_gap_shape_is_dashed_outline():
     """Missing/gap shapes must be dashed (per sketch convention for
     'not yet supplied'). A solid-stroke gap would visually merge with
-    a real document."""
+    a real document.
+
+    We allow EITHER the legacy `.vio-tle-gap .vio-tle-shape` selector
+    OR the icon-era `.vio-tle-gap .vio-icon-*` selector to carry the
+    dasharray — the guard pins the *visual intent* (gap = dashed) not
+    the exact rule path, so the icon refactor doesn't trip it.
+    """
     css = VIO_CSS.read_text(encoding="utf-8")
-    # Locate the .vio-tle-gap .vio-tle-shape rule
-    needle = ".vio-tle-gap .vio-tle-shape"
-    idx = css.find(needle)
-    assert idx != -1, "Gap shape style missing"
-    block = css[idx:idx + 200]
-    assert "stroke-dasharray" in block, (
-        "Gap shape must have stroke-dasharray — sketch says missing = "
-        "dashed outline, not solid."
+    # Scan every rule whose selector starts with `.vio-tle-gap` and
+    # confirm at least one of them carries stroke-dasharray.
+    import re
+    blocks = re.findall(r"\.vio-tle-gap[^{]*\{[^}]*\}", css)
+    assert blocks, "No .vio-tle-gap CSS rules found at all"
+    assert any("stroke-dasharray" in b for b in blocks), (
+        "Some .vio-tle-gap rule must set stroke-dasharray — sketch "
+        "convention: missing = dashed outline, not solid. The icon "
+        "refactor must not lose this."
     )
 
 
@@ -150,7 +157,14 @@ def test_each_event_emits_svg_title_for_hover_label():
     js = L2_JS.read_text(encoding="utf-8")
     start = js.find("function drawTimelineEvent(")
     assert start != -1
-    body = js[start:start + 1200]
+    # Find the END of the function (next top-level `function ` or end of
+    # ~3000 chars, whichever is sooner). Looking by chars alone misses
+    # the title element once the function grew to include the bundle
+    # count badge.
+    end = js.find("\n  function ", start + 1)
+    if end == -1:
+        end = start + 4000
+    body = js[start:end]
     assert "svgEl('title')" in body, (
         "drawTimelineEvent must emit an SVG <title> child so hovering "
         "a shape reveals its label without putting text on the canvas."
