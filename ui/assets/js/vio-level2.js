@@ -789,6 +789,7 @@
     svg.setAttribute('width', w);
     svg.setAttribute('height', h);
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    _addGlowFilters(svg);
 
     drawSpine(svg, company, spineY, axis, detail);
     drawTimelineEvents(svg, events, spineY, detail);
@@ -834,30 +835,10 @@
     const endX  = spineEndX();
     const state = company.stage_state || (detail && detail.stage_state) || 'healthy';
 
-    // ── PAST: variable-thickness river (or thin flat line if no events) ──
-    if (events.length && liveX > L.spineX0) {
-      _drawSpineRiver(svg, spineY, events, axis, L.spineX0, liveX, state);
-    } else {
-      const flat = svgEl('line');
-      flat.setAttribute('class', 'vio-l2-spine-past');
-      flat.setAttribute('data-stage-state', state);
-      flat.setAttribute('x1', L.spineX0);
-      flat.setAttribute('x2', Math.max(L.spineX0 + 4, liveX));
-      flat.setAttribute('y1', spineY);
-      flat.setAttribute('y2', spineY);
-      svg.appendChild(flat);
-    }
-
-    // ── FUTURE: dashed thin tail from live tip to spine end ──
-    if (liveX < endX) {
-      const future = svgEl('line');
-      future.setAttribute('class', 'vio-l2-spine-future');
-      future.setAttribute('x1', liveX);
-      future.setAttribute('x2', endX);
-      future.setAttribute('y1', spineY);
-      future.setAttribute('y2', spineY);
-      svg.appendChild(future);
-    }
+    // ── VELOCITY SPINE — each segment is colour/width/dash-encoded ──
+    // fast (green thick glow) · normal (teal) · slow (amber) · stalled (grey dashed) · broken (red dashed + X)
+    // The operator reads the story's PACE at one glance — no words needed.
+    _drawVelocitySpine(svg, spineY, events, axis, L.spineX0, endX, state);
 
     // ── GAP MARKERS: `||` at >=12h silences ──
     _drawSpineGaps(svg, spineY, events, axis);
@@ -981,6 +962,149 @@
     tip.setAttribute('cy', spineY);
     tip.setAttribute('r', 6);
     svg.appendChild(tip);
+  }
+
+  // ── VELOCITY SPINE — direct port from vio-demo/VioCanvas.tsx SpineSegment ──
+  // Replaces the old single-river fill. Each inter-event gap becomes its
+  // own segment coloured by how fast (or slow, or broken) that stretch was.
+  //
+  // Velocity → visual mapping (exact match to Carl's demo):
+  //   fast    → 5px bright green  + glow       (things are flying)
+  //   normal  → 3.5px teal                     (steady progress)
+  //   slow    → 2px amber                       (sluggish)
+  //   stalled → 1.5px grey dashed              (nothing moving)
+  //   broken  → 2px red dashed + X gap marker  (hard stop)
+  const _SV = {
+    fast:    { stroke: '#00e5a0', width: 5,   dash: null,  opacity: 1.0,  glow: 'rgba(0,229,160,0.5)'  },
+    normal:  { stroke: '#38bdf8', width: 3.5, dash: null,  opacity: 0.9,  glow: 'rgba(56,189,248,0.3)' },
+    slow:    { stroke: '#ffb800', width: 2,   dash: null,  opacity: 0.8,  glow: 'rgba(255,184,0,0.3)'  },
+    stalled: { stroke: '#4a5568', width: 1.5, dash: '6 4', opacity: 0.6,  glow: null                   },
+    broken:  { stroke: '#ff3d3d', width: 2,   dash: '4 6', opacity: 0.85, glow: 'rgba(255,61,61,0.4)'  },
+  };
+
+  // Map a time-gap (ms) + context → velocity key
+  function _gapVelocity(dtMs, isTail, state) {
+    if (state === 'failed') return 'broken';
+    if (isTail) {
+      if (dtMs < 2   * 3600000) return 'fast';
+      if (dtMs < 24  * 3600000) return 'normal';
+      if (dtMs < 72  * 3600000) return 'slow';
+      return 'stalled';
+    }
+    if (dtMs < 2   * 3600000) return 'fast';
+    if (dtMs < 12  * 3600000) return 'normal';
+    if (dtMs < 48  * 3600000) return 'slow';
+    return 'stalled';
+  }
+
+  // Draw a single velocity-encoded segment between two X positions
+  function _drawSpineSegment(svg, x1, x2, y, velocity) {
+    if (x2 <= x1 + 2) return;
+    const s   = _SV[velocity] || _SV.normal;
+    const mid = (x1 + x2) / 2;
+    const g   = svgEl('g');
+
+    // Glow layer (blur behind the main stroke)
+    if (s.glow) {
+      const glow = svgEl('path');
+      glow.setAttribute('d', `M${x1},${y} C${x1 + 30},${y} ${x2 - 30},${y} ${x2},${y}`);
+      glow.setAttribute('fill', 'none');
+      glow.setAttribute('stroke', s.glow);
+      glow.setAttribute('stroke-width', String(s.width + 6));
+      glow.setAttribute('opacity', '0.4');
+      glow.style.filter = 'blur(4px)';
+      g.appendChild(glow);
+    }
+
+    // Main stroke
+    const main = svgEl('path');
+    main.setAttribute('d', `M${x1},${y} C${x1 + 30},${y} ${x2 - 30},${y} ${x2},${y}`);
+    main.setAttribute('fill', 'none');
+    main.setAttribute('stroke', s.stroke);
+    main.setAttribute('stroke-width', String(s.width));
+    if (s.dash) main.setAttribute('stroke-dasharray', s.dash);
+    main.setAttribute('opacity', String(s.opacity));
+    main.setAttribute('stroke-linecap', 'round');
+    g.appendChild(main);
+
+    // Broken: red X gap at midpoint
+    if (velocity === 'broken') {
+      const xg = svgEl('g');
+      xg.setAttribute('transform', `translate(${mid},${y})`);
+      const xc = svgEl('circle');
+      xc.setAttribute('r', '8'); xc.setAttribute('fill', '#0d1117');
+      xc.setAttribute('stroke', '#ff3d3d'); xc.setAttribute('stroke-width', '1.5');
+      xg.appendChild(xc);
+      [[-4,-4,4,4],[-4,4,4,-4]].forEach(([xa,ya,xb,yb]) => {
+        const ln = svgEl('line');
+        ln.setAttribute('x1', xa); ln.setAttribute('y1', ya);
+        ln.setAttribute('x2', xb); ln.setAttribute('y2', yb);
+        ln.setAttribute('stroke', '#ff3d3d'); ln.setAttribute('stroke-width', '2');
+        ln.setAttribute('stroke-linecap', 'round');
+        xg.appendChild(ln);
+      });
+      g.appendChild(xg);
+    }
+
+    // Fast: directional arrow at midpoint
+    if (velocity === 'fast') {
+      const ag = svgEl('g');
+      ag.setAttribute('transform', `translate(${mid},${y})`);
+      const ap = svgEl('path');
+      ap.setAttribute('d', 'M-5,0 L0,-4 L5,0');
+      ap.setAttribute('fill', 'none');
+      ap.setAttribute('stroke', s.stroke);
+      ap.setAttribute('stroke-width', '1.5');
+      ap.setAttribute('opacity', '0.7');
+      ag.appendChild(ap);
+      g.appendChild(ag);
+    }
+
+    svg.appendChild(g);
+  }
+
+  // Build velocity segments from custody events and draw them all
+  function _drawVelocitySpine(svg, spineY, events, axis, x0, xEnd, state) {
+    const sorted = events
+      .filter(e => e.at_utc)
+      .map(e => ({ t: Date.parse(e.at_utc), x: axis.timeToX(Date.parse(e.at_utc)) }))
+      .filter(e => !isNaN(e.t))
+      .sort((a, b) => a.t - b.t);
+
+    const nowX = axis.timeToX(null);
+
+    if (!sorted.length) {
+      // No events: stalled line from x0 to xEnd
+      _drawSpineSegment(svg, x0, Math.max(x0 + 8, nowX), spineY, state === 'failed' ? 'broken' : 'stalled');
+      // Ghost tail
+      if (nowX < xEnd) _drawSpineSegment(svg, nowX, xEnd, spineY, 'stalled');
+      return;
+    }
+
+    // Segment: orb edge → first event
+    if (sorted[0].x > x0 + 10) {
+      _drawSpineSegment(svg, x0, sorted[0].x, spineY, 'normal');
+    }
+
+    // Segments between consecutive events
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const dt = sorted[i + 1].t - sorted[i].t;
+      const vel = _gapVelocity(dt, false, state);
+      _drawSpineSegment(svg, sorted[i].x, sorted[i + 1].x, spineY, vel);
+    }
+
+    // Tail: last event → now
+    const last = sorted[sorted.length - 1];
+    const dtTail = Date.now() - last.t;
+    const tailVel = _gapVelocity(dtTail, true, state);
+    if (last.x < nowX - 4) {
+      _drawSpineSegment(svg, last.x, nowX, spineY, tailVel);
+    }
+
+    // Ghost future: now → spine end (always stalled — not yet happened)
+    if (nowX < xEnd - 4) {
+      _drawSpineSegment(svg, nowX, xEnd, spineY, 'stalled');
+    }
   }
 
   // Critical/high finding scars — drawn ON TOP of the river at the
@@ -1303,81 +1427,128 @@
     hint.textContent = '⌄';
     g.appendChild(hint);
 
-    // ── Expanded-info card (collapsed by default) ─────────────────────
-    // First row = the full company NAME (the thing that wouldn't fit
-    // in the orb). Then tel / email / address. The card grows
-    // vertically to fit; values are truncated only if they'd exceed
-    // the card width.
-    const fullName = (company.company_name || 'Unknown').trim();
-    const cardItems = [
-      { label: 'name',    value: fullName },
-      { label: 'tel',     value: ictx.phone || '' },
-      { label: 'email',   value: company.email_anchor || company.email || (ictx.email || '') },
-      { label: 'address', value: ictx.address
-                                 || (Array.isArray(prof.addresses) && prof.addresses[0])
-                                 || '' },
-    ].filter(it => it.value);
-
-    if (cardItems.length) {
-      const card = svgEl('g');
-      card.setAttribute('class', 'vio-l2-orb-card');
-      card.setAttribute('data-open', '0');
-
-      const rowH  = 20;
-      const padX  = 14;
-      const padY  = 14;
-      const cardW = 320;
-      const cardH = cardItems.length * rowH + padY * 2;
-      const cardX = L.orbCx + L.orbR + 14;
-      const cardY = spineY - cardH / 2;
-
-      const bg = svgEl('rect');
-      bg.setAttribute('class', 'vio-l2-orb-card-bg');
-      bg.setAttribute('x', cardX);
-      bg.setAttribute('y', cardY);
-      bg.setAttribute('width', cardW);
-      bg.setAttribute('height', cardH);
-      bg.setAttribute('rx', 6);
-      card.appendChild(bg);
-
-      cardItems.forEach((it, i) => {
-        const y = cardY + padY + (i + 0.7) * rowH;
-        const labelEl = svgEl('text');
-        labelEl.setAttribute('class', 'vio-l2-orb-card-label');
-        labelEl.setAttribute('x', cardX + padX);
-        labelEl.setAttribute('y', y);
-        labelEl.textContent = it.label;
-        card.appendChild(labelEl);
-        const valueEl = svgEl('text');
-        valueEl.setAttribute('class', 'vio-l2-orb-card-value');
-        valueEl.setAttribute('x', cardX + padX + 60);
-        valueEl.setAttribute('y', y);
-        // Card is 320px wide; minus label column (60) + padding (28) =
-        // ~232px for the value. At 12px monospace, ~32 chars fit.
-        const MAX = 38;
-        valueEl.textContent = it.value.length > MAX
-          ? it.value.slice(0, MAX - 1) + '…'
-          : it.value;
-        const title = svgEl('title');
-        title.textContent = it.value;
-        valueEl.appendChild(title);
-        card.appendChild(valueEl);
-      });
-
-      g.appendChild(card);
-
-      g.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const open = card.getAttribute('data-open') === '1';
-        card.setAttribute('data-open', open ? '0' : '1');
-      });
-      // Click anywhere else on the SVG collapses the card.
-      svg.addEventListener('click', () => {
-        card.setAttribute('data-open', '0');
-      });
-    }
+    // ── Orb click → full HTML panel: artifact legend + clickable identity ──
+    // Direct port of Carl's demo orb-click behaviour (VioOrb.tsx + VioCanvas.tsx).
+    // LEFT:  artifact legend (every pictogram type explained with emoji)
+    // RIGHT: company identity — name big, then clickable phone / email / LinkedIn
+    g.style.cursor = 'pointer';
+    g.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const canvas = svg.parentElement;
+      if (canvas) _openOrbPanel(canvas, company, detail, ictx, prof);
+    });
 
     svg.appendChild(g);
+  }
+
+  // ── ORB PANEL — full HTML legend + clickable company identity ──────────
+  function _openOrbPanel(canvas, company, detail, ictx, prof) {
+    const existing = canvas.querySelector('.vio-orb-panel');
+    if (existing) { existing.remove(); return; }  // toggle
+
+    const stateColor = _stateColor((detail && detail.stage_state) || company.stage_state || 'healthy');
+
+    const panel = el('div', 'vio-orb-panel');
+    panel.style.setProperty('--op-color', stateColor);
+
+    // ── LEFT: Artifact legend ──
+    const legend = el('div', 'vio-op-legend');
+    const legendHdr = el('div', 'vio-op-section-hdr');
+    legendHdr.textContent = 'Artifact Legend';
+    legend.appendChild(legendHdr);
+
+    const LEGEND = [
+      ['📁', 'Case / Intake',       'complete'],
+      ['📄', 'Document',            'complete'],
+      ['📄', 'Document Issue',      'attention'],
+      ['🔍', 'Review',              'processing'],
+      ['⚖️',  'Compliance',         'healthy'],
+      ['🚩', 'Milestone',           'milestone'],
+      ['🔏', 'Phase Approved',      'complete'],
+      ['💰', 'Payment Received',    'complete'],
+      ['💳', 'Payment Pending',     'attention'],
+      ['⚠️',  'SLA / Time Pressure','attention'],
+      ['🚫', 'Hard Blocker',        'blocked'],
+      ['🚀', 'Delivery / Broker',   'complete'],
+      ['👆', 'Decision Point',      'processing'],
+      ['🔗', 'Dependency Break',    'blocked'],
+      ['⚙️',  'Delivery / Launch',  'healthy'],
+    ];
+    LEGEND.forEach(([emoji, label, sk]) => {
+      const row = el('div', 'vio-op-legend-row');
+      const ic  = el('span', 'vio-op-legend-icon');
+      ic.textContent = emoji;
+      const lb  = el('span', 'vio-op-legend-label');
+      lb.textContent = label;
+      lb.style.color = VIO_PALETTE[sk] || '#9ca3af';
+      row.appendChild(ic); row.appendChild(lb);
+      legend.appendChild(row);
+    });
+
+    // ── RIGHT: Company identity ──
+    const identity = el('div', 'vio-op-identity');
+    const idhdr = el('div', 'vio-op-section-hdr');
+    idhdr.textContent = company.company_name || 'Company';
+    idhdr.style.color = stateColor;
+    identity.appendChild(idhdr);
+
+    const phone     = ictx.phone || (Array.isArray(prof.phone_numbers) && prof.phone_numbers[0]) || '';
+    const email     = company.email_anchor || company.email || ictx.email || '';
+    const linkedin  = prof.linkedin_url || prof.linkedin || '';
+    const contactName = prof.contact_name || prof.owner_name || '';
+    const address   = ictx.address || (Array.isArray(prof.addresses) && prof.addresses[0]) || '';
+    const rs        = detail && detail.review_status ? detail.review_status.replace(/_/g, ' ') : '';
+
+    function _idRow(icon, content, href) {
+      const row = el('div', 'vio-op-id-row');
+      const ic  = el('span', 'vio-op-id-icon'); ic.textContent = icon;
+      row.appendChild(ic);
+      if (href) {
+        const a = el('a', 'vio-op-id-link');
+        a.href = href; a.textContent = content;
+        if (href.startsWith('http')) a.target = '_blank';
+        row.appendChild(a);
+      } else {
+        const sp = el('span', 'vio-op-id-val'); sp.textContent = content;
+        row.appendChild(sp);
+      }
+      return row;
+    }
+
+    if (contactName) identity.appendChild(_idRow('👤', contactName, null));
+    if (phone)       identity.appendChild(_idRow('📞', phone,       `tel:${phone}`));
+    if (email)       identity.appendChild(_idRow('✉️',  email,       `mailto:${email}`));
+    if (linkedin)    identity.appendChild(_idRow('🔗', 'LinkedIn',  linkedin));
+    if (address)     identity.appendChild(_idRow('📍', address,     null));
+    if (rs)          identity.appendChild(_idRow('📋', rs,          null));
+
+    // Ring progress summary
+    const docs = (detail && detail.uploaded_documents) || [];
+    const miss = (detail && detail.missing_documents)  || [];
+    if (docs.length || miss.length) {
+      const sep = el('div', 'vio-op-id-sep');
+      identity.appendChild(sep);
+      identity.appendChild(_idRow('📂', `${docs.length} papers received`,  null));
+      if (miss.length) identity.appendChild(_idRow('⚠️', `${miss.length} still missing`, null));
+    }
+
+    // ── Close button ──
+    const closeBtn = el('button', 'vio-op-close');
+    closeBtn.textContent = '✕';
+    closeBtn.addEventListener('click', (e) => { e.stopPropagation(); panel.remove(); });
+
+    panel.appendChild(closeBtn);
+    panel.appendChild(legend);
+    panel.appendChild(identity);
+    canvas.appendChild(panel);
+
+    const dismiss = (e) => {
+      if (!panel.contains(e.target)) {
+        panel.remove();
+        canvas.removeEventListener('click', dismiss);
+      }
+    };
+    setTimeout(() => canvas.addEventListener('click', dismiss), 50);
   }
 
   // Initials that always fit inside the orb. Strategy:
@@ -1393,6 +1564,51 @@
       stalled:        '#6b7280',
     };
     return MAP[state] || '#d8a24a';
+  }
+
+  // ── VIO_PALETTE — exact STATE_COLORS from Carl's demo ──────────────────
+  // Artifact state key → primary colour. Used for node glow, labels,
+  // and detail panel badge colours.
+  const VIO_PALETTE = {
+    healthy:    '#00e5a0',
+    attention:  '#ffb800',
+    blocked:    '#ff3d3d',
+    complete:   '#4ade80',
+    processing: '#38bdf8',
+    inactive:   '#4a5568',
+    milestone:  '#ffd700',
+  };
+
+  // ── _addGlowFilters — injects per-state feGaussianBlur filters ─────────
+  // One filter per palette state; each node references url(#vio-glow-STATE).
+  // Exact port of the <defs> block in vio-demo/VioCanvas.tsx.
+  function _addGlowFilters(svg) {
+    let defs = svg.querySelector('defs');
+    if (!defs) {
+      defs = svgEl('defs');
+      svg.insertBefore(defs, svg.firstChild);
+    }
+    Object.entries(VIO_PALETTE).forEach(([state, color]) => {
+      const id = `vio-glow-${state}`;
+      if (defs.querySelector(`#${id}`)) return;
+      const filt = svgEl('filter');
+      filt.setAttribute('id', id);
+      filt.setAttribute('x', '-50%'); filt.setAttribute('y', '-50%');
+      filt.setAttribute('width', '200%'); filt.setAttribute('height', '200%');
+      const blur = svgEl('feGaussianBlur');
+      blur.setAttribute('stdDeviation', '4'); blur.setAttribute('result', 'blur');
+      const flood = svgEl('feFlood');
+      flood.setAttribute('flood-color', color); flood.setAttribute('result', 'color');
+      const comp = svgEl('feComposite');
+      comp.setAttribute('in', 'color'); comp.setAttribute('in2', 'blur');
+      comp.setAttribute('operator', 'in'); comp.setAttribute('result', 'glow');
+      const merge = svgEl('feMerge');
+      const mn1 = svgEl('feMergeNode'); mn1.setAttribute('in', 'glow');
+      const mn2 = svgEl('feMergeNode'); mn2.setAttribute('in', 'SourceGraphic');
+      merge.appendChild(mn1); merge.appendChild(mn2);
+      filt.appendChild(blur); filt.appendChild(flood); filt.appendChild(comp); filt.appendChild(merge);
+      defs.appendChild(filt);
+    });
   }
 
   //  1. If we have non-URL words, take the first letter of up to
@@ -1686,6 +1902,10 @@
   }
 
   function drawTimelineEvent(svg, ev, cx, cy, detail) {
+    // Map event → palette state key for glow + label colour
+    const [, stateKey] = _artifactTypeFor(ev);
+    const nodeColor = VIO_PALETTE[stateKey] || '#4a5568';
+
     const g = svgEl('g');
     g.setAttribute('class', `vio-tle vio-tle-${ev.kind}`);
     g.setAttribute('data-kind', ev.kind);
@@ -1695,12 +1915,12 @@
     if (ev.status)   g.setAttribute('data-status',   ev.status);
     if (ev.count && ev.count > 1) g.setAttribute('data-bundled', String(ev.count));
 
+    // Apply per-state glow filter (feGaussianBlur injected by _addGlowFilters)
+    g.setAttribute('filter', `url(#vio-glow-${stateKey})`);
+    g.style.cursor = 'pointer';
+
     const shape = _shapeForEvent(ev, cx, cy);
     if (shape) {
-      // _shapeForEvent now returns a rich icon group with its own
-      // `vio-icon vio-icon-${name}` class chain. APPEND the legacy
-      // `vio-tle-shape` token so existing per-kind CSS rules keep
-      // matching, but do not overwrite the icon's own classes.
       const existing = shape.getAttribute('class') || '';
       shape.setAttribute('class', (existing + ' vio-tle-shape').trim());
       g.appendChild(shape);
@@ -1718,13 +1938,118 @@
       g.appendChild(badge);
     }
 
-    // Tooltip — the label lives in SVG <title> so the canvas itself
-    // stays text-free (pictures > words).
+    // Always-visible label + age — below each node, no text needed elsewhere.
+    // Age tells operator instantly: "how long have we had this?"
+    // Colour-codes urgency: neutral → amber (>7d) → red (>30d for gaps).
+    const r = _shapeRadiusFor(ev);
+    const lblText = truncate(ev.label || ev.kind, 14);
+    const lbl = svgEl('text');
+    lbl.setAttribute('x', cx);
+    lbl.setAttribute('y', cy + r + 16);
+    lbl.setAttribute('text-anchor', 'middle');
+    lbl.setAttribute('font-size', '9');
+    lbl.setAttribute('fill', nodeColor);
+    lbl.setAttribute('opacity', '0.8');
+    lbl.setAttribute('font-family', "'JetBrains Mono', ui-monospace, monospace");
+    lbl.style.pointerEvents = 'none';
+    lbl.textContent = lblText;
+    g.appendChild(lbl);
+
+    // Age sub-label: "3d" / "2w" / "4mo" — how long since this event.
+    // For gap/missing docs this reads as: "been missing this long".
+    // For received docs: "had this for X".
+    const ageStr = _ageLabel(ev.ts);
+    if (ageStr) {
+      const ageColor = _ageLabelColor(ev.ts, ev.kind);
+      const age = svgEl('text');
+      age.setAttribute('x', cx);
+      age.setAttribute('y', cy + r + 27);
+      age.setAttribute('text-anchor', 'middle');
+      age.setAttribute('font-size', '8');
+      age.setAttribute('fill', ageColor);
+      age.setAttribute('opacity', '0.65');
+      age.setAttribute('font-family', "'JetBrains Mono', ui-monospace, monospace");
+      age.style.pointerEvents = 'none';
+      age.textContent = ageStr;
+      g.appendChild(age);
+    }
+
+    // Tooltip in <title> (hover fallback)
     const title = svgEl('title');
     title.textContent = ev.label || ev.kind;
     g.appendChild(title);
 
+    // Click → HTML detail panel (slides up from bottom of canvas)
+    g.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const canvas = svg.parentElement;
+      if (canvas) _showNodeDetailPanel(ev, _activeDetail || {}, canvas);
+    });
+
     svg.appendChild(g);
+  }
+
+  // ── Age helpers — compact duration string + urgency colour ────────────
+
+  // Returns a compressed age string for a timestamp: "3d", "2w", "4mo", ">1y".
+  // Returns '' if timestamp is missing or in the future.
+  function _ageLabel(ts) {
+    if (!ts) return '';
+    const ms = Date.now() - new Date(ts).getTime();
+    if (ms <= 0 || isNaN(ms)) return '';
+    const d  = Math.floor(ms / 86400000);
+    if (d === 0) return 'today';
+    if (d < 7)   return `${d}d`;
+    const w  = Math.floor(d / 7);
+    if (w < 5)   return `${w}w`;
+    const mo = Math.floor(d / 30);
+    if (mo < 13) return `${mo}mo`;
+    return '>1y';
+  }
+
+  // Urgency colour for the age label.
+  // gaps/missing docs redden faster because older = more critical.
+  // Received documents age more gracefully (neutral → amber → subtle red).
+  function _ageLabelColor(ts, kind) {
+    if (!ts) return '#4a5568';
+    const ms = Date.now() - new Date(ts).getTime();
+    if (ms <= 0 || isNaN(ms)) return '#4a5568';
+    const d  = Math.floor(ms / 86400000);
+    const isGap = (kind === 'gap' || kind === 'issue' || kind === 'finding');
+    if (isGap) {
+      if (d > 14) return '#ff3d3d';  // red  — missing for 2+ weeks
+      if (d > 7)  return '#ffb800';  // amber — missing for a week
+      return '#e2b84a';
+    }
+    if (d > 30) return '#ff6b35';   // orange — 30+ days
+    if (d > 14) return '#ffb800';   // amber  — 2 weeks
+    return '#6b8fa8';               // muted teal — recent & healthy
+  }
+
+  // ── Map event kind → [artifactType, stateKey] for glow + label colour ──
+  function _artifactTypeFor(ev) {
+    const kind = ev.kind || '';
+    const sub  = ev.sub  || '';
+    const sev  = ev.severity || '';
+    const st   = ev.status   || '';
+    if (kind === 'paper' || kind === 'doc')       return ['document',       sub === 'generated' ? 'processing' : 'complete'];
+    if (kind === 'gap')                            return ['alert',          'attention'];
+    if (kind === 'issue'  && sev === 'critical')   return ['wall',           'blocked'];
+    if (kind === 'issue')                          return ['alert',          'attention'];
+    if (kind === 'finding' && sev === 'critical')  return ['wall',           'blocked'];
+    if (kind === 'finding')                        return ['alert',          'attention'];
+    if (kind === 'phase')                          return ['stamp',          'complete'];
+    if (kind === 'milestone')                      return ['flag',           'milestone'];
+    if (kind === 'confirmation')                   return ['decision',       'processing'];
+    if (kind === 'payment' && st === 'paid')       return ['coin',           'complete'];
+    if (kind === 'payment')                        return ['coin-crack',     'attention'];
+    if (kind === 'broker')                         return ['rocket',         'complete'];
+    if (kind === 'intake' || kind === 'folder')    return ['folder',         'complete'];
+    if (kind === 'review' || kind === 'magnifier') return ['magnifier',      'processing'];
+    if (kind === 'compliance' || kind === 'scale') return ['scale',          'healthy'];
+    if (kind === 'flag' || kind === 'note')        return ['flag',           'attention'];
+    if (kind === 'gen')                            return ['document',       'processing'];
+    return ['document', 'inactive'];
   }
 
   // ── ICON DISPATCH (Carl 2026-06-05: "go hog wild") ────────────────────
@@ -2073,6 +2398,184 @@
     const poly = svgEl('polygon');
     poly.setAttribute('points', pts.join(' '));
     return poly;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // NODE DETAIL PANEL — slides up when any timeline node is clicked.
+  //
+  // Direct port of vio-demo/VioDetailPanel.tsx. Shows the artifact icon,
+  // state badge (coloured pill), and detail fields for the clicked event.
+  // Click outside or press ✕ to dismiss.
+  //
+  // Pure HTML overlay — no SVG. Positioned absolutely at the bottom of
+  // the canvas so it never hides the spine.
+  // ─────────────────────────────────────────────────────────────────────
+
+  // Emoji icons per artifact type (matches VioDetailPanel ARTIFACT_ICONS)
+  const _ARTIFACT_ICONS = {
+    'document':       '📄',
+    'document-issue': '⚠️',
+    'stamp':          '🔏',
+    'coin':           '💰',
+    'coin-crack':     '💳',
+    'wall':           '🚫',
+    'magnifier':      '🔍',
+    'checkmark':      '✅',
+    'clock':          '⏰',
+    'alert':          '⚠️',
+    'gear':           '⚙️',
+    'scale':          '⚖️',
+    'rocket':         '🚀',
+    'flag':           '🚩',
+    'chain-broken':   '🔗',
+    'decision':       '👆',
+    'folder':         '📁',
+  };
+
+  const _STATE_LABELS = {
+    healthy:    'Healthy',
+    attention:  'Needs Attention',
+    blocked:    'Blocked',
+    complete:   'Complete',
+    processing: 'In Progress',
+    inactive:   'Not Started',
+    milestone:  'Milestone Reached',
+  };
+
+  function _buildDetailFields(ev) {
+    const fields = [];
+    const full = ev.full || {};
+
+    if (ev.label && ev.label !== ev.kind) {
+      fields.push({ icon: '📎', label: 'name', value: String(ev.label) });
+    }
+    if (ev.kind) {
+      const typeVal = ev.kind + (ev.sub ? ` · ${ev.sub}` : '');
+      fields.push({ icon: '🏷️', label: 'type', value: typeVal });
+    }
+    if (ev.ts && !isNaN(new Date(ev.ts))) {
+      fields.push({ icon: '🕐', label: 'when', value: new Date(ev.ts).toLocaleString() });
+    }
+    if (ev.severity) {
+      const sc = ev.severity === 'critical' ? '#ff3d3d'
+               : ev.severity === 'high'     ? '#ff6b35'
+               : ev.severity === 'medium'   ? '#ffb800'
+               : '#6b7280';
+      fields.push({ icon: '⚡', label: 'severity', value: ev.severity, valueColor: sc });
+    }
+    if (ev.priority) {
+      fields.push({ icon: '📊', label: 'priority', value: String(ev.priority) });
+    }
+    if (ev.status) {
+      fields.push({ icon: '📋', label: 'status', value: String(ev.status).replace(/_/g, ' ') });
+    }
+    if (ev.count && ev.count > 1) {
+      fields.push({ icon: '🔢', label: 'bundled', value: `${ev.count} items` });
+    }
+    // Fields from the raw object
+    if (full.description && full.description !== ev.label) {
+      fields.push({ icon: '📝', label: 'detail', value: truncate(String(full.description), 50) });
+    }
+    if (full.document_type || full.file_type) {
+      fields.push({ icon: '📄', label: 'file type', value: String(full.document_type || full.file_type) });
+    }
+    if (full.size_bytes) {
+      fields.push({ icon: '💾', label: 'size', value: `${Math.round(full.size_bytes / 1024)} KB` });
+    }
+    if (full.confidence !== undefined) {
+      fields.push({ icon: '🎯', label: 'confidence', value: `${Math.round(full.confidence * 100)}%` });
+    }
+    if (full.message && full.message !== ev.label) {
+      fields.push({ icon: '💬', label: 'message', value: truncate(String(full.message), 50) });
+    }
+    return fields.slice(0, 8);
+  }
+
+  function _showNodeDetailPanel(ev, detail, canvas) {
+    // Toggle: clicking the same node twice dismisses the panel
+    const existing = canvas.querySelector('.vio-detail-panel');
+    if (existing && existing.getAttribute('data-ev-key') === _evKey(ev)) {
+      existing.remove();
+      return;
+    }
+    if (existing) existing.remove();
+
+    const [type, stateKey] = _artifactTypeFor(ev);
+    const color      = VIO_PALETTE[stateKey] || '#4a5568';
+    const icon       = _ARTIFACT_ICONS[type]  || '●';
+    const stateLabel = _STATE_LABELS[stateKey] || stateKey;
+    const label      = ev.label || ev.kind || 'event';
+    const fields     = _buildDetailFields(ev);
+
+    const panel = el('div', 'vio-detail-panel');
+    panel.setAttribute('data-state', stateKey);
+    panel.setAttribute('data-ev-key', _evKey(ev));
+    panel.style.setProperty('--dp-color', color);
+
+    // ── Header ──
+    const hdr = el('div', 'vio-dp-header');
+    const hdrLeft = el('div', 'vio-dp-hdr-left');
+
+    const iconEl = el('span', 'vio-dp-icon');
+    iconEl.textContent = icon;
+
+    const hdrInfo = el('div', 'vio-dp-hdr-info');
+    const hdrTitle = el('div', 'vio-dp-title');
+    hdrTitle.textContent = label;
+
+    const badge = el('span', 'vio-dp-badge');
+    badge.textContent = `● ${stateLabel}`;
+    badge.style.color = color;
+    badge.style.background = `${color}20`;
+    badge.style.border = `1px solid ${color}40`;
+
+    hdrInfo.appendChild(hdrTitle);
+    hdrInfo.appendChild(badge);
+    hdrLeft.appendChild(iconEl);
+    hdrLeft.appendChild(hdrInfo);
+
+    const closeBtn = el('button', 'vio-dp-close');
+    closeBtn.textContent = '✕';
+    closeBtn.addEventListener('click', (e) => { e.stopPropagation(); panel.remove(); });
+
+    hdr.appendChild(hdrLeft);
+    hdr.appendChild(closeBtn);
+    panel.appendChild(hdr);
+
+    // ── Detail fields ──
+    if (fields.length) {
+      const body = el('div', 'vio-dp-body');
+      fields.forEach(f => {
+        const row = el('div', 'vio-dp-row');
+        const left = el('div', 'vio-dp-row-left');
+        const fi = el('span', 'vio-dp-field-icon'); fi.textContent = f.icon;
+        const fl = el('span', 'vio-dp-field-label'); fl.textContent = f.label;
+        left.appendChild(fi); left.appendChild(fl);
+        const fv = el('span', 'vio-dp-field-value');
+        fv.textContent = f.value;
+        const vc = f.valueColor || color;
+        fv.style.color = vc;
+        fv.style.background = `${vc}15`;
+        row.appendChild(left); row.appendChild(fv);
+        body.appendChild(row);
+      });
+      panel.appendChild(body);
+    }
+
+    canvas.appendChild(panel);
+
+    // Dismiss when clicking outside the panel
+    const dismiss = (e) => {
+      if (!panel.contains(e.target)) {
+        panel.remove();
+        canvas.removeEventListener('click', dismiss);
+      }
+    };
+    setTimeout(() => canvas.addEventListener('click', dismiss), 50);
+  }
+
+  function _evKey(ev) {
+    return `${ev.kind}|${ev.sub || ''}|${ev.ts || ''}|${ev.label || ''}`;
   }
 
   // ─────────────────────────────────────────────────────────────────────
