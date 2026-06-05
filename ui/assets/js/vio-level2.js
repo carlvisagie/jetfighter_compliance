@@ -1163,24 +1163,126 @@
     core.setAttribute('r', L.orbR);
     g.appendChild(core);
 
-    // ── Age arc — thin ring inside the orb showing how much of the
-    // stage-SLA window has been consumed. Starts at 12 o'clock and
-    // sweeps clockwise. data-overdue="1" when ageH > SLA so CSS can
-    // tint it red. Operator reads "this stage is fresh" vs "this stage
-    // has been sitting" without a number.
-    const ageH = _stageAgeHours(detail);
-    const SLA_H = 48;
-    const frac = Math.min(0.999, ageH / SLA_H);
-    if (frac > 0.02) {
-      const arc = _arc(
-        L.orbCx, spineY, L.orbR - 7,
-        -Math.PI / 2,
-        -Math.PI / 2 + frac * 2 * Math.PI,
-      );
-      arc.setAttribute('class', 'vio-l2-orb-age-arc');
-      arc.setAttribute('data-overdue', ageH > SLA_H ? '1' : '0');
-      g.appendChild(arc);
+    // ── THREE-RING STORY SYSTEM ──────────────────────────────────────
+    // Inspired by Carl's demo (vio-demo/VioOrb.tsx).
+    // Three concentric arc rings encode three independent health signals
+    // without a single word:
+    //   Ring 1 (outer,  R = orbR)      → Journey/stage completion
+    //   Ring 2 (middle, R = orbR - 9)  → Payment health
+    //   Ring 3 (inner,  R = orbR - 18) → Compliance / classification
+    // Each ring has a faint full-circle track + a bright colored arc
+    // that sweeps clockwise from 12 o'clock by the health fraction.
+    // Hovering reads the <title> tooltip — no extra text on canvas.
+
+    const cx     = L.orbCx;
+    const cy     = spineY;
+    const HALF_GAP = Math.PI * (12 / 180);  // 12° gap at the bottom
+    const START    = -Math.PI / 2 + HALF_GAP;
+    const SWEEP    = 2 * Math.PI - 2 * HALF_GAP;
+
+    // ── Derive ring fractions from live data ──────────────────────────
+    // Ring 1: journey completion by review_status step
+    const rs = (detail.review_status || '').toLowerCase();
+    const completionFrac =
+      (rs === 'archived' || rs === 'verified_complete') ? 1.0
+      : rs === 'payment_sent' ? 0.82
+      : rs === 'approved'     ? 0.62
+      : rs === 'under_review' ? 0.45
+      : rs === 'pending_review' ? 0.28
+      : 0.12;
+
+    // Ring 2: payment health
+    const pay        = detail.payment || {};
+    const payFrac    = pay.paid ? 1.0 : (pay.link ? 0.38 : 0.0);
+    const payColor   = payFrac >= 0.95 ? '#4ade80'
+                     : payFrac >= 0.3  ? '#ffb800'
+                     : '#ef4444';
+
+    // Ring 3: compliance / EI classification completeness
+    const cls        = detail.classification || {};
+    const compFrac   = cls.primary_category && (cls.confidence || 0) >= 0.8 ? 0.9
+                     : cls.primary_category ? 0.6
+                     : (detail.evidence && detail.evidence.profile) ? 0.35
+                     : 0.08;
+    const compColor  = compFrac >= 0.85 ? '#38bdf8'
+                     : compFrac >= 0.55 ? '#ffb800'
+                     : '#ef4444';
+
+    function addRing(r, frac, color, title) {
+      // Track (faint full circle)
+      const track = svgEl('circle');
+      track.setAttribute('cx', cx);
+      track.setAttribute('cy', cy);
+      track.setAttribute('r', r);
+      track.setAttribute('fill', 'none');
+      track.setAttribute('stroke', color);
+      track.setAttribute('stroke-width', '2.5');
+      track.setAttribute('stroke-opacity', '0.1');
+      g.appendChild(track);
+      // Arc fill (health fraction)
+      if (frac > 0.015) {
+        const end  = START + SWEEP * Math.min(0.999, frac);
+        const arc  = _arc(cx, cy, r, START, end);
+        arc.setAttribute('fill', 'none');
+        arc.setAttribute('stroke', color);
+        arc.setAttribute('stroke-width', '2.5');
+        arc.setAttribute('stroke-linecap', 'round');
+        const t = svgEl('title'); t.textContent = title;
+        arc.appendChild(t);
+        g.appendChild(arc);
+      }
     }
+
+    addRing(L.orbR,      completionFrac, _stateColor(state), `journey: ${Math.round(completionFrac * 100)}% complete`);
+    addRing(L.orbR - 9,  payFrac,        payColor,            `payment: ${Math.round(payFrac * 100)}% collected`);
+    addRing(L.orbR - 18, compFrac,       compColor,           `compliance: ${Math.round(compFrac * 100)}%`);
+
+    // ── ORBIT DOTS ───────────────────────────────────────────────────
+    // Carl's demo: one red dot per blocker, one amber dot per attention
+    // item, orbiting just outside the orb boundary. Each dot pulses on
+    // its own SVG <animate> — static baseline, motion only while the
+    // issue is unresolved.
+    const blockers   = (detail.findings || []).filter(f => f.severity === 'critical' || f.severity === 'high');
+    const attentions = detail.missing_documents || [];
+
+    const DOT_R = L.orbR + 7;  // orbit radius
+    blockers.slice(0, 6).forEach((f, i) => {
+      const ang = (-30 + i * 24) * Math.PI / 180 - Math.PI / 2;
+      const dot = svgEl('circle');
+      dot.setAttribute('cx', (cx + DOT_R * Math.cos(ang)).toFixed(2));
+      dot.setAttribute('cy', (cy + DOT_R * Math.sin(ang)).toFixed(2));
+      dot.setAttribute('r', '4');
+      dot.setAttribute('fill', '#ef4444');
+      dot.setAttribute('class', 'vio-l2-orb-blocker-dot');
+      const anim = svgEl('animate');
+      anim.setAttribute('attributeName', 'opacity');
+      anim.setAttribute('values', '0.9;0.2;0.9');
+      anim.setAttribute('dur', '0.7s');
+      anim.setAttribute('repeatCount', 'indefinite');
+      dot.appendChild(anim);
+      const t = svgEl('title'); t.textContent = f.description || f.field || 'blocker';
+      dot.appendChild(t);
+      g.appendChild(dot);
+    });
+
+    attentions.slice(0, 8).forEach((m, i) => {
+      const ang = (-150 + i * 22) * Math.PI / 180 - Math.PI / 2;
+      const dot = svgEl('circle');
+      dot.setAttribute('cx', (cx + DOT_R * Math.cos(ang)).toFixed(2));
+      dot.setAttribute('cy', (cy + DOT_R * Math.sin(ang)).toFixed(2));
+      dot.setAttribute('r', '3.5');
+      dot.setAttribute('fill', '#f59e0b');
+      dot.setAttribute('class', 'vio-l2-orb-attn-dot');
+      const anim = svgEl('animate');
+      anim.setAttribute('attributeName', 'opacity');
+      anim.setAttribute('values', '0.8;0.25;0.8');
+      anim.setAttribute('dur', '1.6s');
+      anim.setAttribute('repeatCount', 'indefinite');
+      dot.appendChild(anim);
+      const t = svgEl('title'); t.textContent = m.label || m.field || 'missing';
+      dot.appendChild(t);
+      g.appendChild(dot);
+    });
 
     // Initials inside — always fit, never overflow.
     const initials = _initialsForOrb(company);
@@ -1192,16 +1294,13 @@
     initialsText.textContent = initials;
     g.appendChild(initialsText);
 
-    // Tiny "click-for-info" affordance — a quiet caret-down below the
-    // initials so the operator knows the orb is interactive without
-    // adding any motion or text. Hidden on hover -> replaced by full
-    // initials brightening (CSS only).
+    // Tiny "click-for-info" affordance — quiet caret below initials.
     const hint = svgEl('text');
     hint.setAttribute('class', 'vio-l2-orb-hint');
     hint.setAttribute('x', L.orbCx);
     hint.setAttribute('y', spineY + L.orbR - 10);
     hint.setAttribute('text-anchor', 'middle');
-    hint.textContent = '⌄';   // small caret-down glyph
+    hint.textContent = '⌄';
     g.appendChild(hint);
 
     // ── Expanded-info card (collapsed by default) ─────────────────────
@@ -1282,6 +1381,20 @@
   }
 
   // Initials that always fit inside the orb. Strategy:
+  // Returns the CSS token colour for a stage state — used to tint
+  // SVG elements that can't be addressed by CSS attribute selectors.
+  function _stateColor(state) {
+    const MAP = {
+      waiting_client: '#d8a24a',
+      failed:         '#ef4444',
+      inconsistent:   '#b18bd8',
+      done:           '#3a8c5a',
+      healthy:        '#3a8c5a',
+      stalled:        '#6b7280',
+    };
+    return MAP[state] || '#d8a24a';
+  }
+
   //  1. If we have non-URL words, take the first letter of up to
   //     three of them (e.g. "Acme Corp Ltd" -> "ACL").
   //  2. If the name is a single URL-ish string (no spaces, contains

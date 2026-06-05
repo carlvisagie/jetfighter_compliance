@@ -959,7 +959,18 @@ html, body {
   50%      { transform: scale(1.18); opacity: 0.32; }
 }
 
-/* ── Orb age arc — thin ring inset showing time-in-stage as % of SLA ── */
+/* ── Orb three-ring story system ──────────────────────────────────────
+ * Three concentric arc rings encode journey completion, payment health,
+ * and compliance — no text, all visual. Carl 2026-06-06: "tell the
+ * story in pictures". Ring arcs rendered via JS with inline stroke
+ * attributes; these classes provide the pointer-events guard. */
+.vio-l2-orb-blocker-dot,
+.vio-l2-orb-attn-dot {
+  pointer-events: all;
+  cursor: help;
+}
+/* Legacy age arc — kept in case any test still checks for the class.
+ * The JS no longer renders it; this rule is a no-op safety net. */
 .vio-l2-orb-age-arc {
   stroke: var(--vio-text-dim);
   stroke-width: 2;
@@ -968,10 +979,7 @@ html, body {
   opacity: 0.85;
   pointer-events: none;
 }
-.vio-l2-orb-age-arc[data-overdue="1"] {
-  stroke: var(--st-stalled);
-  opacity: 1;
-}
+.vio-l2-orb-age-arc[data-overdue="1"] { stroke: var(--st-stalled); opacity: 1; }
 
 /* Orb state tint — the static orb stroke takes on the company's state
  * colour so the operator reads "what state is this company in" without
