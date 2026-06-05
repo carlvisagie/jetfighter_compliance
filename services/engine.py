@@ -374,6 +374,49 @@ def start_worker(*, heavy: bool = True) -> None:
         trigger="interval",
         minutes=5,
     )
+
+    # Autonomous EI freshness sweep. Doctrine: "Anything that can be
+    # autonomous, must be." The organism detects unindexed uploads and
+    # OCR-opportunity extractions (OCR became available after the
+    # original run) and reprocesses without operator action. The manual
+    # /api/operator/evidence-intelligence/reprocess endpoint stays as
+    # an override. Default cadence is 5 minutes — long enough that a
+    # busy intake's natural EI-on-upload pass usually beats us to it,
+    # short enough that newly-installed OCR binaries flow to existing
+    # paperwork within minutes of deploy.
+    def _ei_freshness_sweep() -> None:
+        try:
+            from services.evidence_intelligence.freshness import (
+                sweep_intakes_for_staleness,
+            )
+            summary = sweep_intakes_for_staleness()
+        except Exception as exc:
+            _emit_scheduler_event(
+                "scheduler_ei_freshness_sweep_failed",
+                success=False,
+                severity="warning",
+                message=f"{type(exc).__name__}: {exc}",
+            )
+            return
+        _emit_scheduler_event(
+            "scheduler_ei_freshness_sweep_ran",
+            metadata={
+                "scanned":      summary.get("scanned", 0),
+                "fresh":        summary.get("fresh", 0),
+                "stale_count":  len(summary.get("stale", [])),
+                "reprocessed":  len(summary.get("reprocessed", [])),
+                "deferred":     len(summary.get("deferred", [])),
+                "failed":       len(summary.get("failed", [])),
+                "ocr_runtime":  bool(summary.get("ocr_runtime_available")),
+            },
+        )
+
+    _add_job(
+        "ei_freshness_sweep",
+        _ei_freshness_sweep,
+        trigger="interval",
+        minutes=5,
+    )
     if heavy:
         _add_job(
             "nightly_exports",

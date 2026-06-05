@@ -22,6 +22,7 @@ _PHASE_TO_EVENT = {
     "evidence_intelligence_completed":   "evidence_intelligence_completed",
     "evidence_intelligence_failed":      "evidence_intelligence_failed",
     "evidence_intelligence_reprocessed": "evidence_intelligence_reprocessed",
+    "evidence_intelligence_autonomous_reprocess": "evidence_intelligence_autonomous_reprocess",
     "operator_action_approve_review":  "operator_approved",
     "operator_action_request_more_info": "operator_request_more_info",
     "operator_action_mark_high_value": "operator_mark_high_value",

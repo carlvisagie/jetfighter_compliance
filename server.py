@@ -451,6 +451,28 @@ def healthz_ei_binaries():
     return out
 
 
+@app.get("/api/ops/ei-freshness")
+def ops_ei_freshness(request: Request, dry_run: bool = True):
+    """Run the EI freshness sweep on demand and return its report.
+
+    Default is ``dry_run=true`` — compute staleness signals without
+    triggering any reprocess. Set ``?dry_run=false`` to actually run
+    reprocess for stale intakes (subject to the same per-sweep
+    throttle the scheduler uses).
+
+    Doctrine: this is the operator-visible window into an otherwise-
+    autonomous process. The scheduler is the primary path; this
+    endpoint exists so an operator can answer "what's the organism
+    seeing right now?" without grepping logs. Auth-gated because the
+    payload names intake IDs."""
+    from services.evidence_intelligence.freshness import sweep_intakes_for_staleness
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    summary = sweep_intakes_for_staleness(dry_run=bool(dry_run))
+    return {"ok": True, **summary}
+
+
 @app.get("/api/ops/boot-status")
 def ops_boot_status():
     """Operator-visible startup log (env audit, safe mode, scheduler kill-switch)."""

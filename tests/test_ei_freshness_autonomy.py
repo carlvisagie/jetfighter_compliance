@@ -1,0 +1,263 @@
+"""Autonomy guardrail: the EI freshness sweep must auto-reprocess stale
+intakes without operator input.
+
+Doctrine: ``docs/KYC_ORGANISM_DOCTRINE.md`` → "Autonomy by default."
+
+These tests pin the contract:
+
+  · `compute_staleness_signals` fires `unindexed_upload` when a real
+    customer file has no matching sha in `extractions.jsonl`.
+  · It fires `ocr_now_available` when prior extractions ran without
+    OCR but OCR is available now.
+  · Fresh intakes return no signals.
+  · `sweep_intakes_for_staleness` reprocesses stale intakes, records
+    the firing signals in custody, and is bounded by ``max_reprocess``.
+  · The autonomous reprocess phase has a custody-timeline mapping so
+    the chain of custody renders it with a human-readable label.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import shutil
+import uuid
+from pathlib import Path
+
+import pytest
+
+from services.evidence_intelligence.freshness import (
+    SIGNAL_OCR_NOW_AVAILABLE,
+    SIGNAL_UNINDEXED_UPLOAD,
+    compute_staleness_signals,
+    sweep_intakes_for_staleness,
+)
+
+
+def _session_data_root() -> Path:
+    root = os.environ.get("KYC_DATA")
+    assert root, "KYC_DATA must be pinned by conftest.py before this test runs"
+    return Path(root)
+
+
+def _unique_intake_id() -> str:
+    return "FB-" + uuid.uuid4().hex[:12]
+
+
+def _sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+@pytest.fixture
+def stale_intake_unindexed():
+    """An intake with one upload that has no matching extraction row —
+    classic 'unindexed_upload' shape."""
+    root = _session_data_root()
+    iid  = _unique_intake_id()
+    idir = root / "intakes" / iid
+    intel = root / "projects" / iid / "evidence_intelligence"
+
+    (idir / "uploads").mkdir(parents=True, exist_ok=True)
+    payload = b"acme policy: mfa is required for all admins"
+    (idir / "uploads" / "policy.txt").write_bytes(payload)
+    intel.mkdir(parents=True, exist_ok=True)
+    # extractions.jsonl is EMPTY — there's an upload but no extraction
+    # for its sha. That is the staleness signal we want fired.
+    (intel / "extractions.jsonl").write_text("", encoding="utf-8")
+    try:
+        yield iid, payload
+    finally:
+        shutil.rmtree(idir, ignore_errors=True)
+        shutil.rmtree(intel.parent, ignore_errors=True)
+
+
+@pytest.fixture
+def fresh_intake():
+    """An intake where every customer upload has a matching extraction
+    row — no staleness signals should fire."""
+    root = _session_data_root()
+    iid  = _unique_intake_id()
+    idir = root / "intakes" / iid
+    intel = root / "projects" / iid / "evidence_intelligence"
+
+    (idir / "uploads").mkdir(parents=True, exist_ok=True)
+    payload = b"acme policy v2: mfa enforced"
+    (idir / "uploads" / "policy.txt").write_bytes(payload)
+
+    intel.mkdir(parents=True, exist_ok=True)
+    extraction = {
+        "source_file":   "policy.txt",
+        "sha256":         _sha256(payload),
+        "ocr_status":    "ocr_not_needed",
+        "completed_utc": "2026-06-05T10:00:00Z",
+    }
+    (intel / "extractions.jsonl").write_text(
+        json.dumps(extraction) + "\n", encoding="utf-8",
+    )
+    try:
+        yield iid
+    finally:
+        shutil.rmtree(idir, ignore_errors=True)
+        shutil.rmtree(intel.parent, ignore_errors=True)
+
+
+@pytest.fixture
+def ocr_opportunity_intake():
+    """Every upload IS indexed, but the extraction row says OCR did not
+    run. If OCR is available now, the freshness sweep should fire
+    `ocr_now_available`."""
+    root = _session_data_root()
+    iid  = _unique_intake_id()
+    idir = root / "intakes" / iid
+    intel = root / "projects" / iid / "evidence_intelligence"
+
+    (idir / "uploads").mkdir(parents=True, exist_ok=True)
+    payload = b"\xff\xd8\xff\xe0minimal-jpeg-bytes"
+    (idir / "uploads" / "scan.jpg").write_bytes(payload)
+
+    intel.mkdir(parents=True, exist_ok=True)
+    extraction = {
+        "source_file":   "scan.jpg",
+        "sha256":         _sha256(payload),
+        "ocr_status":    "ocr_binary_unavailable",
+        "completed_utc": "2026-06-01T10:00:00Z",
+    }
+    (intel / "extractions.jsonl").write_text(
+        json.dumps(extraction) + "\n", encoding="utf-8",
+    )
+    try:
+        yield iid
+    finally:
+        shutil.rmtree(idir, ignore_errors=True)
+        shutil.rmtree(intel.parent, ignore_errors=True)
+
+
+# ── compute_staleness_signals ─────────────────────────────────────────
+
+
+def test_unindexed_upload_fires_signal(stale_intake_unindexed):
+    iid, _ = stale_intake_unindexed
+    sigs = compute_staleness_signals(iid, ocr_runtime_available=False)
+    assert SIGNAL_UNINDEXED_UPLOAD in sigs
+
+
+def test_fresh_intake_fires_no_signals(fresh_intake):
+    iid = fresh_intake
+    sigs = compute_staleness_signals(iid, ocr_runtime_available=False)
+    assert sigs == [], (
+        f"a fresh intake must produce zero signals; got {sigs!r}"
+    )
+
+
+def test_ocr_opportunity_fires_when_ocr_runtime_available(ocr_opportunity_intake):
+    iid = ocr_opportunity_intake
+    # OCR available → signal fires.
+    sigs = compute_staleness_signals(iid, ocr_runtime_available=True)
+    assert SIGNAL_OCR_NOW_AVAILABLE in sigs
+    # OCR not available → signal must NOT fire (no point reprocessing).
+    sigs = compute_staleness_signals(iid, ocr_runtime_available=False)
+    assert SIGNAL_OCR_NOW_AVAILABLE not in sigs
+
+
+def test_signals_are_deterministic_and_unique(stale_intake_unindexed):
+    iid, _ = stale_intake_unindexed
+    a = compute_staleness_signals(iid, ocr_runtime_available=False)
+    b = compute_staleness_signals(iid, ocr_runtime_available=False)
+    assert a == b, "signal computation must be deterministic"
+    assert len(set(a)) == len(a), "no duplicate signal names"
+
+
+def test_empty_intake_id_returns_empty():
+    assert compute_staleness_signals("") == []
+    assert compute_staleness_signals(None) == []  # type: ignore[arg-type]
+
+
+# ── sweep_intakes_for_staleness ───────────────────────────────────────
+
+
+def test_sweep_dry_run_reports_stale_without_reprocessing(stale_intake_unindexed):
+    iid, _ = stale_intake_unindexed
+    summary = sweep_intakes_for_staleness(intake_ids=[iid], dry_run=True)
+
+    assert summary["scanned"] == 1
+    assert summary["fresh"] == 0
+    assert len(summary["stale"]) == 1
+    assert summary["stale"][0]["intake_id"] == iid
+    assert SIGNAL_UNINDEXED_UPLOAD in summary["stale"][0]["signals"]
+    # Dry-run: nothing reprocessed.
+    assert summary["reprocessed"] == []
+    assert summary["failed"] == []
+
+
+def test_sweep_respects_max_reprocess_throttle(stale_intake_unindexed):
+    """With max_reprocess=0, stale intakes go to `deferred` not
+    `reprocessed`. This is the throttle the scheduler uses to keep one
+    bad batch from starving the rest of the fleet."""
+    iid, _ = stale_intake_unindexed
+    summary = sweep_intakes_for_staleness(
+        intake_ids=[iid], max_reprocess=0, dry_run=False,
+    )
+    assert len(summary["stale"]) == 1
+    assert summary["reprocessed"] == []
+    assert len(summary["deferred"]) == 1
+    assert summary["deferred"][0]["intake_id"] == iid
+
+
+def test_sweep_skips_fresh_intakes(fresh_intake):
+    iid = fresh_intake
+    summary = sweep_intakes_for_staleness(intake_ids=[iid], dry_run=True)
+    assert summary["scanned"] == 1
+    assert summary["fresh"] == 1
+    assert summary["stale"] == []
+
+
+def test_sweep_handles_unknown_intake_gracefully():
+    """A non-existent intake ID must NOT abort the sweep — it should
+    produce zero signals (no uploads to compare against) and count as
+    'fresh' for the purposes of the sweep tally."""
+    summary = sweep_intakes_for_staleness(
+        intake_ids=["FB-doesnotexist00"], dry_run=True,
+    )
+    assert summary["scanned"] == 1
+    # No uploads → no signals → counted as fresh.
+    assert summary["fresh"] == 1
+    assert summary["stale"] == []
+    assert summary["failed"] == []
+
+
+# ── custody timeline mapping (the autonomous event must be human-
+#     readable in the chain of custody) ──────────────────────────────
+
+
+def test_autonomous_phase_has_custody_label():
+    """Every phase string that the freshness sweep writes via
+    append_transaction_event must have a mapping in
+    custody_timeline._PHASE_TO_EVENT — otherwise the row would render
+    with its raw phase string and confuse the operator reading the
+    chain a year later."""
+    from services.intake.custody_timeline import _PHASE_TO_EVENT
+    assert "evidence_intelligence_autonomous_reprocess" in _PHASE_TO_EVENT
+    assert _PHASE_TO_EVENT["evidence_intelligence_autonomous_reprocess"] == (
+        "evidence_intelligence_autonomous_reprocess"
+    )
+
+
+# ── scheduler wiring (job is registered + cadence is sane) ────────────
+
+
+def test_scheduler_registers_ei_freshness_sweep_organ():
+    """The scheduler MUST add an `ei_freshness_sweep` organ job at boot
+    time so the autonomy story isn't just 'we built a helper, but
+    nobody calls it.' We assert the job string is present in the
+    engine source — robust against import-time side effects."""
+    from pathlib import Path
+    src = Path("services/engine.py").read_text(encoding="utf-8")
+    assert '"ei_freshness_sweep"' in src, (
+        "services/engine.py must register an `ei_freshness_sweep` organ "
+        "via _add_job — otherwise the autonomous reprocess loop never "
+        "actually runs"
+    )
+    assert "minutes=5" in src, (
+        "the sweep cadence should remain 5 minutes (see comment in "
+        "engine.py); changing it requires a doctrine note"
+    )
