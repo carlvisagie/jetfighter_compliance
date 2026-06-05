@@ -230,14 +230,17 @@
 
     mount.appendChild(buildHeader(company));
     const canvas    = buildCanvas();      mount.appendChild(canvas);
-    const sidepanel = buildSidePanel();   mount.appendChild(sidepanel);
+    // Side panel removed 2026-06-05 per Carl's directive: "remove this
+    // side panel shit, it prevents you from using your imagination, and
+    // letting your timeline speak clearly". The timeline + shapes ARE
+    // the story now. The grid in vio.css is collapsed to a single
+    // canvas column so the spine has the full width to breathe.
 
     renderSkeletonSpine(canvas, company);
-    showSideHint('reading the field…');
 
     const intakeKey = company.intake_id || company.row_id || company.project_id;
     if (!intakeKey) {
-      showSideHint('no intake id — nothing to render');
+      console.warn('[VIO L2] no intake id — nothing to render');
       return;
     }
     try {
@@ -250,9 +253,7 @@
       _activeDetail = detail;
       _xref = buildXref(detail);
       renderLandscape(canvas, company, detail);
-      resetFrames(overviewFrame(company, detail));
     } catch (err) {
-      showSideHint('could not load landscape: ' + err.message);
       console.error('[VIO L2]', err);
       // Defensive visibility contract: tell the boot watchdog something
       // failed so the operator never gets a silent empty canvas. A side
@@ -631,13 +632,13 @@
     branches.below.forEach(b => drawBranch(svg, b, spineY, 'below', detail));
 
     // Custody chain is its own branch — anchored at the `intake` stage
-    // (where we first start dealing with the company) and stretching
-    // rightward along time to the present moment. Doctrine §11 + §12:
-    // a line that itself communicates, with shapes on it for each
-    // discrete custody event. Sits beneath all other below-clusters so
-    // it doesn't collide with them, and only renders when there's
-    // actually custody to show.
-    drawCustodyBranch(svg, detail, spineY, belowMax);
+    // Custody ribbon (parallel cyan timeline below the spine) disabled
+    // 2026-06-05. Carl: "Make VIO emulate this nothing more no side
+    // panels" + sketch shows ONE spine, not two. Custody events still
+    // exist in the data and will be folded back into the main spine as
+    // discrete shapes in a follow-up pass; for now we keep the spine
+    // alone so the operator's eye has nothing to compete with the story.
+    // drawCustodyBranch(svg, detail, spineY, belowMax);  // INTENTIONALLY OFF
 
     drawOrb(svg, company, spineY);
 
@@ -849,141 +850,161 @@
   //  recent activity is not a demand. The spine's own terminus already
   //  marks "now" visually.)
 
-  // ── Orb — the company's visual passport ───────────────────────────────
+  // ── Orb — the company's identity at rest ──────────────────────────────
   //
-  // Carl's directive (2026-06-05): "the orb should contain all company
-  // information ... tell the story in pictures." So the orb is now a
-  // multi-layer glyph that an operator reads as a glance:
+  // Carl 2026-06-05 (sharpened repeatedly through the day):
   //
-  //   • outer halo  — state colour (waiting_client breathes)
-  //   • identity ring — thin perimeter line; carries compliance dots
-  //   • contact satellites — N/E/S/W small circles, FILLED if that
-  //       contact channel is present (phone / email / address / deadline),
-  //       hollow if absent. Four binary signals, zero text.
-  //   • compliance dots — one small dot per detected framework, spaced
-  //       around the identity ring at compass positions
-  //   • core circle — solid state colour with company initials inside
-  //   • limb — short connector from orb to spine
+  //   "the orb is company information... tel email address... you can
+  //    not cram all that info into the orb without clicking to expand"
+  //   "no movement no rings nothing"
+  //   "tell the story with pictures"
   //
-  // Clicking ANY part of the orb opens the company-identity frame in the
-  // side panel (full metadata, contact details, compliance details, etc).
-  // The header text bar stays for now as a fallback but the goal is for
-  // the orb alone to convey identity — pictures, not words.
+  // Resting state: a single static circle with the company NAME visible
+  // inside (auto-wrapped to two lines if long). No halo. No identity
+  // ring. No satellites. No compliance dots. No breathing. No limb.
+  // Just the orb and the name.
+  //
+  // Clicking the orb toggles a small text card next to it that exposes
+  // the rest of the company information — tel, email, address. The
+  // card lives in the SVG so it shares the canvas coordinate system
+  // (no DOM overlay drift). Click outside or click the orb again to
+  // collapse it. Operator's choice; no persistent expanded surface
+  // (one click in, one click out — never a side panel).
   function drawOrb(svg, company, spineY = L.spineY) {
     const detail = _activeDetail || {};
     const ictx   = detail.intake_context || {};
     const prof   = (detail.evidence && detail.evidence.profile) || {};
-    const state  = company.stage_state || 'healthy';
 
     const g = svgEl('g');
     g.setAttribute('class', 'vio-l2-orb-group');
-    g.setAttribute('data-stage-state', state);
 
-    // Limb — short connector from orb to spine start.
-    const limb = svgEl('line');
-    limb.setAttribute('class', 'vio-l2-orb-limb');
-    limb.setAttribute('data-stage-state', state);
-    limb.setAttribute('x1', L.orbCx + L.orbR);
-    limb.setAttribute('y1', spineY);
-    limb.setAttribute('x2', L.spineX0);
-    limb.setAttribute('y2', spineY);
-    g.appendChild(limb);
-
-    // Outer halo — state-coloured aura. Animates when waiting_client.
-    const halo = svgEl('circle');
-    halo.setAttribute('class', 'vio-l2-orb-halo');
-    halo.setAttribute('data-stage-state', state);
-    halo.setAttribute('cx', L.orbCx);
-    halo.setAttribute('cy', spineY);
-    halo.setAttribute('r', L.orbR + 6);
-    g.appendChild(halo);
-
-    // Identity ring — thin perimeter. Compliance dots ride this circle.
-    const ring = svgEl('circle');
-    ring.setAttribute('class', 'vio-l2-orb-ring');
-    ring.setAttribute('data-stage-state', state);
-    ring.setAttribute('cx', L.orbCx);
-    ring.setAttribute('cy', spineY);
-    ring.setAttribute('r', L.orbR);
-    g.appendChild(ring);
-
-    // Compliance markers — one dot per detected framework, distributed
-    // around the upper arc of the ring (315° → 225° sweep, so they sit
-    // above the contact satellites and don't collide).
-    const frameworks = Array.isArray(prof.compliance_references)
-      ? prof.compliance_references.slice(0, 6)
-      : [];
-    frameworks.forEach((fw, i) => {
-      const n = Math.max(frameworks.length, 1);
-      // Spread evenly along the TOP semicircle (180° → 360°/0°).
-      const angle = Math.PI + (Math.PI * (i + 0.5)) / n;  // π .. 2π
-      const cx = L.orbCx + L.orbR * Math.cos(angle);
-      const cy = spineY  + L.orbR * Math.sin(angle);
-      const dot = svgEl('circle');
-      dot.setAttribute('class', 'vio-l2-orb-compliance');
-      dot.setAttribute('cx', cx);
-      dot.setAttribute('cy', cy);
-      dot.setAttribute('r', 3);
-      // Friendly title on hover until we wire a tooltip.
-      const fwLabel = typeof fw === 'string' ? fw : (fw.value || fw.name || fw.label || 'compliance');
-      const title = svgEl('title');
-      title.textContent = String(fwLabel);
-      dot.appendChild(title);
-      g.appendChild(dot);
-    });
-
-    // Core circle — solid state colour with company initials inside.
+    // Single static circle. Stroke only — no fill colour competing
+    // with the spine. Sized big enough to read the company name from
+    // across the room.
     const core = svgEl('circle');
     core.setAttribute('class', 'vio-l2-orb');
-    core.setAttribute('data-stage-state', state);
     core.setAttribute('cx', L.orbCx);
     core.setAttribute('cy', spineY);
-    core.setAttribute('r', L.orbR - 12);
+    core.setAttribute('r', L.orbR);
     g.appendChild(core);
 
-    const initialsText = svgEl('text');
-    initialsText.setAttribute('class', 'vio-l2-orb-text');
-    initialsText.setAttribute('x', L.orbCx);
-    initialsText.setAttribute('y', spineY + 9);
-    initialsText.setAttribute('text-anchor', 'middle');
-    initialsText.textContent = (company.initials || '?').slice(0, 3);
-    g.appendChild(initialsText);
-
-    // ── Contact satellites — N/E/S/W presence dots ─────────────────────
-    //
-    // Each satellite is a tiny circle hanging on the outer halo. FILLED
-    // (data-on="1") when that channel exists on the company, HOLLOW
-    // (data-on="0") when it doesn't. Four glance-readable booleans:
-    //
-    //   N: phone        (intake_context.phone)
-    //   E: email        (company.email_anchor or company.email)
-    //   S: address      (intake_context.address || prof.addresses[0])
-    //   W: deadline     (intake_context.deadline)
-    const satellites = [
-      { dir: 'N',  angle: -Math.PI / 2, on: !!ictx.phone,                                    title: ictx.phone || 'no phone on file' },
-      { dir: 'E',  angle: 0,             on: !!(company.email_anchor || company.email),       title: company.email_anchor || company.email || 'no email on file' },
-      { dir: 'S',  angle:  Math.PI / 2,  on: !!(ictx.address || (Array.isArray(prof.addresses) && prof.addresses.length)), title: ictx.address || 'no address on file' },
-      { dir: 'W',  angle:  Math.PI,      on: !!ictx.deadline,                                 title: ictx.deadline ? `deadline ${ictx.deadline}` : 'no deadline set' },
-    ];
-    const satR = L.orbR + 6;  // sit on the halo perimeter
-    satellites.forEach(sat => {
-      const cx = L.orbCx + satR * Math.cos(sat.angle);
-      const cy = spineY  + satR * Math.sin(sat.angle);
-      const dot = svgEl('circle');
-      dot.setAttribute('class', 'vio-l2-orb-satellite');
-      dot.setAttribute('data-on', sat.on ? '1' : '0');
-      dot.setAttribute('data-dir', sat.dir);
-      dot.setAttribute('cx', cx);
-      dot.setAttribute('cy', cy);
-      dot.setAttribute('r', 4.5);
-      const title = svgEl('title');
-      title.textContent = sat.title;
-      dot.appendChild(title);
-      g.appendChild(dot);
+    // Company name inside the orb — wraps to up to 2 lines.
+    const fullName = (company.company_name || 'Unknown').trim();
+    const lines = _wrapNameForOrb(fullName, /*maxCharsPerLine=*/16, /*maxLines=*/2);
+    const lineH = 18;
+    const startY = spineY - ((lines.length - 1) * lineH) / 2 + 5;
+    const nameText = svgEl('text');
+    nameText.setAttribute('class', 'vio-l2-orb-name');
+    nameText.setAttribute('x', L.orbCx);
+    nameText.setAttribute('y', startY);
+    nameText.setAttribute('text-anchor', 'middle');
+    lines.forEach((line, i) => {
+      const tspan = svgEl('tspan');
+      tspan.setAttribute('x', L.orbCx);
+      tspan.setAttribute('dy', i === 0 ? 0 : lineH);
+      tspan.textContent = line;
+      nameText.appendChild(tspan);
     });
+    g.appendChild(nameText);
 
-    g.addEventListener('click', () => resetFrames(overviewFrame(company, _activeDetail)));
+    // ── Expanded-info card (collapsed by default) ─────────────────────
+    // Click the orb -> show this card to the right of the orb. Click
+    // again -> hide. Contains Tel / Email / Address — the rest of the
+    // company information that doesn't fit in the orb itself.
+    const cardItems = [
+      { label: 'tel',     value: ictx.phone || '' },
+      { label: 'email',   value: company.email_anchor || company.email || (ictx.email || '') },
+      { label: 'address', value: ictx.address
+                                 || (Array.isArray(prof.addresses) && prof.addresses[0])
+                                 || '' },
+    ].filter(it => it.value);
+
+    if (cardItems.length) {
+      const card = svgEl('g');
+      card.setAttribute('class', 'vio-l2-orb-card');
+      card.setAttribute('data-open', '0');
+
+      const cardX = L.orbCx + L.orbR + 14;
+      const cardY = spineY - (cardItems.length * 16) / 2 - 14;
+      const cardW = 240;
+      const cardH = cardItems.length * 18 + 22;
+
+      const bg = svgEl('rect');
+      bg.setAttribute('class', 'vio-l2-orb-card-bg');
+      bg.setAttribute('x', cardX);
+      bg.setAttribute('y', cardY);
+      bg.setAttribute('width', cardW);
+      bg.setAttribute('height', cardH);
+      bg.setAttribute('rx', 6);
+      card.appendChild(bg);
+
+      cardItems.forEach((it, i) => {
+        const y = cardY + 18 + i * 18;
+        const labelEl = svgEl('text');
+        labelEl.setAttribute('class', 'vio-l2-orb-card-label');
+        labelEl.setAttribute('x', cardX + 12);
+        labelEl.setAttribute('y', y);
+        labelEl.textContent = it.label;
+        card.appendChild(labelEl);
+        const valueEl = svgEl('text');
+        valueEl.setAttribute('class', 'vio-l2-orb-card-value');
+        valueEl.setAttribute('x', cardX + 70);
+        valueEl.setAttribute('y', y);
+        // Truncate very long values so the card doesn't span the canvas.
+        valueEl.textContent = it.value.length > 30
+          ? it.value.slice(0, 28) + '…'
+          : it.value;
+        const title = svgEl('title');
+        title.textContent = it.value;   // full value on hover
+        valueEl.appendChild(title);
+        card.appendChild(valueEl);
+      });
+
+      g.appendChild(card);
+
+      g.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = card.getAttribute('data-open') === '1';
+        card.setAttribute('data-open', open ? '0' : '1');
+      });
+      // Click anywhere else on the SVG collapses the card.
+      svg.addEventListener('click', () => {
+        card.setAttribute('data-open', '0');
+      });
+    }
+
     svg.appendChild(g);
+  }
+
+  // Greedy line-wrap for the company name inside the orb. Splits on
+  // whitespace; if a single word still overflows we soft-break at the
+  // limit. Keeps the wrap deterministic so tests + screenshots are
+  // reproducible.
+  function _wrapNameForOrb(name, maxCharsPerLine, maxLines) {
+    if (!name) return ['Unknown'];
+    if (name.length <= maxCharsPerLine) return [name];
+    const words = name.split(/\s+/);
+    const lines = [];
+    let cur = '';
+    for (const w of words) {
+      if (!cur) { cur = w; continue; }
+      if ((cur + ' ' + w).length <= maxCharsPerLine) cur += ' ' + w;
+      else { lines.push(cur); cur = w; if (lines.length === maxLines - 1) break; }
+    }
+    if (cur && lines.length < maxLines) lines.push(cur);
+    // If the last line still overflows or words got dropped, hard-truncate.
+    if (lines.length === maxLines) {
+      const last = lines[maxLines - 1];
+      if (last.length > maxCharsPerLine) {
+        lines[maxLines - 1] = last.slice(0, maxCharsPerLine - 1) + '…';
+      }
+      // If there's leftover words we never appended, indicate truncation.
+      const consumed = lines.join(' ').replace(/…$/, '').trim();
+      if (name.length > consumed.length && !lines[maxLines - 1].endsWith('…')) {
+        lines[maxLines - 1] = lines[maxLines - 1].slice(0, maxCharsPerLine - 1) + '…';
+      }
+    }
+    return lines.length ? lines : [name.slice(0, maxCharsPerLine - 1) + '…'];
   }
 
   // ─────────────────────────────────────────────────────────────────────
@@ -1154,14 +1175,11 @@
     const titleY = spineY + sign * 40;
     const baseY  = spineY + sign * 60;
 
-    const limb = svgEl('path');
-    const cp1x = cluster.anchorX, cp1y = spineY + sign * 8;
-    const cp2x = cluster.anchorX, cp2y = spineY + sign * 32;
-    limb.setAttribute('d',
-      `M ${cluster.anchorX} ${spineY} Q ${cp1x} ${cp1y}, ${cp2x} ${cp2y} T ${cluster.anchorX} ${titleY}`);
-    limb.setAttribute('class', 'vio-l2-branch-limb');
-    limb.setAttribute('data-cluster', cluster.id);
-    svg.appendChild(limb);
+    // Branch limb removed 2026-06-05 per Carl: "Remove cyan branch/limb
+    // line unless state absolutely requires it." Default = no limb. The
+    // cluster's vertical position relative to the spine is enough of a
+    // visual anchor; the limb was decorative cyan ink that the eye
+    // couldn't ignore and that the sketch never had.
 
     const titleText = svgEl('text');
     titleText.setAttribute('class', 'vio-l2-branch-title');

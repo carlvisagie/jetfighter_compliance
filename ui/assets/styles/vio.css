@@ -553,10 +553,15 @@ html, body {
   background: var(--vio-bg);
   display: grid;
   grid-template-rows: auto 1fr;
-  grid-template-columns: 1fr 340px;
+  /* Single-column layout — Carl 2026-06-05: "remove this side panel
+     shit, it prevents you from using your imagination, and letting
+     your timeline speak clearly". Canvas gets the full viewport
+     width; the spine carries the story; no parallel surface competes
+     for the operator's eye. */
+  grid-template-columns: 1fr;
   grid-template-areas:
-    "header header"
-    "canvas side";
+    "header"
+    "canvas";
 }
 
 /* ── CRITICAL OVERRIDE ─────────────────────────────────────────────────────
@@ -761,95 +766,73 @@ html, body {
  *  carries state; ring carries compliance dots; satellites are presence
  *  booleans for phone/email/address/deadline; core is the initials.
  *  Stillness baseline — only waiting_client breathes. */
+/* ── L2 orb (sketch-faithful — 2026-06-05) ───────────────────────────────
+ *
+ * Carl's sharpened directive:
+ *   "the orb is company information fuckin email address and so on"
+ *   "you can not cram all that info into the orb without clicking to
+ *    expand for the company information"
+ *   "no movement of any kind unless it demands attention"
+ *
+ * Resting state: ONE static circle, stroke only, with the company NAME
+ * visible inside. Nothing else. No halo, no ring, no satellites, no
+ * compliance dots, no breathing.
+ *
+ * Click the orb -> the side card (.vio-l2-orb-card) toggles open and
+ * shows tel / email / address — the rest of the company information.
+ * Click anywhere else -> the card closes. There is no side panel and
+ * no persistent expanded surface.
+ */
 .vio-l2-orb-group { cursor: pointer; }
 
-.vio-l2-orb-limb {
-  stroke: var(--st-healthy);
-  stroke-width: 2;
-  opacity: 0.7;
-}
-.vio-l2-orb-limb[data-stage-state="stalled"]        { stroke: var(--st-stalled); }
-.vio-l2-orb-limb[data-stage-state="failed"]         { stroke: var(--st-failed); }
-.vio-l2-orb-limb[data-stage-state="waiting_client"] { stroke: var(--st-waiting); }
-.vio-l2-orb-limb[data-stage-state="inconsistent"]   { stroke: var(--st-inconsistent); }
-.vio-l2-orb-limb[data-stage-state="done"]           { stroke: var(--st-done); }
-
-/* Outer halo — translucent aura, state-coloured. Waiting-client breathes
- * (and ONLY waiting-client; everything else is still). */
-.vio-l2-orb-halo {
-  fill: none;
-  stroke: var(--st-healthy);
-  stroke-width: 1;
-  opacity: 0.32;
-  transition: stroke 0.18s, opacity 0.18s;
-}
-.vio-l2-orb-halo[data-stage-state="stalled"]        { stroke: var(--st-stalled); opacity: 0.20; }
-.vio-l2-orb-halo[data-stage-state="failed"]         { stroke: var(--st-failed); opacity: 0.45; }
-.vio-l2-orb-halo[data-stage-state="waiting_client"] { stroke: var(--st-waiting); opacity: 0.40; animation: vio-breathe 4s ease-in-out infinite; }
-.vio-l2-orb-halo[data-stage-state="inconsistent"]   { stroke: var(--st-inconsistent); opacity: 0.35; }
-.vio-l2-orb-halo[data-stage-state="done"]           { stroke: var(--st-done); opacity: 0.28; }
-.vio-l2-orb-group:hover .vio-l2-orb-halo { opacity: 0.6; }
-
-/* Identity ring — thin perimeter line that carries compliance dots. */
-.vio-l2-orb-ring {
-  fill: none;
-  stroke: var(--vio-text-faint);
-  stroke-width: 1.2;
-  opacity: 0.55;
-}
-.vio-l2-orb-ring[data-stage-state="healthy"]        { stroke: var(--st-healthy); }
-.vio-l2-orb-ring[data-stage-state="stalled"]        { stroke: var(--st-stalled); }
-.vio-l2-orb-ring[data-stage-state="failed"]         { stroke: var(--st-failed); }
-.vio-l2-orb-ring[data-stage-state="waiting_client"] { stroke: var(--st-waiting); }
-.vio-l2-orb-ring[data-stage-state="inconsistent"]   { stroke: var(--st-inconsistent); }
-.vio-l2-orb-ring[data-stage-state="done"]           { stroke: var(--st-done); }
-
-/* Compliance dots — one per detected framework, distributed on the
- * ring's upper arc. Cool teal so they read as "structure"; warmer
- * colours are reserved for state. */
-.vio-l2-orb-compliance {
-  fill: var(--st-healthy);
-  opacity: 0.85;
-  stroke: var(--vio-bg);
-  stroke-width: 0.8;
-}
-
-/* Contact satellites — N/E/S/W presence booleans. FILLED dot = channel
- * present; HOLLOW dot = channel absent. The operator reads four
- * pieces of identity at a glance, no labels. */
-.vio-l2-orb-satellite {
-  stroke: var(--vio-text-dim);
-  stroke-width: 1.2;
-  transition: fill 0.18s, stroke 0.18s;
-}
-.vio-l2-orb-satellite[data-on="1"] { fill: var(--st-healthy); stroke: var(--st-healthy); }
-.vio-l2-orb-satellite[data-on="0"] { fill: var(--vio-bg);     stroke: var(--vio-text-faint); }
-.vio-l2-orb-group:hover .vio-l2-orb-satellite[data-on="1"] { fill: var(--vio-text); stroke: var(--vio-text); }
-
 .vio-l2-orb {
-  fill: var(--vio-surface);
-  stroke: var(--vio-text-faint);
-  stroke-width: 2;
-  transition: stroke 0.18s, fill 0.18s;
+  fill: var(--vio-bg);
+  stroke: var(--vio-text);
+  stroke-width: 2.5;
+  transition: stroke-width 0.15s ease;
 }
-.vio-l2-orb[data-stage-state="healthy"]        { stroke: var(--st-healthy);      fill: color-mix(in srgb, var(--st-healthy) 16%, var(--vio-bg)); }
-.vio-l2-orb[data-stage-state="stalled"]        { stroke: var(--st-stalled);      fill: color-mix(in srgb, var(--st-stalled) 14%, var(--vio-bg)); }
-.vio-l2-orb[data-stage-state="failed"]         { stroke: var(--st-failed);       fill: color-mix(in srgb, var(--st-failed) 18%, var(--vio-bg)); }
-.vio-l2-orb[data-stage-state="waiting_client"] { stroke: var(--st-waiting);      fill: color-mix(in srgb, var(--st-waiting) 16%, var(--vio-bg)); }
-.vio-l2-orb[data-stage-state="inconsistent"]   { stroke: var(--st-inconsistent); fill: color-mix(in srgb, var(--st-inconsistent) 16%, var(--vio-bg)); }
-.vio-l2-orb[data-stage-state="done"]           { stroke: var(--st-done);         fill: color-mix(in srgb, var(--st-done) 16%, var(--vio-bg)); }
-.vio-l2-orb-group:hover .vio-l2-orb { stroke-width: 3; }
-.vio-l2-orb-text {
+.vio-l2-orb-group:hover .vio-l2-orb { stroke-width: 3.5; }
+
+.vio-l2-orb-name {
   fill: var(--vio-text);
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
   font-family: ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+/* Expanded info card — hidden until the orb is clicked. */
+.vio-l2-orb-card { opacity: 0; pointer-events: none; transition: opacity 0.18s ease; }
+.vio-l2-orb-card[data-open="1"] { opacity: 1; pointer-events: auto; }
+.vio-l2-orb-card-bg {
+  fill: var(--vio-surface);
+  stroke: var(--vio-border-bright);
+  stroke-width: 1;
+}
+.vio-l2-orb-card-label {
+  fill: var(--vio-text-dim);
+  font-size: 10px;
+  font-weight: 600;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  pointer-events: none;
+}
+.vio-l2-orb-card-value {
+  fill: var(--vio-text);
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   pointer-events: none;
 }
 
 /* ── Branch limbs + cluster titles ─────────────────────────────────────── */
+/* Branch limbs disabled by default 2026-06-05 (Carl: "Remove cyan branch/
+ * limb line unless state absolutely requires it"). The JS no longer emits
+ * the limb path, so this rule is dormant — kept so we have a single spot
+ * to re-enable per-state if a future doctrine demands it. */
 .vio-l2-branch-limb {
+  display: none;
   stroke: var(--vio-border-bright);
   stroke-width: 1.2;
   fill: none;
@@ -951,8 +934,18 @@ html, body {
   stroke: var(--vio-text-dim);
 }
 
-/* ── Side panel (recursive detail surface) ─────────────────────────────── */
+/* ── Side panel — REMOVED 2026-06-05 ─────────────────────────────────────
+   Carl: "remove this side panel shit, it prevents you from using your
+   imagination". The DOM no longer builds it (see openLevel2 in
+   vio-level2.js), but if any legacy code path accidentally creates it
+   anyway, this rule keeps it invisible so it can never reappear
+   silently. The class definition is preserved (no removal) so the
+   remaining frame-stack code that touches .vio-l2-side-* doesn't NPE
+   while we walk away from the side panel surface. */
 .vio-l2-side {
+  display: none !important;
+}
+.vio-l2-side-legacy {
   grid-area: side;
   background: var(--vio-surface);
   border-left: 1px solid var(--vio-border);

@@ -281,21 +281,26 @@ def test_l2_drawspine_defends_against_missing_axis(vio_l2_js: str) -> None:
 
 def test_l2_load_failure_calls_vio_boot_fault(vio_l2_js: str) -> None:
     """If the L2 landscape fetch fails (network, 5xx, malformed JSON,
-    etc.), the side-panel hint is easy to miss against a black canvas.
-    The defensive boot watchdog already exists for L1; L2 must use the
-    same escape hatch so operators always see a visible diagnostic.
+    etc.) the operator now has NO side panel to fall back to (Carl
+    2026-06-05: 'remove this side panel shit'). The defensive boot
+    watchdog already exists for L1; L2 must use the same escape hatch
+    so operators always see a visible diagnostic.
 
-    This pins that the catch block in openLevel2 calls
-    `window.VIO_BOOT.fault(...)`. Without it, future regressions in
-    the network layer or backend payload shape will reproduce the
-    "everything looks black, no idea what broke" experience."""
-    catch_idx = vio_l2_js.find("'could not load landscape:")
-    assert catch_idx >= 0, "L2 must surface load failures via side hint"
-    window = vio_l2_js[catch_idx:catch_idx + 600]
-    assert "VIO_BOOT" in window and "fault(" in window, (
-        "openLevel2() catch block must call window.VIO_BOOT.fault(...) "
-        "so a failed landscape load surfaces a visible diagnostic "
-        "instead of a silent black canvas"
+    This pins that openLevel2's catch block calls
+    `window.VIO_BOOT.fault('l2-load-failed', err)`. Without it,
+    future regressions in the network layer or backend payload shape
+    will reproduce the "everything looks black, no idea what broke"
+    experience."""
+    open_idx = vio_l2_js.find("async function openLevel2(")
+    assert open_idx >= 0, "openLevel2 must exist"
+    body = vio_l2_js[open_idx:open_idx + 4000]
+    # The catch must call VIO_BOOT.fault with a recognizable tag.
+    assert "VIO_BOOT" in body and "fault('l2-load-failed'" in body, (
+        "openLevel2() catch block must call "
+        "window.VIO_BOOT.fault('l2-load-failed', err) — without it "
+        "a failed landscape load is a silent black canvas, and the "
+        "side panel that used to carry the hint is intentionally "
+        "gone."
     )
 
 
