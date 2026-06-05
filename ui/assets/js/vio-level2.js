@@ -1855,13 +1855,13 @@
       `${cx + r},${cy - r * 0.55} ` +
       `${cx - r * 0.5},${cy - r * 0.10}`);
     g.appendChild(flag);
-    const stripe = svgEl('rect');
-    stripe.setAttribute('class', 'vio-icon-inner');
-    stripe.setAttribute('x', cx - r * 0.2);
-    stripe.setAttribute('y', cy - r * 0.85);
-    stripe.setAttribute('width',  r * 0.5);
-    stripe.setAttribute('height', r * 0.3);
-    g.appendChild(stripe);
+    const band = svgEl('rect');
+    band.setAttribute('class', 'vio-icon-inner');
+    band.setAttribute('x', cx - r * 0.2);
+    band.setAttribute('y', cy - r * 0.85);
+    band.setAttribute('width',  r * 0.5);
+    band.setAttribute('height', r * 0.3);
+    g.appendChild(band);
   }
 
   function _hexagon(cx, cy, r) {
