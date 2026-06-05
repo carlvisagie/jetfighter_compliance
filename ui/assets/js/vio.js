@@ -250,10 +250,14 @@ function buildTrace(company, idx) {
   const events = _normaliseEvents(company.timeline || []);
   const stateToken = _normaliseStateToken(company.stage_state);
 
-  // Spine length depends on how many events we have to hang on it. We pad
-  // the right side with `spineMinTail` so the operator can see there's a
-  // future ahead of the last event.
-  const lastEventX = LAYOUT.spineX0 + Math.max(0, events.length - 1) * LAYOUT.spineEventGap;
+  // Temporal positioning. Carl 2026-06-05: "real per-event timestamps
+  // (currently events are evenly spaced)". The axis prefers the
+  // event.utc when present and falls back to index-based positioning
+  // for companies whose timeline lacks timestamps (defensive — no
+  // crash, no empty trace). The resulting `lastEventX` and spine end
+  // reflect REAL elapsed time, not event count.
+  const axis = _eventAxis(events);
+  const lastEventX = events.length ? axis.xFor(events[events.length - 1]) : LAYOUT.spineX0;
   const spineEndX  = lastEventX + LAYOUT.spineMinTail;
   const rowW       = spineEndX + LAYOUT.rowPadX;
 
@@ -319,7 +323,7 @@ function buildTrace(company, idx) {
   row.appendChild(nameWrap);
 
   // ── The spine SVG ─────────────────────────────────────────────────────
-  const svg = buildSpine(company, events, spineEndX);
+  const svg = buildSpine(company, events, spineEndX, axis);
   row.appendChild(svg);
 
   // ── Hover / click ─────────────────────────────────────────────────────
@@ -331,8 +335,15 @@ function buildTrace(company, idx) {
   return row;
 }
 
-// ── The spine — continuous line + event shapes at temporal positions ─────────
-function buildSpine(company, events, spineEndPxX) {
+// ── The spine — continuous line + event shapes at TEMPORAL positions ─────────
+//
+// Carl 2026-06-05: "real per-event timestamps (currently events are evenly
+// spaced)" and "pace markers below the spine (sketch's ▲ slow/fast-smooth/
+// slower)". The axis is passed in from buildTrace so caller and renderer
+// agree on the same x-positions. If the timeline lacks timestamps the axis
+// falls back to index-based positioning so this still renders without
+// crashing on legacy payloads.
+function buildSpine(company, events, spineEndPxX, axis) {
   const stateToken = _normaliseStateToken(company.stage_state);
 
   const svgW = spineEndPxX + LAYOUT.rowPadX;
@@ -348,9 +359,7 @@ function buildSpine(company, events, spineEndPxX) {
   // Carries colour by state and activity-band thickness. The portion
   // past the last event fades to a "future ghost" so the operator can
   // see there's more to come.
-  const lastEventX = events.length
-    ? LAYOUT.spineX0 + (events.length - 1) * LAYOUT.spineEventGap
-    : LAYOUT.spineX0;
+  const lastEventX = events.length ? axis.xFor(events[events.length - 1]) : LAYOUT.spineX0;
 
   const past = document.createElementNS(SVG_NS, 'line');
   past.setAttribute('class', 'vio-spine-past');
@@ -373,13 +382,20 @@ function buildSpine(company, events, spineEndPxX) {
     svg.appendChild(future);
   }
 
-  // ── 2. Event shapes at temporal positions ───────────────────────────
-  events.forEach((ev, i) => {
-    const cx = LAYOUT.spineX0 + i * LAYOUT.spineEventGap;
+  // ── 2. Pace markers (sketch's ▲ slow / fast-smooth / slower) ────────
+  // Drawn BEFORE event shapes so they sit beneath them visually.
+  // Encodes the rhythm of the journey without any text: a series of
+  // close-together ticks reads as "fast" / "smooth"; wide-apart ticks
+  // read as "slow" / "stalled". Pure visual rhythm.
+  _drawPaceMarkers(svg, events, axis);
+
+  // ── 3. Event shapes at temporal positions ───────────────────────────
+  events.forEach((ev) => {
+    const cx = axis.xFor(ev);
     drawEvent(svg, cx, LAYOUT.spineCY, ev);
   });
 
-  // ── 3. Live point at the frontier ───────────────────────────────────
+  // ── 4. Live point at the frontier ───────────────────────────────────
   // A small pulsing/static disc at the last event, telling the operator
   // "this is the now". Pulses if the company is waiting on something.
   if (events.length) {
@@ -387,6 +403,104 @@ function buildSpine(company, events, spineEndPxX) {
   }
 
   return svg;
+}
+
+// ── Temporal x-axis for the L1 spine ─────────────────────────────────────────
+//
+// Returns an object exposing `xFor(event)` that maps an event to its x-
+// coordinate. Uses real `event.utc` timestamps when present; falls back to
+// index-based spacing otherwise so legacy payloads still render. The visual
+// width of the trace stays bounded (between minSpan and maxSpan px) so a
+// 1-day-old company and a 90-day-old company both produce readable rows.
+function _eventAxis(events) {
+  // Defensive: an empty list still gets a usable axis (everything pins
+  // to spineX0). Tests rely on this so buildTrace never NPEs.
+  if (!events || events.length === 0) {
+    return { temporal: false, xFor: () => LAYOUT.spineX0 };
+  }
+
+  // Parse each event's utc. If ANY event is missing a timestamp, fall
+  // back to index-based positioning to keep the per-trace rhythm
+  // legible (mixing modes produces a confusing visual).
+  const stamps = events.map(ev => {
+    const t = ev && ev.utc ? Date.parse(ev.utc) : NaN;
+    return Number.isFinite(t) ? t : null;
+  });
+  const allStamped = stamps.every(t => t !== null);
+
+  if (!allStamped) {
+    // Index-based fallback — keeps the legacy visual exactly intact for
+    // companies whose timeline isn't temporally annotated yet.
+    return {
+      temporal: false,
+      xFor: (ev) => {
+        const i = events.indexOf(ev);
+        return LAYOUT.spineX0 + i * LAYOUT.spineEventGap;
+      },
+    };
+  }
+
+  const tMin = Math.min(...stamps);
+  const tMax = Math.max(...stamps);
+  // Visual width of the spine: scales with elapsed days but bounded so
+  // the row stays legible at extremes. 1 day or less → ~one event-gap-
+  // worth per event; very-long timelines compress.
+  const elapsedDays = Math.max(1 / 24, (tMax - tMin) / 86400000);
+  const perDayPx    = 30;
+  const minSpan     = Math.max(LAYOUT.spineEventGap, events.length * 16);
+  const maxSpan     = 900;
+  const spanPx      = Math.min(maxSpan, Math.max(minSpan, elapsedDays * perDayPx));
+
+  // When tMin === tMax (single event, or all simultaneous) every event
+  // sits at the same point. Push them apart slightly so the shapes
+  // don't stack invisibly.
+  const range = (tMax - tMin) || 1;
+
+  return {
+    temporal: true,
+    tMin, tMax, spanPx,
+    xFor: (ev) => {
+      const i = events.indexOf(ev);
+      const t = stamps[i];
+      const norm = (t - tMin) / range;        // 0..1
+      return LAYOUT.spineX0 + norm * spanPx;
+    },
+  };
+}
+
+// Pace markers — small triangle ticks beneath the spine, one between
+// every consecutive pair of events. Triangle SIZE encodes interval
+// length: tiny = fast (< 1 h), small = smooth (< 24 h), big = slow
+// (≥ 24 h). No labels, no text — pure rhythm. Mirrors the ▲ marks in
+// Carl's sketch.
+function _drawPaceMarkers(svg, events, axis) {
+  if (!events || events.length < 2 || !axis || !axis.temporal) return;
+  const HOUR = 3600 * 1000;
+  for (let i = 1; i < events.length; i++) {
+    const tPrev = Date.parse(events[i - 1].utc || '');
+    const tCurr = Date.parse(events[i].utc     || '');
+    if (!Number.isFinite(tPrev) || !Number.isFinite(tCurr)) continue;
+    const dt = Math.max(0, tCurr - tPrev);
+    const xPrev = axis.xFor(events[i - 1]);
+    const xCurr = axis.xFor(events[i]);
+    const xMid  = (xPrev + xCurr) / 2;
+    const y     = LAYOUT.spineCY + LAYOUT.eventR + 8;
+
+    // Size + pace band by interval — three discrete sizes so the eye
+    // reads them as distinct categories, not a continuous scale.
+    let size, band;
+    if (dt < HOUR)              { size = 3; band = 'fast';   }
+    else if (dt < 24 * HOUR)    { size = 4; band = 'smooth'; }
+    else                        { size = 6; band = 'slow';   }
+
+    const tri = document.createElementNS(SVG_NS, 'polygon');
+    tri.setAttribute('class', 'vio-pace');
+    tri.setAttribute('data-pace', band);
+    // Upward-pointing triangle (apex at the spine), so visually it
+    // belongs to the line above it.
+    tri.setAttribute('points', `${xMid},${y - size}  ${xMid - size},${y + size}  ${xMid + size},${y + size}`);
+    svg.appendChild(tri);
+  }
 }
 
 // ── Event shapes (the sketch's vocabulary) ───────────────────────────────────

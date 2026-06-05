@@ -395,6 +395,21 @@ html, body {
 .vio-tick-past   { fill: var(--vio-text-dim); }
 .vio-tick-future { fill: var(--vio-text-faint); opacity: 0.6; }
 
+/* Pace markers — tiny triangles under the spine encoding rhythm.
+   Carl's sketch: ▲ slow / fast-smooth / slower. No text — pure
+   visual rhythm. Size + opacity carry the encoding:
+     fast   = tight cluster, dim → "smooth, frequent"
+     smooth = standard       → "natural cadence"
+     slow   = sparse, bright → "long gap — friction" */
+.vio-pace {
+  fill: var(--vio-text-faint);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.vio-pace[data-pace="fast"]   { opacity: 0.40; }
+.vio-pace[data-pace="smooth"] { opacity: 0.65; }
+.vio-pace[data-pace="slow"]   { fill: var(--st-waiting); opacity: 0.85; }
+
 /* Live point — the "you are here" mark, sized by importance */
 .vio-live {
   fill: var(--st-healthy);
