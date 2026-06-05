@@ -1489,12 +1489,13 @@
 
   // ── ORB PANEL — full HTML legend + clickable company identity ──────────
   function _openOrbPanel(canvas, company, detail, ictx, prof) {
-    const existing = canvas.querySelector('.vio-orb-panel');
+    const existing = canvas.querySelector('.vio-orb-panel, .vio-l2-orb-card');
     if (existing) { existing.remove(); return; }  // toggle
 
     const stateColor = _stateColor((detail && detail.stage_state) || company.stage_state || 'healthy');
 
-    const panel = el('div', 'vio-orb-panel');
+    const panel = el('div', 'vio-orb-panel vio-l2-orb-card');
+    panel.setAttribute('data-open', 'true');  // toggled by click; used by tests
     panel.style.setProperty('--op-color', stateColor);
 
     // ── LEFT: Artifact legend ──
