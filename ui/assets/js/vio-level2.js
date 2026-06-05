@@ -599,26 +599,25 @@
   function renderLandscape(canvas, company, detail) {
     canvas.innerHTML = '';
 
-    const branches = computeBranches(detail);
-    // Apply collision avoidance per side so dense companies stay legible.
-    spreadClusters(branches.above);
-    spreadClusters(branches.below);
+    // Carl 2026-06-05: "let us put everything ON THE TIMELINE instead
+    // of under over below". The legacy cluster layout (computeBranches
+    // / drawBranch / spreadClusters) is no longer called. Every piece
+    // of activity becomes a discrete SHAPE on the spine at its real
+    // timestamp — squares for papers, triangles for issues + gaps,
+    // hexagons for phase completion, circles for milestones,
+    // starbursts for findings/broker, diamonds for payment. The
+    // sketch's grammar, one event = one mark.
 
-    const aboveMax = Math.max(0, ...branches.above.map(b => b.totalHeight));
-    const belowMax = Math.max(0, ...branches.below.map(b => b.totalHeight));
-    const spineY = Math.max(L.spineY, aboveMax + 90);
-    // Make sure the right-most cluster fits inside the viewBox.
-    const maxAnchorX = Math.max(
-      spineEndX(),
-      ...branches.above.map(b => b.anchorX),
-      ...branches.below.map(b => b.anchorX),
-    );
-    const w = maxAnchorX + 240;
-    // Reserve vertical room for the custody ribbon below the deepest
-    // `below` cluster when there are any custody events to draw.
-    const custodyEventCount = ((detail.custody || {}).events || []).length;
-    const custodyExtra = custodyEventCount > 0 ? L.custodyReservedH : 0;
-    const h = Math.max(420, spineY + belowMax + 100 + custodyExtra);
+    const spineY = L.spineY;
+    const axis   = _timeAxis(detail);
+    const events = computeTimelineEvents(detail, axis);
+
+    // Width = the spine's pixel extent plus the orb's left margin and
+    // a right-side breathing room for the rightmost shape's tooltip
+    // hit-area. Height stays compact now that nothing stacks above or
+    // below in distant clusters.
+    const w = Math.max(spineEndX(), L.spineX0 + L.spineWidth) + 240;
+    const h = spineY + 120;
 
     const svg = svgEl('svg');
     svg.setAttribute('class', 'vio-l2-svg');
@@ -626,20 +625,8 @@
     svg.setAttribute('height', h);
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
 
-    const axis = _timeAxis(detail);
     drawSpine(svg, company, spineY, axis, detail);
-    branches.above.forEach(b => drawBranch(svg, b, spineY, 'above', detail));
-    branches.below.forEach(b => drawBranch(svg, b, spineY, 'below', detail));
-
-    // Custody chain is its own branch — anchored at the `intake` stage
-    // Custody ribbon (parallel cyan timeline below the spine) disabled
-    // 2026-06-05. Carl: "Make VIO emulate this nothing more no side
-    // panels" + sketch shows ONE spine, not two. Custody events still
-    // exist in the data and will be folded back into the main spine as
-    // discrete shapes in a follow-up pass; for now we keep the spine
-    // alone so the operator's eye has nothing to compete with the story.
-    // drawCustodyBranch(svg, detail, spineY, belowMax);  // INTENTIONALLY OFF
-
+    drawTimelineEvents(svg, events, spineY, detail);
     drawOrb(svg, company, spineY);
 
     canvas.appendChild(svg);
@@ -850,26 +837,25 @@
   //  recent activity is not a demand. The spine's own terminus already
   //  marks "now" visually.)
 
-  // ── Orb — the company's identity at rest ──────────────────────────────
+  // ── Orb — the company's symbol at rest ────────────────────────────────
   //
-  // Carl 2026-06-05 (sharpened repeatedly through the day):
+  // Carl 2026-06-05, said three ways:
+  //   "the orb is company information... tel email address and so on"
+  //   "you can NOT cram all that info into the orb without clicking
+  //    to expand for the company information"
+  //   (and his sketch labels "Company name & information" / "Tel email
+  //    Address" sit NEXT TO the orb as annotations — not inside it)
   //
-  //   "the orb is company information... tel email address... you can
-  //    not cram all that info into the orb without clicking to expand"
-  //   "no movement no rings nothing"
-  //   "tell the story with pictures"
+  // The orb is a SYMBOL for the company, not a billboard for its name.
+  // At rest the only thing inside it is the company INITIALS (2–3
+  // letters, generated from the first letters of each word, or the
+  // first 2 letters of the domain if the name is a URL). Initials
+  // always fit. No overflow. No banner. No clever wrapping.
   //
-  // Resting state: a single static circle with the company NAME visible
-  // inside (auto-wrapped to two lines if long). No halo. No identity
-  // ring. No satellites. No compliance dots. No breathing. No limb.
-  // Just the orb and the name.
-  //
-  // Clicking the orb toggles a small text card next to it that exposes
-  // the rest of the company information — tel, email, address. The
-  // card lives in the SVG so it shares the canvas coordinate system
-  // (no DOM overlay drift). Click outside or click the orb again to
-  // collapse it. Operator's choice; no persistent expanded surface
-  // (one click in, one click out — never a side panel).
+  // Clicking the orb toggles the expanded card next to it. THAT card
+  // shows the full company NAME, tel, email, address — i.e. the rest
+  // of "company information" that Carl said belongs behind the click.
+  // Click anywhere else on the canvas collapses the card.
   function drawOrb(svg, company, spineY = L.spineY) {
     const detail = _activeDetail || {};
     const ictx   = detail.intake_context || {};
@@ -878,9 +864,7 @@
     const g = svgEl('g');
     g.setAttribute('class', 'vio-l2-orb-group');
 
-    // Single static circle. Stroke only — no fill colour competing
-    // with the spine. Sized big enough to read the company name from
-    // across the room.
+    // Single static circle. Stroke only.
     const core = svgEl('circle');
     core.setAttribute('class', 'vio-l2-orb');
     core.setAttribute('cx', L.orbCx);
@@ -888,30 +872,36 @@
     core.setAttribute('r', L.orbR);
     g.appendChild(core);
 
-    // Company name inside the orb — wraps to up to 2 lines.
-    const fullName = (company.company_name || 'Unknown').trim();
-    const lines = _wrapNameForOrb(fullName, /*maxCharsPerLine=*/16, /*maxLines=*/2);
-    const lineH = 18;
-    const startY = spineY - ((lines.length - 1) * lineH) / 2 + 5;
-    const nameText = svgEl('text');
-    nameText.setAttribute('class', 'vio-l2-orb-name');
-    nameText.setAttribute('x', L.orbCx);
-    nameText.setAttribute('y', startY);
-    nameText.setAttribute('text-anchor', 'middle');
-    lines.forEach((line, i) => {
-      const tspan = svgEl('tspan');
-      tspan.setAttribute('x', L.orbCx);
-      tspan.setAttribute('dy', i === 0 ? 0 : lineH);
-      tspan.textContent = line;
-      nameText.appendChild(tspan);
-    });
-    g.appendChild(nameText);
+    // Initials inside — always fit, never overflow.
+    const initials = _initialsForOrb(company);
+    const initialsText = svgEl('text');
+    initialsText.setAttribute('class', 'vio-l2-orb-initials');
+    initialsText.setAttribute('x', L.orbCx);
+    initialsText.setAttribute('y', spineY + 9);   // optical centre
+    initialsText.setAttribute('text-anchor', 'middle');
+    initialsText.textContent = initials;
+    g.appendChild(initialsText);
+
+    // Tiny "click-for-info" affordance — a quiet caret-down below the
+    // initials so the operator knows the orb is interactive without
+    // adding any motion or text. Hidden on hover -> replaced by full
+    // initials brightening (CSS only).
+    const hint = svgEl('text');
+    hint.setAttribute('class', 'vio-l2-orb-hint');
+    hint.setAttribute('x', L.orbCx);
+    hint.setAttribute('y', spineY + L.orbR - 10);
+    hint.setAttribute('text-anchor', 'middle');
+    hint.textContent = '⌄';   // small caret-down glyph
+    g.appendChild(hint);
 
     // ── Expanded-info card (collapsed by default) ─────────────────────
-    // Click the orb -> show this card to the right of the orb. Click
-    // again -> hide. Contains Tel / Email / Address — the rest of the
-    // company information that doesn't fit in the orb itself.
+    // First row = the full company NAME (the thing that wouldn't fit
+    // in the orb). Then tel / email / address. The card grows
+    // vertically to fit; values are truncated only if they'd exceed
+    // the card width.
+    const fullName = (company.company_name || 'Unknown').trim();
     const cardItems = [
+      { label: 'name',    value: fullName },
       { label: 'tel',     value: ictx.phone || '' },
       { label: 'email',   value: company.email_anchor || company.email || (ictx.email || '') },
       { label: 'address', value: ictx.address
@@ -924,10 +914,13 @@
       card.setAttribute('class', 'vio-l2-orb-card');
       card.setAttribute('data-open', '0');
 
+      const rowH  = 20;
+      const padX  = 14;
+      const padY  = 14;
+      const cardW = 320;
+      const cardH = cardItems.length * rowH + padY * 2;
       const cardX = L.orbCx + L.orbR + 14;
-      const cardY = spineY - (cardItems.length * 16) / 2 - 14;
-      const cardW = 240;
-      const cardH = cardItems.length * 18 + 22;
+      const cardY = spineY - cardH / 2;
 
       const bg = svgEl('rect');
       bg.setAttribute('class', 'vio-l2-orb-card-bg');
@@ -939,23 +932,25 @@
       card.appendChild(bg);
 
       cardItems.forEach((it, i) => {
-        const y = cardY + 18 + i * 18;
+        const y = cardY + padY + (i + 0.7) * rowH;
         const labelEl = svgEl('text');
         labelEl.setAttribute('class', 'vio-l2-orb-card-label');
-        labelEl.setAttribute('x', cardX + 12);
+        labelEl.setAttribute('x', cardX + padX);
         labelEl.setAttribute('y', y);
         labelEl.textContent = it.label;
         card.appendChild(labelEl);
         const valueEl = svgEl('text');
         valueEl.setAttribute('class', 'vio-l2-orb-card-value');
-        valueEl.setAttribute('x', cardX + 70);
+        valueEl.setAttribute('x', cardX + padX + 60);
         valueEl.setAttribute('y', y);
-        // Truncate very long values so the card doesn't span the canvas.
-        valueEl.textContent = it.value.length > 30
-          ? it.value.slice(0, 28) + '…'
+        // Card is 320px wide; minus label column (60) + padding (28) =
+        // ~232px for the value. At 12px monospace, ~32 chars fit.
+        const MAX = 38;
+        valueEl.textContent = it.value.length > MAX
+          ? it.value.slice(0, MAX - 1) + '…'
           : it.value;
         const title = svgEl('title');
-        title.textContent = it.value;   // full value on hover
+        title.textContent = it.value;
         valueEl.appendChild(title);
         card.appendChild(valueEl);
       });
@@ -976,40 +971,346 @@
     svg.appendChild(g);
   }
 
-  // Greedy line-wrap for the company name inside the orb. Splits on
-  // whitespace; if a single word still overflows we soft-break at the
-  // limit. Keeps the wrap deterministic so tests + screenshots are
-  // reproducible.
-  function _wrapNameForOrb(name, maxCharsPerLine, maxLines) {
-    if (!name) return ['Unknown'];
-    if (name.length <= maxCharsPerLine) return [name];
-    const words = name.split(/\s+/);
-    const lines = [];
-    let cur = '';
-    for (const w of words) {
-      if (!cur) { cur = w; continue; }
-      if ((cur + ' ' + w).length <= maxCharsPerLine) cur += ' ' + w;
-      else { lines.push(cur); cur = w; if (lines.length === maxLines - 1) break; }
+  // Initials that always fit inside the orb. Strategy:
+  //  1. If we have non-URL words, take the first letter of up to
+  //     three of them (e.g. "Acme Corp Ltd" -> "ACL").
+  //  2. If the name is a single URL-ish string (no spaces, contains
+  //     '.'), take the first 2 letters of the leftmost host segment
+  //     and uppercase (e.g. "purposefulliveccoaching.com" -> "PU").
+  //  3. Else first 2 letters of whatever we've got, uppercased.
+  //  4. Empty / "Unknown" -> "?".
+  function _initialsForOrb(company) {
+    const name = (company.company_name || '').trim();
+    if (!name || /^unknown$/i.test(name)) return '?';
+    const looksLikeUrl = !/\s/.test(name) && name.includes('.');
+    if (looksLikeUrl) {
+      const host = name.split('/')[0].split('@').pop();   // strip protocol/email-local
+      const seg  = host.split('.')[0];
+      return (seg.slice(0, 2) || '?').toUpperCase();
     }
-    if (cur && lines.length < maxLines) lines.push(cur);
-    // If the last line still overflows or words got dropped, hard-truncate.
-    if (lines.length === maxLines) {
-      const last = lines[maxLines - 1];
-      if (last.length > maxCharsPerLine) {
-        lines[maxLines - 1] = last.slice(0, maxCharsPerLine - 1) + '…';
-      }
-      // If there's leftover words we never appended, indicate truncation.
-      const consumed = lines.join(' ').replace(/…$/, '').trim();
-      if (name.length > consumed.length && !lines[maxLines - 1].endsWith('…')) {
-        lines[maxLines - 1] = lines[maxLines - 1].slice(0, maxCharsPerLine - 1) + '…';
-      }
+    const words = name.split(/\s+/).filter(Boolean).slice(0, 3);
+    if (words.length) {
+      return words.map(w => w[0]).join('').toUpperCase().slice(0, 3);
     }
-    return lines.length ? lines : [name.slice(0, maxCharsPerLine - 1) + '…'];
+    return name.slice(0, 2).toUpperCase();
   }
 
   // ─────────────────────────────────────────────────────────────────────
   // BRANCH COMPOSITION  +  COLLISION AVOIDANCE
   // ─────────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────
+  // FLAT TIMELINE — events ON the spine (Carl 2026-06-05)
+  //
+  // Replaces the cluster-and-leaf system. Every meaningful unit of
+  // company history is one discrete shape on the timeline at its
+  // real timestamp:
+  //
+  //   □  square      — uploaded paper / generated paper
+  //   ▲  triangle ↑  — issue / urgent context flag (sits just above spine)
+  //   ▽  triangle ↓  — missing gap (sits just below spine, dashed if open)
+  //   ⬡  hexagon    — phase completion (classification, evidence done)
+  //   ○  circle     — milestone reached (tier approved, etc.)
+  //   ◇  diamond    — payment (decision/transaction)
+  //   ✱  starburst  — finding / blocker / broker (escalation)
+  //
+  // Position rules:
+  //   - on-spine kinds render at Y = spineY (centred on the line)
+  //   - above-spine kinds render at Y = spineY - 30
+  //   - below-spine kinds render at Y = spineY + 30
+  //   - collisions on the same row are resolved by nudging X right
+  //
+  // Drill-down click handlers are intentionally NO-OPS for now — the
+  // side panel that used to receive them is gone, and we'll wire a
+  // shape-local popover in a follow-up. A tooltip on hover (SVG
+  // <title>) carries the label so the operator can still identify
+  // each shape without text on the canvas itself (Carl: pictures
+  // over words).
+  // ─────────────────────────────────────────────────────────────────────
+
+  const TL_SHAPE   = 16;
+  const TL_GAP     = 6;
+  const TL_OFFSET  = 30;   // px above/below the spine for off-spine kinds
+
+  function computeTimelineEvents(detail, axis) {
+    const events = [];
+    const ictx   = detail.intake_context || {};
+    const cls    = detail.classification || {};
+    const pay    = detail.payment || {};
+    const docs   = detail.uploaded_documents || [];
+    const gen    = detail.generated_documents || [];
+    const miss   = detail.missing_documents || [];
+    const find   = detail.findings || [];
+    const conf   = detail.confirmation_needed || [];
+
+    // ── Issues / context flags (above the spine) ──────────────────────
+    if (ictx.urgent) {
+      events.push({
+        kind: 'issue', side: 'above',
+        ts: _branchStartUtc(detail, 'context'),
+        label: 'urgent', sub: 'urgent', full: ictx,
+      });
+    }
+    if (ictx.deadline) {
+      events.push({
+        kind: 'issue', side: 'above',
+        ts: _branchStartUtc(detail, 'context'),
+        label: `deadline ${ictx.deadline}`, sub: 'deadline', full: ictx,
+      });
+    }
+    if (ictx.context) {
+      events.push({
+        kind: 'issue', side: 'above',
+        ts: _branchStartUtc(detail, 'context'),
+        label: ictx.context, sub: 'note', full: ictx,
+      });
+    }
+
+    // ── Uploaded papers (on spine) ────────────────────────────────────
+    docs.forEach(d => {
+      events.push({
+        kind: 'paper', side: 'on',
+        ts: d.uploaded_utc || d.received_utc
+            || _branchStartUtc(detail, 'docs'),
+        label: d.original_name || d.stored_name || 'paper',
+        status: d.status || 'on_disk',
+        sub: 'uploaded',
+        full: d,
+      });
+    });
+
+    // ── Generated papers (on spine) ───────────────────────────────────
+    gen.forEach(g => {
+      events.push({
+        kind: 'paper', side: 'on',
+        ts: g.generated_utc || _branchStartUtc(detail, 'generated'),
+        label: g.name || 'generated',
+        sub: 'generated',
+        full: g,
+      });
+    });
+
+    // ── Classification = phase completion (on spine) ──────────────────
+    if (cls.primary_category) {
+      events.push({
+        kind: 'phase', side: 'on',
+        ts: _branchStartUtc(detail, 'category'),
+        label: cls.primary_category,
+        sub: 'classification',
+        full: cls,
+      });
+    }
+
+    // ── Missing gaps (below the spine, dashed) ────────────────────────
+    miss.forEach(m => {
+      events.push({
+        kind: 'gap', side: 'below',
+        ts: _branchStartUtc(detail, 'gaps'),
+        label: m.label || 'gap',
+        priority: m.priority || 'medium',
+        sub: 'missing',
+        full: m,
+      });
+    });
+
+    // ── Confirmation needed (above the spine, open circle) ────────────
+    conf.forEach(c => {
+      events.push({
+        kind: 'confirmation', side: 'above',
+        ts: _branchStartUtc(detail, 'confirmation'),
+        label: c.field || 'field needed',
+        sub: 'confirmation',
+        full: c,
+      });
+    });
+
+    // ── Findings (above or below depending on severity) ───────────────
+    find.forEach(f => {
+      const sev = f.severity || 'info';
+      events.push({
+        kind: 'finding', side: (sev === 'critical' || sev === 'high') ? 'above' : 'below',
+        ts: f.detected_utc || _branchStartUtc(detail, 'findings'),
+        label: f.message || f.code || 'finding',
+        severity: sev,
+        sub: f.code || 'finding',
+        full: f,
+      });
+    });
+
+    // ── Payment (diamond on spine) ────────────────────────────────────
+    if (pay && (pay.link || pay.amount || pay.link_sent_utc || pay.paid)) {
+      events.push({
+        kind: 'payment', side: 'on',
+        ts: pay.link_sent_utc || _branchStartUtc(detail, 'payment'),
+        label: pay.paid ? 'paid' : (pay.link ? 'link sent' : 'pending'),
+        status: pay.paid ? 'paid' : 'pending',
+        sub: 'payment',
+        full: pay,
+      });
+    }
+
+    // ── Tier approval = milestone (circle on spine) ───────────────────
+    const reached = ['approved', 'payment_sent', 'verified_complete', 'archived'];
+    if (reached.includes(detail.review_status)) {
+      events.push({
+        kind: 'milestone', side: 'on',
+        ts: _branchStartUtc(detail, 'tier'),
+        label: (detail.review_status || '').replace(/_/g, ' '),
+        sub: 'tier',
+        full: { review_status: detail.review_status },
+      });
+    }
+
+    // ── Broker / completion (starburst on spine, far right) ───────────
+    if (detail.review_status === 'archived' || detail.review_status === 'verified_complete') {
+      events.push({
+        kind: 'broker', side: 'on',
+        ts: _branchStartUtc(detail, 'project'),
+        label: detail.project_id ? `project ${detail.project_id}` : 'broker',
+        sub: 'broker',
+        full: { project_id: detail.project_id, review_status: detail.review_status },
+      });
+    }
+
+    // ── Compute X for each event + resolve same-row collisions ────────
+    events.forEach(ev => { ev.x = axis.timeToX(ev.ts); });
+    const sorted = events.slice().sort((a, b) => a.x - b.x);
+    const lastX = { on: -Infinity, above: -Infinity, below: -Infinity };
+    sorted.forEach(ev => {
+      const minNext = lastX[ev.side] + TL_SHAPE + TL_GAP;
+      ev.drawX = Math.max(ev.x, minNext);
+      lastX[ev.side] = ev.drawX;
+    });
+
+    return sorted;
+  }
+
+  function drawTimelineEvents(svg, events, spineY, detail) {
+    events.forEach(ev => {
+      const y = ev.side === 'above' ? spineY - TL_OFFSET
+              : ev.side === 'below' ? spineY + TL_OFFSET
+              : spineY;
+      drawTimelineEvent(svg, ev, ev.drawX, y, detail);
+    });
+  }
+
+  function drawTimelineEvent(svg, ev, cx, cy, detail) {
+    const g = svgEl('g');
+    g.setAttribute('class', `vio-tle vio-tle-${ev.kind}`);
+    g.setAttribute('data-kind', ev.kind);
+    if (ev.sub)      g.setAttribute('data-sub',      ev.sub);
+    if (ev.severity) g.setAttribute('data-severity', ev.severity);
+    if (ev.priority) g.setAttribute('data-priority', ev.priority);
+    if (ev.status)   g.setAttribute('data-status',   ev.status);
+
+    const shape = _shapeForEvent(ev, cx, cy);
+    if (shape) {
+      shape.setAttribute('class', 'vio-tle-shape');
+      g.appendChild(shape);
+    }
+
+    // Tooltip — the label lives in SVG <title> so the canvas itself
+    // stays text-free (pictures > words).
+    const title = svgEl('title');
+    title.textContent = ev.label || ev.kind;
+    g.appendChild(title);
+
+    svg.appendChild(g);
+  }
+
+  function _shapeForEvent(ev, cx, cy) {
+    const r = TL_SHAPE / 2;
+    switch (ev.kind) {
+      case 'paper': {
+        const rect = svgEl('rect');
+        rect.setAttribute('x', cx - r);
+        rect.setAttribute('y', cy - r);
+        rect.setAttribute('width',  TL_SHAPE);
+        rect.setAttribute('height', TL_SHAPE);
+        rect.setAttribute('rx', 2);
+        return rect;
+      }
+      case 'gap': {
+        // Triangle pointing DOWN — missing is "below the line we're
+        // trying to reach". Stroke + dashed for not-yet-supplied.
+        const tri = svgEl('polygon');
+        tri.setAttribute(
+          'points',
+          `${cx},${cy + r} ${cx - r},${cy - r} ${cx + r},${cy - r}`,
+        );
+        return tri;
+      }
+      case 'issue': {
+        // Triangle pointing UP — issue is rising out of the spine,
+        // demanding attention from above.
+        const tri = svgEl('polygon');
+        tri.setAttribute(
+          'points',
+          `${cx},${cy - r} ${cx - r},${cy + r} ${cx + r},${cy + r}`,
+        );
+        return tri;
+      }
+      case 'phase': {
+        return _hexagon(cx, cy, r);
+      }
+      case 'milestone': {
+        const c = svgEl('circle');
+        c.setAttribute('cx', cx); c.setAttribute('cy', cy);
+        c.setAttribute('r', r);
+        return c;
+      }
+      case 'confirmation': {
+        // Open (hollow) circle — distinguishes "waiting on input"
+        // from a filled milestone.
+        const c = svgEl('circle');
+        c.setAttribute('cx', cx); c.setAttribute('cy', cy);
+        c.setAttribute('r', r);
+        return c;
+      }
+      case 'payment': {
+        const d = svgEl('polygon');
+        d.setAttribute(
+          'points',
+          `${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`,
+        );
+        return d;
+      }
+      case 'finding':
+      case 'broker': {
+        return _starburst(cx, cy, r + (ev.kind === 'broker' ? 2 : 0));
+      }
+      default: {
+        const c = svgEl('circle');
+        c.setAttribute('cx', cx); c.setAttribute('cy', cy);
+        c.setAttribute('r', 3);
+        return c;
+      }
+    }
+  }
+
+  function _hexagon(cx, cy, r) {
+    const pts = [];
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI / 3) * i - Math.PI / 6;
+      pts.push(`${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`);
+    }
+    const poly = svgEl('polygon');
+    poly.setAttribute('points', pts.join(' '));
+    return poly;
+  }
+
+  function _starburst(cx, cy, r) {
+    const pts = [];
+    const inner = r * 0.42;
+    for (let i = 0; i < 16; i++) {
+      const a = (Math.PI / 8) * i - Math.PI / 2;
+      const rad = i % 2 === 0 ? r : inner;
+      pts.push(`${cx + rad * Math.cos(a)},${cy + rad * Math.sin(a)}`);
+    }
+    const poly = svgEl('polygon');
+    poly.setAttribute('points', pts.join(' '));
+    return poly;
+  }
+
   function computeBranches(detail) {
     const above = [];
     const below = [];

@@ -38,18 +38,27 @@ VIO_CSS = REPO_ROOT / "ui" / "assets" / "styles" / "vio.css"
 
 
 # ── (1) Orb is minimal ────────────────────────────────────────────────────
-def test_orb_renders_company_name_inside():
-    """drawOrb must emit an SVG <text> tagged vio-l2-orb-name carrying
-    the company name. If this class disappears the orb has no identity
-    at rest — operators can't tell which company they're looking at
-    without external chrome."""
+def test_orb_renders_initials_inside():
+    """drawOrb must emit an SVG <text> tagged vio-l2-orb-initials
+    carrying the company initials. Initials always fit inside the
+    circle, eliminating the v1 overflow bug where long single-word
+    names ('purposefulliveccoaching.com') bled across the spine as
+    a banner. The FULL name lives in the click-to-expand card, not
+    the orb itself (Carl 2026-06-05: "you can NOT cram all that
+    info into the orb without clicking to expand")."""
     js = L2_JS.read_text(encoding="utf-8")
-    assert "vio-l2-orb-name" in js, (
-        "drawOrb must render the company name inside the orb "
-        "(class vio-l2-orb-name). Without it the orb is anonymous."
+    assert "vio-l2-orb-initials" in js, (
+        "drawOrb must render the company initials inside the orb "
+        "(class vio-l2-orb-initials). Without it the orb is anonymous."
     )
-    assert "_wrapNameForOrb" in js, (
-        "Name wrapping helper missing — long names will overflow the orb."
+    assert "_initialsForOrb" in js, (
+        "Initials helper missing — long names will overflow the orb."
+    )
+    # The full name MUST live in the card, not as a text-in-orb.
+    assert "vio-l2-orb-name" not in js, (
+        "vio-l2-orb-name was the v1 'company name inside the orb' "
+        "class — it overflowed for long names. The orb now shows "
+        "initials only; the full name belongs in the orb-card."
     )
 
 

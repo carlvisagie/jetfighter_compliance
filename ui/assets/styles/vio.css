@@ -766,22 +766,27 @@ html, body {
  *  carries state; ring carries compliance dots; satellites are presence
  *  booleans for phone/email/address/deadline; core is the initials.
  *  Stillness baseline — only waiting_client breathes. */
-/* ── L2 orb (sketch-faithful — 2026-06-05) ───────────────────────────────
+/* ── L2 orb (sketch-faithful — 2026-06-05, v2) ───────────────────────────
  *
- * Carl's sharpened directive:
- *   "the orb is company information fuckin email address and so on"
- *   "you can not cram all that info into the orb without clicking to
- *    expand for the company information"
- *   "no movement of any kind unless it demands attention"
+ * Carl, said three ways the same day:
+ *   "the orb is company information... tel email address and so on"
+ *   "you can NOT cram all that info into the orb without clicking
+ *    to expand for the company information"
  *
- * Resting state: ONE static circle, stroke only, with the company NAME
- * visible inside. Nothing else. No halo, no ring, no satellites, no
- * compliance dots, no breathing.
+ * v1 tried to render the company NAME inside the orb. For long
+ * single-word names (e.g. "purposefulliveccoaching.com") the text
+ * overflowed the circle like a banner. Carl: "Is that not what I
+ * tried to tell you over and over?"  Yes. It was.
  *
- * Click the orb -> the side card (.vio-l2-orb-card) toggles open and
- * shows tel / email / address — the rest of the company information.
- * Click anywhere else -> the card closes. There is no side panel and
- * no persistent expanded surface.
+ * v2: the orb is a SYMBOL. At rest the only thing inside is the
+ * company INITIALS (2-3 letters — always fit, never overflow). A
+ * tiny ⌄ caret hints "click for info". Clicking unfolds the card
+ * to the right with the FULL name + tel + email + address — i.e.
+ * the actual "company information" that lives behind the click.
+ *
+ * No halo, no ring, no satellites, no compliance dots, no breathing,
+ * no animation. Static. The card is the only thing that appears /
+ * disappears, and only by operator click.
  */
 .vio-l2-orb-group { cursor: pointer; }
 
@@ -793,14 +798,25 @@ html, body {
 }
 .vio-l2-orb-group:hover .vio-l2-orb { stroke-width: 3.5; }
 
-.vio-l2-orb-name {
+.vio-l2-orb-initials {
   fill: var(--vio-text);
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 28px;
+  font-weight: 700;
   font-family: ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.06em;
   pointer-events: none;
 }
+
+.vio-l2-orb-hint {
+  fill: var(--vio-text-faint);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  pointer-events: none;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+.vio-l2-orb-group:hover .vio-l2-orb-hint { opacity: 1; }
 
 /* Expanded info card — hidden until the orb is clicked. */
 .vio-l2-orb-card { opacity: 0; pointer-events: none; transition: opacity 0.18s ease; }
@@ -826,7 +842,111 @@ html, body {
   pointer-events: none;
 }
 
-/* ── Branch limbs + cluster titles ─────────────────────────────────────── */
+/* ── Timeline events — shapes ON the spine (2026-06-05) ────────────────
+ *
+ * Carl: "let us put everything ON THE TIMELINE instead of under over
+ * below". Every event in a company's history renders as a discrete
+ * SVG shape positioned on the spine at its real timestamp. The
+ * shape's kind communicates the meaning, no text on the canvas.
+ *
+ * Vocabulary:
+ *   paper        — square (filled, healthy)
+ *   gap          — triangle pointing DOWN (dashed stroke, warning)
+ *   issue        — triangle pointing UP (warning fill)
+ *   phase        — hexagon (done tint)
+ *   milestone    — circle filled (done)
+ *   confirmation — circle hollow (waiting)
+ *   payment      — diamond (state-coloured)
+ *   finding      — starburst (severity-coloured)
+ *   broker       — starburst, slightly larger (done)
+ *
+ * Hover -> shape brightens + SVG <title> shows the label.
+ */
+.vio-tle { cursor: default; }
+.vio-tle-shape {
+  transition: stroke-width 0.15s ease, opacity 0.15s ease;
+}
+.vio-tle:hover .vio-tle-shape { stroke-width: 2.4; opacity: 1; }
+
+/* Paper (square) — uploaded or generated document */
+.vio-tle-paper .vio-tle-shape {
+  fill:   var(--vio-text-dim);
+  stroke: var(--vio-text);
+  stroke-width: 1;
+}
+.vio-tle-paper[data-sub="generated"] .vio-tle-shape {
+  fill:   var(--st-done);
+  stroke: var(--st-done);
+  opacity: 0.85;
+}
+
+/* Gap (triangle pointing down, dashed) — missing document */
+.vio-tle-gap .vio-tle-shape {
+  fill: none;
+  stroke: var(--st-waiting);
+  stroke-width: 1.4;
+  stroke-dasharray: 3 2;
+}
+.vio-tle-gap[data-priority="high"] .vio-tle-shape    { stroke: var(--st-failed); }
+.vio-tle-gap[data-priority="critical"] .vio-tle-shape { stroke: var(--st-failed); stroke-width: 1.8; }
+
+/* Issue (triangle pointing up) — context flag / urgent / deadline */
+.vio-tle-issue .vio-tle-shape {
+  fill: var(--st-waiting);
+  stroke: var(--st-waiting);
+  stroke-width: 1;
+  opacity: 0.9;
+}
+.vio-tle-issue[data-sub="urgent"] .vio-tle-shape   { fill: var(--st-failed);   stroke: var(--st-failed); }
+.vio-tle-issue[data-sub="deadline"] .vio-tle-shape { fill: var(--st-waiting);  stroke: var(--st-waiting); }
+
+/* Phase (hexagon) — completion of a pipeline stage */
+.vio-tle-phase .vio-tle-shape {
+  fill: var(--vio-bg);
+  stroke: var(--st-done);
+  stroke-width: 1.6;
+}
+
+/* Milestone (filled circle) — tier approved, etc. */
+.vio-tle-milestone .vio-tle-shape {
+  fill: var(--st-done);
+  stroke: var(--st-done);
+  stroke-width: 1;
+}
+
+/* Confirmation (hollow circle) — waiting on operator input */
+.vio-tle-confirmation .vio-tle-shape {
+  fill: var(--vio-bg);
+  stroke: var(--st-waiting);
+  stroke-width: 1.4;
+}
+
+/* Payment (diamond) — decision / transaction */
+.vio-tle-payment .vio-tle-shape {
+  fill: var(--st-healthy);
+  stroke: var(--st-healthy);
+}
+.vio-tle-payment[data-status="paid"] .vio-tle-shape    { fill: var(--st-done);    stroke: var(--st-done); }
+.vio-tle-payment[data-status="pending"] .vio-tle-shape { fill: var(--vio-bg);     stroke: var(--st-waiting); stroke-width: 1.4; }
+
+/* Finding (starburst) — surfaced anomaly */
+.vio-tle-finding .vio-tle-shape {
+  fill: var(--st-waiting);
+  stroke: var(--st-waiting);
+  opacity: 0.92;
+}
+.vio-tle-finding[data-severity="info"] .vio-tle-shape     { fill: var(--vio-text-dim); stroke: var(--vio-text-dim); opacity: 0.7; }
+.vio-tle-finding[data-severity="low"] .vio-tle-shape      { fill: var(--st-waiting);   stroke: var(--st-waiting); }
+.vio-tle-finding[data-severity="high"] .vio-tle-shape     { fill: var(--st-failed);    stroke: var(--st-failed); }
+.vio-tle-finding[data-severity="critical"] .vio-tle-shape { fill: var(--st-failed);    stroke: var(--st-failed); opacity: 1; }
+
+/* Broker (starburst, larger) — end-of-journey escalation/completion */
+.vio-tle-broker .vio-tle-shape {
+  fill: var(--st-done);
+  stroke: var(--st-done);
+}
+
+/* ── Branch limbs + cluster titles (LEGACY, dormant) ──────────────────── */
 /* Branch limbs disabled by default 2026-06-05 (Carl: "Remove cyan branch/
  * limb line unless state absolutely requires it"). The JS no longer emits
  * the limb path, so this rule is dormant — kept so we have a single spot
