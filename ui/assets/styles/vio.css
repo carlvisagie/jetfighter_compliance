@@ -972,6 +972,11 @@ html, body {
   pointer-events: none;
 }
 
+/* ── Vertical to-do deadline lines ────────────────────────────────────── */
+.vio-todo-line { pointer-events: none; }
+.vio-todo-line circle { cursor: pointer; pointer-events: all; }
+.vio-todo-line:hover line { opacity: 0.7 !important; }
+
 /* ── Branch expand button + connector ────────────────────────────────── */
 .vio-tle-branch-btn { transition: opacity 0.15s; }
 .vio-tle-branch-btn:hover circle { stroke: #38bdf8 !important; }

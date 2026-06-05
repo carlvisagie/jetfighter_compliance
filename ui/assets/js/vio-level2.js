@@ -798,6 +798,7 @@
     drawOrb(svg, company, spineY);
     drawStatsPanel(svg, detail, w);
     drawDemandMarker(svg, detail, axis, spineY);
+    _drawTodoLines(svg, detail, axis, spineY, h);
     _drawVelocityLegend(svg, w, spineY);
 
     canvas.appendChild(svg);
@@ -1108,6 +1109,154 @@
     if (nowX < xEnd - 4) {
       _drawSpineSegment(svg, nowX, xEnd, spineY, 'stalled');
     }
+  }
+
+  // ── Vertical TO-DO lines — future deadline markers on the timeline ───
+  //
+  // Carl: "vertical to do lines" added to the demo. Thin dashed vertical
+  // lines that extend the full height of the canvas at future dates,
+  // labeled at the top with the deadline name.
+  //
+  // Data sources (in priority order):
+  //   1. intake_context.deadline          (explicit deadline string)
+  //   2. missing_documents with due_date  (per-gap deadlines)
+  //   3. findings with due_date           (remediation deadlines)
+  //   4. Auto-derived SLA from intake date (7d, 14d, 30d from intake)
+  //
+  // Each line is:
+  //   - Thin (1px) dashed vertical from top of canvas to bottom
+  //   - Colour: red (past/urgent) → amber (≤7d) → teal (future)
+  //   - Small rotated label at the top reading the deadline name
+  //   - A tiny calendar icon (📅) in a circle at spine intersection
+  function _drawTodoLines(svg, detail, axis, spineY, canvasH) {
+    if (!detail) return;
+    const ictx  = detail.intake_context || {};
+    const miss  = detail.missing_documents || [];
+    const finds = detail.findings || [];
+    const now   = Date.now();
+
+    const todos = [];
+
+    // ── 1. Explicit deadline from intake context ──────────────────────
+    if (ictx.deadline) {
+      const ts = Date.parse(ictx.deadline);
+      if (!isNaN(ts)) {
+        todos.push({ label: 'deadline', ts, color: ts < now ? '#ff3d3d' : '#ffb800', priority: 0 });
+      }
+    }
+
+    // ── 2. Per-gap due dates ──────────────────────────────────────────
+    miss.forEach(m => {
+      if (m.due_date) {
+        const ts = Date.parse(m.due_date);
+        if (!isNaN(ts)) {
+          const daysLeft = (ts - now) / 86400000;
+          const color    = ts < now ? '#ff3d3d' : daysLeft <= 7 ? '#ffb800' : '#00e5a0';
+          todos.push({ label: truncate(m.label || 'gap due', 10), ts, color, priority: 1 });
+        }
+      }
+    });
+
+    // ── 3. Finding remediation deadlines ─────────────────────────────
+    finds.forEach(f => {
+      if (f.due_date) {
+        const ts = Date.parse(f.due_date);
+        if (!isNaN(ts)) {
+          const color = ts < now ? '#ff3d3d' : '#ffb800';
+          todos.push({ label: truncate(f.code || 'fix due', 10), ts, color, priority: 2 });
+        }
+      }
+    });
+
+    // ── 4. Auto-derived SLA milestones from intake date ───────────────
+    const intakeTs = Date.parse(ictx.submitted_utc || ictx.created_utc || '');
+    if (!isNaN(intakeTs) && todos.length === 0) {
+      const slas = [
+        { days: 7,  label: '7d SLA',  color: '#ffb800' },
+        { days: 30, label: '30d SLA', color: '#38bdf8'  },
+      ];
+      slas.forEach(sla => {
+        const ts = intakeTs + sla.days * 86400000;
+        if (ts > now - 3 * 86400000) {  // only future-ish ones
+          todos.push({ label: sla.label, ts, color: sla.color, priority: 3 });
+        }
+      });
+    }
+
+    if (!todos.length) return;
+
+    // ── Deduplicate by proximity (merge lines within 10px) ───────────
+    todos.sort((a, b) => a.ts - b.ts);
+    const deduped = [];
+    todos.forEach(t => {
+      const x = axis.timeToX(t.ts);
+      const last = deduped[deduped.length - 1];
+      if (last && Math.abs(axis.timeToX(last.ts) - x) < 10) {
+        // Merge: keep the more urgent one
+        if ((t.priority || 0) < (last.priority || 0)) deduped[deduped.length - 1] = t;
+      } else {
+        deduped.push(t);
+      }
+    });
+
+    // ── Draw each line ────────────────────────────────────────────────
+    const topY = 18;  // start just below the environment ribbon area
+    deduped.forEach(todo => {
+      const x = axis.timeToX(todo.ts);
+      if (x < L.spineX0 - 20 || x > L.spineX0 + L.spineWidth + 200) return;
+      const isPast = todo.ts < now;
+
+      const g = svgEl('g');
+      g.setAttribute('class', 'vio-todo-line');
+
+      // Main vertical dashed line
+      const line = svgEl('line');
+      line.setAttribute('x1', x); line.setAttribute('y1', topY);
+      line.setAttribute('x2', x); line.setAttribute('y2', canvasH - 20);
+      line.setAttribute('stroke', todo.color);
+      line.setAttribute('stroke-width', isPast ? '1.5' : '1');
+      line.setAttribute('stroke-dasharray', isPast ? '3 3' : '5 4');
+      line.setAttribute('opacity', isPast ? '0.55' : '0.45');
+      g.appendChild(line);
+
+      // Small calendar marker at spine intersection
+      const markerBg = svgEl('circle');
+      markerBg.setAttribute('cx', x); markerBg.setAttribute('cy', spineY);
+      markerBg.setAttribute('r', '7');
+      markerBg.setAttribute('fill', '#080c1c');
+      markerBg.setAttribute('stroke', todo.color); markerBg.setAttribute('stroke-width', '1.2');
+      markerBg.setAttribute('opacity', '0.9');
+      g.appendChild(markerBg);
+      const calText = svgEl('text');
+      calText.setAttribute('x', x); calText.setAttribute('y', spineY + 4);
+      calText.setAttribute('text-anchor', 'middle');
+      calText.setAttribute('font-size', '8');
+      calText.setAttribute('fill', todo.color);
+      calText.style.pointerEvents = 'none';
+      calText.textContent = '⏰';
+      g.appendChild(calText);
+
+      // Rotated label at top
+      const label = svgEl('text');
+      label.setAttribute('x', 0); label.setAttribute('y', 0);
+      label.setAttribute('transform', `translate(${x + 5},${topY + 6}) rotate(-60)`);
+      label.setAttribute('text-anchor', 'start');
+      label.setAttribute('font-size', '8');
+      label.setAttribute('fill', todo.color);
+      label.setAttribute('opacity', '0.75');
+      label.setAttribute('font-family', "'JetBrains Mono', ui-monospace, monospace");
+      label.style.pointerEvents = 'none';
+      label.textContent = todo.label;
+      g.appendChild(label);
+
+      // Tooltip
+      const title = svgEl('title');
+      const dateStr = new Date(todo.ts).toLocaleDateString();
+      title.textContent = `${todo.label}: ${dateStr}${isPast ? ' (overdue)' : ''}`;
+      g.appendChild(title);
+
+      svg.insertBefore(g, svg.firstChild);  // render BEHIND all events
+    });
   }
 
   // ── Velocity legend — small key in bottom-right corner ───────────────
