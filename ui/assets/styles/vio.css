@@ -2379,3 +2379,137 @@ html, body {
   margin: 8px 0;
 }
 
+/* LinkedIn contact link with logo */
+.vio-op-id-linkedin {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #e2e8f0;
+  border-bottom: 1px dotted rgba(10,102,194,0.4);
+  font-size: 10px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+.vio-op-id-linkedin:hover {
+  color: #60a5fa;
+  border-bottom-color: #0a66c2;
+  text-decoration: none;
+}
+
+/* ── Story bars — Journey / Payment / Compliance ────────────── */
+.vio-op-story-bar {
+  border-radius: 6px;
+  overflow: hidden;
+  transition: background 0.2s, border-color 0.2s;
+  border: 1px solid transparent;
+  margin-bottom: 2px;
+}
+
+.vio-op-story-hdr {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 10px;
+  color: #94a3b8;
+  text-align: left;
+  transition: background 0.15s;
+}
+.vio-op-story-hdr:hover { background: rgba(255,255,255,0.04); }
+
+.vio-op-story-track {
+  flex: 1;
+  position: relative;
+  height: 6px;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.06);
+}
+
+.vio-op-story-fill {
+  position: absolute;
+  inset-y: 0;
+  left: 0;
+  border-radius: 9999px;
+  transition: width 0.5s ease;
+}
+
+.vio-op-story-tip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  border-radius: 9999px;
+  transform: translateX(-50%);
+}
+
+.vio-op-story-pct {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.vio-op-story-chev {
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+
+.vio-op-story-detail {
+  padding: 0 8px 8px;
+}
+
+.vio-op-story-title {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  margin-bottom: 3px;
+}
+
+.vio-op-story-desc {
+  font-size: 10px;
+  color: #6b7280;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.vio-op-story-det {
+  font-size: 10px;
+  color: #cbd5e1;
+  border-left: 2px solid;
+  padding: 4px 8px;
+  border-radius: 2px;
+  line-height: 1.4;
+}
+
+/* ── Open items dot cluster ─────────────────────────────────── */
+.vio-op-open-row {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.vio-op-open-lbl {
+  font-size: 9px;
+  color: #4a5568;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  flex-shrink: 0;
+}
+
+.vio-op-open-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.vio-op-dot-red   { background: #ff3d3d; box-shadow: 0 0 6px rgba(255,61,61,0.5); animation: vio-breathe 1.2s ease-in-out infinite; }
+.vio-op-dot-amber { background: #ffb800; box-shadow: 0 0 5px rgba(255,184,0,0.4); }
+

@@ -1562,19 +1562,127 @@
       return row;
     }
 
-    if (contactName) identity.appendChild(_idRow('👤', contactName, null));
-    if (phone)       identity.appendChild(_idRow('📞', phone,       `tel:${phone}`));
-    if (email)       identity.appendChild(_idRow('✉️',  email,       `mailto:${email}`));
-    if (linkedin)    identity.appendChild(_idRow('🔗', 'LinkedIn',  linkedin));
-    if (address)     identity.appendChild(_idRow('📍', address,     null));
-    if (rs)          identity.appendChild(_idRow('📋', rs,          null));
+    // ── Contact row — name becomes a clickable LinkedIn link with official logo
+    if (contactName) {
+      const cRow = el('div', 'vio-op-id-row');
+      const cIc  = el('span', 'vio-op-id-icon'); cIc.textContent = '👤';
+      cRow.appendChild(cIc);
+      if (linkedin) {
+        const a = el('a', 'vio-op-id-link vio-op-id-linkedin');
+        a.href = linkedin; a.target = '_blank'; a.rel = 'noopener noreferrer';
+        // LinkedIn 'in' logo SVG inline
+        a.innerHTML =
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;border-radius:2px">' +
+            '<rect width="24" height="24" rx="4" fill="#0a66c2"/>' +
+            '<path d="M7 9h2v8H7V9zm1-1a1.25 1.25 0 110-2.5A1.25 1.25 0 018 8zm4 1h2v1.1c.3-.6 1-1.1 2-1.1 2 0 2.5 1.3 2.5 3V17h-2v-3.5c0-1-.3-1.5-1-1.5s-1.5.5-1.5 1.5V17h-2V9z" fill="white"/>' +
+          '</svg>' + contactName;
+        cRow.appendChild(a);
+      } else {
+        const sp = el('span', 'vio-op-id-val'); sp.textContent = contactName;
+        cRow.appendChild(sp);
+      }
+      identity.appendChild(cRow);
+    }
+    if (phone)   identity.appendChild(_idRow('📞', phone,   `tel:${phone.replace(/\s/g,'')}`));
+    if (email)   identity.appendChild(_idRow('📧', email,   `mailto:${email}`));
+    if (address) identity.appendChild(_idRow('📍', address, null));
+    if (rs)      identity.appendChild(_idRow('📋', rs,      null));
 
-    // Ring progress summary
-    const docs = (detail && detail.uploaded_documents) || [];
-    const miss = (detail && detail.missing_documents)  || [];
+    // ── Separator
+    const sep = el('div', 'vio-op-id-sep'); identity.appendChild(sep);
+
+    // ── Story bars — Journey / Payment / Compliance (expandable on click)
+    const docs    = (detail && detail.uploaded_documents) || [];
+    const miss    = (detail && detail.missing_documents)  || [];
+    const finds   = (detail && detail.findings) || [];
+    const pay     = (detail && detail.payment)  || {};
+    const phases  = (detail && detail.classification && detail.classification.primary_category) ? 1 : 0;
+    const totalEvts = docs.length + phases + (detail && detail.review_status ? 1 : 0);
+    const doneEvts  = docs.length + phases +
+                      (['approved','verified_complete','archived'].includes(detail && detail.review_status) ? 1 : 0);
+    const completionFrac = totalEvts > 0 ? Math.min(1, doneEvts / totalEvts) : 0;
+    const payFrac = pay.paid ? 1.0 : (pay.link ? 0.5 : 0.0);
+    const payColor = payFrac >= 0.95 ? '#4ade80' : payFrac >= 0.5 ? '#ffb800' : '#ff3d3d';
+    const rsForComp = (detail && detail.review_status) || '';
+    const compFrac  = rsForComp.includes('verified') || rsForComp === 'approved' ? 0.92
+                    : rsForComp === 'payment_sent' ? 0.75
+                    : rsForComp === 'under_review' ? 0.55
+                    : rsForComp === 'inconsistent' ? 0.35 : 0.2;
+    const compColor = compFrac >= 0.8 ? '#00e5a0' : compFrac >= 0.5 ? '#ffb800' : '#ff3d3d';
+
+    function _storyBar(icon, label, color, frac, storyText, detailText) {
+      const wrap = el('div', 'vio-op-story-bar');
+      wrap.style.borderColor = 'transparent';
+      let barOpen = false;
+      const header = el('button', 'vio-op-story-hdr');
+      const iconSp = el('span'); iconSp.textContent = icon;
+      const track  = el('div', 'vio-op-story-track');
+      const fill   = el('div', 'vio-op-story-fill');
+      fill.style.width = `${Math.round(frac * 100)}%`;
+      fill.style.background = color;
+      const tip  = el('div', 'vio-op-story-tip');
+      tip.style.left = `${Math.round(frac * 100)}%`;
+      tip.style.background = color;
+      tip.style.boxShadow  = `0 0 4px ${color}`;
+      track.appendChild(fill); track.appendChild(tip);
+      const pct = el('span', 'vio-op-story-pct');
+      pct.textContent = `${Math.round(frac * 100)}%`;
+      pct.style.color = color;
+      const chev = el('span', 'vio-op-story-chev'); chev.textContent = '▾';
+      chev.style.color = color;
+      header.appendChild(iconSp); header.appendChild(track); header.appendChild(pct); header.appendChild(chev);
+      wrap.appendChild(header);
+      const detail2 = el('div', 'vio-op-story-detail');
+      detail2.style.display = 'none';
+      const storyTitle = el('div', 'vio-op-story-title'); storyTitle.style.color = color;
+      storyTitle.textContent = label;
+      const storyDesc  = el('div', 'vio-op-story-desc');
+      storyDesc.textContent = storyText;
+      const storyDet   = el('div', 'vio-op-story-det');
+      storyDet.textContent = detailText;
+      storyDet.style.borderLeftColor = color + '60';
+      storyDet.style.background = color + '12';
+      detail2.appendChild(storyTitle); detail2.appendChild(storyDesc); detail2.appendChild(storyDet);
+      wrap.appendChild(detail2);
+      header.addEventListener('click', (e) => {
+        e.stopPropagation();
+        barOpen = !barOpen;
+        detail2.style.display = barOpen ? 'block' : 'none';
+        wrap.style.borderColor = barOpen ? color + '30' : 'transparent';
+        wrap.style.background  = barOpen ? color + '10' : '';
+        chev.style.transform   = barOpen ? 'rotate(180deg)' : 'none';
+      });
+      return wrap;
+    }
+
+    const completionDetail = `${doneEvts} of ${totalEvts} stages complete · ${miss.length} docs missing`;
+    const payDetail = pay.paid ? 'Payment confirmed' : (pay.link ? 'Payment link sent, awaiting confirmation' : 'No payment activity');
+    const compDetail = rsForComp ? `Status: ${rsForComp.replace(/_/g,' ')}${finds.length ? ` · ${finds.length} findings` : ''}` : 'No compliance data';
+
+    identity.appendChild(_storyBar('✅', 'Journey Progress',  stateColor, completionFrac, 'Stages of the engagement completed vs remaining', completionDetail));
+    identity.appendChild(_storyBar('💰', 'Payment Health',     payColor,   payFrac,         'Amount collected as a fraction of total invoiced', payDetail));
+    identity.appendChild(_storyBar('⚖️', 'Compliance Status', compColor,  compFrac,         'Legal and regulatory compliance completeness', compDetail));
+
+    // ── Open items dot cluster
+    const blockerCount   = finds.filter(f => f.severity === 'critical' || f.severity === 'high').length;
+    const attentionCount = finds.filter(f => f.severity === 'medium').length + miss.length;
+    if (blockerCount + attentionCount > 0) {
+      const openRow = el('div', 'vio-op-open-row');
+      const lbl = el('span', 'vio-op-open-lbl'); lbl.textContent = 'open';
+      openRow.appendChild(lbl);
+      Array.from({ length: Math.min(blockerCount, 8) }).forEach(() => {
+        const d = el('div', 'vio-op-open-dot vio-op-dot-red');
+        openRow.appendChild(d);
+      });
+      Array.from({ length: Math.min(attentionCount, 8) }).forEach(() => {
+        const d = el('div', 'vio-op-open-dot vio-op-dot-amber');
+        openRow.appendChild(d);
+      });
+      identity.appendChild(openRow);
+    }
+
+    // ── Document count summary (kept for quick read)
     if (docs.length || miss.length) {
-      const sep = el('div', 'vio-op-id-sep');
-      identity.appendChild(sep);
       identity.appendChild(_idRow('📂', `${docs.length} papers received`,  null));
       if (miss.length) identity.appendChild(_idRow('⚠️', `${miss.length} still missing`, null));
     }
