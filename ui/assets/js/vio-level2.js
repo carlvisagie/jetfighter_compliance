@@ -338,6 +338,18 @@
   // HEADER · CANVAS · SIDE PANEL  (DOM scaffolding)
   // ─────────────────────────────────────────────────────────────────────
   function buildHeader(company) {
+    // Doctrine: VIO tells the story in pictures. The company orb
+    // (built in drawOrb) is the company passport — it carries
+    // identity (initials), state (halo colour + breathing), contacts
+    // (N/E/S/W satellites) and compliance domains (perimeter dots).
+    // The header used to duplicate all of that in TEXT (title, sub,
+    // state pill). Carl 2026-06-05: "WE USE TABS TEXT AS ABSOLUTE
+    // LAST RESORT. TELL THE STORY IN PICTURES." So the header is now
+    // navigation chrome + operator-override action ONLY. The full
+    // company name lives on the browser tab title so the OS bar /
+    // task switcher still answers "which L2 am I in?" without the
+    // canvas itself carrying redundant text. An aria-label keeps
+    // screen readers fully informed.
     const h = el('div', 'vio-l2-header');
 
     const back = el('button', 'vio-l2-back');
@@ -345,37 +357,29 @@
     back.addEventListener('click', closeLevel2);
     h.appendChild(back);
 
-    const titleWrap = el('div', 'vio-l2-titlewrap');
-    const t = el('div', 'vio-l2-title');
-    t.textContent = company.company_name || 'Unknown';
-    titleWrap.appendChild(t);
-    const sub = el('div', 'vio-l2-sub');
-    sub.textContent = company.contact_email || '';
-    titleWrap.appendChild(sub);
-    h.appendChild(titleWrap);
+    const name = company.company_name || 'Unknown';
+    h.setAttribute(
+      'aria-label',
+      'Level 2 for ' + name
+        + (company.stage_state ? ' (state: ' + company.stage_state + ')' : '')
+    );
+    // Update the document title so OS chrome carries the identity the
+    // operator no longer reads from the on-canvas header.
+    try { document.title = 'VIO · ' + name; } catch (_) { /* SSR safe */ }
 
-    const state = el('div', 'vio-l2-state');
-    state.setAttribute('data-stage-state', company.stage_state || 'healthy');
-    state.textContent = (company.stage_state || 'healthy').replace(/_/g, ' ');
-    h.appendChild(state);
-
-    // Operator action: re-run the Evidence Intelligence pipeline for
-    // this intake. Required when an earlier deploy ran a broken EI
-    // loop (the FB-1dfab13c120b incident on 2026-06-04), when a new
-    // EI capability lands (OCR, domain pack, rule changes) and the
-    // operator wants to apply it retroactively, or as a diagnostic.
-    // Routes through the existing browser session so no ops key
-    // needs to leave the operator's machine.
+    // Right side: only the operator-override action. The freshness
+    // sweep reprocesses autonomously; this button stays for "I want
+    // it now" and for diagnostic replay (KYC_ORGANISM_DOCTRINE.md
+    // → Autonomy by default → manual = override).
     const iid = company.intake_id || company.row_id || company.project_id;
     if (iid) {
       const reproc = el('button', 'vio-l2-reproc');
       reproc.type        = 'button';
       reproc.textContent = 'reprocess EI';
       reproc.title = (
-        'Wipe rebuildable EI artifacts (profile.json, gaps.json, '
-        + 'extractions.jsonl, classifications.jsonl, entities.jsonl) and '
-        + 're-run the pipeline against the real customer uploads only. '
-        + 'Review queue history is preserved.'
+        'Override path — force a wipe + rebuild of EI artifacts now '
+        + '(the freshness sweep does this automatically every 5 minutes '
+        + 'when staleness signals fire). Preserves review-queue history.'
       );
       reproc.addEventListener('click', () => triggerReprocess(iid, reproc));
       h.appendChild(reproc);

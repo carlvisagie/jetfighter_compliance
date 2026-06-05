@@ -620,37 +620,11 @@ html, body {
 }
 .vio-l2-reproc:hover    { color: var(--vio-text); border-color: var(--st-inconsistent); }
 .vio-l2-reproc:disabled { cursor: progress; opacity: 0.55; }
-.vio-l2-titlewrap { flex: 1; min-width: 0; }
-.vio-l2-title {
-  color: var(--vio-text);
-  font-size: 15px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.vio-l2-sub {
-  color: var(--vio-text-dim);
-  font-size: 11px;
-  margin-top: 2px;
-}
-.vio-l2-state {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 4px 10px;
-  border-radius: 3px;
-  background: var(--vio-surface-soft);
-  border: 1px solid var(--vio-border-bright);
-  color: var(--st-healthy);
-}
-.vio-l2-state[data-stage-state="healthy"]        { color: var(--st-healthy); }
-.vio-l2-state[data-stage-state="stalled"]        { color: var(--st-stalled); }
-.vio-l2-state[data-stage-state="failed"]         { color: var(--st-failed);    border-color: var(--st-failed); }
-.vio-l2-state[data-stage-state="waiting_client"] { color: var(--st-waiting);   border-color: var(--st-waiting); }
-.vio-l2-state[data-stage-state="inconsistent"]   { color: var(--st-inconsistent); border-color: var(--st-inconsistent); }
-.vio-l2-state[data-stage-state="done"]           { color: var(--st-done); }
+/* With the title/sub/state pills removed (2026-06-05, "pictures over
+   text" doctrine — the orb passport carries identity/state/contacts),
+   push the override button to the right edge so the header reads as
+   "← exit | … | override". */
+.vio-l2-reproc { margin-left: auto; }
 
 /* ── L2 canvas (the landscape SVG container) ───────────────────────────── */
 .vio-l2-canvas {
