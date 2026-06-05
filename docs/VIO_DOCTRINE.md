@@ -417,3 +417,47 @@ Adding a new operator-visible action or pipeline phase requires:
 - Voice-call events are surfaced through the communications ledger
   only when the call was recorded through the platform; off-platform
   calls remain invisible until logged manually.
+
+---
+
+## § 13 — Motion discipline (sharpened)
+
+> "Continuous motion must point to something that needs attention, until
+> it is handled. Once it is solved, handled, completed, the motion stops
+> because it no longer demands attention." — operator directive,
+> 2026-06-05.
+
+§ 1.2 ("Movement is currency") and § 3 (only `waiting_client` breathes)
+already imply this. Doctrine 2026-06-05 sharpens it into an
+**operational test** that every CSS animation must pass:
+
+1. The animation MUST be bound (via attribute selector or class) to a
+   state that names an **unresolved demand on operator attention**.
+   Permitted attention-states: `waiting_client`, `failed`,
+   `inconsistent`, and explicit event-status tokens (`waiting`, `active`
+   on `gap`).
+2. The animation MUST stop the moment that state resolves (e.g. once
+   `waiting_client` transitions to `review`, the element loses the
+   selector and the breathing stops automatically). No JS timers, no
+   one-off triggers — purely CSS-state-driven.
+3. The animation MUST NOT fire on "recent activity," "live system,"
+   "fresh data," or any signal that is not itself a demand. Recent
+   activity that the organism is handling autonomously requires no
+   motion (see KYC_ORGANISM_DOCTRINE.md → "Autonomy by default").
+
+The single permitted exception is a **one-shot** ease-out flash (≤ 2 s,
+no `infinite` keyword) used at the moment a state actually changes — to
+guide the eye to the new resting state. These never loop.
+
+A guardrail test (`tests/test_vio_motion_discipline.py`) scans
+`ui/assets/styles/vio.css` for `animation: ... infinite` and asserts
+each one is bound to a permitted attention-state selector. Adding a new
+continuous animation that isn't gated to an attention-state will fail
+the build.
+
+### Incidents this clause is named after
+
+- **2026-06-05 — `vio-l2-spine-live`**: pulsed at the spine tip whenever
+  the most recent event landed in the last 60 minutes. Recent activity
+  is not an unresolved demand — the organism was handling it
+  autonomously. Removed. Doctrine sharpened with this clause.

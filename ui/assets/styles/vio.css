@@ -670,6 +670,34 @@ html, body {
   opacity: 0.55;
 }
 
+/* ── L2 spine SIGNAL layers ────────────────────────────────────────────
+ * Carl's 2026-06-05 directive: "the yellow line is a form of
+ * communication getting thicker thinner have breakes pulse in certain
+ * areas — I AM DESCRIBING A REVOLUTION IN COMUNICATING BIG CHUNKS OF
+ * INFORMATION TO OPERATOR AT A GLANCE WITHOUT USING WORDS/TEXT."
+ *
+ * Three layers ride on top of the base spine and turn the line into a
+ * conversation rendered in light:
+ *   · density band — vertical micro-bars below the spine, one per
+ *     activity bucket. Tall bars = busy stretch, short bars = quiet.
+ *   · gap markers — `||` glyphs at long silences (>12h) between events.
+ *   · live pulse — soft animated halo at the live tip when the most
+ *     recent event landed in the last 60 minutes. */
+.vio-l2-spine-signal {
+  fill: var(--st-healthy);
+  pointer-events: none;
+}
+.vio-l2-spine-gap {
+  stroke: var(--vio-text-faint);
+  stroke-width: 1.2;
+  opacity: 0.7;
+  pointer-events: none;
+}
+/* No `.vio-l2-spine-live` rule. The spine terminates at the live point;
+ * that line-end IS the "you are here" marker, statically. Carl's rule
+ * (2026-06-05): continuous motion is reserved for unresolved demand on
+ * operator attention. Recent activity is not a demand. */
+
 .vio-l2-stage {
   cursor: pointer;
 }
@@ -739,28 +767,93 @@ html, body {
 }
 
 /* ── Orb ───────────────────────────────────────────────────────────────── */
+/* ── L2 company orb — the visual passport ────────────────────────────────
+ *  Carl's directive 2026-06-05: the orb is the company. No labels. Halo
+ *  carries state; ring carries compliance dots; satellites are presence
+ *  booleans for phone/email/address/deadline; core is the initials.
+ *  Stillness baseline — only waiting_client breathes. */
 .vio-l2-orb-group { cursor: pointer; }
+
 .vio-l2-orb-limb {
   stroke: var(--st-healthy);
   stroke-width: 2;
+  opacity: 0.7;
 }
+.vio-l2-orb-limb[data-stage-state="stalled"]        { stroke: var(--st-stalled); }
+.vio-l2-orb-limb[data-stage-state="failed"]         { stroke: var(--st-failed); }
+.vio-l2-orb-limb[data-stage-state="waiting_client"] { stroke: var(--st-waiting); }
+.vio-l2-orb-limb[data-stage-state="inconsistent"]   { stroke: var(--st-inconsistent); }
+.vio-l2-orb-limb[data-stage-state="done"]           { stroke: var(--st-done); }
+
+/* Outer halo — translucent aura, state-coloured. Waiting-client breathes
+ * (and ONLY waiting-client; everything else is still). */
+.vio-l2-orb-halo {
+  fill: none;
+  stroke: var(--st-healthy);
+  stroke-width: 1;
+  opacity: 0.32;
+  transition: stroke 0.18s, opacity 0.18s;
+}
+.vio-l2-orb-halo[data-stage-state="stalled"]        { stroke: var(--st-stalled); opacity: 0.20; }
+.vio-l2-orb-halo[data-stage-state="failed"]         { stroke: var(--st-failed); opacity: 0.45; }
+.vio-l2-orb-halo[data-stage-state="waiting_client"] { stroke: var(--st-waiting); opacity: 0.40; animation: vio-breathe 4s ease-in-out infinite; }
+.vio-l2-orb-halo[data-stage-state="inconsistent"]   { stroke: var(--st-inconsistent); opacity: 0.35; }
+.vio-l2-orb-halo[data-stage-state="done"]           { stroke: var(--st-done); opacity: 0.28; }
+.vio-l2-orb-group:hover .vio-l2-orb-halo { opacity: 0.6; }
+
+/* Identity ring — thin perimeter line that carries compliance dots. */
+.vio-l2-orb-ring {
+  fill: none;
+  stroke: var(--vio-text-faint);
+  stroke-width: 1.2;
+  opacity: 0.55;
+}
+.vio-l2-orb-ring[data-stage-state="healthy"]        { stroke: var(--st-healthy); }
+.vio-l2-orb-ring[data-stage-state="stalled"]        { stroke: var(--st-stalled); }
+.vio-l2-orb-ring[data-stage-state="failed"]         { stroke: var(--st-failed); }
+.vio-l2-orb-ring[data-stage-state="waiting_client"] { stroke: var(--st-waiting); }
+.vio-l2-orb-ring[data-stage-state="inconsistent"]   { stroke: var(--st-inconsistent); }
+.vio-l2-orb-ring[data-stage-state="done"]           { stroke: var(--st-done); }
+
+/* Compliance dots — one per detected framework, distributed on the
+ * ring's upper arc. Cool teal so they read as "structure"; warmer
+ * colours are reserved for state. */
+.vio-l2-orb-compliance {
+  fill: var(--st-healthy);
+  opacity: 0.85;
+  stroke: var(--vio-bg);
+  stroke-width: 0.8;
+}
+
+/* Contact satellites — N/E/S/W presence booleans. FILLED dot = channel
+ * present; HOLLOW dot = channel absent. The operator reads four
+ * pieces of identity at a glance, no labels. */
+.vio-l2-orb-satellite {
+  stroke: var(--vio-text-dim);
+  stroke-width: 1.2;
+  transition: fill 0.18s, stroke 0.18s;
+}
+.vio-l2-orb-satellite[data-on="1"] { fill: var(--st-healthy); stroke: var(--st-healthy); }
+.vio-l2-orb-satellite[data-on="0"] { fill: var(--vio-bg);     stroke: var(--vio-text-faint); }
+.vio-l2-orb-group:hover .vio-l2-orb-satellite[data-on="1"] { fill: var(--vio-text); stroke: var(--vio-text); }
+
 .vio-l2-orb {
   fill: var(--vio-surface);
   stroke: var(--vio-text-faint);
   stroke-width: 2;
-  transition: stroke 0.18s;
+  transition: stroke 0.18s, fill 0.18s;
 }
-.vio-l2-orb[data-stage-state="healthy"]        { stroke: var(--st-healthy); }
-.vio-l2-orb[data-stage-state="stalled"]        { stroke: var(--st-stalled); }
-.vio-l2-orb[data-stage-state="failed"]         { stroke: var(--st-failed); }
-.vio-l2-orb[data-stage-state="waiting_client"] { stroke: var(--st-waiting); animation: vio-breathe 4s ease-in-out infinite; }
-.vio-l2-orb[data-stage-state="inconsistent"]   { stroke: var(--st-inconsistent); }
-.vio-l2-orb[data-stage-state="done"]           { stroke: var(--st-done); }
+.vio-l2-orb[data-stage-state="healthy"]        { stroke: var(--st-healthy);      fill: color-mix(in srgb, var(--st-healthy) 16%, var(--vio-bg)); }
+.vio-l2-orb[data-stage-state="stalled"]        { stroke: var(--st-stalled);      fill: color-mix(in srgb, var(--st-stalled) 14%, var(--vio-bg)); }
+.vio-l2-orb[data-stage-state="failed"]         { stroke: var(--st-failed);       fill: color-mix(in srgb, var(--st-failed) 18%, var(--vio-bg)); }
+.vio-l2-orb[data-stage-state="waiting_client"] { stroke: var(--st-waiting);      fill: color-mix(in srgb, var(--st-waiting) 16%, var(--vio-bg)); }
+.vio-l2-orb[data-stage-state="inconsistent"]   { stroke: var(--st-inconsistent); fill: color-mix(in srgb, var(--st-inconsistent) 16%, var(--vio-bg)); }
+.vio-l2-orb[data-stage-state="done"]           { stroke: var(--st-done);         fill: color-mix(in srgb, var(--st-done) 16%, var(--vio-bg)); }
 .vio-l2-orb-group:hover .vio-l2-orb { stroke-width: 3; }
 .vio-l2-orb-text {
   fill: var(--vio-text);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   font-family: ui-sans-serif, system-ui, sans-serif;
   letter-spacing: 0.04em;
   pointer-events: none;

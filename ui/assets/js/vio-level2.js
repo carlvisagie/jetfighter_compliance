@@ -58,10 +58,16 @@
   // `_timeAxis(detail)` and is rebuilt each render so it always
   // reflects the current journey duration.
   const L = {
-    orbR:        24,
-    orbCx:       60,
-    spineY:      260,
-    spineX0:     130,
+    // ── COMPANY ORB ──────────────────────────────────────────────────────
+    // Carl's directive 2026-06-05: "the orb should contain all company
+    // information". The orb is the passport — name, contact, compliance,
+    // state — all encoded VISUALLY so the operator reads the room at a
+    // glance, never needing the header text bar. Bumped from R=24 to R=56
+    // to fit the contact-satellites and identity ring without crowding.
+    orbR:        56,
+    orbCx:       92,
+    spineY:      280,        // pushed down 20px to make vertical room for the bigger orb
+    spineX0:     180,        // pushed right 50px so the spine starts AFTER the orb
     spineWidth:  1200,   // pixels the timeline expands across, regardless of duration
     stageR:      9,
     branchSpacing: 60,
@@ -742,36 +748,235 @@
     endLabel.setAttribute('text-anchor', 'end');
     endLabel.textContent = 'now';
     svg.appendChild(endLabel);
+
+    // ── SIGNAL LAYERS — Carl's revolution-without-words directive ──────
+    //
+    // The spine isn't a line, it's a CONVERSATION between client and
+    // organism rendered in light. Three overlays make it speak:
+    //
+    //   1. density band — vertical micro-bars below the spine, one per
+    //      activity-bucket; taller bars = denser activity in that window.
+    //      An operator reads the rhythm of work at a glance.
+    //   2. gap markers — `||` glyphs at long quiet stretches between
+    //      events (>= 12 h). Visible pause-points in the journey.
+    //   3. live pulse — soft animated halo at the live tip when the most
+    //      recent event landed in the last 60 minutes. "Right now" is a
+    //      distinct visual class from "yesterday".
+    //
+    // Both layers are subordinate to the base spine line — they overlay
+    // the same X-axis so the operator's eye stays on one timeline.
+    //
+    // MOTION DISCIPLINE (docs/VIO_DOCTRINE.md §6, Carl 2026-06-05):
+    // "Continuous motion MUST point to something that demands attention,
+    //  UNTIL it is handled. Once resolved, motion stops." Density bars
+    //  and gap markers are STILL — they are visual weight, not motion.
+    //  An earlier `_drawSpineLive` pulsed at the spine tip whenever the
+    //  last event landed in the last 60 minutes. Recent activity is NOT
+    //  an unresolved demand, so it was removed.
+    _drawSpineSignal(svg, spineY, events, axis);
+    _drawSpineGaps(svg, spineY, events, axis);
   }
 
-  // ── Orb ───────────────────────────────────────────────────────────────
+  // Pack timestamps into N x-buckets along the spine and render each
+  // bucket's count as a small vertical bar BELOW the spine. Opacity and
+  // height scale together so a single event whispers and a busy cluster
+  // shouts. Buckets are based on screen-space X (not time) so visual
+  // density mirrors what the operator sees, not an abstract rate.
+  function _drawSpineSignal(svg, spineY, events, axis) {
+    if (!events || !events.length) return;
+    const BUCKETS = 48;                    // ~25 px per bucket at 1200 px wide
+    const w = L.spineWidth;
+    const counts = new Array(BUCKETS).fill(0);
+    events.forEach(ev => {
+      const t = Date.parse(ev.at_utc || '') || 0;
+      if (!t) return;
+      const x = axis.timeToX(t) - L.spineX0;
+      if (x < 0 || x > w) return;
+      const idx = Math.min(BUCKETS - 1, Math.floor((x / w) * BUCKETS));
+      counts[idx]++;
+    });
+    const peak = Math.max(1, ...counts);
+    const bucketWidth = w / BUCKETS;
+    counts.forEach((n, i) => {
+      if (n === 0) return;
+      const xMid = L.spineX0 + (i + 0.5) * bucketWidth;
+      const h = 2 + Math.round((n / peak) * 12);   // 2..14 px bar
+      const bar = svgEl('rect');
+      bar.setAttribute('class', 'vio-l2-spine-signal');
+      bar.setAttribute('x', xMid - 1.2);
+      bar.setAttribute('y', spineY + 2);
+      bar.setAttribute('width', 2.4);
+      bar.setAttribute('height', h);
+      bar.setAttribute('opacity', 0.35 + 0.55 * (n / peak));
+      svg.appendChild(bar);
+    });
+  }
+
+  // Render a small `||` glyph between events that are more than 12 h
+  // apart. These are the visible silences in the journey — gaps where
+  // nothing happened, which is itself information.
+  function _drawSpineGaps(svg, spineY, events, axis) {
+    if (!events || events.length < 2) return;
+    const GAP_MS = 12 * 60 * 60 * 1000;   // 12 hours
+    const stamped = events
+      .map(e => Date.parse(e.at_utc || '') || 0)
+      .filter(t => t > 0)
+      .sort((a, b) => a - b);
+    for (let i = 1; i < stamped.length; i++) {
+      const dt = stamped[i] - stamped[i - 1];
+      if (dt < GAP_MS) continue;
+      const midT = (stamped[i] + stamped[i - 1]) / 2;
+      const x = axis.timeToX(midT);
+      // Two short vertical strokes — visually reads as a pause symbol.
+      [-2, +2].forEach(dx => {
+        const tick = svgEl('line');
+        tick.setAttribute('class', 'vio-l2-spine-gap');
+        tick.setAttribute('x1', x + dx);
+        tick.setAttribute('x2', x + dx);
+        tick.setAttribute('y1', spineY - 5);
+        tick.setAttribute('y2', spineY + 5);
+        svg.appendChild(tick);
+      });
+    }
+  }
+
+  // (`_drawSpineLive` removed 2026-06-05 — see motion-discipline note
+  //  in drawSpine. Continuous animation reserved for unresolved demand;
+  //  recent activity is not a demand. The spine's own terminus already
+  //  marks "now" visually.)
+
+  // ── Orb — the company's visual passport ───────────────────────────────
+  //
+  // Carl's directive (2026-06-05): "the orb should contain all company
+  // information ... tell the story in pictures." So the orb is now a
+  // multi-layer glyph that an operator reads as a glance:
+  //
+  //   • outer halo  — state colour (waiting_client breathes)
+  //   • identity ring — thin perimeter line; carries compliance dots
+  //   • contact satellites — N/E/S/W small circles, FILLED if that
+  //       contact channel is present (phone / email / address / deadline),
+  //       hollow if absent. Four binary signals, zero text.
+  //   • compliance dots — one small dot per detected framework, spaced
+  //       around the identity ring at compass positions
+  //   • core circle — solid state colour with company initials inside
+  //   • limb — short connector from orb to spine
+  //
+  // Clicking ANY part of the orb opens the company-identity frame in the
+  // side panel (full metadata, contact details, compliance details, etc).
+  // The header text bar stays for now as a fallback but the goal is for
+  // the orb alone to convey identity — pictures, not words.
   function drawOrb(svg, company, spineY = L.spineY) {
+    const detail = _activeDetail || {};
+    const ictx   = detail.intake_context || {};
+    const prof   = (detail.evidence && detail.evidence.profile) || {};
+    const state  = company.stage_state || 'healthy';
+
     const g = svgEl('g');
     g.setAttribute('class', 'vio-l2-orb-group');
+    g.setAttribute('data-stage-state', state);
 
+    // Limb — short connector from orb to spine start.
     const limb = svgEl('line');
     limb.setAttribute('class', 'vio-l2-orb-limb');
+    limb.setAttribute('data-stage-state', state);
     limb.setAttribute('x1', L.orbCx + L.orbR);
     limb.setAttribute('y1', spineY);
     limb.setAttribute('x2', L.spineX0);
     limb.setAttribute('y2', spineY);
     g.appendChild(limb);
 
-    const c = svgEl('circle');
-    c.setAttribute('class', 'vio-l2-orb');
-    c.setAttribute('data-stage-state', company.stage_state || 'healthy');
-    c.setAttribute('cx', L.orbCx);
-    c.setAttribute('cy', spineY);
-    c.setAttribute('r', L.orbR);
-    g.appendChild(c);
+    // Outer halo — state-coloured aura. Animates when waiting_client.
+    const halo = svgEl('circle');
+    halo.setAttribute('class', 'vio-l2-orb-halo');
+    halo.setAttribute('data-stage-state', state);
+    halo.setAttribute('cx', L.orbCx);
+    halo.setAttribute('cy', spineY);
+    halo.setAttribute('r', L.orbR + 6);
+    g.appendChild(halo);
 
-    const t = svgEl('text');
-    t.setAttribute('class', 'vio-l2-orb-text');
-    t.setAttribute('x', L.orbCx);
-    t.setAttribute('y', spineY + 5);
-    t.setAttribute('text-anchor', 'middle');
-    t.textContent = company.initials || '?';
-    g.appendChild(t);
+    // Identity ring — thin perimeter. Compliance dots ride this circle.
+    const ring = svgEl('circle');
+    ring.setAttribute('class', 'vio-l2-orb-ring');
+    ring.setAttribute('data-stage-state', state);
+    ring.setAttribute('cx', L.orbCx);
+    ring.setAttribute('cy', spineY);
+    ring.setAttribute('r', L.orbR);
+    g.appendChild(ring);
+
+    // Compliance markers — one dot per detected framework, distributed
+    // around the upper arc of the ring (315° → 225° sweep, so they sit
+    // above the contact satellites and don't collide).
+    const frameworks = Array.isArray(prof.compliance_references)
+      ? prof.compliance_references.slice(0, 6)
+      : [];
+    frameworks.forEach((fw, i) => {
+      const n = Math.max(frameworks.length, 1);
+      // Spread evenly along the TOP semicircle (180° → 360°/0°).
+      const angle = Math.PI + (Math.PI * (i + 0.5)) / n;  // π .. 2π
+      const cx = L.orbCx + L.orbR * Math.cos(angle);
+      const cy = spineY  + L.orbR * Math.sin(angle);
+      const dot = svgEl('circle');
+      dot.setAttribute('class', 'vio-l2-orb-compliance');
+      dot.setAttribute('cx', cx);
+      dot.setAttribute('cy', cy);
+      dot.setAttribute('r', 3);
+      // Friendly title on hover until we wire a tooltip.
+      const fwLabel = typeof fw === 'string' ? fw : (fw.value || fw.name || fw.label || 'compliance');
+      const title = svgEl('title');
+      title.textContent = String(fwLabel);
+      dot.appendChild(title);
+      g.appendChild(dot);
+    });
+
+    // Core circle — solid state colour with company initials inside.
+    const core = svgEl('circle');
+    core.setAttribute('class', 'vio-l2-orb');
+    core.setAttribute('data-stage-state', state);
+    core.setAttribute('cx', L.orbCx);
+    core.setAttribute('cy', spineY);
+    core.setAttribute('r', L.orbR - 12);
+    g.appendChild(core);
+
+    const initialsText = svgEl('text');
+    initialsText.setAttribute('class', 'vio-l2-orb-text');
+    initialsText.setAttribute('x', L.orbCx);
+    initialsText.setAttribute('y', spineY + 9);
+    initialsText.setAttribute('text-anchor', 'middle');
+    initialsText.textContent = (company.initials || '?').slice(0, 3);
+    g.appendChild(initialsText);
+
+    // ── Contact satellites — N/E/S/W presence dots ─────────────────────
+    //
+    // Each satellite is a tiny circle hanging on the outer halo. FILLED
+    // (data-on="1") when that channel exists on the company, HOLLOW
+    // (data-on="0") when it doesn't. Four glance-readable booleans:
+    //
+    //   N: phone        (intake_context.phone)
+    //   E: email        (company.email_anchor or company.email)
+    //   S: address      (intake_context.address || prof.addresses[0])
+    //   W: deadline     (intake_context.deadline)
+    const satellites = [
+      { dir: 'N',  angle: -Math.PI / 2, on: !!ictx.phone,                                    title: ictx.phone || 'no phone on file' },
+      { dir: 'E',  angle: 0,             on: !!(company.email_anchor || company.email),       title: company.email_anchor || company.email || 'no email on file' },
+      { dir: 'S',  angle:  Math.PI / 2,  on: !!(ictx.address || (Array.isArray(prof.addresses) && prof.addresses.length)), title: ictx.address || 'no address on file' },
+      { dir: 'W',  angle:  Math.PI,      on: !!ictx.deadline,                                 title: ictx.deadline ? `deadline ${ictx.deadline}` : 'no deadline set' },
+    ];
+    const satR = L.orbR + 6;  // sit on the halo perimeter
+    satellites.forEach(sat => {
+      const cx = L.orbCx + satR * Math.cos(sat.angle);
+      const cy = spineY  + satR * Math.sin(sat.angle);
+      const dot = svgEl('circle');
+      dot.setAttribute('class', 'vio-l2-orb-satellite');
+      dot.setAttribute('data-on', sat.on ? '1' : '0');
+      dot.setAttribute('data-dir', sat.dir);
+      dot.setAttribute('cx', cx);
+      dot.setAttribute('cy', cy);
+      dot.setAttribute('r', 4.5);
+      const title = svgEl('title');
+      title.textContent = sat.title;
+      dot.appendChild(title);
+      g.appendChild(dot);
+    });
 
     g.addEventListener('click', () => resetFrames(overviewFrame(company, _activeDetail)));
     svg.appendChild(g);
