@@ -121,9 +121,16 @@
   // Result: The operator reads both WHAT (sequence) and WHEN (rhythm)
   // at a glance. The spine itself is a visual histogram of activity.
   function _timeAxis(detail) {
+    // Skeleton mode — no detail yet (called from renderSkeletonSpine before
+    // the API fetch completes). Return a minimal axis so drawSpine never NPEs.
+    if (!detail) {
+      const now = Date.now();
+      return { tMin: now, tMax: now, span: 1, timeToX: () => L.spineX0 };
+    }
+
     // Collect all distinct timestamps from custody + stages + detail.
     const stamps = new Set();
-    const custody = (detail && detail.custody && detail.custody.events) || [];
+    const custody = (detail.custody && detail.custody.events) || [];
     custody.forEach(e => {
       const t = Date.parse(e.at_utc || '');
       if (t) stamps.add(t);
@@ -132,7 +139,7 @@
       const t = Date.parse(_stageStartUtc(detail, s.key) || '');
       if (t) stamps.add(t);
     });
-    const intakeT = Date.parse((detail && detail.created_utc) || '');
+    const intakeT = Date.parse(detail.created_utc || '');
     if (intakeT) stamps.add(intakeT);
     (detail.uploaded_documents || []).forEach(d => {
       const t = Date.parse(d.uploaded_utc || d.received_utc || '');
