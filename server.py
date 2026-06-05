@@ -451,6 +451,49 @@ def healthz_ei_binaries():
     return out
 
 
+@app.get("/healthz/build-diagnostic")
+def healthz_build_diagnostic():
+    """Why is /api/public/build-info returning what it is?
+
+    Unauthenticated capability probe (same pattern as
+    /healthz/ei-binaries). Reports:
+
+      · resolved git_commit (what the current process is going to
+        report as the build identity)
+      · contents of /app/.build_commit (the baked file, if any)
+      · contents of /app/.build_diagnostic (the build-time report:
+        which source won, whether .git was in the build context, etc.)
+      · runtime env vars relevant to the resolution chain
+
+    Used to diagnose the "unknown commit" condition without ssh.
+    Carries zero secrets — env values are reported as `present` /
+    `absent`, never the value itself.
+    """
+    import os
+    from pathlib import Path
+
+    from services.build_info import git_commit
+
+    def _read(p: str) -> str:
+        try:
+            return Path(p).read_text(encoding="utf-8", errors="replace").strip()
+        except OSError:
+            return ""
+
+    out = {
+        "ok": True,
+        "resolved_git_commit": git_commit(),
+        "build_commit_file": _read("/app/.build_commit") or None,
+        "build_diagnostic":   _read("/app/.build_diagnostic") or None,
+        "env": {
+            "KYC_GIT_COMMIT":    "present" if os.getenv("KYC_GIT_COMMIT")    else "absent",
+            "RENDER_GIT_COMMIT": "present" if os.getenv("RENDER_GIT_COMMIT") else "absent",
+            "GIT_COMMIT":        "present" if os.getenv("GIT_COMMIT")        else "absent",
+        },
+    }
+    return out
+
+
 @app.get("/api/ops/ei-freshness")
 def ops_ei_freshness(request: Request, dry_run: bool = True):
     """Run the EI freshness sweep on demand and return its report.

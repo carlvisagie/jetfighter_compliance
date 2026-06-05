@@ -22,20 +22,38 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Bake the git commit into the image at build time so /api/public/build-info
-# can always answer "what's actually running" — independent of whether the
-# host has set RENDER_GIT_COMMIT (the live service on Render was hand-
-# created, not Blueprint-managed, and the runtime env var wasn't being
-# injected, so build-info returned "unknown" for every deploy). The git
-# directory is in the build context, so `git rev-parse HEAD` works.
-# Fallback to the build-arg / "unknown" so non-git build contexts still
-# pass through cleanly.
-ARG KYC_GIT_COMMIT=unknown
-RUN if [ -d .git ]; then \
-      git rev-parse HEAD > /app/.build_commit 2>/dev/null || echo "${KYC_GIT_COMMIT}" > /app/.build_commit; \
-    else \
-      echo "${KYC_GIT_COMMIT}" > /app/.build_commit; \
-    fi
+# Bake the git commit into the image at build time. Render auto-exposes
+# RENDER_GIT_COMMIT as a build arg for Docker services; we cascade
+# through several sources so any of them satisfies the chain:
+#   1. RENDER_GIT_COMMIT  (Render auto build-arg)
+#   2. KYC_GIT_COMMIT     (explicit override)
+#   3. git rev-parse HEAD (only works if .git survived the build context)
+# A diagnostic file (.build_diagnostic) records which source won, so
+# /healthz/build-diagnostic can explain "unknown" without ssh.
+ARG RENDER_GIT_COMMIT=
+ARG KYC_GIT_COMMIT=
+RUN set -eu; \
+    resolved=""; source=""; \
+    if [ -n "${KYC_GIT_COMMIT}" ]; then \
+      resolved="${KYC_GIT_COMMIT}"; source="arg:KYC_GIT_COMMIT"; \
+    elif [ -n "${RENDER_GIT_COMMIT}" ]; then \
+      resolved="${RENDER_GIT_COMMIT}"; source="arg:RENDER_GIT_COMMIT"; \
+    elif [ -d .git ] && command -v git >/dev/null 2>&1; then \
+      if v="$(git rev-parse HEAD 2>/dev/null)"; then \
+        resolved="${v}"; source="file:.git/HEAD"; \
+      fi; \
+    fi; \
+    if [ -z "${resolved}" ]; then resolved="unknown"; source="fallback:unknown"; fi; \
+    printf '%s' "${resolved}" > /app/.build_commit; \
+    printf 'resolved=%s\nsource=%s\nhad_git_dir=%s\nhad_git_binary=%s\nrender_git_commit_set=%s\nkyc_git_commit_set=%s\n' \
+      "${resolved}" \
+      "${source}" \
+      "$([ -d .git ] && echo yes || echo no)" \
+      "$(command -v git >/dev/null 2>&1 && echo yes || echo no)" \
+      "$([ -n "${RENDER_GIT_COMMIT}" ] && echo yes || echo no)" \
+      "$([ -n "${KYC_GIT_COMMIT}" ] && echo yes || echo no)" \
+      > /app/.build_diagnostic; \
+    cat /app/.build_diagnostic
 ENV KYC_GIT_COMMIT=${KYC_GIT_COMMIT}
 
 ENV PORT=10000
