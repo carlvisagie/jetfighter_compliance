@@ -748,34 +748,35 @@ html, body {
 .vio-l2-now[data-stage-state="done"] .vio-l2-now-cap     { stroke: var(--st-done);    fill: var(--st-done); }
 
 /* STAGE BACKBONE — 7 hexagons across the spine. Past=filled state colour,
- * Current=stroke + glow + larger, Future=ghost-dashed empty. NO TEXT. */
+ * Current=stroke + glow + larger, Future=ghost-dashed empty. NO TEXT.
+ * Carl 2026-06-05: These are BIG chapter anchors, not footnotes. */
 .vio-l2-stage-hex { cursor: default; }
-.vio-l2-stage-hex-shape { transition: stroke-width 0.15s ease; }
+.vio-l2-stage-hex-shape { transition: stroke-width 0.15s ease, opacity 0.15s ease; }
 
 .vio-l2-stage-past .vio-l2-stage-hex-shape {
   fill: var(--st-healthy);
   stroke: var(--st-healthy);
-  stroke-width: 1;
-  opacity: 0.78;
+  stroke-width: 2.2;
+  opacity: 0.88;
 }
 .vio-l2-stage-current .vio-l2-stage-hex-shape {
   fill: var(--vio-bg);
   stroke: var(--st-healthy);
-  stroke-width: 2.4;
-  filter: drop-shadow(0 0 4px var(--st-healthy));
+  stroke-width: 3.2;
+  filter: drop-shadow(0 0 6px var(--st-healthy));
 }
-.vio-l2-stage-current[data-stage-state="stalled"]        .vio-l2-stage-hex-shape { stroke: var(--st-stalled);      filter: drop-shadow(0 0 4px var(--st-stalled)); }
-.vio-l2-stage-current[data-stage-state="failed"]         .vio-l2-stage-hex-shape { stroke: var(--st-failed);       filter: drop-shadow(0 0 4px var(--st-failed)); }
-.vio-l2-stage-current[data-stage-state="waiting_client"] .vio-l2-stage-hex-shape { stroke: var(--st-waiting);      filter: drop-shadow(0 0 4px var(--st-waiting)); }
-.vio-l2-stage-current[data-stage-state="inconsistent"]   .vio-l2-stage-hex-shape { stroke: var(--st-inconsistent); filter: drop-shadow(0 0 4px var(--st-inconsistent)); }
-.vio-l2-stage-current[data-stage-state="done"]           .vio-l2-stage-hex-shape { stroke: var(--st-done);         filter: drop-shadow(0 0 4px var(--st-done)); }
+.vio-l2-stage-current[data-stage-state="stalled"]        .vio-l2-stage-hex-shape { stroke: var(--st-stalled);      filter: drop-shadow(0 0 6px var(--st-stalled)); }
+.vio-l2-stage-current[data-stage-state="failed"]         .vio-l2-stage-hex-shape { stroke: var(--st-failed);       filter: drop-shadow(0 0 6px var(--st-failed)); }
+.vio-l2-stage-current[data-stage-state="waiting_client"] .vio-l2-stage-hex-shape { stroke: var(--st-waiting);      filter: drop-shadow(0 0 6px var(--st-waiting)); }
+.vio-l2-stage-current[data-stage-state="inconsistent"]   .vio-l2-stage-hex-shape { stroke: var(--st-inconsistent); filter: drop-shadow(0 0 6px var(--st-inconsistent)); }
+.vio-l2-stage-current[data-stage-state="done"]           .vio-l2-stage-hex-shape { stroke: var(--st-done);         filter: drop-shadow(0 0 6px var(--st-done)); }
 
 .vio-l2-stage-future .vio-l2-stage-hex-shape {
   fill: none;
   stroke: var(--vio-text-faint);
-  stroke-width: 1;
-  stroke-dasharray: 2 2;
-  opacity: 0.55;
+  stroke-width: 1.8;
+  stroke-dasharray: 3 3;
+  opacity: 0.65;
 }
 
 /* Time-scale labels — single quiet date on the left edge. */

@@ -97,37 +97,85 @@
   // on the spine. tMin floors at intake_created_utc (or the earliest
   // custody event); tMax ceilings at now (or archived_utc). A minimum
   // span (24 h) prevents the spine from collapsing for fresh intakes.
+  // Carl 2026-06-05: "pull the timeline out in seconds increments or
+  // fractions its your universe make it awesome"
+  //
+  // The spine is no longer a real-time ruler. It's an EVENT-SEQUENCE
+  // canvas where each event gets equal visual weight regardless of how
+  // many milliseconds elapsed between them. The operator reads the
+  // STORY ORDER (what happened, then what, then what), not the clock.
+  //
+  // This function builds a synthetic axis that spreads N timeline
+  // events across the full spine width. Stage hexagons land at even
+  // intervals. Everything breathes. No more cramming 47 events into
+  // 60px because they happened in the same minute.
   function _timeAxis(detail) {
+    // We'll still accept timestamps and convert them, but the mapping
+    // is now index-based. Build a sorted list of all distinct event
+    // timestamps from the custody chain + stage openers + detail fields.
+    const stamps = new Set();
     const custody = (detail && detail.custody && detail.custody.events) || [];
-    const earliest = custody.length
-      ? Math.min(...custody.map(e => Date.parse(e.at_utc || '') || Infinity))
-      : Infinity;
-    const intakeTs = Date.parse((detail && detail.created_utc) || '') || 0;
-    const tMin = Math.min(
-      isFinite(earliest) ? earliest : Date.now(),
-      intakeTs > 0 ? intakeTs : Date.now(),
-    );
-    const latest = custody.length
-      ? Math.max(...custody.map(e => Date.parse(e.at_utc || '') || 0))
-      : 0;
-    const tMax = Math.max(latest, Date.now());
-    const span = Math.max(86400000, tMax - tMin); // ≥ 24 h minimum
+    custody.forEach(e => {
+      const t = Date.parse(e.at_utc || '');
+      if (t) stamps.add(t);
+    });
+    // Add stage-opener timestamps so the backbone hexagons land on
+    // real sequence positions.
+    STAGES.forEach(s => {
+      const t = Date.parse(_stageStartUtc(detail, s.key) || '');
+      if (t) stamps.add(t);
+    });
+    // Add detail-level timestamps (created, uploaded docs, etc.)
+    const intakeT = Date.parse((detail && detail.created_utc) || '');
+    if (intakeT) stamps.add(intakeT);
+    (detail.uploaded_documents || []).forEach(d => {
+      const t = Date.parse(d.uploaded_utc || d.received_utc || '');
+      if (t) stamps.add(t);
+    });
+    (detail.generated_documents || []).forEach(g => {
+      const t = Date.parse(g.generated_utc || '');
+      if (t) stamps.add(t);
+    });
+    (detail.findings || []).forEach(f => {
+      const t = Date.parse(f.detected_utc || '');
+      if (t) stamps.add(t);
+    });
+    const pay = detail.payment || {};
+    const payT = Date.parse(pay.link_sent_utc || '');
+    if (payT) stamps.add(payT);
+
+    // Sort into ascending order. This is the STORY SEQUENCE.
+    const sorted = Array.from(stamps).sort((a, b) => a - b);
+    const tMin = sorted[0] || Date.now();
+    const tMax = sorted[sorted.length - 1] || Date.now();
+    stamps.add(Date.now());  // ensure "now" is in the index
+
+    // Rebuild sorted with "now" included.
+    const sortedWithNow = Array.from(stamps).sort((a, b) => a - b);
+
     const W = L.spineWidth;
     const x0 = L.spineX0;
+    const N = Math.max(1, sortedWithNow.length - 1);  // number of gaps
+    const stepX = W / N;
+
     return {
       tMin,
       tMax,
-      span,
-      // Convert a timestamp (ISO string, number, or undefined) into the
-      // matching X. Falsy / unparseable timestamps fall back to "now"
-      // (the rightmost edge), so a branch with unknown start lands at
-      // the present rather than collapsing into the orb.
+      span: tMax - tMin || 1,  // keep for legacy callers
+      // Map timestamp → X by finding its index in the sorted sequence.
+      // Unknown timestamps fall back to the rightmost (now) position.
       timeToX(t) {
         if (!t) return x0 + W;
         const parsed = typeof t === 'number' ? t : Date.parse(t);
         if (!parsed || isNaN(parsed)) return x0 + W;
-        const clamped = Math.max(tMin, Math.min(tMax, parsed));
-        return x0 + ((clamped - tMin) / span) * W;
+        const idx = sortedWithNow.indexOf(parsed);
+        if (idx === -1) {
+          // Timestamp not in the known sequence — likely a branch-
+          // fallback that didn't match any custody event. Put it at
+          // the end so it's visible rather than collapsing into orb.
+          return x0 + W;
+        }
+        return x0 + idx * stepX;
       },
     };
   }
@@ -886,14 +934,12 @@
   function _drawStageBackbone(svg, detail, axis, spineY, liveX) {
     const stageTimestamps = STAGES.map(s => _stageStartUtc(detail, s.key));
     const startedCount = stageTimestamps.filter(t => t).length;
-    const futureCount = STAGES.length - startedCount;
-    const endX = spineEndX();
-    const futureStep = futureCount > 0
-      ? Math.max(40, (endX - liveX) / (futureCount + 1))
-      : 0;
-    let futureIndex = 0;
     const state = (detail && detail.stage_state) || 'healthy';
 
+    // Carl's sketch: stage hexagons are BIG anchor shapes, not tiny
+    // ghosts. They visually partition the journey into 7 chapters.
+    // The event-sequence axis now spreads them evenly, so we just
+    // render at their real X (no manual future-step calculation).
     STAGES.forEach((s, i) => {
       const tStart = stageTimestamps[i];
       let cx, kind;
@@ -902,16 +948,27 @@
         const isCurrent = (i === startedCount - 1);
         kind = isCurrent ? 'current' : 'past';
       } else {
-        futureIndex++;
-        cx = liveX + futureStep * futureIndex;
+        // Future stages: the old manual-step logic is obsolete now
+        // that the axis itself spaces events evenly. For un-reached
+        // stages, we'll place them at synthetic "future" positions
+        // beyond liveX. Spread them across the remaining width.
+        const futureStages = STAGES.slice(startedCount);
+        const futureIdx = futureStages.indexOf(s);
+        const endX = spineEndX();
+        const futureStep = (endX - liveX) / (futureStages.length + 1);
+        cx = liveX + (futureIdx + 1) * futureStep;
         kind = 'future';
       }
+
       const g = svgEl('g');
       g.setAttribute('class', `vio-l2-stage-hex vio-l2-stage-${kind}`);
       g.setAttribute('data-stage', s.key);
       if (kind === 'current') g.setAttribute('data-stage-state', state);
 
-      const hex = _hexagon(cx, spineY, kind === 'current' ? 11 : 9);
+      // Bumped from 9/11px to 18/22px — these are chapter markers,
+      // not footnotes. They anchor the eye across the journey.
+      const r = kind === 'current' ? 22 : 18;
+      const hex = _hexagon(cx, spineY, r);
       hex.setAttribute('class', 'vio-l2-stage-hex-shape');
       g.appendChild(hex);
 
