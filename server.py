@@ -40,6 +40,20 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 app = FastAPI(title="KeepYourContracts.com  Compliance Control Panel", version="1.0.0")
 
 
+@app.exception_handler(Exception)
+async def _global_exception_handler(request: Request, exc: Exception):
+    """Catch-all: return sanitized JSON, never expose internal exception text."""
+    import uuid as _uuid
+    error_id = _uuid.uuid4().hex[:12]
+    logging.error("[unhandled] %s %s error_id=%s: %s", request.method, request.url.path, error_id, exc, exc_info=True)
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=500,
+        content={"error": "internal_server_error", "error_id": error_id,
+                 "detail": "An unexpected error occurred. Reference error_id for support."},
+    )
+
+
 @app.get("/ui/intake")
 @app.get("/ui/intake.html")
 @app.get("/ui/paperwork")
@@ -283,17 +297,6 @@ def upload_page():
 def upload_ui_alias():
     return FileResponse(ROOT / "ui" / "upload.html")
 
-# === PATCH INSERT START ===
-def safe_load_json(path):
-    try:
-        with open(path, 'r', encoding='utf-8-sig') as f:
-            return json.load(f)
-    except Exception as e:
-        logging.error(f"[CONFIG FAIL] {e} - Configuration file is required for production!")
-        raise RuntimeError("Configuration file 'config_auth.json' is missing or invalid. Cannot start application.")
-
-cfg = {}
-# === PATCH INSERT END ===
 
 
 # ---------- Startup ----------
@@ -328,9 +331,20 @@ async def _boot_worker():
     except Exception as exc:
         logging.critical("[retention] startup scan failed: %s", exc)
 
-    for w in startup_warnings():
+    _startup_warn_list = startup_warnings()
+    for w in _startup_warn_list:
         logging.warning("[startup] %s", w)
         log_boot("startup_warning", "warn", w[:200])
+    # Refuse to boot in production with dev secrets — prevents silent token exposure
+    if is_production():
+        import os as _os
+        _dev_secret_errors = [w for w in _startup_warn_list if "rotate INTAKE_TOKEN_SECRET" in w]
+        _dev_ops_secret = (_os.getenv("OPS_SECRET") or _os.getenv("INTAKE_TOKEN_SECRET") or "")
+        if _dev_ops_secret in ("dev-dev-dev-dev-dev", "dev-ops-secret-change-me"):
+            raise RuntimeError(
+                "FATAL: production is running with a dev secret. "
+                "Set INTAKE_TOKEN_SECRET (and OPS_SECRET if used) to a strong random value."
+            )
 
     if is_safe_mode() or not schedulers_enabled():
         log_boot(
@@ -1163,12 +1177,13 @@ async def evidence_register(
     file: UploadFile = File(...),
     token: str = "",
 ):
+    # Auth gate first — never reveal whether a project exists to unauthenticated callers
+    if not token:
+        raise HTTPException(status_code=403, detail="Upload token required")
     validate_project_id(project_id)
-    if token:
-        from services.customer_friction import validate_project_access
-
-        if not validate_project_access(project_id, token):
-            raise HTTPException(status_code=403, detail="Invalid token for project")
+    from services.customer_friction import validate_project_access
+    if not validate_project_access(project_id, token):
+        raise HTTPException(status_code=403, detail="Invalid token for project")
     safe_name = safe_upload_filename(file.filename or "upload.bin")
     if file.size and file.size > 52_428_800:
         raise HTTPException(status_code=413, detail="File too large (max 50MB)")

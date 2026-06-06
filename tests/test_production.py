@@ -33,12 +33,14 @@ def test_ops_routes_with_key(monkeypatch, anon_client):
     assert r.json()["ok"] is True
 
 
-def test_evidence_rejects_invalid_project(anon_client):
+def test_evidence_rejects_without_token(anon_client):
+    """SEC-003: unauthenticated uploads rejected with 403 before project lookup."""
     r = anon_client.post(
         "/api/evidence/register?project_id=INVALID&media_type=document&owner=test",
         files={"file": ("a.txt", b"hi", "text/plain")},
     )
-    assert r.status_code == 400
+    # Token check runs first (auth before project existence) → 403 not 400
+    assert r.status_code == 403
 
 
 def test_startup_warnings_flag_missing_email_provider(monkeypatch):

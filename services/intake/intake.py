@@ -357,11 +357,21 @@ def _link_intake_to_lead(intake_id: str, record: Dict[str, Any]) -> None:
                 break
         if changed:
             rewrite_leads_csv(leads)
-            # Rewrite the JSONL in-place with updated lead
+            # Atomic rewrite: write to .tmp then rename to prevent corruption on crash
             path = leads_dir() / LEAD_JSONL
-            with path.open("w", encoding="utf-8") as f:
-                for lead in leads:
-                    f.write(json.dumps(lead.to_dict(), ensure_ascii=False) + "\n")
+            tmp = path.with_suffix(".tmp")
+            try:
+                with tmp.open("w", encoding="utf-8") as f:
+                    for lead in leads:
+                        f.write(json.dumps(lead.to_dict(), ensure_ascii=False) + "\n")
+                    f.flush()
+                    import os as _os
+                    _os.fsync(f.fileno())
+                tmp.replace(path)
+            except OSError:
+                if tmp.exists():
+                    tmp.unlink(missing_ok=True)
+                raise
 
         # Emit conversion alert regardless of whether status changed
         from services.alerts.engine import alert_acquisition_conversion

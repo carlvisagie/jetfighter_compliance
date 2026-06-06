@@ -36,6 +36,21 @@ def kickoff_project_from_intake(
     if not email or "@" not in email:
         raise HTTPException(status_code=400, detail="Intake missing valid email for kickoff")
 
+    # Revenue gate: require explicit payment confirmation before delivering service.
+    # Operator must call confirm_payment_received first, or pass override_payment_check=True
+    # with an explicit operator note explaining why (e.g. PO, wire, free trial).
+    payment = rec.get("payment") or {}
+    payment_confirmed = bool(payment.get("payment_received_at_utc"))
+    if not payment_confirmed and not operator_note.startswith("PAYMENT_OVERRIDE:"):
+        raise HTTPException(
+            status_code=402,
+            detail=(
+                "Payment not yet confirmed for this intake. "
+                "Call confirm_payment_received first, or prefix operator_note with "
+                "'PAYMENT_OVERRIDE: <reason>' to acknowledge delivering without confirmed payment."
+            ),
+        )
+
     oid = (order_id or f"FB-{intake_id[3:12]}").strip()[:80]
     meta = new_project(oid, email, name, ["UPLOAD-FIRST"])
     project_id = meta["project_id"]

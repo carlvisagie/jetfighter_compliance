@@ -9,6 +9,19 @@ from .emails import send_email
 from .security import make_intake_token  # reuse signer
 from .ledger import record_event
 
+
+def _send_rfq_email(to: str, subject: str, html: str) -> None:
+    """Send via modern email_service adapter (Resend → SMTP → manual fallback)."""
+    try:
+        from .communications.email_service import send_raw
+        send_raw(to=to, subject=subject, html=html)
+    except Exception:
+        # Graceful fallback to legacy adapter — logs warning internally
+        try:
+            send_email(to, subject, html)
+        except Exception:
+            pass
+
 RFQ_DIR = DATA / "rfq"
 RFQ_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -81,12 +94,16 @@ def create_rfq(project_id:str, category:str, title:str, spec:Dict, invitees:List
         safe_write_after_rfq(rfq.rfq_id, project_id, event_kind="rfq_opened", category=category)
     except Exception:
         pass
-    # send invites
+    # send invites via modern email adapter (Resend → SMTP → manual fallback)
     for v in invitees:
         token = make_intake_token(rfq.rfq_id, v.get("email",""))
         link = f"{SETTINGS.public_base_url}/ui/vendor_quote.html?token={token}"
-        if SETTINGS.smtp_host and SETTINGS.smtp_user and SETTINGS.smtp_pass and v.get("email"):
-            send_email(v["email"], f"RFQ: {title}", f"<p>You are invited to quote for <b>{title}</b>.</p><p>Submit here: <a href='{link}'>{link}</a></p>")
+        if v.get("email"):
+            _send_rfq_email(
+                v["email"],
+                f"RFQ: {title}",
+                f"<p>You are invited to quote for <b>{title}</b>.</p><p>Submit here: <a href='{link}'>{link}</a></p>",
+            )
     return {"ok": True, "rfq_id": rfq.rfq_id}
 
 def score_bid(b: Bid, w_sla:float, w_acc:float) -> float:
@@ -127,12 +144,12 @@ def maybe_auto_award(rfq_id:str)->Dict:
     if not candidates: return {"ok": True, "status":"over_budget"}
     best = max(candidates, key=lambda b: score_bid(b, w_sla, w_acc))
     rfq.status = "awarded"; rfq.award_bid_id = best.bid_id; save_rfq(rfq)
-    # Notify winner (optional email)
-    if SETTINGS.smtp_host and SETTINGS.smtp_user and SETTINGS.smtp_pass:
-        try:
-            send_email(best.vendor_email, f"AWARD: {rfq.title}", f"<p>Congratulations, your bid is awarded.</p>")
-        except Exception:
-            pass
+    # Notify winner via modern email adapter (Resend → SMTP → manual fallback)
+    _send_rfq_email(
+        best.vendor_email,
+        f"AWARD: {rfq.title}",
+        "<p>Congratulations, your bid is awarded.</p>",
+    )
     record_event({"event_id": f"{rfq.rfq_id}-AWARD","event_type":"ATTEST","why":f"Awarded to {best.vendor_name}",
                   "when_utc": _now(),"who":{"name":"System","role":"Automation","email":"noreply@keepyourcontracts.com"},
                   "where":{"address":"System"},"what":[{"id": rfq.project_id,"qty":1}]})

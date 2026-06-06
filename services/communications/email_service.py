@@ -151,14 +151,17 @@ def _dispatch(
                 provider_succeeded = "smtp"
                 fallback_used = len(providers_attempted) > 1
 
-    # 3 — Manual fallback (only when providers were tried but failed)
-    # If no providers are configured at all → skipped (configuration state, not failure)
-    if not sent and providers_attempted:
+    # 3 — Manual fallback:
+    #   a) Any provider was tried but failed (normal failure path), OR
+    #   b) No provider is configured AND intent is payment_link (must never silently drop)
+    _no_provider_payment_gap = not providers_attempted and intent == "payment_link"
+    if not sent and (providers_attempted or _no_provider_payment_gap):
         manual_generated = True
         manual_result = manual_adapter.generate(to, subject, html, plain)
         provider_response["manual"] = {
             "manual_fallback_generated": True,
             "operator_instruction": manual_result.get("operator_instruction", ""),
+            "reason": "no_email_provider_configured" if _no_provider_payment_gap else "provider_failed",
         }
 
     # 4 — Forensic delivery record

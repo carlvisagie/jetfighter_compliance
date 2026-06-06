@@ -93,7 +93,7 @@ PROTECTED_API_PREFIXES = (
     "/api/vendors",
     "/api/rfq/",
     "/api/ping-host.json",
-    "/api/coc/event/form",
+    "/api/coc/event",
     "/api/schemas/validate",
     "/api/test-webhook",
     "/events/payment/test",

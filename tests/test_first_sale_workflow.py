@@ -133,6 +133,7 @@ def test_confirm_payment_received_closes_loop(
 
 
 def test_kickoff_project_after_payment_link(fb_env, anon_client: TestClient, client: TestClient):
+    """Full revenue sequence: upload → payment link → confirm payment → kickoff."""
     up = anon_client.post(
         "/api/intake/upload",
         files=[("files", ("doc.pdf", io.BytesIO(b"%PDF"), "application/pdf"))],
@@ -143,6 +144,13 @@ def test_kickoff_project_after_payment_link(fb_env, anon_client: TestClient, cli
         "/api/operator/intake/action",
         json={"intake_id": iid, "action": "send_payment_link", "product_id": "eu_dpp"},
     )
+    # Payment must be confirmed before kickoff — closes the revenue loop
+    confirm = client.post(
+        "/api/operator/intake/action",
+        json={"intake_id": iid, "action": "confirm_payment_received",
+              "operator_note": "PayPal ref: TEST-001"},
+    )
+    assert confirm.status_code == 200, f"confirm_payment_received failed: {confirm.json()}"
     ko = client.post(
         "/api/operator/intake/action",
         json={"intake_id": iid, "action": "kickoff_project"},
@@ -150,6 +158,24 @@ def test_kickoff_project_after_payment_link(fb_env, anon_client: TestClient, cli
     assert ko.status_code == 200
     assert ko.json().get("project_id")
     assert ko.json().get("files_linked")
+
+
+def test_kickoff_blocked_without_payment(fb_env, anon_client: TestClient, client: TestClient):
+    """Kickoff without payment confirmation must return 402."""
+    iid = anon_client.post(
+        "/api/intake/upload",
+        files=[("files", ("doc.pdf", io.BytesIO(b"%PDF"), "application/pdf"))],
+        data={"email": "blocked@example.com", "company": "BlockedCo"},
+    ).json()["intake_id"]
+    client.post(
+        "/api/operator/intake/action",
+        json={"intake_id": iid, "action": "send_payment_link", "product_id": "cmmc_l1"},
+    )
+    ko = client.post(
+        "/api/operator/intake/action",
+        json={"intake_id": iid, "action": "kickoff_project"},
+    )
+    assert ko.status_code == 402, f"Expected 402, got {ko.status_code}: {ko.json()}"
 
 
 def test_send_payment_link_requires_product(fb_env, anon_client: TestClient, client: TestClient):
