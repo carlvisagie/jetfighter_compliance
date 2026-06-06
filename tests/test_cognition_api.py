@@ -11,7 +11,7 @@ from services.security import make_founding_beta_token
 def mock_projects_dir(tmp_path):
     projects_dir = tmp_path / "data" / "projects"
     projects_dir.mkdir(parents=True)
-    with patch("services.config.PROJECTS", projects_dir):
+    with patch("services.durable_storage.active_data_root", return_value=tmp_path / "data"):
         yield projects_dir
 
 def test_cognition_api_not_found(client, mock_projects_dir):

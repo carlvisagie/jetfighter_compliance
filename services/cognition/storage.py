@@ -49,13 +49,55 @@ def _append_jsonl(path: str | Path, record: dict):
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
+def get_cognition_state(project_id: str) -> dict:
+    from services.durable_storage import active_data_root
+    base_dir = active_data_root() / "projects" / project_id
+    cognition_dir = base_dir / "cognition"
+    evidence_dir = base_dir / "evidence"
+    
+    summary_path = cognition_dir / "cognition_summary.json"
+    next_actions_path = cognition_dir / "next_actions.json"
+    events_path = cognition_dir / "cognition_events.jsonl"
+    
+    if not summary_path.exists():
+        return {
+            "ok": False,
+            "status": "not_found",
+            "project_id": project_id,
+            "message": "Cognition has not run for this project."
+        }
+        
+    summary = _read_json(summary_path)
+    next_actions = _read_json(next_actions_path) if next_actions_path.exists() else []
+    events = _read_jsonl(events_path) if events_path.exists() else []
+    
+    # get generated documents metadata
+    generated_docs = []
+    if "generated_documents" in summary:
+        generated_docs = summary["generated_documents"]
+    elif summary_path.exists():
+        generated_docs = []
+        
+    recent_events = events[-10:] if events else []
+    
+    return {
+        "ok": True,
+        "status": "ready",
+        "project_id": project_id,
+        "cognition_summary": summary,
+        "next_actions": next_actions,
+        "generated_documents": generated_docs,
+        "recent_events": recent_events
+    }
+
 def run_cognition_safely(project_id: str, base_dir: Path = None) -> dict:
     if base_dir is None:
-        from services.config import PROJECTS
-        base_dir = PROJECTS / project_id
+        from services.durable_storage import active_data_root
+        base_dir = active_data_root() / "projects" / project_id
     
     cognition_dir = base_dir / "cognition"
     evidence_dir = base_dir / "evidence"
+    intel_dir = base_dir / "evidence_intelligence"
     generated_dir = evidence_dir / "generated_documents"
     events_file = cognition_dir / "cognition_events.jsonl"
     
@@ -80,14 +122,14 @@ def run_cognition_safely(project_id: str, base_dir: Path = None) -> dict:
     
     try:
         # 1. Load inputs
-        profile = _read_json(evidence_dir / "profile.json")
+        profile = _read_json(intel_dir / "profile.json")
         
-        gaps_data = _read_json(evidence_dir / "gaps.json")
+        gaps_data = _read_json(intel_dir / "gaps.json")
         gaps = gaps_data.get("gaps", []) if isinstance(gaps_data, dict) else (gaps_data if isinstance(gaps_data, list) else [])
         
-        classifications = _read_jsonl(evidence_dir / "classifications.jsonl")
-        entities = _read_jsonl(evidence_dir / "entities.jsonl")
-        review_queue = _read_jsonl(evidence_dir / "review_queue.jsonl")
+        classifications = _read_jsonl(intel_dir / "classifications.jsonl")
+        entities = _read_jsonl(intel_dir / "entities.jsonl")
+        review_queue = _read_jsonl(intel_dir / "review_queue.jsonl")
         timelines = _read_jsonl(evidence_dir / "timelines.jsonl")
         
         # 2. Synthesis

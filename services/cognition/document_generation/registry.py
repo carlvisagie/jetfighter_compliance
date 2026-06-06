@@ -3,7 +3,8 @@ from typing import Dict, Any
 from services.cognition.document_generation.schemas import GeneratedDocument
 
 def build_generated_document_path(project_id: str, document_id: str) -> str:
-    return f"data/projects/{project_id}/generated/{document_id}.md"
+    from services.durable_storage import active_data_root
+    return str(active_data_root() / "projects" / project_id / "evidence" / "generated_documents" / f"{document_id}.md")
 
 def generated_document_to_markdown(document: GeneratedDocument) -> str:
     return document.content_markdown

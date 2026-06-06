@@ -90,6 +90,28 @@ def evaluate_gap_resolution(gap: Dict[str, Any], state: AwarenessState) -> GapRe
 
 def evaluate_all_gaps(gaps: List[Dict[str, Any]], state: AwarenessState) -> List[GapResolution]:
     resolutions = []
+    
+    # Empty State Tolerance: Generate explicit REQUEST resolutions for basic facts
+    if state.confidence_level < 0.2:
+        if "company_name" in state.does_not_know:
+            resolutions.append(GapResolution(
+                gap_id="missing_company_name",
+                strategy=ResolutionStrategy.REQUEST,
+                confidence=0.9,
+                target_document_type="basic_info",
+                missing_fields=["company_name"],
+                reasoning="The organism extracted no intelligence and cannot identify the company name."
+            ))
+        if "domain_context" in state.does_not_know:
+            resolutions.append(GapResolution(
+                gap_id="missing_domain",
+                strategy=ResolutionStrategy.REQUEST,
+                confidence=0.9,
+                target_document_type="compliance_context",
+                missing_fields=["domain"],
+                reasoning="No compliance domain could be detected from the provided files."
+            ))
+
     for gap in gaps:
         resolutions.append(evaluate_gap_resolution(gap, state))
     return resolutions

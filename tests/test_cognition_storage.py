@@ -10,14 +10,16 @@ def setup_project(tmp_path):
     project_id = "test_project"
     base = tmp_path / "data" / "projects" / project_id
     evidence_dir = base / "evidence"
-    evidence_dir.mkdir(parents=True)
+    intel_dir = base / "evidence_intelligence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    intel_dir.mkdir(parents=True, exist_ok=True)
     
     # Mock inputs
-    (evidence_dir / "profile.json").write_text(json.dumps({"company_name": "Test Co", "primary_domain": "cmmc"}))
-    (evidence_dir / "gaps.json").write_text(json.dumps({
+    (intel_dir / "profile.json").write_text(json.dumps({"company_name": "Test Co", "primary_domain": "cmmc"}))
+    (intel_dir / "gaps.json").write_text(json.dumps({
         "gaps": [{"gap_id": "ssp", "label": "SSP", "status": "open"}]
     }))
-    (evidence_dir / "entities.jsonl").write_text(json.dumps({"type": "technology", "value": "firewall", "confidence": 0.9}))
+    (intel_dir / "entities.jsonl").write_text(json.dumps({"type": "technology", "value": "firewall", "confidence": 0.9}))
     
     return project_id, base
 

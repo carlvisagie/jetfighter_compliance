@@ -66,6 +66,8 @@ def generate_documents_for_resolutions(resolutions: List[GapResolution], state: 
         try:
             doc = generate_inferred_document(res, state)
             generated.append(doc)
-        except Exception:
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
             pass
     return generated

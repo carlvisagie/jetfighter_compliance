@@ -64,6 +64,11 @@ def stale_intake_unindexed():
     # extractions.jsonl is EMPTY — there's an upload but no extraction
     # for its sha. That is the staleness signal we want fired.
     (intel / "extractions.jsonl").write_text("", encoding="utf-8")
+    
+    cog = root / "projects" / iid / "cognition"
+    cog.mkdir(parents=True, exist_ok=True)
+    (cog / "cognition_summary.json").write_text('{"status":"ok"}', encoding="utf-8")
+    
     try:
         yield iid, payload
     finally:
@@ -94,6 +99,11 @@ def fresh_intake():
     (intel / "extractions.jsonl").write_text(
         json.dumps(extraction) + "\n", encoding="utf-8",
     )
+    
+    cog = root / "projects" / iid / "cognition"
+    cog.mkdir(parents=True, exist_ok=True)
+    (cog / "cognition_summary.json").write_text('{"status":"ok"}', encoding="utf-8")
+    
     try:
         yield iid
     finally:
@@ -125,6 +135,11 @@ def ocr_opportunity_intake():
     (intel / "extractions.jsonl").write_text(
         json.dumps(extraction) + "\n", encoding="utf-8",
     )
+    
+    cog = root / "projects" / iid / "cognition"
+    cog.mkdir(parents=True, exist_ok=True)
+    (cog / "cognition_summary.json").write_text('{"status":"ok"}', encoding="utf-8")
+    
     try:
         yield iid
     finally:

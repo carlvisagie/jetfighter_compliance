@@ -725,6 +725,22 @@ async def _process_upload_locked(
     committed = bool(durability.get("durability_verified")) if saved else True
     _commit_intake_state(intake_id, record, integrity=integrity, committed=committed)
 
+    if committed and saved:
+        try:
+            from services.durable_storage import active_data_root
+            import shutil
+            evidence_dir = active_data_root() / "projects" / intake_id / "evidence"
+            evidence_dir.mkdir(parents=True, exist_ok=True)
+            for f_rec in saved:
+                fname = f_rec.get("name")
+                if fname:
+                    src_path = uploads_dir / fname
+                    dest_path = evidence_dir / fname
+                    if src_path.exists() and not dest_path.exists():
+                        shutil.copy2(src_path, dest_path)
+        except Exception as exc:
+            logger.warning("Failed to promote staging files to evidence for %s: %s", intake_id, exc)
+
     if saved and durability.get("durability_verified"):
         from .forensic_reconcile import guard_disk_file_visibility
 
@@ -884,14 +900,18 @@ async def _process_upload_locked(
                     if _ei_dir.is_dir()
                     else []
                 )
+                ei_crashes = 0
                 for _f in _ei_files:
                     try:
-                        process_evidence_upload(
+                        res = process_evidence_upload(
                             project_id=intake_id,
                             file_path=_f,
                             artifact_id=_f.name,
                         )
+                        if getattr(res, "status", "") == "failed":
+                            ei_crashes += 1
                     except Exception as _ei_exc:
+                        ei_crashes += 1
                         logger.warning(
                             "Evidence extraction skipped for %s/%s: %s",
                             intake_id, _f.name, _ei_exc,
@@ -906,12 +926,30 @@ async def _process_upload_locked(
                         },
                     )
 
-                    # RUN COGNITION AFTER EVIDENCE INTELLIGENCE
-                    try:
-                        from services.cognition.storage import run_cognition_safely
-                        run_cognition_safely(intake_id)
-                    except Exception as cog_exc:
-                        logger.warning("Cognition run failed for %s: %s", intake_id, cog_exc)
+                    from services.evidence_intelligence import get_operator_evidence_intelligence
+                    ei_metrics = get_operator_evidence_intelligence(intake_id)
+                    no_intelligence = (ei_metrics.get("entity_count") == 0 and ei_metrics.get("primary_domain") == "general")
+                    if ei_crashes > 0 or no_intelligence:
+                        # Write timeline event
+                        from services.intake.transactions import append_transaction_event
+                        append_transaction_event(intake_id, "evidence_intelligence_blind", ok=False, metadata={"ei_crashes": ei_crashes, "no_intelligence": no_intelligence})
+                        
+                        # Write review queue item
+                        from services.evidence_intelligence.storage import append_review_item
+                        append_review_item(intake_id, {
+                            "kind": "evidence_intelligence_blind",
+                            "file": "multiple" if len(_ei_files) > 1 else _ei_files[0].name,
+                            "artifact_id": "",
+                            "created_utc": _utc_now(),
+                            "reason": "EI crashed or returned no intelligence."
+                        })
+
+                # RUN COGNITION AFTER EVIDENCE INTELLIGENCE (even if EI fails)
+                try:
+                    from services.cognition.storage import run_cognition_safely
+                    run_cognition_safely(intake_id)
+                except Exception as cog_exc:
+                    logger.warning("Cognition run failed for %s: %s", intake_id, cog_exc)
 
             except Exception as _ei_outer:
                 logger.warning(

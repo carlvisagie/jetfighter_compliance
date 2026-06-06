@@ -123,8 +123,8 @@ def test_registry_helpers():
         is_partial=False, provenance=[ProvenanceTrace(source_file="a", source_type="b", confidence=0.9)]
     )
     
-    path = build_generated_document_path("proj_1", doc.doc_id)
-    assert path == "data/projects/proj_1/generated/d123.md"
+    path = build_generated_document_path("proj_1", doc.doc_id).replace("\\", "/")
+    assert path.endswith("projects/proj_1/evidence/generated_documents/d123.md")
     
     md = generated_document_to_markdown(doc)
     assert md == "# Test"

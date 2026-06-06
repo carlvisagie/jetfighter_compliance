@@ -51,6 +51,7 @@ _OCR_OPPORTUNITY_STATUSES = frozenset({
 # Sweep-level signals (each name is recorded in custody when it fires).
 SIGNAL_UNINDEXED_UPLOAD     = "unindexed_upload"
 SIGNAL_OCR_NOW_AVAILABLE    = "ocr_now_available"
+SIGNAL_COGNITION_MISSING    = "cognition_missing"
 
 # Bound the sweep so a giant fleet doesn't hammer the worker. Tunable
 # via env for emergency throttling without a code deploy.
@@ -228,6 +229,15 @@ def compute_staleness_signals(
     if runtime_ok and _extractions_marked_as_ocr_skipped(iid) > 0:
         signals.append(SIGNAL_OCR_NOW_AVAILABLE)
 
+    # ── Signal 3: Cognition missing
+    try:
+        from services.durable_storage import active_data_root
+        summary_path = active_data_root() / "projects" / iid / "cognition" / "cognition_summary.json"
+        if not summary_path.exists() and uploads:
+            signals.append(SIGNAL_COGNITION_MISSING)
+    except Exception:
+        pass
+
     return signals
 
 
@@ -317,6 +327,17 @@ def sweep_intakes_for_staleness(
         try:
             from services.evidence_intelligence import reprocess_intake_evidence
             report = reprocess_intake_evidence(iid, wipe=True)
+            
+            try:
+                from services.cognition.storage import run_cognition_safely
+                run_cognition_safely(iid)
+            except Exception as cog_exc:
+                failed.append({
+                    **record,
+                    "error": f"cognition_failed:{type(cog_exc).__name__}",
+                    "detail": str(cog_exc)[:200],
+                })
+                
             # NOTE: reprocess_intake_evidence's return shape uses
             # `files_processed` / `files_failed` / `files_seen` /
             # `ocr_succeeded` — NOT the short keys we used previously.

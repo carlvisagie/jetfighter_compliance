@@ -82,9 +82,18 @@ def synthesize_awareness(
     clf_conf = sum(c.get("confidence", 0) for c in classifications)
     total_conf = total_confidence + clf_conf
     count = known_entities_count + len(classifications)
-    confidence_level = total_conf / count if count > 0 else 0.5
+    confidence_level = total_conf / count if count > 0 else 0.0
     if confidence_level > 1.0:
         confidence_level = 1.0
+
+    # Ensure blind organism state is explicitly represented
+    has_files = len(profile.get("document_inventory", [])) > 0
+    if has_files and confidence_level < 0.1:
+        if not domain or domain == "general":
+            does_not_know.append("domain_context")
+        if not profile.get("company_name"):
+            if "company_name" not in does_not_know:
+                does_not_know.append("company_name")
 
     return AwarenessState(
         knows=knows,
