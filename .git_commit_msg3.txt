@@ -1,0 +1,36 @@
+vio(L2): adaptive time axis — real timeline with breathing room
+
+Carl 2026-06-05:
+  "as time goes on you are still keeping a real timeline just not
+   scrunched into one tiny space make everything have its own space
+   and make it tell as much with one glance as possible"
+
+The event-sequence axis (prev commit) spread events evenly, but lost
+the TIME rhythm. Dense bursts and long silences looked identical.
+
+ADAPTIVE SPACING — chronology + visual rhythm
+
+  New `_timeAxis` algorithm:
+    1. Sort all timestamps ascending (the real timeline).
+    2. For each inter-event gap, assign a VISUAL WEIGHT:
+         - Minimum 28px (events never crowd closer)
+         - Logarithmic scale for gaps 1min...24h
+           (log2(1 + dt/60000) scaled by factor 12)
+         - Cap at 180px for multi-day silences (don't waste canvas)
+    3. Normalize total weighted-distance to fit spineWidth.
+    4. Build cumulative X positions.
+    5. Interpolate unknown timestamps via binary search.
+
+  Result: The operator reads both WHAT (sequence) and WHEN (rhythm)
+  at a glance. Dense bursts cluster into readable swells. Long
+  silences stretch proportionally. The spine's X-rhythm IS a visual
+  histogram of activity.
+
+  Mapping examples (with scale factor ~12):
+    dt=0s     → MIN_PX = 28px   (never crowd)
+    dt=1min   → log2(2)=1 → ~40px
+    dt=1h     → log2(61)≈6 → ~80px
+    dt=1day   → log2(1441)≈10.5 → ~120px
+    dt=3days  → log2(4321)≈12 → capped at MAX_PX=180px
+
+All 32 core VIO guards green.

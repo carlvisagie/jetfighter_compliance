@@ -1,0 +1,30 @@
+vio(L2): event-sequence axis — spread the story across full width
+
+Carl 2026-06-05:
+  "pull the timeline out in seconds increments or fractions its your
+   universe make it awesome"
+
+Real timestamps were collapsing 47 events into 60px because they
+happened in the same minute. The spine looked like a dense blob next
+to the orb, with 90% dead air to the right.
+
+EVENT-SEQUENCE SPACING (not real time)
+
+  Replaced `_timeAxis` with an index-based mapper. Every distinct
+  timestamp in the custody chain + stage-openers + detail fields gets
+  sorted into ascending order. That sorted array IS the story sequence.
+  `timeToX(t)` now returns `x0 + (indexOf(t) * stepX)` where
+  `stepX = spineWidth / N`. Every event gets equal visual weight,
+  regardless of how many milliseconds elapsed between them.
+
+  The operator reads WHAT HAPPENED THEN WHAT THEN WHAT, not the clock.
+  The spine is a story canvas, not a time ruler.
+
+STAGE HEXAGONS — BIG CHAPTER ANCHORS
+
+  Bumped from 9/11px radius to 18/22px. Increased stroke-width from
+  1/2.4px to 2.2/3.2px. These are the seven chapter markers that
+  partition the journey — they need to anchor the eye, not hide as
+  footnotes.
+
+All 132 VIO guards still green.

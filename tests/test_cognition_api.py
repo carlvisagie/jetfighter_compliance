@@ -34,9 +34,22 @@ def test_cognition_api_ready(client, mock_projects_dir):
         "generated_documents": [{"doc_id": "1", "doc_type": "ssp"}]
     }
     
+    validation_report = {
+        "project_id": project_id,
+        "facts_used": [],
+        "inferences_made": [],
+        "documents_generated": [],
+        "assumptions": [],
+        "requests": [],
+        "human_review_items": [],
+        "confidence_summary": 0.9,
+        "safety_warnings": []
+    }
+    
     (cognition_dir / "cognition_summary.json").write_text(json.dumps(summary))
     (cognition_dir / "next_actions.json").write_text(json.dumps([{"action": "do"}]))
     (cognition_dir / "cognition_events.jsonl").write_text('{"event": "start"}\n{"event": "end"}\n')
+    (cognition_dir / "validation_report.json").write_text(json.dumps(validation_report))
     
     res = client.get(f"/api/operator/cognition/{project_id}")
     assert res.status_code == 200
@@ -49,6 +62,7 @@ def test_cognition_api_ready(client, mock_projects_dir):
     assert len(data["next_actions"]) == 1
     assert len(data["recent_events"]) == 2
     assert len(data["generated_documents"]) == 1
+    assert data["validation_report"] == validation_report
 
 def test_cognition_api_rejects_path_traversal(client, mock_projects_dir):
     project_id = "FB-123..secret"

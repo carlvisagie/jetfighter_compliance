@@ -1,0 +1,8 @@
+feat(cognition): implement runtime integration and persistence (Patch 4)
+
+- Add `run_cognition_safely` orchestrator for the cognition pipeline
+- Integrate cognition immediately after evidence intelligence in `intake.py`
+- Persist `cognition_summary.json` and generated markdown documents
+- Add event logging for cognition lifecycle and document registry
+- Implement safe failure handling to never crash the upload process
+- Add comprehensive tests for runtime integration and storage

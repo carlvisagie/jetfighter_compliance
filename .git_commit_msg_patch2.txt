@@ -1,0 +1,6 @@
+feat(cognition): implement cognition synthesis and reasoning layer (Patch 2)
+
+- Add synthesis logic to determine organism awareness state
+- Add reasoning logic to evaluate gap resolution strategies
+- Add unit tests for synthesis and reasoning logic
+- Introduce schemas for cognition data models

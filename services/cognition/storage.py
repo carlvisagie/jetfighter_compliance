@@ -9,6 +9,8 @@ from services.cognition.synthesis import synthesize_awareness
 from services.cognition.reasoning import evaluate_all_gaps
 from services.cognition.document_generation.engine import generate_documents_for_resolutions
 from services.cognition.schemas import CognitionSummary, MemoryReasoning
+from services.cognition.metrics import compute_metrics
+from services.cognition.validation import build_validation_report
 from services.cognition.document_generation.registry import (
     build_generated_document_path, 
     generated_document_to_markdown, 
@@ -58,6 +60,8 @@ def get_cognition_state(project_id: str) -> dict:
     summary_path = cognition_dir / "cognition_summary.json"
     next_actions_path = cognition_dir / "next_actions.json"
     events_path = cognition_dir / "cognition_events.jsonl"
+    metrics_path = cognition_dir / "metrics.json"
+    validation_path = cognition_dir / "validation_report.json"
     
     if not summary_path.exists():
         return {
@@ -70,6 +74,8 @@ def get_cognition_state(project_id: str) -> dict:
     summary = _read_json(summary_path)
     next_actions = _read_json(next_actions_path) if next_actions_path.exists() else []
     events = _read_jsonl(events_path) if events_path.exists() else []
+    metrics = _read_json(metrics_path) if metrics_path.exists() else {}
+    validation_report = _read_json(validation_path) if validation_path.exists() else {}
     
     # get generated documents metadata
     generated_docs = []
@@ -87,7 +93,9 @@ def get_cognition_state(project_id: str) -> dict:
         "cognition_summary": summary,
         "next_actions": next_actions,
         "generated_documents": generated_docs,
-        "recent_events": recent_events
+        "recent_events": recent_events,
+        "metrics": metrics,
+        "validation_report": validation_report
     }
 
 def run_cognition_safely(project_id: str, base_dir: Path = None) -> dict:
@@ -185,6 +193,32 @@ def run_cognition_safely(project_id: str, base_dir: Path = None) -> dict:
             
         with open(cognition_dir / "next_actions.json", "w", encoding="utf-8") as f:
             f.write("[]")
+            
+        # 6. Write generation_explanation.json
+        explanations = []
+        for res in resolutions:
+            explanations.append({
+                "Gap": res.gap_id,
+                "Resolution": res.strategy.value.upper(),
+                "Confidence": res.confidence,
+                "Evidence Used": res.evidence_used,
+                "Unresolved": res.missing_fields,
+                "Reason": res.reason_unresolved,
+                "Purpose": "The organism must be able to explain every document it generates and every question it asks. No black-box behavior."
+            })
+            
+        with open(cognition_dir / "generation_explanation.json", "w", encoding="utf-8") as f:
+            json.dump(explanations, f, indent=2)
+            
+        # 7. Write metrics.json
+        metrics = compute_metrics(state, resolutions)
+        with open(cognition_dir / "metrics.json", "w", encoding="utf-8") as f:
+            f.write(metrics.model_dump_json(indent=2))
+            
+        # 8. Write validation_report.json
+        validation = build_validation_report(project_id, state, resolutions, docs)
+        with open(cognition_dir / "validation_report.json", "w", encoding="utf-8") as f:
+            f.write(validation.model_dump_json(indent=2))
             
         log_event("cognition_completed", {"summary_written": True})
         

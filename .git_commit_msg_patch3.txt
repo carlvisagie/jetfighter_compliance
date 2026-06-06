@@ -1,0 +1,8 @@
+feat(cognition): implement document generation engine (Patch 3)
+
+- Add deterministic template-based generation in `generate_inferred_document`
+- Add provenance verification in `verify_inference_provenance`
+- Support GENERATE and PARTIAL strategies, skip REQUEST
+- Ensure safe failing via `generate_documents_for_resolutions`
+- Add path and markdown registry helper functions
+- Create comprehensive tests for document generation rules

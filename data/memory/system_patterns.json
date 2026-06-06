@@ -1,29 +1,29 @@
 {
   "version": 1,
-  "updated_utc": "2026-06-04T09:33:59Z",
+  "updated_utc": "2026-06-06T22:37:51Z",
   "subsystem_health": {
     "intake": {
       "success_rate": 1.0,
-      "events": 361,
-      "failures": 0,
-      "status": "healthy"
-    },
-    "operational_alerts": {
-      "success_rate": 1.0,
-      "events": 57,
+      "events": 256,
       "failures": 0,
       "status": "healthy"
     },
     "acquisition_organism": {
       "success_rate": 1.0,
-      "events": 45,
+      "events": 32,
+      "failures": 0,
+      "status": "healthy"
+    },
+    "operational_alerts": {
+      "success_rate": 1.0,
+      "events": 41,
       "failures": 0,
       "status": "healthy"
     },
     "email": {
       "success_rate": 0.5,
-      "events": 22,
-      "failures": 11,
+      "events": 2,
+      "failures": 1,
       "status": "unhealthy"
     },
     "customer_session": {
@@ -37,26 +37,28 @@
       "events": 8,
       "failures": 0,
       "status": "healthy"
+    },
+    "evidence_intelligence": {
+      "success_rate": 0.994,
+      "events": 154,
+      "failures": 1,
+      "status": "healthy"
     }
   },
-  "repeated_failures": [
-    {
-      "key": "email:smtp_unconfigured",
-      "count": 11,
-      "suggestion": "Review email:smtp_unconfigured failures"
-    }
-  ],
+  "repeated_failures": [],
   "reliability_patterns": {
     "intake": 1.0,
-    "operational_alerts": 1.0,
     "acquisition_organism": 1.0,
+    "operational_alerts": 1.0,
     "email": 0.5,
     "customer_session": 1.0,
-    "system": 1.0
+    "system": 1.0,
+    "evidence_intelligence": 0.994
   },
   "conversion_patterns": {},
   "failure_patterns": {
-    "email:smtp_unconfigured": 11
+    "email:smtp_unconfigured": 1,
+    "evidence_intelligence:evidence_mapping_failure": 1
   },
   "bottleneck_patterns": {},
   "best_paths": {
@@ -65,7 +67,6 @@
     ]
   },
   "recommended_improvements": [
-    "Review email:smtp_unconfigured failures",
     "Email transport reliability low \u2014 verify SMTP or disable until configured."
   ]
 }

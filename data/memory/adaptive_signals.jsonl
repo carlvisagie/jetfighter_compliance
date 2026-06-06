@@ -1678,3 +1678,4 @@
 {"signal_key": "email:smtp_unconfigured", "source_subsystem": "email", "pattern": "failure", "success": false, "weight": 1.0, "when_utc": "2026-06-04T07:10:50Z", "metadata": {"telemetry_id": "TEL-5035d3da63e6", "error_code": null}}
 {"signal_key": "email:smtp_unconfigured", "source_subsystem": "email", "pattern": "failure", "success": false, "weight": 1.0, "when_utc": "2026-06-04T07:11:10Z", "metadata": {"telemetry_id": "TEL-246edb56f4ae", "error_code": null}}
 {"signal_key": "email:smtp_unconfigured", "source_subsystem": "email", "pattern": "failure", "success": false, "weight": 1.0, "when_utc": "2026-06-04T07:11:31Z", "metadata": {"telemetry_id": "TEL-28fc6a88d686", "error_code": null}}
+{"signal_key": "evidence_intelligence:evidence_mapping_failure", "source_subsystem": "evidence_intelligence", "pattern": "failure", "success": false, "weight": 1.0, "when_utc": "2026-06-06T22:36:31Z", "metadata": {"telemetry_id": "TEL-0d0b7ebd3db0", "error_code": null}}

@@ -21,6 +21,8 @@ class GapResolution(BaseModel):
     target_document_type: str
     missing_fields: List[str] = Field(default_factory=list)
     reasoning: str
+    evidence_used: List[str] = Field(default_factory=list)
+    reason_unresolved: str = ""
 
     @model_validator(mode='after')
     def enforce_rules(self):
@@ -61,6 +63,50 @@ class CustomerDraft(BaseModel):
     ready_to_send: bool = False
 
 
+class ValidationFact(BaseModel):
+    fact: str
+    source: str
+
+class ValidationInference(BaseModel):
+    inference: str
+    confidence: float
+    basis: List[str]
+
+class ValidationGeneration(BaseModel):
+    document_type: str
+    source_evidence: List[str]
+    inferred_facts: List[str]
+    unresolved_fields: List[str]
+    confidence_score: float
+
+class ValidationAssumption(BaseModel):
+    assumption: str
+    reason: str
+
+class ValidationRequest(BaseModel):
+    gap_id: str
+    reason_not_inferred: str
+    reason_not_generated: str
+    exact_evidence_required: str
+
+class ValidationHumanReview(BaseModel):
+    item_type: str
+    item_id: str
+    reason: str
+    confidence: float
+
+class ValidationReport(BaseModel):
+    project_id: str
+    timestamp_utc: str
+    facts_used: List[ValidationFact] = Field(default_factory=list)
+    inferences_made: List[ValidationInference] = Field(default_factory=list)
+    documents_generated: List[ValidationGeneration] = Field(default_factory=list)
+    assumptions: List[ValidationAssumption] = Field(default_factory=list)
+    requests: List[ValidationRequest] = Field(default_factory=list)
+    human_review_items: List[ValidationHumanReview] = Field(default_factory=list)
+    confidence_summary: float
+    safety_warnings: List[str] = Field(default_factory=list)
+
 class CognitionSummary(BaseModel):
     timestamp_utc: str
     state: AwarenessState
@@ -69,3 +115,16 @@ class CognitionSummary(BaseModel):
     generated_documents: List[GeneratedDocument] = Field(default_factory=list)
     next_actions: List[NextAction] = Field(default_factory=list)
     drafts: List[CustomerDraft] = Field(default_factory=list)
+
+class CognitionMetrics(BaseModel):
+    workload_elimination_percentage: float = 0.0
+    documents_generated: List[str] = Field(default_factory=list)
+    documents_requested: List[str] = Field(default_factory=list)
+    questions_avoided: List[str] = Field(default_factory=list)
+    questions_asked: List[str] = Field(default_factory=list)
+    estimated_hours_saved: float = 0.0
+    confidence_score: float = 0.0
+    inference_count: int = 0
+    generation_count: int = 0
+    request_count: int = 0
+

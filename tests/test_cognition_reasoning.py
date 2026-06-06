@@ -3,18 +3,18 @@ from services.cognition.reasoning import evaluate_gap_resolution, evaluate_all_g
 
 def test_evaluate_gap_resolution_prefers_generate():
     state = AwarenessState(
-        knows=["technology: network_architecture", "vendor: AWS"],
+        knows=["company_name: Test Co"],
         confidence_level=0.9
     )
-    gap = {"gap_id": "ssp", "label": "System Security Plan"}
+    gap = {"gap_id": "policy", "label": "Security Policy"}
     
     res = evaluate_gap_resolution(gap, state)
     assert res.strategy == ResolutionStrategy.GENERATE
-    assert res.target_document_type == "ssp"
+    assert res.target_document_type == "policy"
 
 def test_evaluate_gap_resolution_returns_partial():
     state = AwarenessState(
-        knows=["domain: cmmc"],
+        knows=["domain: cmmc", "technology: react"],
         confidence_level=0.8
     )
     gap = {"gap_id": "ssp", "label": "System Security Plan"}
@@ -37,13 +37,13 @@ def test_evaluate_gap_resolution_returns_request():
 
 def test_evaluate_all_gaps():
     state = AwarenessState(
-        knows=["technology: network_architecture", "vendor: Okta"],
+        knows=["technology: AWS", "company_name: Okta", "technology: Okta"],
         confidence_level=0.9
     )
     gaps = [
-        {"gap_id": "ssp", "label": "System Security Plan"},
-        {"gap_id": "mfa_screenshot", "label": "MFA Screenshot"},
-        {"gap_id": "policy", "label": "Access Control Policy"} # returns PARTIAL without company_officer
+        {"gap_id": "ssp", "label": "System Security Plan"}, # returns PARTIAL
+        {"gap_id": "mfa_screenshot", "label": "MFA Screenshot"}, # returns REQUEST
+        {"gap_id": "access_control", "label": "Access Control"} # returns GENERATE because technology: Okta
     ]
     
     resolutions = evaluate_all_gaps(gaps, state)

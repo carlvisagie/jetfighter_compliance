@@ -1,0 +1,55 @@
+operator EI endpoint: accept FB-* intake IDs (was rejecting all real intakes)
+
+THE BUG  (caught while verifying autonomous reprocess, 2026-06-05)
+   GET /api/operator/evidence-intelligence?project_id=FB-1dfab13c120b
+   → 400 {"detail": "Invalid project_id"}
+
+   The endpoint was wired through `validate_project_id` which rejects
+   anything not prefixed `P-`. But the founding-beta pipeline (the
+   ONLY pipeline currently in production) keys its EI artifacts on
+   `FB-*` intake IDs and writes them to:
+       data/projects/FB-*/evidence_intelligence/
+
+   So the artifacts existed on disk and the EI loader handled them
+   correctly — operators just had NO route to view them. Every
+   request for an FB-* EI snapshot returned 400. The bug had been
+   silently shipping for weeks.
+
+   This is the same class of mismatch as the previous fix (freshness
+   sweep reading wrong report keys): two modules agreed on one shape,
+   a third module agreed on a different shape, integration test
+   didn't exist.
+
+THE FIX  (server.py — /api/operator/evidence-intelligence)
+   · Accept BOTH `intake_id` (the new param, matches the rest of the
+     post-founding-beta pipeline) and `project_id` (legacy, kept for
+     compat with any unmigrated operator surface).
+   · `intake_id` wins when both are passed.
+   · Local validator: allow `P-*` OR `FB-*` prefixes; reject `/`,
+     `\\`, and `..` (path-traversal defence). The full project-
+     existence check the legacy validator imposed isn't needed — the
+     EI loader returns an empty snapshot for unknown IDs, which is
+     the right semantic for "no artifacts yet".
+
+REGRESSION GUARDS  (tests/test_operator_ei_endpoint_accepts_intake_ids.py — 7 tests)
+   · FB-* via project_id (the exact failing prod request)
+   · FB-* via intake_id (the new parameter name)
+   · P-* still works (backward compat)
+   · missing-id → structured error (not 500)
+   · bad-prefix → structured error
+   · path-traversal (/ \ ..) → structured error, NEVER reaches storage
+   · intake_id wins when both passed
+
+VERIFICATION
+   7/7 new tests green. 125/125 across all touched guards this
+   session. Post-deploy:
+     curl -H "X-Ops-Key: …" "$BASE/api/operator/evidence-intelligence?intake_id=FB-1dfab13c120b"
+   will return the EI snapshot instead of 400.
+
+CONNECTED WORK
+   Once this lands, the VIO L2 side-panel "EI" frame will be able to
+   render real artifacts for the founding-beta intake in production.
+   Currently that panel shows empty / errored state because every
+   fetch returned 400. Untangling autonomy mandates we untangle this
+   first — otherwise the autonomous reprocesses fire silently and
+   the operator never gets to see the results.

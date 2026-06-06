@@ -1,0 +1,73 @@
+vio(L2): pictogram vocabulary + multi-expressive spine (river chokes on stalls, breaks at critical findings)
+
+Carl 2026-06-05:
+  "go hog wild with your imagination... the timeline itself must convey
+   a myriad of information and situations -- thicker lines for some
+   things thinner for others a broken line for some a choked out line
+   in some cases whatever the imagination can come up with to help tell
+   the story without words text or old tech"
+
+This commit upgrades L2 in two simultaneous directions: the events
+become rich pictograms, and the spine line itself gains stall- and
+break-aware geometry.
+
+EVENT SHAPES -> PICTOGRAMS
+
+  Replaced the geometric primitive vocabulary (rect, triangle, hex,
+  star) with recognizable pictograms. Each event renders as a small
+  <g> of multi-path SVG that an operator reads at a glance:
+
+    paper       -> folded-corner page with 3 ruling lines
+    paper-gen   -> same page with a green lightning bolt (organism-made)
+    gap         -> dashed ghost page with a `?` (missing slot)
+    issue       -> warning triangle with `!`
+      .urgent   -> flame
+      .deadline -> hourglass
+      .note     -> speech bubble
+    phase       -> hexagon (echoes the stage backbone) + green check
+    milestone   -> 5-point green star
+    confirmation-> open amber circle with `?`
+    payment     -> envelope outline (link sent)
+      .paid     -> dollar coin
+    finding     -> warning triangle (or stop-sign octagon when critical)
+    broker      -> finish flag on a pole
+
+  Per-kind CSS tints the pictogram by severity (priority="high" gap
+  goes red, finding severity="critical" becomes a red stop-sign, etc.)
+  so colour also carries the meaning.
+
+SPINE LINE -> MULTI-EXPRESSIVE
+
+  _drawSpineRiver now folds two additional signals into the river
+  geometry (still one cheap <path> + a handful of overlays):
+
+    BUSY  -> SWELLS (existing density-driven thickness)
+    QUIET -> NARROWS
+    STALL -> CHOKES   (NEW: any inter-event gap >=24h collapses the
+                       river to a 0.35px hairline through that window;
+                       a stalled intake now visibly differs from a
+                       busy one)
+    BREAK -> SCAR     (NEW: critical/high findings render a red X-mark
+                       on top of the river at their X; reads "this is
+                       where it broke" without a single word)
+
+  Plus a STATIC live-tip glow at the rightmost end of the past
+  river. Static, not animated -- motion discipline says continuous
+  motion is only for unresolved demands, and recent activity is not
+  a demand.
+
+GUARDS
+
+  - test_vio_l2_picture_vocabulary.py (NEW):
+      pins every kind has its own _icon* drawer, _shapeForEvent
+      dispatches into them, every <g> carries vio-icon + per-kind
+      class, the river chokes on stalls, scars render on critical
+      findings, the live tip is static, the icon palette ships, and
+      every kind re-tints at least one icon utility.
+
+  - test_vio_l2_events_on_spine.py:
+      relaxed the gap-dashed selector check (was pinned to the legacy
+      .vio-tle-gap .vio-tle-shape rule, now any .vio-tle-gap rule
+      that sets stroke-dasharray satisfies it).
+
+All 132 VIO-related guards green.

@@ -54,6 +54,8 @@ def test_run_cognition_safely_persists_files(setup_project):
             assert (cognition_dir / "cognition_summary.json").exists()
             assert (cognition_dir / "next_actions.json").exists()
             assert (cognition_dir / "cognition_events.jsonl").exists()
+            assert (cognition_dir / "generation_explanation.json").exists()
+            assert (cognition_dir / "validation_report.json").exists()
             
             # Events logged
             events = (cognition_dir / "cognition_events.jsonl").read_text()
