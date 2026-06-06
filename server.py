@@ -121,7 +121,7 @@ async def ops_auth_middleware(request: Request, call_next):
     #       (no body). If it has, fresh bytes ship. Operator never sees
     #       stale CSS/JS again.
     #   - /ui/*.html    → unchanged (no-cache, must-revalidate)
-    if path.startswith("/ui/assets/"):
+    if path.startswith("/ui/assets/") or path.startswith("/ui/vio2/assets/"):
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
     elif path.startswith("/ui/") and (path.endswith(".html") or path in ("/ui", "/ui/")):
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
@@ -276,6 +276,13 @@ def ops_auth_check(request: Request):
 @app.get("/")
 def root_redirect():
     return RedirectResponse(url="/ui/shop.html", status_code=302)
+
+
+@app.get("/ui/vio2")
+@app.get("/ui/vio2/")
+def vio2_page():
+    """VIO — Visual Intelligence Organism (React build)."""
+    return FileResponse(ROOT / "ui" / "vio2" / "index.html")
 
 
 @app.get("/shop.html")

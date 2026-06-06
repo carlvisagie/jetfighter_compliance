@@ -19,3 +19,7 @@ data/memory/entities.jsonl
 config_auth.json
 bin/cloudflared.exe
 .commit_msg_*.txt
+
+# VIO frontend build dependencies (ui/vio2/ IS committed — served by FastAPI)
+vio-frontend/node_modules/
+vio-frontend/.vite/
