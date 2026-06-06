@@ -905,6 +905,14 @@ async def _process_upload_locked(
                             "files_dispatched": len(_ei_files),
                         },
                     )
+
+                    # RUN COGNITION AFTER EVIDENCE INTELLIGENCE
+                    try:
+                        from services.cognition.storage import run_cognition_safely
+                        run_cognition_safely(intake_id)
+                    except Exception as cog_exc:
+                        logger.warning("Cognition run failed for %s: %s", intake_id, cog_exc)
+
             except Exception as _ei_outer:
                 logger.warning(
                     "Evidence intelligence dispatch failed for %s: %s",
