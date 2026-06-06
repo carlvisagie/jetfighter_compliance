@@ -2022,6 +2022,32 @@ def operator_evidence_intelligence_review_queue(
         "items": items,
     }
 
+@app.get("/api/operator/cognition/{project_id}")
+def operator_cognition_state(request: Request, project_id: str):
+    """Retrieve the persisted cognition state for a project/intake."""
+    from services.production import require_ops_access
+    require_ops_access(request)
+    
+    project_id = project_id.strip()
+    
+    if not project_id:
+        raise HTTPException(status_code=400, detail="Invalid project_id")
+    if "/" in project_id or ".." in project_id or "\\" in project_id:
+        raise HTTPException(status_code=400, detail="Invalid project_id characters")
+    
+    try:
+        from services.cognition.storage import get_cognition_state
+        return get_cognition_state(project_id)
+    except Exception as e:
+        import traceback
+        logging.error("Failed to get cognition state for %s: %s\n%s", project_id, e, traceback.format_exc())
+        return {
+            "ok": False,
+            "status": "error",
+            "project_id": project_id,
+            "error": "Internal error retrieving cognition state."
+        }
+
 
 @app.post("/api/operator/evidence-intelligence/reprocess/{intake_id}")
 def operator_evidence_intelligence_reprocess(
