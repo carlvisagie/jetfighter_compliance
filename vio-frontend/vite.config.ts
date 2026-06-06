@@ -3,9 +3,9 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  base: '/ui/vio2/',
+  base: '/ui/vio-react/',
   build: {
-    outDir: '../ui/vio2',
+    outDir: '../ui/vio-react',
     emptyOutDir: true,
   },
 });
