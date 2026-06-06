@@ -9,7 +9,7 @@ try:
 except Exception as e:
     print("FASTAPI import failed:", e)
 
-from fastapi import FastAPI, Request, HTTPException, Form, UploadFile, File, Body, Response
+from fastapi import FastAPI, Request, HTTPException, Form, UploadFile, File, Body, Response, Depends
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -708,6 +708,36 @@ def kickoff(order_id: str, email: str, name: str, skus: list):
     }
 
 # ---------- Onboarding kickoff (direct; no Shopify) ----------
+@app.post("/api/webhook/paypal")
+async def paypal_webhook(request: Request):
+    """
+    PayPal Webhook / IPN endpoint (REV-001).
+    Auto-confirms payment_received_at_utc.
+    """
+    try:
+        data = await request.form()
+    except Exception:
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+
+    # Extract standard PayPal fields
+    payment_status = data.get("payment_status") or data.get("status")
+    # For NCP links, the intake_id or project_id might be passed in custom field
+    custom_field = data.get("custom") or data.get("invoice")
+    
+    if payment_status == "Completed" and custom_field:
+        # Assuming custom_field contains intake_id
+        from services.intake.operator_actions import _confirm_payment_received
+        try:
+            # We prefix the operator note to indicate auto-confirmation
+            _confirm_payment_received(custom_field, operator_note="Auto-confirmed via PayPal webhook")
+        except Exception as e:
+            logging.error(f"Failed to auto-confirm payment for {custom_field}: {e}")
+            
+    return Response(content="OK", status_code=200)
+
 @app.post("/events/payment/test")
 async def events_payment_test(request: Request, evt: dict):
     require_ops_access(request)
@@ -725,12 +755,31 @@ async def events_payment_test(request: Request, evt: dict):
     return res
 
 # ---------- Inquiry (contact form) ----------
+import time
+
+_IP_RATE_LIMITS = {}
+
+def apply_rate_limit(request: Request):
+    """Simple in-memory IP-based rate limiting (10 requests per minute)."""
+    client_ip = request.client.host if request.client else "unknown"
+    if client_ip in ("testclient", "127.0.0.1", "localhost"):
+        return
+    now = time.time()
+    if client_ip not in _IP_RATE_LIMITS:
+        _IP_RATE_LIMITS[client_ip] = []
+    _IP_RATE_LIMITS[client_ip] = [ts for ts in _IP_RATE_LIMITS[client_ip] if now - ts < 60]
+    if len(_IP_RATE_LIMITS[client_ip]) >= 10:
+        raise HTTPException(status_code=429, detail="Too many requests, please try again later.")
+    _IP_RATE_LIMITS[client_ip].append(now)
+
 @app.post("/api/inquiry/submit")
 async def inquiry_submit(
+    request: Request,
     name: str = Form(...),
     email: str = Form(...),
     subject: str = Form(...),
     message: str = Form(...),
+    _rate_limit: None = Depends(apply_rate_limit),
 ):
     payload = {
         "name": name,
@@ -999,6 +1048,7 @@ async def customer_session_complete(
 @app.post("/api/intake/upload")
 async def intake_upload(
     request: Request,
+    _rate_limit: None = Depends(apply_rate_limit),
     files: List[UploadFile] = File(...),
     intake_id: str = Form(""),
     token: str = Form(""),
@@ -1178,11 +1228,13 @@ async def coc_event(event: dict):
     return {"ok": True, "event": rec}
 @app.post("/api/evidence/register")
 async def evidence_register(
+    request: Request,
     project_id: str,
     media_type: str,
     owner: str,
     file: UploadFile = File(...),
     token: str = "",
+    _rate_limit: None = Depends(apply_rate_limit),
 ):
     # Auth gate first — never reveal whether a project exists to unauthenticated callers
     if not token:

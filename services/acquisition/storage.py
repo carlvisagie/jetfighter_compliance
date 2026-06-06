@@ -114,8 +114,16 @@ def load_all_leads(base: Optional[Path] = None) -> Tuple[List[Lead], Dict[str, L
 
 def append_lead(lead: Lead, base: Optional[Path] = None) -> None:
     path = leads_dir(base) / LEAD_JSONL
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(lead.to_dict(), ensure_ascii=False) + "\n")
+    try:
+        with path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(lead.to_dict(), ensure_ascii=False) + "\n")
+            f.flush()
+            import os
+            os.fsync(f.fileno())
+    except OSError as e:
+        import logging
+        logging.error(f"Failed to append lead {lead.lead_id} to disk durably: {e}")
+        raise
 
 
 def _lead_to_csv_row(lead: Lead) -> dict:

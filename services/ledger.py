@@ -28,8 +28,16 @@ def append_ledger(record: dict) -> dict:
     record["prev_hash"] = record.get("prev_hash") or last_hash()
     payload = json.dumps({k:v for k,v in record.items() if k != "hash"}, sort_keys=True).encode()
     record["hash"] = _sha256_bytes(payload)
-    with open(LEDGER_FILE, "a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    try:
+        with open(LEDGER_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+            f.flush()
+            import os
+            os.fsync(f.fileno())
+    except OSError as e:
+        import logging
+        logging.error(f"Failed to append to ledger durably: {e}")
+        raise
     return record
 
 def register_artifact(project_id: str, path: Path, media_type: str, owner: str, related_event: str = "") -> dict:
