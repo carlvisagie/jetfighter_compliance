@@ -30,7 +30,7 @@ import { VioInterruptLine } from './VioInterruptLine';
 // Canvas dimensions
 const CANVAS_W = 1060;
 const SPINE_Y = 200;   // spine sits at this Y — interrupt lines extend 90px above AND below
-const CANVAS_H = 440;  // enough room for interrupt lines above + branches below
+const CANVAS_H = 480;  // enough room for interrupt lines above + branches below + legend
 
 interface VioCanvasProps {
   organism: VioOrganism;
@@ -191,8 +191,8 @@ export function VioCanvas({ organism, interrupts = [] }: VioCanvasProps) {
     >
       <svg
         width={CANVAS_W}
-        height={activeBranchParentId ? CANVAS_H : SPINE_Y + 130}
-        viewBox={`0 0 ${CANVAS_W} ${activeBranchParentId ? CANVAS_H : SPINE_Y + 130}`}
+        height={activeBranchParentId ? CANVAS_H : SPINE_Y + 165}
+        viewBox={`0 0 ${CANVAS_W} ${activeBranchParentId ? CANVAS_H : SPINE_Y + 165}`}
           style={{ minWidth: CANVAS_W, display: 'block', background: 'transparent' }}
       >
         <defs>
