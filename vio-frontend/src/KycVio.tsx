@@ -578,9 +578,12 @@ export default function KycVio() {
     }
   }, [auth]);
 
+  // Same-origin detection: if we're served from the KYC server itself,
+  // use relative URLs (empty base) — no config needed, no CORS, just works.
+  const effectiveBase = auth.apiBase || getApiBase() || '';
+
   const fetchData = useCallback(async () => {
-    const base = auth.apiBase || getApiBase();
-    if (!base) return;
+    const base = auth.apiBase || getApiBase() || '';
     setLoading(true);
     setError(null);
     try {
@@ -616,12 +619,12 @@ export default function KycVio() {
   }, [auth, buildHeaders, ensureSession]);
 
   // Initial fetch + 60s auto-refresh
+  // Same-origin: always fetch (base is empty string = relative URLs work fine)
   useEffect(() => {
-    if (!auth.apiBase) return;
     fetchData();
     const t = setInterval(fetchData, 60_000);
     return () => clearInterval(t);
-  }, [fetchData, auth.apiBase]);
+  }, [fetchData]);
 
   const handleSaveConfig = (cfg: AuthConfig) => {
     saveAuthConfig(cfg);
@@ -631,7 +634,7 @@ export default function KycVio() {
     setError(null);
   };
 
-  const apiBase = auth.apiBase;
+  const apiBase = effectiveBase;
 
   // Build organisms from response
   const organisms: Array<{ organism: VioOrganism; interrupts: VioInterrupt[] }> = response
@@ -761,11 +764,11 @@ export default function KycVio() {
         )}
 
         {/* Company organisms */}
-        {!apiBase && !response && (
+        {!response && !loading && !error && (
           <EmptyState apiBase={apiBase} />
         )}
 
-        {apiBase && error && (
+        {error && (
           <ErrorState error={error} onRetry={fetchData} />
         )}
 
