@@ -1797,6 +1797,15 @@ def operator_integrity_recover(request: Request, intake_id: str):
     return recover_intake_forensic(intake_id.strip())
 
 
+@app.post("/api/operator/integrity/repair/{intake_id}")
+def operator_integrity_repair(request: Request, intake_id: str):
+    from services.intake.integrity_repair import repair_intake_integrity_mismatch
+    from services.production import require_ops_access
+
+    require_ops_access(request)
+    return repair_intake_integrity_mismatch(intake_id.strip())
+
+
 @app.post("/api/operator/communications/log")
 async def operator_communications_log(request: Request):
     from services.communications.ledger import append_communication

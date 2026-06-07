@@ -61,7 +61,16 @@ def reconcile_intake(intake_id: str) -> Dict[str, Any]:
     if disk_files > 0 and verified > 0 and verified != disk_files:
         issues.append("verified_count_disk_mismatch")
     if expected and received and expected != received:
-        issues.append("expected_received_mismatch")
+        # Over-delivery with full disk agreement is stale manifest metadata,
+        # not missing customer files — repair endpoint syncs expected from disk.
+        over_delivery_disk_ok = (
+            received > expected
+            and failed == 0
+            and persisted == verified == disk_files == received
+            and file_count == disk_files
+        )
+        if not over_delivery_disk_ok:
+            issues.append("expected_received_mismatch")
     if persisted and disk_files and persisted != disk_files:
         issues.append("persisted_disk_mismatch")
     if failed > 0 and str(record.get("custody_status") or "").lower() == "verified_complete":

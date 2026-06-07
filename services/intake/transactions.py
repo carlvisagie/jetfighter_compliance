@@ -19,6 +19,7 @@ PHASE_CLASSIFICATION = "classification_complete"
 PHASE_TELEMETRY_FAILED = "telemetry_failed"
 PHASE_RECOVERED_ON_STARTUP = "recovered_on_startup"
 PHASE_FORENSIC_RECOVERED = "forensic_recovered"
+PHASE_INTEGRITY_REPAIRED = "integrity_repaired"
 PHASE_COMMIT_INTERRUPTED = "commit_interrupted"
 
 

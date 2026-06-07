@@ -87,11 +87,16 @@ def recover_intake_forensic(intake_id: str) -> Dict[str, Any]:
     prior = list((record.get("upload_integrity") or {}).get("file_lifecycle") or [])
     merged = merge_batch_lifecycle(prior, lifecycle)
     custody = dict(record.get("upload_custody") or {})
-    expected = int(
-        custody.get("total_expected_count")
-        or (record.get("upload_integrity") or {}).get("expected_file_count")
-        or len(files_on_record)
-    )
+    prior_ui = record.get("upload_integrity") or {}
+    verified_on_record = int(prior_ui.get("verified_file_count") or 0)
+    if verified_on_record == len(disk_names) == len(files_on_record) and disk_names:
+        expected = len(disk_names)
+    else:
+        expected = int(
+            custody.get("total_expected_count")
+            or prior_ui.get("expected_file_count")
+            or len(files_on_record)
+        )
 
     integrity = build_integrity_report(
         expected_file_count=expected,
