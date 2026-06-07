@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "reserved_words": [
+    "beta",
+    "founding_beta",
+    "prototype",
+    "experimental",
+    "pilot_mode",
+    "temp_system"
+  ],
+  "allowed_prefixes": [
+    "archive/",
+    "tests/",
+    "docs/history/",
+    "data/"
+  ],
+  "finding_count": 0,
+  "findings": [],
+  "report_path": "E:\\JetFighter_Compliance\\reserved_words_report.json"
+}

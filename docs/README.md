@@ -1,6 +1,8 @@
 # KeepYourContracts — JetFighter_Compliance
 
-Compliance operations backend and customer UI. Production runs on **Render** (`kyc-backend`); source of truth is **GitHub** (`jetfighter_compliance`).
+Compliance operations backend and customer UI. Production runs on **Render** (`jetfighter_compliance`); source of truth is **GitHub** (`jetfighter_compliance`).
+
+**Governance:** [`PRODUCTION_CONSTITUTION.md`](PRODUCTION_CONSTITUTION.md) · **Live audit:** [`PRODUCTION_TRUTH_AUDIT.md`](PRODUCTION_TRUTH_AUDIT.md)
 
 ## Active launch path (customer onboarding)
 

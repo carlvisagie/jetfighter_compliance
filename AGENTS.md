@@ -42,7 +42,8 @@ Violating this rule cost the platform a forensic audit on 2026-06-04. Do not rep
 | Scheduler started with 12 cron jobs | (same — look for `scheduler: started`) | 2026-06-04 commit `bb3aeb6` |
 | Organism state + VIO overview shape | `python scripts/probe_vio_overview.py` | 2026-06-04 |
 | Disk persistence across restart | `python scripts/prove_disk_persistence.py` | 2026-06-04 `verified_persistent` |
-| Full pytest suite (865 tests) | `python -m pytest -q --timeout=60` | 2026-06-04 865 passed |
+| Full pytest suite | `python -m pytest tests/ -q` | 2026-06-07 **1051** passed (Patch 11) |
+| Reserved-word scan | `python scripts/audit_reserved_words.py` | 2026-06-07 Patch 11 |
 
 All four probes require `.ops_env` with `OPS_PASSWORD` (+ `RENDER_API_KEY` for the restart proof).
 
@@ -52,12 +53,14 @@ All four probes require `.ops_env` with `OPS_PASSWORD` (+ `RENDER_API_KEY` for t
 
 1. **This file** (`AGENTS.md`)
 2. **[`docs/PRODUCTION_IS_THE_ONLY_TRUTH.md`](docs/PRODUCTION_IS_THE_ONLY_TRUTH.md)** — environment contract (the rule above, fully expanded)
-3. **[`docs/KYC_CONSTITUTION.md`](docs/KYC_CONSTITUTION.md)** — binding law (IRON LAW, sacred areas, change gate)
-4. **[`docs/CENTRAL_MEMORY.md`](docs/CENTRAL_MEMORY.md)** — memory model and vessels
-5. **[`docs/KYC_ORGANISM_INTEGRATION_AUDIT.md`](docs/KYC_ORGANISM_INTEGRATION_AUDIT.md)** — engine ↔ memory wiring
-6. **[`docs/LAUNCH_PATH.md`](docs/LAUNCH_PATH.md)** — active production onboarding path
-7. **`server.py`** — real routes (HTML may lie; code is truth)
-8. **`render.yaml`** — production env contract
+3. **[`docs/PRODUCTION_CONSTITUTION.md`](docs/PRODUCTION_CONSTITUTION.md)** — production architecture, flows, forbidden changes
+4. **[`docs/KYC_CONSTITUTION.md`](docs/KYC_CONSTITUTION.md)** — binding law (IRON LAW, sacred areas, change gate)
+5. **[`docs/CENTRAL_MEMORY.md`](docs/CENTRAL_MEMORY.md)** — memory model and vessels
+6. **[`docs/KYC_ORGANISM_INTEGRATION_AUDIT.md`](docs/KYC_ORGANISM_INTEGRATION_AUDIT.md)** — engine ↔ memory wiring
+7. **[`docs/LAUNCH_PATH.md`](docs/LAUNCH_PATH.md)** — active production onboarding path
+8. **[`docs/PRODUCTION_TRUTH_AUDIT.md`](docs/PRODUCTION_TRUTH_AUDIT.md)** — live production snapshot (commit, tests, risks)
+9. **`server.py`** — real routes (HTML may lie; code is truth)
+10. **`render.yaml`** — production env contract
 
 Optional but useful: [`docs/PRODUCTION_ENGINEERING_DOCTRINE.md`](docs/PRODUCTION_ENGINEERING_DOCTRINE.md), [`docs/PUBLIC_UI_EXPOSURE_AUDIT.md`](docs/PUBLIC_UI_EXPOSURE_AUDIT.md), [`docs/FOUNDING_PILOT_RENAME_PLAN.md`](docs/FOUNDING_PILOT_RENAME_PLAN.md) (known-amber tracking).
 
@@ -75,6 +78,26 @@ Every **active** engine must either:
 **No active business truth may live outside organism memory** without an explicit, documented bridge in `services/memory/organism_integration.py` and an entry in the organism integration audit.
 
 Support layers (email transport, health probes, static export) may be **outside** only if they do not hold durable customer truth and they emit telemetry when they act.
+
+---
+
+## PROTECTED SYSTEMS
+
+Agents may **NOT** change the following without explicit owner approval:
+
+| System | What is protected |
+|--------|-------------------|
+| **Evidence schemas** | EI jsonl shapes, extraction/classification fields, gap packs |
+| **Token generation** | Intake tokens, session tokens, `INTAKE_TOKEN_SECRET` contract |
+| **Storage paths** | `/var/data`, `intakes/`, `projects/`, durable root probes |
+| **Memory registration** | Entity graph, telemetry emit paths, `organism_integration` bridges |
+| **Organism contracts** | Collector/check names, `evidence_vs_files`, snapshot schema |
+| **VIO contracts** | Overview API shape, L1/L2 stage model, environment ribbon |
+| **Deployment configuration** | Render disk mount, `KYC_DATA`, live service ID, `render.yaml` disk block |
+| **Acquisition scoring logic** | Weights, connector scoring, `founding_pilot_mode` thresholds |
+| **Authentication flows** | `services/ops_auth.py`, session cookie, ops login, public page list |
+
+Fortress governance: [`docs/PRODUCTION_CONSTITUTION.md`](docs/PRODUCTION_CONSTITUTION.md), [`docs/DEPLOYMENT_GATE.md`](docs/DEPLOYMENT_GATE.md).
 
 ---
 

@@ -26,7 +26,7 @@ Status legend:
 
 ## § 1 — The kill-list (Carl's brief, §4)
 
-The 15 surfaces named in `docs/VIO_SOURCE_BRIEF.md` §4. Each must be
+The 15 surfaces named in `docs/history/VIO_SOURCE_BRIEF.md` §4. Each must be
 either absorbed into VIO or deliberately killed. Listed in the order
 they will be migrated (most operationally critical first).
 
@@ -166,5 +166,5 @@ introduce dependencies on VIO components.
 - The doctrine that drives it lives in:
   - `docs/VIO_DOCTRINE.md` (visual cognition law)
   - `docs/VIO_CONSTITUTION.md` (boundary law)
-  - `docs/VIO_SOURCE_BRIEF.md` (Carl's brief + kill list)
+  - `docs/history/VIO_SOURCE_BRIEF.md` (Carl's brief + kill list)
   - `docs/KYC_ORGANISM_DOCTRINE.md` (Autonomy by default)

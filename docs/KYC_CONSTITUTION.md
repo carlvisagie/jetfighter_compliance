@@ -2,7 +2,8 @@
 
 **Status:** Binding for all human and AI contributors.  
 **Supersedes:** Ad-hoc README fragments and conflicting one-off docs.  
-**Entry point for agents:** [`../AGENTS.md`](../AGENTS.md)
+**Entry point for agents:** [`../AGENTS.md`](../AGENTS.md)  
+**Production governance:** [`PRODUCTION_CONSTITUTION.md`](PRODUCTION_CONSTITUTION.md) (architecture, flows, deploy rules)
 
 ---
 

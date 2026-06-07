@@ -1,10 +1,12 @@
 # KYC Platform — Deployment Readiness Inventory
 
-_Last refresh: 2026-06-03 — full test suite **818/818 passing**._
+_Capability inventory only — not live production counts._
 
-This file is the single source of truth for "what is deploy-ready and what
-still needs attention." Operators and engineers should consult it before
-shipping. It is generated against the actual codebase (not a wish list).
+**Live production snapshot** (commit SHA, test count, risks): [`PRODUCTION_TRUTH_AUDIT.md`](PRODUCTION_TRUTH_AUDIT.md)  
+**Deploy gate:** [`DEPLOYMENT_GATE.md`](DEPLOYMENT_GATE.md)  
+**Governance:** [`PRODUCTION_CONSTITUTION.md`](PRODUCTION_CONSTITUTION.md)
+
+This file tracks **what is deploy-ready and what still needs attention** at the feature level. It is generated against the actual codebase (not a wish list).
 
 ---
 
@@ -18,7 +20,7 @@ shipping. It is generated against the actual codebase (not a wish list).
 | Render fallback domain | `jetfighter-compliance.onrender.com` |
 | Persistent disk | `kyc-data` → `/var/data` (10 GB) |
 | Python entrypoint | `server.py` (100 routes) |
-| Test suite | **818 tests, 100% green** (~22 min cold run) |
+| Test suite | See [`PRODUCTION_TRUTH_AUDIT.md`](PRODUCTION_TRUTH_AUDIT.md) for current count |
 | Service packages | 10 (`services/*/__init__.py`) |
 | Organism Core (extracted) | `organism_core/` (domain-agnostic awareness layer) |
 

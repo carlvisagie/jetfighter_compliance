@@ -62,7 +62,7 @@ Each row is **Company Orb + Living Timeline**. Never a table row.
 ## The Boundary — VIO Absorbs Everything
 
 **Locked rule** (Carl Visagie, 2026-06-04, amended after the
-[`VIO_SOURCE_BRIEF.md`](./VIO_SOURCE_BRIEF.md) was enshrined):
+[`history/VIO_SOURCE_BRIEF.md`](./history/VIO_SOURCE_BRIEF.md) was enshrined):
 
 > **VIO is the only primary operator interface.**
 > No separate Control, Command, Status, Inbox, Intelligence,
@@ -84,7 +84,7 @@ VIO contains BOTH universes:
 There are no separate `/ui/control.html`, `/ui/command.html`,
 `/ui/inbox.html`, `/ui/intelligence.html`, `/ui/healthz.html` etc.
 as **primary** operator surfaces. The kill-list is in
-[`VIO_SOURCE_BRIEF.md` §4](./VIO_SOURCE_BRIEF.md) — 14 surfaces by name.
+[`history/VIO_SOURCE_BRIEF.md` §4](./history/VIO_SOURCE_BRIEF.md) — 14 surfaces by name.
 
 **Decision test for any new capability:**
 
