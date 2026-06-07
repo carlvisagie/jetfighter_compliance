@@ -239,6 +239,41 @@ def test_image_degrades_cleanly_when_tesseract_missing(tmp_path, monkeypatch):
     monkeypatch.setenv("KYC_OCR_ENABLED", "true")
     monkeypatch.setattr(
         ext_mod,
+        "ocr_pdf_bytes",
+        lambda data, **kw: ("", "ocr_timeout"),
+    )
+
+    p = tmp_path / "timeout.pdf"
+    p.write_bytes(_scanned_like_pdf())
+
+    result = extract_from_file(p)
+
+    assert result.ocr_applied is False
+    assert result.ocr_status == "ocr_timeout"
+    assert "scanned_pdf_ocr_timeout" in result.warnings
+    assert result.pending_analysis is True
+
+
+def test_scanned_pdf_corrupted_handling(tmp_path, monkeypatch):
+    monkeypatch.setenv("KYC_OCR_ENABLED", "true")
+    monkeypatch.setattr(
+        ext_mod,
+        "ocr_pdf_bytes",
+        lambda data, **kw: ("", "ocr_corrupted_pdf"),
+    )
+
+    p = tmp_path / "corrupted.pdf"
+    p.write_bytes(_scanned_like_pdf())
+
+    result = extract_from_file(p)
+
+    assert result.ocr_applied is False
+    assert result.ocr_status == "ocr_corrupted_pdf"
+    assert "scanned_pdf_ocr_corrupted" in result.warnings
+    assert result.pending_analysis is True
+    monkeypatch.setenv("KYC_OCR_ENABLED", "true")
+    monkeypatch.setattr(
+        ext_mod,
         "ocr_image_bytes",
         lambda data, **kw: ("", "ocr_module_unavailable"),
     )
@@ -253,6 +288,43 @@ def test_image_degrades_cleanly_when_tesseract_missing(tmp_path, monkeypatch):
     assert any(
         w.startswith("image_ocr_skipped") for w in result.warnings
     )
+
+def test_scanned_pdf_timeout_handling(tmp_path, monkeypatch):
+    monkeypatch.setenv("KYC_OCR_ENABLED", "true")
+    monkeypatch.setattr(
+        ext_mod,
+        "ocr_pdf_bytes",
+        lambda data, **kw: ("", "ocr_timeout"),
+    )
+
+    p = tmp_path / "timeout.pdf"
+    p.write_bytes(_scanned_like_pdf())
+
+    result = extract_from_file(p)
+
+    assert result.ocr_applied is False
+    assert result.ocr_status == "ocr_timeout"
+    assert "scanned_pdf_ocr_timeout" in result.warnings
+    assert result.pending_analysis is True
+
+
+def test_scanned_pdf_corrupted_handling(tmp_path, monkeypatch):
+    monkeypatch.setenv("KYC_OCR_ENABLED", "true")
+    monkeypatch.setattr(
+        ext_mod,
+        "ocr_pdf_bytes",
+        lambda data, **kw: ("", "ocr_corrupted_pdf"),
+    )
+
+    p = tmp_path / "corrupted.pdf"
+    p.write_bytes(_scanned_like_pdf())
+
+    result = extract_from_file(p)
+
+    assert result.ocr_applied is False
+    assert result.ocr_status == "ocr_corrupted_pdf"
+    assert "scanned_pdf_ocr_corrupted" in result.warnings
+    assert result.pending_analysis is True
 
 
 def test_ocr_module_helpers_handle_disabled_default(monkeypatch):

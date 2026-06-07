@@ -139,6 +139,9 @@ def ocr_pdf_bytes(
     Bounded by ``max_pages`` so a 500-page packet cannot tar-pit the
     extraction worker. Returns ``(text, status)``.
     """
+    if len(data) > 15 * 1024 * 1024:  # 15MB file size limit for OCR
+        return "", "ocr_failed"
+
     avail = check_ocr_availability()
     if not avail.available:
         return "", {
@@ -156,18 +159,42 @@ def ocr_pdf_bytes(
     except ImportError:
         return "", "ocr_module_unavailable"
 
-    try:
-        images = pdf2image.convert_from_bytes(
-            data, dpi=dpi, fmt="png", last_page=max(1, int(max_pages)),
+    # Safety: page count limit and timeout
+    import threading
+    import _thread
+
+    def _convert_with_timeout():
+        # Add safety limit on max_pages
+        limited_pages = min(max_pages, 50)
+        return pdf2image.convert_from_bytes(
+            data, dpi=dpi, fmt="png", last_page=max(1, int(limited_pages)),
         )
+
+    class TimeoutException(Exception):
+        pass
+
+    def timeout_handler():
+        _thread.interrupt_main()
+
+    timer = threading.Timer(45.0, timeout_handler)
+    
+    try:
+        timer.start()
+        images = _convert_with_timeout()
+    except KeyboardInterrupt:
+        return "", "ocr_timeout"
     except Exception as exc:
         # pdf2image raises its own PDFInfoNotInstalledError when
         # poppler is missing — surface that as the binary signal.
         msg = str(exc).lower()
         if "poppler" in msg or "pdfinfo" in msg or "pdftoppm" in msg:
             return "", "ocr_binary_unavailable"
+        if "pdf error" in msg or "damaged" in msg or "corrupted" in msg or "syntax error" in msg:
+             return "", "ocr_corrupted_pdf"
         logger.warning("ocr: pdf2image conversion failed: %s", exc)
         return "", "ocr_failed"
+    finally:
+        timer.cancel()
 
     parts = []
     for img in images:

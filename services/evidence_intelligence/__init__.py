@@ -184,6 +184,8 @@ def process_evidence_upload(
             "ocr_module_unavailable",
             "ocr_binary_unavailable",
             "ocr_failed",
+            "ocr_timeout",
+            "ocr_corrupted_pdf",
             "ocr_empty",
         ):
             telemetry.emit(
@@ -191,6 +193,18 @@ def process_evidence_upload(
                 project_id=project_id,
                 metadata={"file": name, "reason": extraction.ocr_status},
             )
+            
+            if extraction.ocr_status in ("ocr_failed", "ocr_timeout", "ocr_corrupted_pdf"):
+                try:
+                    storage.append_review_item(project_id, {
+                        "kind": "ocr_failure_hiding_evidence",
+                        "file": name,
+                        "artifact_id": artifact_id,
+                        "reason": f"OCR failed with status {extraction.ocr_status}, potentially hiding compliance evidence.",
+                        "created_utc": _utc_now(),
+                    })
+                except Exception:
+                    pass
 
         if extraction.pending_analysis and not extraction.text_preview:
             result.status = "pending_analysis"

@@ -256,6 +256,12 @@ def extract_from_file(path: Path, *, size_bytes: int = 0) -> ExtractionResult:
             elif ocr_status == "ocr_failed":
                 result.warnings.append("scanned_pdf_ocr_failed")
                 result.pending_analysis = True
+            elif ocr_status == "ocr_timeout":
+                result.warnings.append("scanned_pdf_ocr_timeout")
+                result.pending_analysis = True
+            elif ocr_status == "ocr_corrupted_pdf":
+                result.warnings.append("scanned_pdf_ocr_corrupted")
+                result.pending_analysis = True
     elif ext in (".csv",):
         text, method = _extract_csv(data)
     elif ext == ".docx":
