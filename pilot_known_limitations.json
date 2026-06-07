@@ -1,0 +1,21 @@
+{
+  "manual_operations": [
+    "Final Document Delivery to Customer",
+    "Outbound Customer Communications for Missing Evidence (Requests)"
+  ],
+  "operator_gated": [
+    "Payment Processing State Changes",
+    "Missing Identity Anchor Resolution",
+    "Low-Confidence (HUMAN_REVIEW_REQUIRED) Gap Approvals",
+    "Corrupted/Timeout OCR Failures hiding compliance evidence"
+  ],
+  "intentionally_not_automated": [
+    "Stripe webhooks (Payment processing is manual check over PayPal for pilot)",
+    "Black-box assumptions (The organism must explain its decisions deterministically)"
+  ],
+  "known_future_enhancements": [
+    "Automated outbound communication and customer negotiation",
+    "Automated payment processing webhook integrations",
+    "Advanced adversarial parsing (nested password-protected archives)"
+  ]
+}

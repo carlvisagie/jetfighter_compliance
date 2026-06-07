@@ -1,0 +1,19 @@
+{
+  "release_tag": "pilot-ready-v1",
+  "commit_sha": "9d7d0a1269891573d52b55c9084fd9f31d93b13e",
+  "test_count": 1046,
+  "pass_rate": "100%",
+  "corpus_results": "PASS",
+  "files_processed": 185,
+  "ocr_status": "SAFETY_HARNESS_ACTIVE (Timeouts, Limits, & Corrupted PDF Handling Verified)",
+  "launch_gate_status": "PASSED (Workload >= 75%, Accuracy >= 95%)",
+  "organism_maturity_score": 85,
+  "known_limitations": "See pilot_known_limitations.json",
+  "required_operator_checkpoints": [
+    "OCR Failure Queue Review",
+    "Identity Anchor Resolution",
+    "Low-Confidence Inference Verification",
+    "Payment Confirmation",
+    "Final Launch Gate Approval"
+  ]
+}
