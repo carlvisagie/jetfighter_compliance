@@ -11,6 +11,7 @@ from services.cognition.document_generation.engine import generate_documents_for
 from services.cognition.schemas import CognitionSummary, MemoryReasoning
 from services.cognition.metrics import compute_metrics
 from services.cognition.validation import build_validation_report
+from services.cognition.scorecard import calculate_scorecard, evaluate_launch_gate
 from services.cognition.document_generation.registry import (
     build_generated_document_path, 
     generated_document_to_markdown, 
@@ -62,6 +63,8 @@ def get_cognition_state(project_id: str) -> dict:
     events_path = cognition_dir / "cognition_events.jsonl"
     metrics_path = cognition_dir / "metrics.json"
     validation_path = cognition_dir / "validation_report.json"
+    score_path = cognition_dir / "organism_score.json"
+    gate_path = cognition_dir / "launch_gate.json"
     
     if not summary_path.exists():
         return {
@@ -76,6 +79,8 @@ def get_cognition_state(project_id: str) -> dict:
     events = _read_jsonl(events_path) if events_path.exists() else []
     metrics = _read_json(metrics_path) if metrics_path.exists() else {}
     validation_report = _read_json(validation_path) if validation_path.exists() else {}
+    organism_score = _read_json(score_path) if score_path.exists() else {}
+    launch_gate = _read_json(gate_path) if gate_path.exists() else {}
     
     # get generated documents metadata
     generated_docs = []
@@ -95,7 +100,9 @@ def get_cognition_state(project_id: str) -> dict:
         "generated_documents": generated_docs,
         "recent_events": recent_events,
         "metrics": metrics,
-        "validation_report": validation_report
+        "validation_report": validation_report,
+        "organism_score": organism_score,
+        "launch_gate": launch_gate
     }
 
 def run_cognition_safely(project_id: str, base_dir: Path = None) -> dict:
@@ -219,6 +226,15 @@ def run_cognition_safely(project_id: str, base_dir: Path = None) -> dict:
         validation = build_validation_report(project_id, state, resolutions, docs)
         with open(cognition_dir / "validation_report.json", "w", encoding="utf-8") as f:
             f.write(validation.model_dump_json(indent=2))
+            
+        # 9. Write organism_score.json and launch_gate.json
+        scorecard = calculate_scorecard(state, metrics, validation)
+        with open(cognition_dir / "organism_score.json", "w", encoding="utf-8") as f:
+            f.write(scorecard.model_dump_json(indent=2))
+            
+        gate = evaluate_launch_gate(scorecard, metrics, validation)
+        with open(cognition_dir / "launch_gate.json", "w", encoding="utf-8") as f:
+            f.write(gate.model_dump_json(indent=2))
             
         log_event("cognition_completed", {"summary_written": True})
         

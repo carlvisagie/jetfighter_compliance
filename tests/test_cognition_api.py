@@ -46,10 +46,15 @@ def test_cognition_api_ready(client, mock_projects_dir):
         "safety_warnings": []
     }
     
+    score = {"overall_maturity_score": 95.0}
+    gate = {"ready_for_pilot": True}
+    
     (cognition_dir / "cognition_summary.json").write_text(json.dumps(summary))
     (cognition_dir / "next_actions.json").write_text(json.dumps([{"action": "do"}]))
     (cognition_dir / "cognition_events.jsonl").write_text('{"event": "start"}\n{"event": "end"}\n')
     (cognition_dir / "validation_report.json").write_text(json.dumps(validation_report))
+    (cognition_dir / "organism_score.json").write_text(json.dumps(score))
+    (cognition_dir / "launch_gate.json").write_text(json.dumps(gate))
     
     res = client.get(f"/api/operator/cognition/{project_id}")
     assert res.status_code == 200
@@ -63,6 +68,8 @@ def test_cognition_api_ready(client, mock_projects_dir):
     assert len(data["recent_events"]) == 2
     assert len(data["generated_documents"]) == 1
     assert data["validation_report"] == validation_report
+    assert data["organism_score"] == score
+    assert data["launch_gate"] == gate
 
 def test_cognition_api_rejects_path_traversal(client, mock_projects_dir):
     project_id = "FB-123..secret"

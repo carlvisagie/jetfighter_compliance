@@ -128,3 +128,19 @@ class CognitionMetrics(BaseModel):
     generation_count: int = 0
     request_count: int = 0
 
+class OrganismScorecard(BaseModel):
+    awareness_score: float = 0.0
+    reasoning_score: float = 0.0
+    generation_score: float = 0.0
+    validation_score: float = 0.0
+    reliability_score: float = 0.0
+    workload_elimination_score: float = 0.0
+    explainability_score: float = 0.0
+    overall_maturity_score: float = 0.0
+
+class LaunchGate(BaseModel):
+    ready_for_pilot: bool = False
+    gate_results: Dict[str, Any] = Field(default_factory=dict)
+    blocking_items: List[str] = Field(default_factory=list)
+
+
