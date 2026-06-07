@@ -32,6 +32,12 @@ import {
   type KycOrganism,
 } from './kyc-adapter';
 import { VioCanvas } from './components/VioCanvas';
+import {
+  resolveConnectionState,
+  shouldAutoOpenConfigPanel,
+  shouldOpenConfigOnButtonClick,
+} from './connection-state';
+import { VIO_TEXT, VIO_BORDER } from './vio-theme';
 
 // ── Auth config type ─────────────────────────────────────────────────────────
 type AuthConfig = {
@@ -79,7 +85,7 @@ function ConfigPanel({
     outline: 'none', boxSizing: 'border-box', marginTop: 6,
   };
   const labelStyle: React.CSSProperties = {
-    color: '#4a5568', fontSize: 11,
+    color: VIO_TEXT.meta, fontSize: 11,
     fontFamily: "'JetBrains Mono', monospace",
     letterSpacing: '0.06em', textTransform: 'uppercase',
   };
@@ -105,7 +111,7 @@ function ConfigPanel({
         <div style={{ fontFamily: "'Space Grotesk', sans-serif", color: '#00e5a0', fontWeight: 700, fontSize: 16, marginBottom: 4 }}>
           Connect to Organism
         </div>
-        <div style={{ color: '#2d3748', fontSize: 11, marginBottom: 24, fontFamily: "'JetBrains Mono', monospace" }}>
+        <div style={{ color: VIO_TEXT.muted, fontSize: 11, marginBottom: 24, fontFamily: "'JetBrains Mono', monospace" }}>
           Point to your KYC deployment and authenticate
         </div>
 
@@ -132,7 +138,7 @@ function ConfigPanel({
                 background: authMode === mode ? '#00e5a015' : 'transparent',
                 border: `1px solid ${authMode === mode ? '#00e5a040' : '#ffffff10'}`,
                 borderRadius: 8, cursor: 'pointer',
-                color: authMode === mode ? '#00e5a0' : '#4a5568',
+                color: authMode === mode ? '#00e5a0' : VIO_TEXT.muted,
                 fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
                 letterSpacing: '0.05em',
               }}
@@ -153,7 +159,7 @@ function ConfigPanel({
               type="password"
               style={inputStyle}
             />
-            <div style={{ color: '#2d3748', fontSize: 10, marginTop: 6, fontFamily: "'JetBrains Mono', monospace" }}>
+            <div style={{ color: VIO_TEXT.muted, fontSize: 10, marginTop: 6, fontFamily: "'JetBrains Mono', monospace" }}>
               Sent as X-Ops-Key header on every request
             </div>
           </div>
@@ -167,7 +173,7 @@ function ConfigPanel({
               type="password"
               style={inputStyle}
             />
-            <div style={{ color: '#2d3748', fontSize: 10, marginTop: 6, fontFamily: "'JetBrains Mono', monospace" }}>
+            <div style={{ color: VIO_TEXT.muted, fontSize: 10, marginTop: 6, fontFamily: "'JetBrains Mono', monospace" }}>
               Auto-login via POST /api/ops/login — session cookie stored
             </div>
           </div>
@@ -189,8 +195,8 @@ function ConfigPanel({
           <button
             onClick={onClose}
             style={{
-              flex: 1, background: 'transparent', border: '1px solid #ffffff10',
-              borderRadius: 8, padding: '11px 0', color: '#4a5568',
+              flex: 1, background: 'transparent', border: `1px solid ${VIO_BORDER.soft}`,
+              borderRadius: 8, padding: '11px 0', color: VIO_TEXT.muted,
               fontFamily: "'Space Grotesk', sans-serif", fontWeight: 600,
               fontSize: 13, cursor: 'pointer',
             }}
@@ -252,7 +258,7 @@ function OrganismHealthStrip({ organism }: { organism: KycOrganism | undefined }
 
       {/* Vital signs */}
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-        <VitalSign label="Queue" value={String(organism.queue_depth)} color={organism.queue_depth > 0 ? '#ffb800' : '#4a5568'} />
+        <VitalSign label="Queue" value={String(organism.queue_depth)} color={organism.queue_depth > 0 ? '#ffb800' : VIO_TEXT.muted} />
         <VitalSign label="Active" value={String(organism.intake_count_active)} color="#e2e8f0" />
         <VitalSign label="Files" value={String(organism.uploaded_file_count)} color="#e2e8f0" />
         <VitalSign
@@ -264,7 +270,7 @@ function OrganismHealthStrip({ organism }: { organism: KycOrganism | undefined }
           <VitalSign label="Env" value="PRODUCTION" color="#38bdf8" />
         )}
         {organism.git_commit && (
-          <VitalSign label="Build" value={organism.git_commit} color="#4a5568" mono />
+          <VitalSign label="Build" value={organism.git_commit} color={VIO_TEXT.meta} mono />
         )}
       </div>
 
@@ -273,7 +279,7 @@ function OrganismHealthStrip({ organism }: { organism: KycOrganism | undefined }
         <>
           <div style={{ width: 1, height: 24, background: '#ffffff10' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ color: '#4a5568', fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>BOTTLENECK</span>
+            <span style={{ color: VIO_TEXT.meta, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>BOTTLENECK</span>
             <span style={{ color: '#ffb800', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}>
               {organism.current_bottleneck}
             </span>
@@ -303,7 +309,7 @@ function OrganismHealthStrip({ organism }: { organism: KycOrganism | undefined }
 function VitalSign({ label, value, color, mono }: { label: string; value: string; color: string; mono?: boolean }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <span style={{ color: '#4a5568', fontSize: 9, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+      <span style={{ color: VIO_TEXT.meta, fontSize: 9, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.08em', textTransform: 'uppercase' }}>
         {label}
       </span>
       <span style={{
@@ -344,7 +350,7 @@ function OrganismAwarenessPanel({ organism }: { organism: KycOrganism | undefine
             ⚡ ORGANISM SELF-AWARENESS — {organism.mismatch_count} RECONCILIATION FAILURE{organism.mismatch_count !== 1 ? 'S' : ''}
           </span>
         </div>
-        <span style={{ color: '#4a5568', fontSize: 11 }}>{expanded ? '▲' : '▼'}</span>
+        <span style={{ color: VIO_TEXT.muted, fontSize: 11 }}>{expanded ? '▲' : '▼'}</span>
       </button>
 
       {expanded && (
@@ -354,7 +360,7 @@ function OrganismAwarenessPanel({ organism }: { organism: KycOrganism | undefine
               background: '#00e5a008', border: '1px solid #00e5a020',
               borderRadius: 8, padding: '10px 14px', marginBottom: 12,
             }}>
-              <span style={{ color: '#4a5568', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}>NEXT ACTION</span>
+              <span style={{ color: VIO_TEXT.meta, fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}>NEXT ACTION</span>
               <div style={{ color: '#00e5a0', fontSize: 12, marginTop: 4, fontFamily: "'Space Grotesk', sans-serif" }}>
                 {organism.next_recommended_action}
               </div>
@@ -377,7 +383,7 @@ function OrganismAwarenessPanel({ organism }: { organism: KycOrganism | undefine
                   <div style={{ color: '#e2e8f0', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif" }}>
                     {m.detail}
                   </div>
-                  <div style={{ color: '#4a5568', fontSize: 10, marginTop: 2, fontFamily: "'JetBrains Mono', monospace" }}>
+                  <div style={{ color: VIO_TEXT.muted, fontSize: 10, marginTop: 2, fontFamily: "'JetBrains Mono', monospace" }}>
                     {m.name}
                   </div>
                 </div>
@@ -405,13 +411,13 @@ function PipelineStrip({ response }: { response: KycOverviewResponse }) {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 80 }}>
             <span style={{
               fontSize: 18, fontWeight: 700,
-              color: s.count > 0 ? '#e2e8f0' : '#2d3748',
+              color: s.count > 0 ? '#e2e8f0' : VIO_TEXT.faint,
               fontFamily: "'Space Grotesk', sans-serif",
             }}>
               {s.count}
             </span>
             <span style={{
-              fontSize: 9, color: '#4a5568',
+              fontSize: 9, color: VIO_TEXT.meta,
               fontFamily: "'JetBrains Mono', monospace",
               letterSpacing: '0.06em', textTransform: 'uppercase',
               textAlign: 'center',
@@ -453,7 +459,7 @@ function StateLegend({ response }: { response: KycOverviewResponse }) {
             width: 8, height: 8, borderRadius: '50%',
             background: item.color, boxShadow: `0 0 4px ${item.color}80`,
           }} />
-          <span style={{ color: '#4a5568', fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>
+          <span style={{ color: VIO_TEXT.secondary, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>
             {(oh as any)[item.key]} {item.label}
           </span>
         </div>
@@ -463,7 +469,7 @@ function StateLegend({ response }: { response: KycOverviewResponse }) {
 }
 
 // ── Empty state ───────────────────────────────────────────────────────────────
-function EmptyState({ apiBase }: { apiBase: string }) {
+function EmptyState({ connected }: { connected: boolean }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -476,8 +482,8 @@ function EmptyState({ apiBase }: { apiBase: string }) {
       }}>
         <span style={{ fontSize: 28 }}>◎</span>
       </div>
-      <div style={{ color: '#4a5568', fontSize: 14, fontFamily: "'Space Grotesk', sans-serif", textAlign: 'center' }}>
-        {apiBase
+      <div style={{ color: VIO_TEXT.secondary, fontSize: 14, fontFamily: "'Space Grotesk', sans-serif", textAlign: 'center' }}>
+        {connected
           ? 'No companies in the pipeline yet.'
           : 'Configure the KYC API endpoint to connect the organism.'}
       </div>
@@ -499,7 +505,7 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
         <div style={{ color: '#ff3d3d', fontSize: 13, fontFamily: "'JetBrains Mono', monospace", marginBottom: 8 }}>
           ORGANISM UNREACHABLE
         </div>
-        <div style={{ color: '#4a5568', fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", marginBottom: 16 }}>
+        <div style={{ color: VIO_TEXT.secondary, fontSize: 12, fontFamily: "'Space Grotesk', sans-serif", marginBottom: 16 }}>
           {error}
         </div>
         <button
@@ -536,9 +542,9 @@ function RefreshIndicator({ lastFetch, isLoading }: { lastFetch: Date | null; is
           animation: 'vio-breathe 1s ease-in-out infinite',
         }} />
       ) : (
-        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#2d3748' }} />
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: VIO_TEXT.faint }} />
       )}
-      <span style={{ color: '#2d3748', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}>
+      <span style={{ color: VIO_TEXT.muted, fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}>
         {isLoading ? 'SYNCING' : age !== null ? `${age}s ago` : 'IDLE'}
       </span>
     </div>
@@ -577,10 +583,6 @@ export default function KycVio() {
       return false;
     }
   }, [auth]);
-
-  // Same-origin detection: if we're served from the KYC server itself,
-  // use relative URLs (empty base) — no config needed, no CORS, just works.
-  const effectiveBase = auth.apiBase || getApiBase() || '';
 
   const fetchData = useCallback(async () => {
     const base = auth.apiBase || getApiBase() || '';
@@ -626,6 +628,14 @@ export default function KycVio() {
     return () => clearInterval(t);
   }, [fetchData]);
 
+  const connection = resolveConnectionState({ loading, error, response });
+
+  useEffect(() => {
+    if (shouldAutoOpenConfigPanel({ loading, error, response, configOpen: showConfig })) {
+      setShowConfig(true);
+    }
+  }, [loading, error, response, showConfig]);
+
   const handleSaveConfig = (cfg: AuthConfig) => {
     saveAuthConfig(cfg);
     setAuth(cfg);
@@ -634,7 +644,27 @@ export default function KycVio() {
     setError(null);
   };
 
-  const apiBase = effectiveBase;
+  const connectionButtonStyle = (): React.CSSProperties => {
+    if (connection.tone === 'online') {
+      return {
+        background: '#00e5a010',
+        border: '1px solid #00e5a030',
+        color: '#00e5a0',
+      };
+    }
+    if (connection.tone === 'loading') {
+      return {
+        background: '#38bdf810',
+        border: '1px solid #38bdf830',
+        color: '#38bdf8',
+      };
+    }
+    return {
+      background: '#ff3d3d10',
+      border: '1px solid #ff3d3d30',
+      color: '#ff3d3d',
+    };
+  };
 
   // Build organisms from response
   const organisms: Array<{ organism: VioOrganism; interrupts: VioInterrupt[] }> = response
@@ -680,7 +710,7 @@ export default function KycVio() {
             </div>
             <div style={{
               fontFamily: "'JetBrains Mono', monospace",
-              fontSize: 9, color: '#2d3748',
+              fontSize: 9, color: VIO_TEXT.muted,
               letterSpacing: '0.1em', textTransform: 'uppercase',
             }}>
               Visual Intelligence Organism
@@ -694,7 +724,7 @@ export default function KycVio() {
 
           {response && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ color: '#2d3748', fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>
+              <span style={{ color: VIO_TEXT.secondary, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>
                 {response.companies.length} companies
               </span>
               {response.urgent_count > 0 && (
@@ -714,8 +744,8 @@ export default function KycVio() {
             onClick={fetchData}
             disabled={loading}
             style={{
-              background: 'transparent', border: '1px solid #ffffff10',
-              borderRadius: 8, padding: '6px 14px', color: '#4a5568',
+              background: 'transparent', border: `1px solid ${VIO_BORDER.soft}`,
+              borderRadius: 8, padding: '6px 14px', color: VIO_TEXT.secondary,
               fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
               cursor: loading ? 'not-allowed' : 'pointer',
               opacity: loading ? 0.5 : 1,
@@ -725,17 +755,25 @@ export default function KycVio() {
           </button>
 
           <button
-            onClick={() => setShowConfig(true)}
-            style={{
-              background: apiBase ? '#00e5a010' : '#ff3d3d10',
-              border: `1px solid ${apiBase ? '#00e5a030' : '#ff3d3d30'}`,
-              borderRadius: 8, padding: '6px 14px',
-              color: apiBase ? '#00e5a0' : '#ff3d3d',
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
-              cursor: 'pointer',
+            onClick={() => {
+              if (shouldOpenConfigOnButtonClick(connection)) {
+                setShowConfig(true);
+              }
             }}
+            style={{
+              ...connectionButtonStyle(),
+              borderRadius: 8, padding: '6px 14px',
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+              cursor: connection.tone === 'online' ? 'default' : 'pointer',
+            }}
+            title={
+              connection.tone === 'online'
+                ? 'Organism connected to production API'
+                : 'Open API connection settings'
+            }
           >
-              {apiBase || true ? '⚙ API' : '⚠ Configure API'}
+            {connection.tone === 'online' ? '● ' : connection.showConfigureWarning ? '⚠ ' : ''}
+            {connection.label}
           </button>
         </div>
       </div>
@@ -765,7 +803,7 @@ export default function KycVio() {
 
         {/* Company organisms */}
         {!response && !loading && !error && (
-          <EmptyState apiBase={apiBase} />
+          <EmptyState connected={false} />
         )}
 
         {error && (
@@ -782,14 +820,14 @@ export default function KycVio() {
               background: '#00e5a0',
               animation: 'vio-breathe 1.5s ease-in-out infinite',
             }} />
-            <span style={{ color: '#4a5568', fontSize: 13, fontFamily: "'JetBrains Mono', monospace" }}>
+            <span style={{ color: VIO_TEXT.secondary, fontSize: 13, fontFamily: "'JetBrains Mono', monospace" }}>
               CONNECTING TO ORGANISM...
             </span>
           </div>
         )}
 
         {organisms.length === 0 && response && !loading && (
-          <EmptyState apiBase={apiBase} />
+          <EmptyState connected={connection.organismConnected} />
         )}
 
         {organisms.map(({ organism, interrupts }) => (
@@ -871,11 +909,11 @@ function OrganismRow({
               {organism.name}
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
-              <span style={{ color: '#4a5568', fontSize: 11 }}>{organism.email}</span>
+              <span style={{ color: VIO_TEXT.secondary, fontSize: 11 }}>{organism.email}</span>
               {organism.phone && (
                 <>
-                  <span style={{ color: '#2d3748' }}>·</span>
-                  <span style={{ color: '#4a5568', fontSize: 11 }}>{organism.phone}</span>
+                  <span style={{ color: VIO_TEXT.faint }}>·</span>
+                  <span style={{ color: VIO_TEXT.secondary, fontSize: 11 }}>{organism.phone}</span>
                 </>
               )}
             </div>
@@ -886,7 +924,7 @@ function OrganismRow({
         <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
           {organism.kpis.slice(0, 4).map((kpi, i) => (
             <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-end' }}>
-              <span style={{ color: '#2d3748', fontSize: 9, fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase' }}>
+              <span style={{ color: VIO_TEXT.meta, fontSize: 9, fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase' }}>
                 {kpi.label}
               </span>
               <span style={{
@@ -913,7 +951,7 @@ function OrganismRow({
             </div>
           )}
 
-          <span style={{ color: '#2d3748', fontSize: 14 }}>{expanded ? '▲' : '▼'}</span>
+          <span style={{ color: VIO_TEXT.muted, fontSize: 14 }}>{expanded ? '▲' : '▼'}</span>
         </div>
       </div>
 
