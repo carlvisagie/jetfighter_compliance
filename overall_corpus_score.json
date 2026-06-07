@@ -1,0 +1,15 @@
+{
+  "pass_rate": 95.0,
+  "failure_rate": 5.0,
+  "total_scenarios": 20,
+  "top_failure_categories": [
+    "Generation Logic",
+    "Request Logic"
+  ],
+  "most_common_root_causes": [
+    "Generation Logic"
+  ],
+  "recommended_fixes": [
+    "Update Empty State Tolerance threshold to strictly require company_name regardless of tech confidence."
+  ]
+}
