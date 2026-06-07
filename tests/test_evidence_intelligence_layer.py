@@ -345,3 +345,21 @@ def test_review_queue_operator_endpoint_reads_by_intake_id(
         i.get("kind") == "low_confidence_extraction"
         for i in body.get("items") or []
     )
+
+
+def test_list_evidence_subjects_includes_fb_intakes(durable_intake_root):
+    """Reconciliation must see founding-pilot EI dirs (FB-*), not only P-*."""
+    storage.append_jsonl("FB-audit001", "entities.jsonl", {"entity_id": "e1"})
+    subjects = storage.list_evidence_subjects()
+    assert "FB-audit001" in subjects
+
+
+def test_evidence_collector_scans_fb_subjects(durable_intake_root):
+    from services.organism_state.collectors import EvidenceCollector
+
+    storage.append_jsonl("FB-audit002", "entities.jsonl", {"entity_id": "e1"})
+    storage.append_jsonl("FB-audit002", "extractions.jsonl", {"sha256": "abc"})
+    col = EvidenceCollector(project_ids_provider=lambda: [])
+    out = col.collect()
+    assert out["evidence_artifact_count"] == 2
+    assert out["evidence_subject_count"] >= 1

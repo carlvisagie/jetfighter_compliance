@@ -18,6 +18,22 @@ def _intel_dir(project_id: str) -> Path:
     return d
 
 
+def list_evidence_subjects() -> List[str]:
+    """Return every intake/project key that has an EI artifact directory.
+
+    Founding-pilot production stores EI under ``projects/FB-*/`` while
+    legacy kickoff projects use ``P-*``. Reconciliation must scan both.
+    """
+    root = _data_root() / "projects"
+    if not root.is_dir():
+        return []
+    subjects: List[str] = []
+    for child in root.iterdir():
+        if child.is_dir() and (child / "evidence_intelligence").is_dir():
+            subjects.append(child.name)
+    return sorted(subjects)
+
+
 def _ts() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 

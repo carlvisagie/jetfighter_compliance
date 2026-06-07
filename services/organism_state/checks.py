@@ -121,16 +121,31 @@ class EvidenceVsFilesCheck(Check):
                 detail="No uploaded files — nothing to extract.",
                 evidence={"uploaded_files": 0, "evidence_artifacts": ev},
             )
+        subjects = int(signals.get("evidence", "evidence_subject_count", 0))
         if ev == 0:
             return CheckResult(
                 name=self.name, ok=False, severity=Severity.RED,
-                detail=f"Files uploaded={files} but zero evidence artifacts extracted.",
-                evidence={"uploaded_files": files, "evidence_artifacts": ev},
+                detail=(
+                    f"Files uploaded={files} but zero evidence artifacts extracted "
+                    f"(evidence_subjects_scanned={subjects})."
+                ),
+                evidence={
+                    "uploaded_files": files,
+                    "evidence_artifacts": ev,
+                    "evidence_subjects_scanned": subjects,
+                },
             )
         return CheckResult(
             name=self.name, ok=True, severity=Severity.INFO,
-            detail=f"Files={files} evidence_artifacts={ev}",
-            evidence={"uploaded_files": files, "evidence_artifacts": ev},
+            detail=(
+                f"Received {files} files; {ev} evidence artifacts across "
+                f"{subjects} subject(s)."
+            ),
+            evidence={
+                "uploaded_files": files,
+                "evidence_artifacts": ev,
+                "evidence_subjects_scanned": subjects,
+            },
         )
 
 

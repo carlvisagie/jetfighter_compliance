@@ -102,9 +102,12 @@ class EvidenceCollector(SignalCollector):
         self._provider = project_ids_provider
 
     def collect(self) -> Dict[str, Any]:
-        from services.evidence_intelligence.storage import load_jsonl
+        from services.evidence_intelligence.storage import (
+            list_evidence_subjects,
+            load_jsonl,
+        )
 
-        pids: List[str] = list(self._provider() or [])
+        pids = sorted(set(list(self._provider() or []) + list_evidence_subjects()))
         ents = 0
         exts = 0
         with_evidence = 0
@@ -123,6 +126,7 @@ class EvidenceCollector(SignalCollector):
             "evidence_entity_count": ents,
             "evidence_extraction_count": exts,
             "projects_with_evidence": with_evidence,
+            "evidence_subject_count": len(pids),
         }
 
 
