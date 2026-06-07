@@ -22,7 +22,7 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
-    "workload_elimination": 85.71,
+    "workload_elimination": 75.0,
     "passed": true,
     "failure_details": [],
     "root_cause": null
@@ -50,7 +50,7 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
-    "workload_elimination": 85.71,
+    "workload_elimination": 75.0,
     "passed": true,
     "failure_details": [],
     "root_cause": null
@@ -227,49 +227,15 @@
     "id": "17_no_company_name",
     "desc": "No company name",
     "framework_accuracy": 100.0,
-    "gap_accuracy": 0.0,
-    "generation_accuracy": 0.0,
-    "request_accuracy": 0.0,
+    "gap_accuracy": 100.0,
+    "generation_accuracy": 100.0,
+    "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
-    "workload_elimination": 85.71,
-    "passed": false,
-    "failure_details": [
-      {
-        "category": "Generation Accuracy",
-        "expected": [
-          "access_control_policy",
-          "incident_response_plan",
-          "policy",
-          "backup_policy",
-          "training_policy"
-        ],
-        "actual": [
-          "ssp",
-          "access_control_policy",
-          "incident_response_plan",
-          "policy",
-          "backup_policy",
-          "training_policy"
-        ],
-        "root_cause": "Generation Logic",
-        "recommended_fix": "Update Empty State Tolerance threshold to strictly require company_name regardless of tech confidence."
-      },
-      {
-        "category": "Request Accuracy",
-        "expected": [
-          "missing_company_name",
-          "mfa_evidence",
-          "ssp_poam"
-        ],
-        "actual": [
-          "mfa_evidence"
-        ],
-        "root_cause": "Request Logic",
-        "recommended_fix": "Update Empty State Tolerance threshold to strictly require company_name regardless of tech confidence."
-      }
-    ],
-    "root_cause": "Generation Logic"
+    "workload_elimination": 75.0,
+    "passed": true,
+    "failure_details": [],
+    "root_cause": null
   },
   {
     "id": "18_excessive_irrelevant",

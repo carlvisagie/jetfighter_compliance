@@ -55,6 +55,14 @@ def build_validation_report(
                     reason=res.reason_unresolved or "Missing required evidence."
                 ))
                 
+                if res.reason_unresolved == "Company identity not established.":
+                    review_items.append(ValidationHumanReview(
+                        item_type="generation",
+                        item_id=res.gap_id,
+                        reason="Company identity not established.",
+                        confidence=res.confidence
+                    ))
+                
         elif res.strategy == ResolutionStrategy.REQUEST:
             requests.append(ValidationRequest(
                 gap_id=res.gap_id,

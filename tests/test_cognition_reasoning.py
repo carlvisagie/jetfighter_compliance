@@ -53,3 +53,47 @@ def test_evaluate_all_gaps():
     assert ResolutionStrategy.GENERATE in strats
     assert ResolutionStrategy.REQUEST in strats
     assert ResolutionStrategy.PARTIAL in strats
+
+def test_missing_company_name_blocks_generation():
+    state = AwarenessState(
+        knows=["technology: okta"],
+        does_not_know=["company_name"],
+        confidence_level=0.9
+    )
+    gaps = [{"gap_id": "access_control", "label": "Access Control"}]
+    
+    resolutions = evaluate_all_gaps(gaps, state)
+    res = resolutions[0]
+    
+    assert res.strategy == ResolutionStrategy.PARTIAL
+    assert "company_identity" in res.missing_fields
+    assert res.reason_unresolved == "Company identity not established."
+
+def test_technical_entities_alone_do_not_permit_generation():
+    state = AwarenessState(
+        knows=["technology: AWS", "technology: Azure"],
+        does_not_know=["company_name"],
+        confidence_level=0.9
+    )
+    gaps = [{"gap_id": "backup_evidence", "label": "Backup Policy"}]
+    
+    resolutions = evaluate_all_gaps(gaps, state)
+    res = resolutions[0]
+    
+    assert res.strategy == ResolutionStrategy.PARTIAL
+    assert "company_identity" in res.missing_fields
+    assert res.reason_unresolved == "Company identity not established."
+
+def test_verified_company_identity_restores_generation():
+    state = AwarenessState(
+        knows=["technology: AWS", "technology: Azure", "company_name: Acme"],
+        does_not_know=[],
+        confidence_level=0.9
+    )
+    gaps = [{"gap_id": "backup_evidence", "label": "Backup Policy"}]
+    
+    resolutions = evaluate_all_gaps(gaps, state)
+    res = resolutions[0]
+    
+    assert res.strategy == ResolutionStrategy.GENERATE
+    assert "company_identity" not in res.missing_fields

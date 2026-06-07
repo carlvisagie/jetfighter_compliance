@@ -209,19 +209,28 @@ def evaluate_gap_resolution(gap: Dict[str, Any], state: AwarenessState) -> GapRe
 def evaluate_all_gaps(gaps: List[Dict[str, Any]], state: AwarenessState) -> List[GapResolution]:
     resolutions = []
     
+    # Check identity anchor
+    has_identity = "company_name" not in state.does_not_know
+    for k in state.knows:
+        if k.startswith("company_name:") or k.startswith("domain:") or k.startswith("legal_entity:"):
+            has_identity = True
+            break
+            
+    # Identity requirements
+    if "company_name" in state.does_not_know:
+        resolutions.append(GapResolution(
+            gap_id="missing_company_name",
+            strategy=ResolutionStrategy.REQUEST,
+            confidence=0.9,
+            target_document_type="basic_info",
+            missing_fields=["company_name"],
+            reasoning="The organism extracted no intelligence and cannot identify the company name.",
+            evidence_used=[],
+            reason_unresolved="No intelligence found."
+        ))
+
     # Empty State Tolerance: Generate explicit REQUEST resolutions for basic facts
     if state.confidence_level < 0.2:
-        if "company_name" in state.does_not_know:
-            resolutions.append(GapResolution(
-                gap_id="missing_company_name",
-                strategy=ResolutionStrategy.REQUEST,
-                confidence=0.9,
-                target_document_type="basic_info",
-                missing_fields=["company_name"],
-                reasoning="The organism extracted no intelligence and cannot identify the company name.",
-                evidence_used=[],
-                reason_unresolved="No intelligence found."
-            ))
         if "domain_context" in state.does_not_know:
             resolutions.append(GapResolution(
                 gap_id="missing_domain",
@@ -235,5 +244,13 @@ def evaluate_all_gaps(gaps: List[Dict[str, Any]], state: AwarenessState) -> List
             ))
 
     for gap in gaps:
-        resolutions.append(evaluate_gap_resolution(gap, state))
+        res = evaluate_gap_resolution(gap, state)
+        if not has_identity and res.strategy == ResolutionStrategy.GENERATE:
+            res.strategy = ResolutionStrategy.PARTIAL
+            if "company_identity" not in res.missing_fields:
+                res.missing_fields.append("company_identity")
+            res.reason_unresolved = "Company identity not established."
+            # We preserve the original confidence, but validation.py will flag it.
+            
+        resolutions.append(res)
     return resolutions

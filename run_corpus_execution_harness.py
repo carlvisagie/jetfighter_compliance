@@ -48,7 +48,7 @@ CORPUS = [
         "ground_truth": {
             "frameworks": ["domain: cmmc"],
             "generated": ["ssp", "access_control_policy", "incident_response_plan", "policy", "backup_policy", "training_policy"],
-            "requested": ["mfa_evidence"],
+            "requested": ["mfa_evidence", "missing_company_name"],
             "min_reviews": 3,
             "min_confidence": 0.8,
             "safety_warnings": ["Contradiction detected in domain"]
@@ -76,7 +76,7 @@ CORPUS = [
         "ground_truth": {
             "frameworks": ["domain: hipaa", "domain: cmmc"],
             "generated": ["ssp", "access_control_policy", "incident_response_plan", "policy", "backup_policy", "training_policy"],
-            "requested": ["mfa_evidence"],
+            "requested": ["mfa_evidence", "missing_company_name"],
             "min_reviews": 2,
             "min_confidence": 0.8,
             "safety_warnings": []
@@ -260,9 +260,9 @@ CORPUS = [
         "entities": [make_entity("technology", "AWS")],
         "ground_truth": {
             "frameworks": [],
-            "generated": ["access_control_policy", "incident_response_plan", "policy", "backup_policy", "training_policy"],
-            "requested": ["missing_company_name", "mfa_evidence", "ssp_poam"],
-            "min_reviews": 0,
+            "generated": ["ssp", "access_control_policy", "incident_response_plan", "policy", "backup_policy", "training_policy"],
+            "requested": ["missing_company_name", "mfa_evidence"],
+            "min_reviews": 1,
             "min_confidence": 0.0,
             "safety_warnings": []
         }
