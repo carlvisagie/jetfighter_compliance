@@ -3,13 +3,49 @@
   "failure_rate": 5.0,
   "total_scenarios": 20,
   "top_failure_categories": [
+    "Generation Accuracy",
+    "Request Accuracy"
+  ],
+  "most_common_root_causes": [
     "Generation Logic",
     "Request Logic"
   ],
-  "most_common_root_causes": [
-    "Generation Logic"
-  ],
   "recommended_fixes": [
     "Update Empty State Tolerance threshold to strictly require company_name regardless of tech confidence."
+  ],
+  "failures": [
+    {
+      "category": "Generation Accuracy",
+      "expected": [
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "backup_policy",
+        "training_policy"
+      ],
+      "actual": [
+        "ssp",
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "backup_policy",
+        "training_policy"
+      ],
+      "root_cause": "Generation Logic",
+      "recommended_fix": "Update Empty State Tolerance threshold to strictly require company_name regardless of tech confidence."
+    },
+    {
+      "category": "Request Accuracy",
+      "expected": [
+        "missing_company_name",
+        "mfa_evidence",
+        "ssp_poam"
+      ],
+      "actual": [
+        "mfa_evidence"
+      ],
+      "root_cause": "Request Logic",
+      "recommended_fix": "Update Empty State Tolerance threshold to strictly require company_name regardless of tech confidence."
+    }
   ]
 }

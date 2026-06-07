@@ -8,8 +8,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 85.71,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   },
   {
@@ -21,8 +22,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 85.71,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   },
   {
@@ -34,8 +36,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 85.71,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   },
   {
@@ -47,8 +50,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 85.71,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   },
   {
@@ -60,8 +64,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 57.14,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   },
   {
@@ -73,8 +78,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 44.44,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   },
   {
@@ -86,8 +92,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 85.71,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   },
   {
@@ -99,8 +106,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 85.71,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   },
   {
@@ -112,8 +120,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 85.71,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   },
   {
@@ -125,8 +134,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 85.71,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   },
   {
@@ -138,8 +148,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 85.71,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   },
   {
@@ -151,8 +162,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 85.71,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   },
   {
@@ -164,8 +176,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 71.43,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   },
   {
@@ -177,8 +190,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 71.43,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   },
   {
@@ -190,8 +204,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 71.43,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   },
   {
@@ -203,8 +218,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 85.71,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   },
   {
@@ -216,10 +232,42 @@
     "request_accuracy": 0.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 85.71,
     "passed": false,
-    "failures": [
-      "Generation Logic",
-      "Request Logic"
+    "failure_details": [
+      {
+        "category": "Generation Accuracy",
+        "expected": [
+          "access_control_policy",
+          "incident_response_plan",
+          "policy",
+          "backup_policy",
+          "training_policy"
+        ],
+        "actual": [
+          "ssp",
+          "access_control_policy",
+          "incident_response_plan",
+          "policy",
+          "backup_policy",
+          "training_policy"
+        ],
+        "root_cause": "Generation Logic",
+        "recommended_fix": "Update Empty State Tolerance threshold to strictly require company_name regardless of tech confidence."
+      },
+      {
+        "category": "Request Accuracy",
+        "expected": [
+          "missing_company_name",
+          "mfa_evidence",
+          "ssp_poam"
+        ],
+        "actual": [
+          "mfa_evidence"
+        ],
+        "root_cause": "Request Logic",
+        "recommended_fix": "Update Empty State Tolerance threshold to strictly require company_name regardless of tech confidence."
+      }
     ],
     "root_cause": "Generation Logic"
   },
@@ -232,8 +280,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 50.0,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   },
   {
@@ -245,8 +294,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 71.43,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   },
   {
@@ -258,8 +308,9 @@
     "request_accuracy": 100.0,
     "review_accuracy": 100.0,
     "confidence_accuracy": 100.0,
+    "workload_elimination": 85.71,
     "passed": true,
-    "failures": [],
+    "failure_details": [],
     "root_cause": null
   }
 ]

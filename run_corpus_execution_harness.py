@@ -364,6 +364,49 @@ def run_harness():
         
         passed = len(failures) == 0
         
+        failure_details = []
+        if not passed:
+            if framework_acc < 100:
+                failure_details.append({
+                    "category": "Framework Accuracy",
+                    "expected": gt["frameworks"],
+                    "actual": actual_frameworks,
+                    "root_cause": "Failed to extract correct frameworks",
+                    "recommended_fix": "Improve primary_domain and document context extraction"
+                })
+            if gen_acc < 100:
+                failure_details.append({
+                    "category": "Generation Accuracy",
+                    "expected": gt["generated"],
+                    "actual": actual_generated,
+                    "root_cause": "Generation Logic",
+                    "recommended_fix": "Update Empty State Tolerance threshold to strictly require company_name regardless of tech confidence." if c["id"] == "17_no_company_name" else "Review generation rules"
+                })
+            if req_acc < 100:
+                failure_details.append({
+                    "category": "Request Accuracy",
+                    "expected": gt["requested"],
+                    "actual": actual_requested,
+                    "root_cause": "Request Logic",
+                    "recommended_fix": "Update Empty State Tolerance threshold to strictly require company_name regardless of tech confidence." if c["id"] == "17_no_company_name" else "Review request logic"
+                })
+            if review_acc < 100:
+                failure_details.append({
+                    "category": "Review Accuracy",
+                    "expected": f">= {gt['min_reviews']} reviews, warnings: {gt['safety_warnings']}",
+                    "actual": f"{actual_reviews} reviews, warnings: {actual_warnings}",
+                    "root_cause": "Review Flagging",
+                    "recommended_fix": "Improve contradiction detection to force low confidence on critical entity conflicts."
+                })
+            if conf_acc < 100:
+                failure_details.append({
+                    "category": "Confidence Accuracy",
+                    "expected": f">= {gt['min_confidence']}",
+                    "actual": actual_confidence,
+                    "root_cause": "Confidence Scoring",
+                    "recommended_fix": "Adjust confidence weights for degraded inputs"
+                })
+
         results.append({
             "id": c["id"],
             "desc": c["desc"],
@@ -373,9 +416,10 @@ def run_harness():
             "request_accuracy": req_acc,
             "review_accuracy": review_acc,
             "confidence_accuracy": conf_acc,
+            "workload_elimination": metrics.workload_elimination_percentage,
             "passed": passed,
-            "failures": failures,
-            "root_cause": failures[0] if failures else None
+            "failure_details": failure_details,
+            "root_cause": failure_details[0]["root_cause"] if failure_details else None
         })
         
     with open("corpus_results.json", "w") as f:
@@ -387,18 +431,14 @@ def run_harness():
     
     all_failures = []
     for r in results:
-        all_failures.extend(r["failures"])
+        for f in r.get("failure_details", []):
+            all_failures.append(f)
     
-    top_categories = [k for k, v in Counter(all_failures).most_common(3)]
+    top_categories = [k for k, v in Counter(f["category"] for f in all_failures).most_common(3)]
     
-    root_causes = [r["root_cause"] for r in results if r["root_cause"]]
-    most_common_rc = [k for k, v in Counter(root_causes).most_common(3)]
+    most_common_rc = [k for k, v in Counter(f["root_cause"] for f in all_failures).most_common(3)]
     
-    recommended_fixes = []
-    if "Request Logic" in top_categories or "Generation Logic" in top_categories:
-        recommended_fixes.append("Update Empty State Tolerance threshold to strictly require company_name regardless of tech confidence.")
-    if "Review Flagging" in top_categories:
-        recommended_fixes.append("Improve contradiction detection to force low confidence on critical entity conflicts.")
+    recommended_fixes = list(set(f["recommended_fix"] for f in all_failures))
         
     overall = {
         "pass_rate": (passed_count / total) * 100.0,
@@ -406,7 +446,8 @@ def run_harness():
         "total_scenarios": total,
         "top_failure_categories": top_categories,
         "most_common_root_causes": most_common_rc,
-        "recommended_fixes": recommended_fixes
+        "recommended_fixes": recommended_fixes,
+        "failures": all_failures
     }
     
     with open("overall_corpus_score.json", "w") as f:
