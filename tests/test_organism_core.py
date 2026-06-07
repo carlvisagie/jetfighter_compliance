@@ -83,12 +83,12 @@ def test_severity_coerces_aliases():
 def test_signal_bundle_namespaces_and_lookups():
     b = SignalBundle()
     b.add("alpha", {"x": 1, "y": 2})
-    b.add("beta", {"x": 99})
+    b.add("pilot", {"x": 99})
     assert b.get("alpha", "x") == 1
-    assert b.get("beta", "x") == 99
+    assert b.get("pilot", "x") == 99
     assert b.get("missing", "x", default=42) == 42
     assert "alpha.x" in b.flat()
-    assert "beta.x" in b.flat()
+    assert "pilot.x" in b.flat()
 
 
 # ---------- Collector / Check safe wrappers ---------------------------------

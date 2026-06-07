@@ -1,5 +1,5 @@
 /**
- * Founding Beta intake funnel — upload + success card copy link.
+ * Founding Pilot intake funnel — upload + success card copy link.
  */
 (function () {
   'use strict';

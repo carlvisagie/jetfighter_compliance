@@ -1,282 +1,1412 @@
 [
   {
-    "id": "1_conflicting_names",
-    "desc": "Conflicting company names",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
-    "workload_elimination": 85.71,
+    "id": "company_01",
+    "desc": "Clean pass. All documents align with CMMC Level 2 requirements.",
+    "files_processed": 8,
+    "classifications": [
+      "document: mfa_evidence",
+      "document: unknown",
+      "document: training_record",
+      "document: ssp",
+      "document: poam"
+    ],
+    "entities": [
+      "date: 2024-01-15",
+      "compliance_reference: CMMC",
+      "date: 2023-10-15",
+      "date: 2024-03-01",
+      "email: jane.doe@aegisdefense.com",
+      "compliance_reference: NIST",
+      "compliance_reference: NIST SP 800-171",
+      "technology: Cisco",
+      "technology: CrowdStrike",
+      "technology: Amazon Web Services",
+      "compliance_reference: FedRAMP",
+      "date: 2023-06-01",
+      "date: 2023-07-14",
+      "email: john.smith@aegisdefense.com",
+      "date: 2023-09-01",
+      "date: 2024-02-15"
+    ],
+    "framework": [
+      "domain: CMMC"
+    ],
+    "gaps_detected": 6,
+    "documents_generated": [
+      "access_control_policy",
+      "asset_inventory",
+      "policy",
+      "incident_response_plan"
+    ],
+    "requests_generated": [
+      "vulnerability_evidence",
+      "backup_evidence"
+    ],
+    "review_flags_generated": 4,
+    "workload_elimination": 66.67,
+    "confidence": 0.7615384615384614,
+    "ground_truth": {
+      "expected_framework": [
+        "CMMC Level 2"
+      ],
+      "expected_gaps": [],
+      "expected_documents_generated": [
+        "SSP",
+        "POA&M",
+        "Incident Response Plan"
+      ],
+      "expected_customer_requests": [],
+      "expected_human_review_flags": [],
+      "expected_confidence_range": "95-100%",
+      "Actual compliance framework(s)": [
+        "CMMC Level 2"
+      ],
+      "Actual technologies": [
+        "Active Directory",
+        "Splunk",
+        "Cisco Meraki"
+      ],
+      "Actual vendors": [
+        "Microsoft",
+        "CrowdStrike",
+        "AWS GovCloud"
+      ],
+      "Actual gaps": [],
+      "Actual expected organism conclusions": "Clean pass. All documents align with CMMC Level 2 requirements."
+    },
     "passed": true,
-    "failure_details": [],
-    "root_cause": null
+    "failures": []
   },
   {
-    "id": "2_conflicting_domains",
-    "desc": "Conflicting domains",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
-    "workload_elimination": 75.0,
+    "id": "company_02",
+    "desc": "Clean pass. All documents align with HIPAA requirements.",
+    "files_processed": 6,
+    "classifications": [
+      "document: policy",
+      "document: mfa_evidence",
+      "document: unknown",
+      "document: backup_evidence"
+    ],
+    "entities": [
+      "compliance_reference: NIST",
+      "technology: Mimecast",
+      "date: 2023-01-01",
+      "date: 2024-01-10",
+      "compliance_reference: HIPAA",
+      "date: 2023-11-01",
+      "technology: Okta",
+      "date: 2023-12-01",
+      "email: sarah.lee@apexhealth.com",
+      "date: 2024-01-01"
+    ],
+    "framework": [
+      "domain: HIPAA"
+    ],
+    "gaps_detected": 6,
+    "documents_generated": [
+      "risk_register",
+      "training_policy",
+      "asset_inventory",
+      "incident_response_plan"
+    ],
+    "requests_generated": [
+      "hipaa_baa",
+      "hipaa_breach_procedures"
+    ],
+    "review_flags_generated": 6,
+    "workload_elimination": 66.67,
+    "confidence": 0.7493750000000001,
+    "ground_truth": {
+      "expected_framework": [
+        "HIPAA"
+      ],
+      "expected_gaps": [],
+      "expected_documents_generated": [
+        "HIPAA Security Policy",
+        "Risk Assessment",
+        "BAA"
+      ],
+      "expected_customer_requests": [],
+      "expected_human_review_flags": [],
+      "expected_confidence_range": "95-100%",
+      "Actual compliance framework(s)": [
+        "HIPAA"
+      ],
+      "Actual technologies": [
+        "G Suite",
+        "Palo Alto Networks",
+        "Jamf"
+      ],
+      "Actual vendors": [
+        "Epic Systems",
+        "Google Cloud",
+        "Okta"
+      ],
+      "Actual gaps": [],
+      "Actual expected organism conclusions": "Clean pass. All documents align with HIPAA requirements."
+    },
     "passed": true,
-    "failure_details": [],
-    "root_cause": null
+    "failures": []
   },
   {
-    "id": "3_multiple_subsidiaries",
-    "desc": "Multiple subsidiaries",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
-    "workload_elimination": 85.71,
-    "passed": true,
-    "failure_details": [],
-    "root_cause": null
-  },
-  {
-    "id": "4_mixed_frameworks",
-    "desc": "Mixed frameworks (HIPAA + CMMC)",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
-    "workload_elimination": 75.0,
-    "passed": true,
-    "failure_details": [],
-    "root_cause": null
-  },
-  {
-    "id": "5_missing_pages",
-    "desc": "Missing pages",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
-    "workload_elimination": 57.14,
-    "passed": true,
-    "failure_details": [],
-    "root_cause": null
-  },
-  {
-    "id": "6_ocr_corruption",
-    "desc": "OCR corruption",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
-    "workload_elimination": 44.44,
-    "passed": true,
-    "failure_details": [],
-    "root_cause": null
-  },
-  {
-    "id": "7_duplicate_uploads",
-    "desc": "Duplicate uploads",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
-    "workload_elimination": 85.71,
-    "passed": true,
-    "failure_details": [],
-    "root_cause": null
-  },
-  {
-    "id": "8_stale_documents",
-    "desc": "Stale documents",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
-    "workload_elimination": 85.71,
-    "passed": true,
-    "failure_details": [],
-    "root_cause": null
-  },
-  {
-    "id": "9_contradictory_policies",
-    "desc": "Contradictory policies",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
-    "workload_elimination": 85.71,
-    "passed": true,
-    "failure_details": [],
-    "root_cause": null
-  },
-  {
-    "id": "10_missing_signatures",
-    "desc": "Missing signatures",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
-    "workload_elimination": 85.71,
-    "passed": true,
-    "failure_details": [],
-    "root_cause": null
-  },
-  {
-    "id": "11_mixed_vendor",
-    "desc": "Mixed vendor environments",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
-    "workload_elimination": 85.71,
-    "passed": true,
-    "failure_details": [],
-    "root_cause": null
-  },
-  {
-    "id": "12_wrong_filenames",
-    "desc": "Wrong file names",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
-    "workload_elimination": 85.71,
-    "passed": true,
-    "failure_details": [],
-    "root_cause": null
-  },
-  {
-    "id": "13_incomplete_asset_inventory",
-    "desc": "Incomplete asset inventories",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
+    "id": "company_03",
+    "desc": "Identify dual framework requirements. Flag missing BAA and FIPS validation.",
+    "files_processed": 4,
+    "classifications": [
+      "document: policy",
+      "document: ssp",
+      "document: unknown"
+    ],
+    "entities": [
+      "compliance_reference: CMMC",
+      "date: 2023-01-01",
+      "compliance_reference: FedRAMP",
+      "compliance_reference: ITAR",
+      "technology: Amazon Web Services",
+      "technology: Microsoft Azure",
+      "date: 2023-11-01",
+      "compliance_reference: HIPAA",
+      "date: 2022-06-01",
+      "date: 2024-02-01"
+    ],
+    "framework": [
+      "domain: CMMC"
+    ],
+    "gaps_detected": 7,
+    "documents_generated": [
+      "training_policy",
+      "access_control_policy",
+      "asset_inventory",
+      "backup_policy",
+      "incident_response_plan"
+    ],
+    "requests_generated": [
+      "mfa_evidence",
+      "vulnerability_evidence"
+    ],
+    "review_flags_generated": 2,
     "workload_elimination": 71.43,
+    "confidence": 0.741111111111111,
+    "ground_truth": {
+      "expected_framework": [
+        "HIPAA",
+        "CMMC Level 2"
+      ],
+      "expected_gaps": [
+        "Missing BAA for Trellix",
+        "FIPS validation missing for VPN"
+      ],
+      "expected_documents_generated": [
+        "SSP",
+        "HIPAA Security Policy"
+      ],
+      "expected_customer_requests": [
+        "Provide BAA for Trellix",
+        "Provide FIPS 140-2 validation certificate"
+      ],
+      "expected_human_review_flags": [
+        "Framework overlap handling"
+      ],
+      "expected_confidence_range": "80-90%",
+      "Actual compliance framework(s)": [
+        "HIPAA",
+        "CMMC Level 2"
+      ],
+      "Actual technologies": [
+        "Azure AD",
+        "Cisco Secure Endpoint",
+        "ServiceNow"
+      ],
+      "Actual vendors": [
+        "AWS GovCloud",
+        "Epic Systems",
+        "Trellix"
+      ],
+      "Actual gaps": [
+        "Missing BAA for Trellix",
+        "FIPS validation missing for VPN"
+      ],
+      "Actual expected organism conclusions": "Identify dual framework requirements. Flag missing BAA and FIPS validation."
+    },
     "passed": true,
-    "failure_details": [],
-    "root_cause": null
+    "failures": []
   },
   {
-    "id": "14_ambiguous_idp",
-    "desc": "Ambiguous identity providers",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
-    "workload_elimination": 71.43,
+    "id": "company_04",
+    "desc": "Detect entity mismatch between policy scope and evidence artifacts.",
+    "files_processed": 3,
+    "classifications": [
+      "document: policy",
+      "document: unknown",
+      "document: backup_evidence"
+    ],
+    "entities": [
+      "compliance_reference: ISO 27001",
+      "date: 2024-01-01",
+      "date: 2023-09-20"
+    ],
+    "framework": [],
+    "gaps_detected": 3,
+    "documents_generated": [
+      "incident_response_plan"
+    ],
+    "requests_generated": [
+      "missing_company_name",
+      "asset_inventory"
+    ],
+    "review_flags_generated": 0,
+    "workload_elimination": 33.33,
+    "confidence": 0.64,
+    "ground_truth": {
+      "expected_framework": [
+        "ISO 27001"
+      ],
+      "expected_gaps": [
+        "Scope ambiguity between parent and subsidiary"
+      ],
+      "expected_documents_generated": [
+        "SoA",
+        "ISMS Manual"
+      ],
+      "expected_customer_requests": [
+        "Clarify ISMS scope boundaries"
+      ],
+      "expected_human_review_flags": [
+        "Entity resolution issue"
+      ],
+      "expected_confidence_range": "70-85%",
+      "Actual compliance framework(s)": [
+        "ISO 27001"
+      ],
+      "Actual technologies": [
+        "Office 365",
+        "Fortinet",
+        "Mimecast"
+      ],
+      "Actual vendors": [
+        "SAP",
+        "Microsoft",
+        "Salesforce"
+      ],
+      "Actual gaps": [
+        "Policies apply to Parent but evidence is for Subsidiary"
+      ],
+      "Actual expected organism conclusions": "Detect entity mismatch between policy scope and evidence artifacts."
+    },
     "passed": true,
-    "failure_details": [],
-    "root_cause": null
+    "failures": []
   },
   {
-    "id": "15_ambiguous_cloud",
-    "desc": "Ambiguous cloud providers",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
-    "workload_elimination": 71.43,
+    "id": "company_05",
+    "desc": "Flag entity extraction inconsistencies and ask for clarification.",
+    "files_processed": 7,
+    "classifications": [
+      "document: policy",
+      "document: access_control_evidence",
+      "document: training_record",
+      "document: unknown"
+    ],
+    "entities": [
+      "date: 2023-01-01",
+      "technology: Amazon Web Services",
+      "compliance_reference: SOC 2",
+      "date: 2023-10-02",
+      "date: 2023-06-01",
+      "date: 2023-10-01",
+      "date: 2023-10-03",
+      "date: 2024-01-01"
+    ],
+    "framework": [],
+    "gaps_detected": 3,
+    "documents_generated": [
+      "asset_inventory",
+      "incident_response_plan"
+    ],
+    "requests_generated": [
+      "backup_evidence"
+    ],
+    "review_flags_generated": 5,
+    "workload_elimination": 66.67,
+    "confidence": 0.6,
+    "ground_truth": {
+      "expected_framework": [
+        "SOC 2 Type II"
+      ],
+      "expected_gaps": [
+        "Inconsistent naming across policies"
+      ],
+      "expected_documents_generated": [
+        "System Description",
+        "Information Security Policy"
+      ],
+      "expected_customer_requests": [
+        "Confirm legal entity name"
+      ],
+      "expected_human_review_flags": [
+        "Entity extraction contradiction"
+      ],
+      "expected_confidence_range": "60-80%",
+      "Actual compliance framework(s)": [
+        "SOC 2 Type II"
+      ],
+      "Actual technologies": [
+        "Jira",
+        "G Suite",
+        "AWS IAM"
+      ],
+      "Actual vendors": [
+        "AWS",
+        "Google Workspace",
+        "Atlassian"
+      ],
+      "Actual gaps": [
+        "Company name changes randomly in documents"
+      ],
+      "Actual expected organism conclusions": "Flag entity extraction inconsistencies and ask for clarification."
+    },
     "passed": true,
-    "failure_details": [],
-    "root_cause": null
+    "failures": []
   },
   {
-    "id": "16_no_contact_info",
-    "desc": "No contact information",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
-    "workload_elimination": 85.71,
-    "passed": true,
-    "failure_details": [],
-    "root_cause": null
-  },
-  {
-    "id": "17_no_company_name",
-    "desc": "No company name",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
-    "workload_elimination": 75.0,
-    "passed": true,
-    "failure_details": [],
-    "root_cause": null
-  },
-  {
-    "id": "18_excessive_irrelevant",
-    "desc": "Excessive irrelevant documents",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
+    "id": "company_06",
+    "desc": "Identify multiple domains and flag potential scope issues.",
+    "files_processed": 3,
+    "classifications": [
+      "document: access_control_evidence",
+      "document: training_record",
+      "document: unknown"
+    ],
+    "entities": [
+      "email: carol@omni-dev.io",
+      "email: alice@omnicorp.com",
+      "email: bob@omnicorp.net",
+      "compliance_reference: SOC 2",
+      "date: 2023-10-01",
+      "email: devteam@omni-dev.io",
+      "email: cto@omnicorp.net",
+      "date: 2023-12-01",
+      "date: 2024-01-01"
+    ],
+    "framework": [],
+    "gaps_detected": 4,
+    "documents_generated": [
+      "policy",
+      "incident_response_plan"
+    ],
+    "requests_generated": [
+      "asset_inventory",
+      "backup_evidence"
+    ],
+    "review_flags_generated": 0,
     "workload_elimination": 50.0,
+    "confidence": 0.7538461538461539,
+    "ground_truth": {
+      "expected_framework": [
+        "SOC 2 Type II"
+      ],
+      "expected_gaps": [
+        "Email domains in evidence do not match company domain"
+      ],
+      "expected_documents_generated": [
+        "Access Control Policy"
+      ],
+      "expected_customer_requests": [
+        "Verify domain ownership"
+      ],
+      "expected_human_review_flags": [
+        "Domain detection mismatch"
+      ],
+      "expected_confidence_range": "75-85%",
+      "Actual compliance framework(s)": [
+        "SOC 2 Type II"
+      ],
+      "Actual technologies": [
+        "GitHub Enterprise",
+        "AWS EKS",
+        "Slack Enterprise Grid"
+      ],
+      "Actual vendors": [
+        "GitHub",
+        "AWS",
+        "Slack"
+      ],
+      "Actual gaps": [
+        "Evidence shows @omnicorp.com, @omnicorp.net, and @omni-dev.io"
+      ],
+      "Actual expected organism conclusions": "Identify multiple domains and flag potential scope issues."
+    },
     "passed": true,
-    "failure_details": [],
-    "root_cause": null
+    "failures": []
   },
   {
-    "id": "19_legacy_technologies",
-    "desc": "Legacy technologies",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
+    "id": "company_07",
+    "desc": "Fail classification of misnamed files and request correct evidence.",
+    "files_processed": 4,
+    "classifications": [
+      "document: policy",
+      "document: contract",
+      "document: unknown"
+    ],
+    "entities": [
+      "technology: Amazon Web Services",
+      "date: 2024-01-01"
+    ],
+    "framework": [],
+    "gaps_detected": 4,
+    "documents_generated": [
+      "asset_inventory",
+      "incident_response_plan"
+    ],
+    "requests_generated": [
+      "missing_company_name",
+      "backup_evidence"
+    ],
+    "review_flags_generated": 1,
+    "workload_elimination": 50.0,
+    "confidence": 0.62,
+    "ground_truth": {
+      "expected_framework": [
+        "PCI DSS"
+      ],
+      "expected_gaps": [
+        "Missing actual firewall configuration"
+      ],
+      "expected_documents_generated": [
+        "Cardholder Data Policy"
+      ],
+      "expected_customer_requests": [
+        "Provide actual firewall config, uploaded file was a lunch menu"
+      ],
+      "expected_human_review_flags": [
+        "Classification failure"
+      ],
+      "expected_confidence_range": "50-70%",
+      "Actual compliance framework(s)": [
+        "PCI DSS"
+      ],
+      "Actual technologies": [
+        "AWS KMS",
+        "Datadog APM",
+        "PostgreSQL"
+      ],
+      "Actual vendors": [
+        "Stripe",
+        "AWS",
+        "Datadog"
+      ],
+      "Actual gaps": [
+        "File named 'firewall_rules.pdf' contains cafeteria menu"
+      ],
+      "Actual expected organism conclusions": "Fail classification of misnamed files and request correct evidence."
+    },
+    "passed": true,
+    "failures": []
+  },
+  {
+    "id": "company_08",
+    "desc": "Detect unreadable text and flag for manual review or re-upload.",
+    "files_processed": 3,
+    "classifications": [
+      "document: policy",
+      "document: ssp",
+      "document: unknown"
+    ],
+    "entities": [
+      "technology: Cisco",
+      "date: 2024-01-01",
+      "compliance_reference: NIST",
+      "compliance_reference: NIST SP 800-171"
+    ],
+    "framework": [
+      "domain: CMMC"
+    ],
+    "gaps_detected": 7,
+    "documents_generated": [
+      "training_policy",
+      "access_control_policy",
+      "asset_inventory",
+      "incident_response_plan"
+    ],
+    "requests_generated": [
+      "mfa_evidence",
+      "vulnerability_evidence",
+      "backup_evidence"
+    ],
+    "review_flags_generated": 0,
+    "workload_elimination": 57.14,
+    "confidence": 0.6837500000000001,
+    "ground_truth": {
+      "expected_framework": [
+        "NIST 800-171"
+      ],
+      "expected_gaps": [
+        "Unreadable password policy"
+      ],
+      "expected_documents_generated": [
+        "SSP"
+      ],
+      "expected_customer_requests": [
+        "Re-upload legible password policy"
+      ],
+      "expected_human_review_flags": [
+        "Validation layer failure"
+      ],
+      "expected_confidence_range": "40-60%",
+      "Actual compliance framework(s)": [
+        "NIST 800-171"
+      ],
+      "Actual technologies": [
+        "Oracle ERP",
+        "Cisco ASA",
+        "IBM Mainframe"
+      ],
+      "Actual vendors": [
+        "Oracle",
+        "Cisco",
+        "IBM"
+      ],
+      "Actual gaps": [
+        "Password policy is heavily corrupted by bad OCR"
+      ],
+      "Actual expected organism conclusions": "Detect unreadable text and flag for manual review or re-upload."
+    },
+    "passed": true,
+    "failures": []
+  },
+  {
+    "id": "company_09",
+    "desc": "Identify duplicate files and flag missing required document.",
+    "files_processed": 6,
+    "classifications": [
+      "document: mfa_evidence",
+      "document: backup_evidence"
+    ],
+    "entities": [
+      "technology: Amazon Web Services",
+      "technology: Okta",
+      "date: 2024-01-01",
+      "compliance_reference: SOC 2"
+    ],
+    "framework": [],
+    "gaps_detected": 4,
+    "documents_generated": [
+      "asset_inventory",
+      "policy",
+      "incident_response_plan"
+    ],
+    "requests_generated": [
+      "missing_company_name"
+    ],
+    "review_flags_generated": 2,
+    "workload_elimination": 75.0,
+    "confidence": 0.7957142857142857,
+    "ground_truth": {
+      "expected_framework": [
+        "SOC 2 Type II"
+      ],
+      "expected_gaps": [
+        "Missing Incident Response Plan"
+      ],
+      "expected_documents_generated": [
+        "Access Control Policy"
+      ],
+      "expected_customer_requests": [
+        "Upload Incident Response Plan"
+      ],
+      "expected_human_review_flags": [
+        "Deduplication failure"
+      ],
+      "expected_confidence_range": "80-90%",
+      "Actual compliance framework(s)": [
+        "SOC 2 Type II"
+      ],
+      "Actual technologies": [
+        "Snowflake",
+        "AWS S3",
+        "Tableau Server"
+      ],
+      "Actual vendors": [
+        "Snowflake",
+        "AWS",
+        "Tableau"
+      ],
+      "Actual gaps": [
+        "Incident Response Plan is missing, Access Control Policy uploaded 5 times"
+      ],
+      "Actual expected organism conclusions": "Identify duplicate files and flag missing required document."
+    },
+    "passed": true,
+    "failures": []
+  },
+  {
+    "id": "company_10",
+    "desc": "Detect missing pages and incomplete policy.",
+    "files_processed": 2,
+    "classifications": [
+      "document: vendor_document",
+      "document: unknown"
+    ],
+    "entities": [
+      "date: 2024-01-01"
+    ],
+    "framework": [],
+    "gaps_detected": 4,
+    "documents_generated": [
+      "incident_response_plan"
+    ],
+    "requests_generated": [
+      "missing_company_name",
+      "asset_inventory",
+      "backup_evidence"
+    ],
+    "review_flags_generated": 0,
+    "workload_elimination": 25.0,
+    "confidence": 0.51,
+    "ground_truth": {
+      "expected_framework": [
+        "CIS Controls v8"
+      ],
+      "expected_gaps": [
+        "Missing signature page on AUP"
+      ],
+      "expected_documents_generated": [
+        "Acceptable Use Policy"
+      ],
+      "expected_customer_requests": [
+        "Provide complete AUP with signature page"
+      ],
+      "expected_human_review_flags": [
+        "Document completeness check"
+      ],
+      "expected_confidence_range": "60-80%",
+      "Actual compliance framework(s)": [
+        "CIS Controls v8"
+      ],
+      "Actual technologies": [
+        "Office 365",
+        "ConnectWise Manage",
+        "Sophos Intercept X"
+      ],
+      "Actual vendors": [
+        "Microsoft",
+        "ConnectWise",
+        "Sophos"
+      ],
+      "Actual gaps": [
+        "AUP PDF is missing pages 3-5, including signature block"
+      ],
+      "Actual expected organism conclusions": "Detect missing pages and incomplete policy."
+    },
+    "passed": true,
+    "failures": []
+  },
+  {
+    "id": "company_11",
+    "desc": "Identify logical contradiction between two policy documents.",
+    "files_processed": 5,
+    "classifications": [
+      "document: policy",
+      "document: access_control_evidence",
+      "document: mfa_evidence"
+    ],
+    "entities": [
+      "date: 2024-01-15",
+      "date: 2024-03-01",
+      "technology: CrowdStrike",
+      "compliance_reference: SOC 2",
+      "technology: Okta",
+      "date: 2024-01-01"
+    ],
+    "framework": [],
+    "gaps_detected": 4,
+    "documents_generated": [
+      "asset_inventory",
+      "incident_response_plan"
+    ],
+    "requests_generated": [
+      "missing_company_name",
+      "backup_evidence"
+    ],
+    "review_flags_generated": 2,
+    "workload_elimination": 50.0,
+    "confidence": 0.7858333333333333,
+    "ground_truth": {
+      "expected_framework": [
+        "SOC 2 Type II"
+      ],
+      "expected_gaps": [
+        "Contradictory password length requirements"
+      ],
+      "expected_documents_generated": [
+        "Information Security Policy",
+        "Access Control Policy"
+      ],
+      "expected_customer_requests": [
+        "Clarify password length requirement"
+      ],
+      "expected_human_review_flags": [
+        "Gap reasoning contradiction"
+      ],
+      "expected_confidence_range": "50-70%",
+      "Actual compliance framework(s)": [
+        "SOC 2 Type II"
+      ],
+      "Actual technologies": [
+        "AWS IAM",
+        "Okta SSO",
+        "CrowdStrike Falcon"
+      ],
+      "Actual vendors": [
+        "AWS",
+        "Okta",
+        "CrowdStrike"
+      ],
+      "Actual gaps": [
+        "InfoSec policy says 8 chars, Access Control policy says 12 chars"
+      ],
+      "Actual expected organism conclusions": "Identify logical contradiction between two policy documents."
+    },
+    "passed": true,
+    "failures": []
+  },
+  {
+    "id": "company_12",
+    "desc": "Detect temporal mismatch and environment discrepancy between SSP and inventory.",
+    "files_processed": 3,
+    "classifications": [
+      "document: ssp",
+      "document: unknown"
+    ],
+    "entities": [
+      "date: 2018-03-01",
+      "compliance_reference: NIST SP 800-171",
+      "compliance_reference: NIST",
+      "technology: Cisco",
+      "technology: Amazon Web Services"
+    ],
+    "framework": [
+      "domain: CMMC"
+    ],
+    "gaps_detected": 9,
+    "documents_generated": [
+      "training_policy",
+      "access_control_policy",
+      "asset_inventory",
+      "policy",
+      "incident_response_plan"
+    ],
+    "requests_generated": [
+      "missing_company_name",
+      "mfa_evidence",
+      "vulnerability_evidence",
+      "backup_evidence"
+    ],
+    "review_flags_generated": 0,
+    "workload_elimination": 55.56,
+    "confidence": 0.7037500000000001,
+    "ground_truth": {
+      "expected_framework": [
+        "NIST 800-171"
+      ],
+      "expected_gaps": [
+        "SSP is outdated",
+        "Unsupported OS in inventory"
+      ],
+      "expected_documents_generated": [
+        "SSP",
+        "Asset Inventory"
+      ],
+      "expected_customer_requests": [
+        "Update SSP to reflect current inventory"
+      ],
+      "expected_human_review_flags": [
+        "Temporal reasoning failure"
+      ],
+      "expected_confidence_range": "60-80%",
+      "Actual compliance framework(s)": [
+        "NIST 800-171"
+      ],
+      "Actual technologies": [
+        "Windows Server 2012",
+        "AWS EC2",
+        "Cisco ASA"
+      ],
+      "Actual vendors": [
+        "Microsoft",
+        "AWS GovCloud",
+        "Cisco"
+      ],
+      "Actual gaps": [
+        "SSP is from 2018, inventory is from 2023. Inventory lists AWS, SSP lists on-prem only."
+      ],
+      "Actual expected organism conclusions": "Detect temporal mismatch and environment discrepancy between SSP and inventory."
+    },
+    "passed": true,
+    "failures": []
+  },
+  {
+    "id": "company_13",
+    "desc": "Identify template documents that haven't been customized.",
+    "files_processed": 3,
+    "classifications": [
+      "document: policy",
+      "document: access_control_evidence",
+      "document: unknown"
+    ],
+    "entities": [
+      "technology: Google Workspace",
+      "compliance_reference: SOC 2"
+    ],
+    "framework": [],
+    "gaps_detected": 4,
+    "documents_generated": [
+      "asset_inventory",
+      "incident_response_plan"
+    ],
+    "requests_generated": [
+      "missing_company_name",
+      "backup_evidence"
+    ],
+    "review_flags_generated": 1,
+    "workload_elimination": 50.0,
+    "confidence": 0.6300000000000001,
+    "ground_truth": {
+      "expected_framework": [
+        "SOC 2 Type I"
+      ],
+      "expected_gaps": [
+        "Missing company name in all policies"
+      ],
+      "expected_documents_generated": [
+        "Information Security Policy"
+      ],
+      "expected_customer_requests": [
+        "Update policies with company name"
+      ],
+      "expected_human_review_flags": [
+        "Entity extraction failure"
+      ],
+      "expected_confidence_range": "40-60%",
+      "Actual compliance framework(s)": [
+        "SOC 2 Type I"
+      ],
+      "Actual technologies": [
+        "G Suite",
+        "Slack",
+        "Zoom"
+      ],
+      "Actual vendors": [
+        "Google Workspace",
+        "Slack",
+        "Zoom"
+      ],
+      "Actual gaps": [
+        "All policies use '[Company Name]' template placeholder"
+      ],
+      "Actual expected organism conclusions": "Identify template documents that haven't been customized."
+    },
+    "passed": true,
+    "failures": []
+  },
+  {
+    "id": "company_14",
+    "desc": "Flag missing critical information in IR Plan.",
+    "files_processed": 3,
+    "classifications": [
+      "document: incident_response",
+      "document: mfa_evidence"
+    ],
+    "entities": [
+      "compliance_reference: CMMC",
+      "technology: Amazon Web Services",
+      "date: 2024-01-01"
+    ],
+    "framework": [
+      "domain: CMMC"
+    ],
+    "gaps_detected": 7,
+    "documents_generated": [
+      "training_policy",
+      "access_control_policy",
+      "asset_inventory",
+      "ssp",
+      "policy"
+    ],
+    "requests_generated": [
+      "vulnerability_evidence",
+      "backup_evidence"
+    ],
+    "review_flags_generated": 2,
     "workload_elimination": 71.43,
+    "confidence": 0.7928571428571429,
+    "ground_truth": {
+      "expected_framework": [
+        "CMMC Level 2"
+      ],
+      "expected_gaps": [
+        "Missing Incident Response contacts"
+      ],
+      "expected_documents_generated": [
+        "Incident Response Plan"
+      ],
+      "expected_customer_requests": [
+        "Provide IR contact information"
+      ],
+      "expected_human_review_flags": [
+        "Validation layer gap"
+      ],
+      "expected_confidence_range": "70-85%",
+      "Actual compliance framework(s)": [
+        "CMMC Level 2"
+      ],
+      "Actual technologies": [
+        "AWS KMS",
+        "Palantir Gotham"
+      ],
+      "Actual vendors": [
+        "AWS GovCloud",
+        "Palantir"
+      ],
+      "Actual gaps": [
+        "IR Plan has blank contact tables"
+      ],
+      "Actual expected organism conclusions": "Flag missing critical information in IR Plan."
+    },
     "passed": true,
-    "failure_details": [],
-    "root_cause": null
+    "failures": []
   },
   {
-    "id": "20_conflicting_evidence_over_time",
-    "desc": "Conflicting evidence over time",
-    "framework_accuracy": 100.0,
-    "gap_accuracy": 100.0,
-    "generation_accuracy": 100.0,
-    "request_accuracy": 100.0,
-    "review_accuracy": 100.0,
-    "confidence_accuracy": 100.0,
-    "workload_elimination": 85.71,
+    "id": "company_15",
+    "desc": "Identify contradiction between written description and architecture diagram.",
+    "files_processed": 3,
+    "classifications": [
+      "document: unknown",
+      "document: system_diagram",
+      "document: backup_evidence"
+    ],
+    "entities": [
+      "date: 2024-01-15",
+      "technology: Amazon Web Services",
+      "compliance_reference: SOC 2",
+      "technology: Microsoft Azure",
+      "date: 2023-06-01",
+      "date: 2024-01-01"
+    ],
+    "framework": [],
+    "gaps_detected": 3,
+    "documents_generated": [
+      "asset_inventory",
+      "policy",
+      "incident_response_plan"
+    ],
+    "requests_generated": [],
+    "review_flags_generated": 0,
+    "workload_elimination": 100.0,
+    "confidence": 0.7141666666666667,
+    "ground_truth": {
+      "expected_framework": [
+        "SOC 2 Type II"
+      ],
+      "expected_gaps": [
+        "Unclear primary hosting provider"
+      ],
+      "expected_documents_generated": [
+        "System Description"
+      ],
+      "expected_customer_requests": [
+        "Clarify hosting environment in System Description"
+      ],
+      "expected_human_review_flags": [
+        "Gap reasoning confusion"
+      ],
+      "expected_confidence_range": "60-80%",
+      "Actual compliance framework(s)": [
+        "SOC 2 Type II"
+      ],
+      "Actual technologies": [
+        "AWS EC2",
+        "Azure AD",
+        "GCP BigQuery"
+      ],
+      "Actual vendors": [
+        "AWS",
+        "Azure",
+        "GCP"
+      ],
+      "Actual gaps": [
+        "System description says 100% AWS, but architecture diagram shows Azure and GCP"
+      ],
+      "Actual expected organism conclusions": "Identify contradiction between written description and architecture diagram."
+    },
     "passed": true,
-    "failure_details": [],
-    "root_cause": null
+    "failures": []
+  },
+  {
+    "id": "company_16",
+    "desc": "Detect mismatch between stated IdP policy and provided evidence.",
+    "files_processed": 3,
+    "classifications": [
+      "document: mfa_evidence"
+    ],
+    "entities": [
+      "email: cto@identitycrisis.com",
+      "email: it@identitycrisis.com",
+      "date: 2024-01-20",
+      "date: 2024-01-10",
+      "compliance_reference: SOC 2",
+      "technology: Microsoft Azure",
+      "technology: Okta",
+      "technology: Duo Security",
+      "date: 2024-01-01"
+    ],
+    "framework": [],
+    "gaps_detected": 4,
+    "documents_generated": [
+      "asset_inventory",
+      "policy",
+      "backup_policy",
+      "incident_response_plan"
+    ],
+    "requests_generated": [],
+    "review_flags_generated": 0,
+    "workload_elimination": 100.0,
+    "confidence": 0.8206666666666668,
+    "ground_truth": {
+      "expected_framework": [
+        "SOC 2 Type II"
+      ],
+      "expected_gaps": [
+        "Unclear MFA enforcement"
+      ],
+      "expected_documents_generated": [
+        "Access Control Policy"
+      ],
+      "expected_customer_requests": [
+        "Clarify primary IdP and MFA mechanism"
+      ],
+      "expected_human_review_flags": [
+        "Gap reasoning contradiction"
+      ],
+      "expected_confidence_range": "65-80%",
+      "Actual compliance framework(s)": [
+        "SOC 2 Type II"
+      ],
+      "Actual technologies": [
+        "Okta SSO",
+        "Azure AD",
+        "Duo MFA"
+      ],
+      "Actual vendors": [
+        "Okta",
+        "Microsoft",
+        "Duo"
+      ],
+      "Actual gaps": [
+        "Policy says Okta is used for everything, evidence screenshots show Azure AD and Duo"
+      ],
+      "Actual expected organism conclusions": "Detect mismatch between stated IdP policy and provided evidence."
+    },
+    "passed": true,
+    "failures": []
+  },
+  {
+    "id": "company_17",
+    "desc": "Successfully extract all vendors and flag missing VRAs.",
+    "files_processed": 3,
+    "classifications": [
+      "document: vendor_document",
+      "document: unknown"
+    ],
+    "entities": [
+      "technology: QuickBooks",
+      "technology: Amazon Web Services",
+      "compliance_reference: SOC 2",
+      "date: 2023-11-01",
+      "date: 2024-01-01"
+    ],
+    "framework": [
+      "domain: www.shopify.com"
+    ],
+    "gaps_detected": 3,
+    "documents_generated": [
+      "asset_inventory",
+      "incident_response_plan"
+    ],
+    "requests_generated": [
+      "backup_evidence"
+    ],
+    "review_flags_generated": 0,
+    "workload_elimination": 66.67,
+    "confidence": 0.6490909090909092,
+    "ground_truth": {
+      "expected_framework": [
+        "PCI DSS",
+        "SOC 2 Type I"
+      ],
+      "expected_gaps": [
+        "Missing vendor risk assessments for critical vendors"
+      ],
+      "expected_documents_generated": [
+        "Vendor Management Policy"
+      ],
+      "expected_customer_requests": [
+        "Provide vendor risk assessments for Stripe and AWS"
+      ],
+      "expected_human_review_flags": [
+        "Entity extraction overload"
+      ],
+      "expected_confidence_range": "75-90%",
+      "Actual compliance framework(s)": [
+        "PCI DSS",
+        "SOC 2 Type I"
+      ],
+      "Actual technologies": [
+        "SaaS Only"
+      ],
+      "Actual vendors": [
+        "Shopify",
+        "Stripe",
+        "AWS",
+        "Zendesk",
+        "Mailchimp",
+        "QuickBooks",
+        "Gusto",
+        "Asana"
+      ],
+      "Actual gaps": [
+        "No vendor risk assessments provided despite high reliance on third parties"
+      ],
+      "Actual expected organism conclusions": "Successfully extract all vendors and flag missing VRAs."
+    },
+    "passed": true,
+    "failures": []
+  },
+  {
+    "id": "company_18",
+    "desc": "Identify legacy systems and request compensating controls.",
+    "files_processed": 3,
+    "classifications": [
+      "document: unknown",
+      "document: vulnerability_report",
+      "document: system_diagram"
+    ],
+    "entities": [
+      "date: 2021-12-31",
+      "technology: Cisco",
+      "date: 2025-09-30",
+      "date: 2020-01-31",
+      "date: 2022-03-15",
+      "date: 2024-01-01"
+    ],
+    "framework": [],
+    "gaps_detected": 5,
+    "documents_generated": [
+      "asset_inventory",
+      "policy",
+      "incident_response_plan"
+    ],
+    "requests_generated": [
+      "missing_company_name",
+      "backup_evidence"
+    ],
+    "review_flags_generated": 2,
+    "workload_elimination": 60.0,
+    "confidence": 0.7009090909090908,
+    "ground_truth": {
+      "expected_framework": [
+        "GLBA",
+        "PCI DSS"
+      ],
+      "expected_gaps": [
+        "Unsupported legacy systems"
+      ],
+      "expected_documents_generated": [
+        "Network Diagram",
+        "Asset Inventory"
+      ],
+      "expected_customer_requests": [
+        "Provide compensating controls for AS/400"
+      ],
+      "expected_human_review_flags": [
+        "Technology stack reasoning"
+      ],
+      "expected_confidence_range": "70-85%",
+      "Actual compliance framework(s)": [
+        "GLBA",
+        "PCI DSS"
+      ],
+      "Actual technologies": [
+        "AS/400",
+        "Cisco Catalyst",
+        "Symantec Endpoint Protection"
+      ],
+      "Actual vendors": [
+        "IBM",
+        "Cisco",
+        "Symantec"
+      ],
+      "Actual gaps": [
+        "Heavy use of outdated tech, missing compensating controls"
+      ],
+      "Actual expected organism conclusions": "Identify legacy systems and request compensating controls."
+    },
+    "passed": true,
+    "failures": []
+  },
+  {
+    "id": "company_19",
+    "desc": "Filter out noise, classify correctly, and identify missing core policies.",
+    "files_processed": 104,
+    "classifications": [
+      "document: unknown"
+    ],
+    "entities": [
+      "date: 2024-01-12",
+      "email: security@datahoarders.com",
+      "date: 2024-01-14",
+      "date: 2024-01-22",
+      "date: 2024-01-24",
+      "date: 2024-01-27",
+      "date: 2024-01-26",
+      "date: 2024-01-07",
+      "date: 2024-01-25",
+      "date: 2024-01-23",
+      "date: 2024-01-06",
+      "date: 2024-01-01",
+      "date: 2024-01-03",
+      "date: 2024-01-08",
+      "date: 2024-01-10",
+      "date: 2024-01-09",
+      "date: 2024-01-11",
+      "date: 2024-01-05",
+      "date: 2024-01-02",
+      "date: 2024-01-19",
+      "date: 2024-01-04",
+      "date: 2024-01-16",
+      "compliance_reference: SOC 2",
+      "technology: Microsoft Azure",
+      "date: 2024-01-28",
+      "date: 2024-01-15",
+      "date: 2024-01-21",
+      "date: 2024-01-20",
+      "date: 2024-01-18",
+      "date: 2024-01-17",
+      "date: 2024-01-13"
+    ],
+    "framework": [],
+    "gaps_detected": 4,
+    "documents_generated": [
+      "asset_inventory",
+      "policy",
+      "backup_policy",
+      "incident_response_plan"
+    ],
+    "requests_generated": [],
+    "review_flags_generated": 103,
+    "workload_elimination": 100.0,
+    "confidence": 0.27628930817610065,
+    "ground_truth": {
+      "expected_framework": [
+        "SOC 2 Type II"
+      ],
+      "expected_gaps": [
+        "Missing key policies buried in noise"
+      ],
+      "expected_documents_generated": [
+        "Employee Handbook",
+        "Marketing Materials",
+        "Lunch Menus"
+      ],
+      "expected_customer_requests": [
+        "Provide actual Information Security Policy"
+      ],
+      "expected_human_review_flags": [
+        "Classification overload"
+      ],
+      "expected_confidence_range": "50-70%",
+      "Actual compliance framework(s)": [
+        "SOC 2 Type II"
+      ],
+      "Actual technologies": [
+        "Office 365",
+        "NetDocuments",
+        "Mimecast"
+      ],
+      "Actual vendors": [
+        "Microsoft",
+        "NetDocuments",
+        "Mimecast"
+      ],
+      "Actual gaps": [
+        "Uploaded 500 irrelevant files (marketing, HR, personal docs), missing actual InfoSec policy"
+      ],
+      "Actual expected organism conclusions": "Filter out noise, classify correctly, and identify missing core policies."
+    },
+    "passed": true,
+    "failures": []
+  },
+  {
+    "id": "company_20",
+    "desc": "Fail gracefully. Reject invalid files. Do not crash.",
+    "files_processed": 9,
+    "classifications": [
+      "document: policy",
+      "document: mfa_evidence",
+      "document: unknown",
+      "document: ssp"
+    ],
+    "entities": [],
+    "framework": [
+      "domain: CMMC"
+    ],
+    "gaps_detected": 6,
+    "documents_generated": [
+      "training_policy",
+      "access_control_policy",
+      "incident_response_plan"
+    ],
+    "requests_generated": [
+      "vulnerability_evidence",
+      "asset_inventory",
+      "backup_evidence"
+    ],
+    "review_flags_generated": 0,
+    "workload_elimination": 50.0,
+    "confidence": 0.3514285714285714,
+    "ground_truth": {
+      "expected_framework": [
+        "Unknown"
+      ],
+      "expected_gaps": [
+        "Everything"
+      ],
+      "expected_documents_generated": [
+        "Corrupted PDF",
+        "Password Protected ZIP",
+        "Malware sample named policy.doc"
+      ],
+      "expected_customer_requests": [
+        "Provide valid documentation"
+      ],
+      "expected_human_review_flags": [
+        "Total system failure attempt"
+      ],
+      "expected_confidence_range": "0-20%",
+      "Actual compliance framework(s)": [
+        "Unknown"
+      ],
+      "Actual technologies": [
+        "Unknown"
+      ],
+      "Actual vendors": [
+        "Unknown"
+      ],
+      "Actual gaps": [
+        "Files are encrypted, corrupted, or malicious. Complete garbage data."
+      ],
+      "Actual expected organism conclusions": "Fail gracefully. Reject invalid files. Do not crash."
+    },
+    "passed": true,
+    "failures": []
   }
 ]

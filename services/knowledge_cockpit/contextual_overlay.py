@@ -337,10 +337,10 @@ def _overlay_acquisition_panel(p: Dict[str, Any]) -> Dict[str, Any]:
         "No auto-spam — drafts await your judgment."
     )
     try:
-        from services.intake.mode import is_intake_mode as is_founding_beta_mode
+        from services.intake.mode import is_intake_mode as is_founding_pilot_mode
 
-        if is_founding_beta_mode():
-            why += " Founding Beta Mode: primary success metric is real paperwork submitted."
+        if is_founding_pilot_mode():
+            why += " Founding Pilot Mode: primary success metric is real paperwork submitted."
     except Exception:
         pass
     good_bad = []

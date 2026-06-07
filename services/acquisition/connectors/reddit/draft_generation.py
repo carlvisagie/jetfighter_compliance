@@ -93,25 +93,25 @@ def generate_draft_reply(
     public_body = etiquette.sanitize_reply(public_body, fallback)
 
     try:
-        from services.intake.mode import is_intake_mode as is_founding_beta_mode
-        from services.intake.messaging import BETA_HEADLINE, BETA_REASSURANCE
+        from services.intake.mode import is_intake_mode as is_founding_pilot_mode
+        from services.intake.messaging import PILOT_HEADLINE, PILOT_REASSURANCE
 
-        if is_founding_beta_mode():
-            beta_note = (
-                f"{BETA_HEADLINE} — we are validating an upload-first workflow. "
+        if is_founding_pilot_mode():
+            pilot_note = (
+                f"{PILOT_HEADLINE} — we are validating an upload-first workflow. "
                 "Upload whatever you already have (questionnaires, policies, screenshots, spreadsheets). "
-                f"{BETA_REASSURANCE} This is a beta validation run, not a sales pitch."
+                f"{PILOT_REASSURANCE} This is a pilot validation run, not a sales pitch."
             )
             if include_link and route_url:
-                public_body = f"{public_body}\n\n{beta_note}\n{route_url}"
+                public_body = f"{public_body}\n\n{pilot_note}\n{route_url}"
             else:
-                public_body = f"{public_body}\n\n{beta_note}"
+                public_body = f"{public_body}\n\n{pilot_note}"
     except Exception:
         pass
 
     return {
         "variant": variant,
-        "headline": "Founding Beta — Free Compliance Burden Review",
+        "headline": "Founding Pilot — Free Compliance Burden Review",
         "body": public_body,
         "public_reply_text": public_body,
         "operator_route_copy": route_url if route_url else "",

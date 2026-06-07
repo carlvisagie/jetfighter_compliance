@@ -56,7 +56,7 @@ services:
         sync: false
       - key: PUBLIC_BASE_URL
         sync: false
-      # Must match disk.mountPath above — founding beta uploads are refused without this.
+      # Must match disk.mountPath above — founding pilot uploads are refused without this.
       - key: KYC_DATA
         value: /var/data
       # --- Email: Resend (primary) -------------------------------------------

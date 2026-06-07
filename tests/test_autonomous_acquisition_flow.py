@@ -3,7 +3,7 @@
 Flow under test:
   1. Acquisition engine generates a lead with a shop URL (ref=LD-xxx)
   2. Operator approves the lead → system generates invite URL + email draft
-  3. Prospect visits shop?ref=LD-xxx → founding-beta?ref=LD-xxx → uploads files
+  3. Prospect visits shop?ref=LD-xxx → founding-pilot?ref=LD-xxx → uploads files
   4. Intake records lead_id, emits acquisition_conversion alert
   5. Lead status updates to intake_completed
   6. Operator alert fired
@@ -96,11 +96,11 @@ def test_acquisition_routing_preserves_ref():
     assert "utm_campaign=test-campaign" in route["primary_url"]
 
 
-def test_shop_html_links_to_founding_beta(anon_client: TestClient):
+def test_shop_html_links_to_founding_pilot(anon_client: TestClient):
     r = anon_client.get("/ui/shop.html")
     assert r.status_code == 200
     text = r.text
-    # All CTAs must now point to founding-beta, not inquiry
+    # All CTAs must now point to founding-pilot, not inquiry
     assert "/ui/intake" in text
     assert "/ui/inquiry.html" not in text
     # Ref propagation script should be present

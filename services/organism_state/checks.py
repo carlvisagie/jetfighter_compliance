@@ -274,8 +274,8 @@ class DiskPersistenceCheck(Check):
         )
 
 
-class BetaResidueCheck(Check):
-    name = "beta_residue_scan"
+class LegacyLanguageCheck(Check):
+    name = "legacy_language_scan"
 
     def evaluate(self, signals: SignalBundle) -> CheckResult:
         r = signals.section("residue") or {}
@@ -289,46 +289,46 @@ class BetaResidueCheck(Check):
             pid = m.get("pattern_id", "")
             cls = m.get("classification", "")
             rel = m.get("rel_path", "")
-            if pid == "beta_route" and cls == "active":
+            if pid == "legacy_route" and cls == "active":
                 routes.append(f"{rel}")
-            if pid == "beta_import" and cls == "active":
+            if pid == "legacy_import" and cls == "active":
                 imports.append(rel)
         if crit > 0 or routes or imports:
             return CheckResult(
                 name=self.name, ok=False, severity=Severity.RED,
-                detail=(f"CRITICAL beta residue: crit={crit} routes={len(routes)} imports={len(imports)}"),
+                detail=(f"CRITICAL legacy residue: crit={crit} routes={len(routes)} imports={len(imports)}"),
                 evidence={
                     "critical_count": crit,
                     "active_file_count": active_n,
                     "docs_file_count": docs_n,
-                    "beta_routes_remaining": routes[:10],
-                    "beta_imports_remaining": imports[:10],
+                    "legacy_routes_remaining": routes[:10],
+                    "legacy_imports_remaining": imports[:10],
                 },
             )
         if active_n > 0:
             return CheckResult(
                 name=self.name, ok=False, severity=Severity.AMBER,
-                detail=f"Beta string in {active_n} active source files (variable/comment residue).",
+                detail=f"Legacy string in {active_n} active source files (variable/comment residue).",
                 evidence={
                     "critical_count": 0, "active_file_count": active_n, "docs_file_count": docs_n,
-                    "beta_routes_remaining": [], "beta_imports_remaining": [],
+                    "legacy_routes_remaining": [], "legacy_imports_remaining": [],
                 },
             )
         if docs_n > 0:
             return CheckResult(
                 name=self.name, ok=True, severity=Severity.INFO,
-                detail=f"Beta references only in docs/tests ({docs_n} files) — non-runtime.",
+                detail=f"Legacy references only in docs/tests ({docs_n} files) — non-runtime.",
                 evidence={
                     "critical_count": 0, "active_file_count": 0, "docs_file_count": docs_n,
-                    "beta_routes_remaining": [], "beta_imports_remaining": [],
+                    "legacy_routes_remaining": [], "legacy_imports_remaining": [],
                 },
             )
         return CheckResult(
             name=self.name, ok=True, severity=Severity.INFO,
-            detail="Clean — no beta residue anywhere.",
+            detail="Clean — no legacy residue anywhere.",
             evidence={
                 "critical_count": 0, "active_file_count": 0, "docs_file_count": 0,
-                "beta_routes_remaining": [], "beta_imports_remaining": [],
+                "legacy_routes_remaining": [], "legacy_imports_remaining": [],
             },
         )
 
@@ -464,7 +464,7 @@ def all_checks():
         EvidenceVsFilesCheck(),
         ProjectsVsCompletedIntakesCheck(),
         ArchivesVsActiveCheck(),
-        BetaResidueCheck(),
+        LegacyLanguageCheck(),
         SchedulerHeartbeatCheck(),
         UnconfirmedPaymentsCheck(),
     )

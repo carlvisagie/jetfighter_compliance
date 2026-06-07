@@ -1,4 +1,4 @@
-"""Lightweight founding-beta document classification — heuristics only, no AI runtime."""
+"""Lightweight founding-pilot document classification — heuristics only, no AI runtime."""
 from __future__ import annotations
 
 import json
@@ -141,7 +141,7 @@ def _suggested_action(
         return "Manual document triage — low classification confidence"
     if primary_category in (DOC_SSP, DOC_NIST, DOC_VENDOR):
         return "Run compliance gap scan on uploaded package"
-    return "Standard founding beta paperwork review"
+    return "Standard founding pilot paperwork review"
 
 
 def classify_intake(intake_id: str) -> Dict[str, Any]:

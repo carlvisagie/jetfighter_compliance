@@ -70,7 +70,7 @@ def parse_expected_file_names(raw: str) -> List[str]:
 
 
 def parse_upload_manifest(raw: str) -> Dict[str, Any]:
-    """Client upload_manifest JSON from founding-beta.js."""
+    """Client upload_manifest JSON from founding-pilot.js."""
     if not (raw or "").strip():
         return {}
     try:

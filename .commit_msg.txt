@@ -5,7 +5,7 @@ THE BUG  (caught while verifying autonomous reprocess, 2026-06-05)
    → 400 {"detail": "Invalid project_id"}
 
    The endpoint was wired through `validate_project_id` which rejects
-   anything not prefixed `P-`. But the founding-beta pipeline (the
+   anything not prefixed `P-`. But the founding-pilot pipeline (the
    ONLY pipeline currently in production) keys its EI artifacts on
    `FB-*` intake IDs and writes them to:
        data/projects/FB-*/evidence_intelligence/
@@ -22,7 +22,7 @@ THE BUG  (caught while verifying autonomous reprocess, 2026-06-05)
 
 THE FIX  (server.py — /api/operator/evidence-intelligence)
    · Accept BOTH `intake_id` (the new param, matches the rest of the
-     post-founding-beta pipeline) and `project_id` (legacy, kept for
+     post-founding-pilot pipeline) and `project_id` (legacy, kept for
      compat with any unmigrated operator surface).
    · `intake_id` wins when both are passed.
    · Local validator: allow `P-*` OR `FB-*` prefixes; reject `/`,
@@ -48,7 +48,7 @@ VERIFICATION
 
 CONNECTED WORK
    Once this lands, the VIO L2 side-panel "EI" frame will be able to
-   render real artifacts for the founding-beta intake in production.
+   render real artifacts for the founding-pilot intake in production.
    Currently that panel shows empty / errored state because every
    fetch returned 400. Untangling autonomy mandates we untangle this
    first — otherwise the autonomous reprocesses fire silently and

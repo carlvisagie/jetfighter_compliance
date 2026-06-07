@@ -195,8 +195,8 @@ CLUSTER_AI_GOVERNANCE: Tuple[str, ...] = (
     "AI compliance section",
 )
 
-# Founding beta — broader operational surface (not CMMC-only)
-FOUNDING_BETA_EXTRA_QUERIES: Tuple[str, ...] = (
+# Founding pilot — broader operational surface (not CMMC-only)
+FOUNDING_PILOT_EXTRA_QUERIES: Tuple[str, ...] = (
     "prime contractor security questionnaire",
     "customer security questionnaire small business",
     "vendor security requirements",
@@ -405,14 +405,14 @@ def build_cycle_discovery_plan(
     }
 
 
-def build_founding_beta_discovery_plan(
+def build_founding_pilot_discovery_plan(
     learning_state: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Wider discovery for founding beta validation — still filtered downstream."""
+    """Wider discovery for founding pilot validation — still filtered downstream."""
     plan = build_cycle_discovery_plan(learning_state=learning_state)
     extra_globals: List[Dict[str, str]] = []
     used = {g["query"].lower() for g in plan.get("global_queries", [])}
-    for q in FOUNDING_BETA_EXTRA_QUERIES:
+    for q in FOUNDING_PILOT_EXTRA_QUERIES:
         if q.lower() in used:
             continue
         extra_globals.append(

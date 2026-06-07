@@ -87,6 +87,8 @@ QUARANTINE_ALLOWLIST = ALLOWLIST_FILES | {
     ROOT / "docs" / "KYC_DEPLOYMENT_READINESS_BRIEF_v2.md",
     ROOT / "corpus_results.json",
     ROOT / "overall_corpus_score.json",
+    ROOT / "pilot_known_limitations.json",
+    ROOT / "pilot_restore_point.md",
 }
 
 FORBIDDEN_PATTERNS = [

@@ -101,11 +101,11 @@ def test_company_detail_loads_evidence_via_intake_id_fallback(
     fb_env, anon_client: TestClient, client: TestClient
 ):
     """REGRESSION GUARD — operator drill-down must surface evidence for
-    founding-beta intakes that have no kickoff project yet.
+    founding-pilot intakes that have no kickoff project yet.
 
     Doctrine alignment: L1 overview loads EI as `project_id or
     intake_id`. L2 detail used to gate on `project_id` only, so freshly
-    uploaded founding-beta intakes (no kickoff yet) drilled in to an
+    uploaded founding-pilot intakes (no kickoff yet) drilled in to an
     empty evidence block despite EI artifacts being written under
     `intake_id` by the upload hook. This test pins the fallback so
     the bug cannot return silently.

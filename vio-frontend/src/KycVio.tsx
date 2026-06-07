@@ -291,7 +291,7 @@ function OrganismHealthStrip({ organism }: { organism: KycOrganism | undefined }
           }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ff3d3d' }} />
             <span style={{ color: '#ff3d3d', fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>
-              {organism.mismatch_count} CHECK{organism.mismatch_count !== 1 ? 'S' : ''} FAILING
+              {organism.mismatches.map(m => m.name.replace(/_/g, ' ').toUpperCase()).join(' • ')}
             </span>
           </div>
         </div>
@@ -735,7 +735,7 @@ export default function KycVio() {
               cursor: 'pointer',
             }}
           >
-            {apiBase ? '⚙ API' : '⚠ Configure API'}
+              {apiBase || true ? '⚙ API' : '⚠ Configure API'}
           </button>
         </div>
       </div>

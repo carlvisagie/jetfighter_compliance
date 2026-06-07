@@ -95,7 +95,7 @@
   margin-top: 0.75rem;
 }
 
-/* Light-theme copy row — skip founding beta (dark success card uses .kyc-fb-copy-link) */
+/* Light-theme copy row — skip founding pilot (dark success card uses .kyc-fb-copy-link) */
 .kyc-upload-first:not(.kyc-fb-intake) .kyc-copy-link-row button {
   min-height: 44px;
   padding: 0.5rem 1rem;

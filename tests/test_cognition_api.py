@@ -5,7 +5,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from server import app
-from services.security import make_founding_beta_token
+from services.security import make_founding_pilot_token
 
 @pytest.fixture
 def mock_projects_dir(tmp_path):

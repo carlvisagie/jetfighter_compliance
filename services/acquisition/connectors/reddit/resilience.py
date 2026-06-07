@@ -13,7 +13,7 @@ ERROR_QUALIFICATION = "qualification_pipeline_error"
 ERROR_PREY_SCORING = "prey_scoring_error"
 ERROR_DOMAIN_QUALIFICATION = "domain_qualification_error"
 ERROR_SOFT_BURDEN = "soft_burden_analysis_error"
-ERROR_FOUNDING_BETA = "founding_beta_discovery_error"
+ERROR_FOUNDING_PILOT = "founding_pilot_discovery_error"
 ERROR_REDDIT_PARSE = "reddit_parse_error"
 ERROR_TELEMETRY = "telemetry_serialization_error"
 ERROR_TIME_BUDGET = "discovery_time_budget"
@@ -95,8 +95,8 @@ def classify_exception(exc: BaseException, *, phase: str = "") -> Tuple[str, str
         return ERROR_PREY_SCORING, msg[:240]
     if phase == "soft_burden":
         return ERROR_SOFT_BURDEN, msg[:240]
-    if phase == "founding_beta":
-        return ERROR_FOUNDING_BETA, msg[:240]
+    if phase == "founding_pilot":
+        return ERROR_FOUNDING_PILOT, msg[:240]
     if phase == "reddit_parse":
         return ERROR_REDDIT_PARSE, msg[:240]
     if phase == "telemetry":

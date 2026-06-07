@@ -64,7 +64,7 @@ def record_intake_learning(
 
         if event_type in (
             "intake_received",
-            "beta_upload_completed",
+            "pilot_upload_completed",
             "intake_classified",
         ):
             state["uploads_seen"] = int(state.get("uploads_seen") or 0) + 1

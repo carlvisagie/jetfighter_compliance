@@ -56,7 +56,7 @@ def test_session_snapshot_was_taken_before_tests_started():
     )
     snap = _conftest._CANONICAL_SNAPSHOT_BEFORE
     assert isinstance(snap, dict), snap
-    assert set(snap.keys()) >= {"intakes", "projects", "founding_beta", "ledger"}, (
+    assert set(snap.keys()) >= {"intakes", "projects", "founding_pilot", "ledger"}, (
         "tripwire snapshot missing one or more guarded subdirs"
     )
 

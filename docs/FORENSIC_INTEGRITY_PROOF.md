@@ -140,7 +140,7 @@ Index row deletion on `FB-f5c1c5fb99e1`:
 ### Full suite failures
 
 1. `test_cognitive_topology.py::test_learning_telemetry_failures_degraded`
-2. `test_founding_beta_retention.py::test_wrong_root_mismatch_fails_loudly`
+2. `test_founding_pilot_retention.py::test_wrong_root_mismatch_fails_loudly`
 3. `test_intake_pipeline_guardrails.py::test_server_no_shadow_customer_upload_routes`
 4. `test_intake_pipeline_hardening_iter2.py::test_telemetry_failure_does_not_block_commit`
 5. `test_intake_pipeline_hardening_iter2.py::test_hash_mismatch_detected_on_retention_check`
@@ -191,7 +191,7 @@ email: forensic-proof-prod@keepyourcontracts.com
 file: prod-forensic-proof.pdf (%PDF-1.4 prod forensic proof)
 ```
 
-> Historical: this endpoint was `/api/founding-beta/upload` before commit `fabdbc8` (2026-05-29). The upload-first customer surface is now `/api/intake/upload`. Operator counterpart: `/api/operator/intake/diagnostics`.
+> Historical: this endpoint was `/api/founding-pilot/upload` before commit `fabdbc8` (2026-05-29). The upload-first customer surface is now `/api/intake/upload`. Operator counterpart: `/api/operator/intake/diagnostics`.
 
 | Field | Value |
 |-------|-------|

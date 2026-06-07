@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Adversarial inline proof of founding-beta intake invariants. Exit 1 on any failure."""
+"""Adversarial inline proof of founding-pilot intake invariants. Exit 1 on any failure."""
 from __future__ import annotations
 
 import io
@@ -18,7 +18,7 @@ def main() -> int:
     (root / "intakes").mkdir()
     os.environ["ENVIRONMENT"] = "test"
     os.environ["KYC_DATA"] = str(root)
-    os.environ["KYC_FOUNDING_BETA_MODE"] = "true"
+    os.environ["KYC_FOUNDING_PILOT_MODE"] = "true"
     os.environ["OPS_PASSWORD"] = "test-ops-password-for-pytest"
     os.environ["OPS_SECRET"] = "test-ops-secret-for-pytest"
 
@@ -29,9 +29,9 @@ def main() -> int:
     from fastapi.testclient import TestClient
     from server import app
 
-    from services.founding_beta.retention import audit_receipt_path
-    from services.founding_beta.storage import canonical_intake_dir
-    from services.founding_beta.transactions import load_transaction_log
+    from services.founding_pilot.retention import audit_receipt_path
+    from services.founding_pilot.storage import canonical_intake_dir
+    from services.founding_pilot.transactions import load_transaction_log
 
     c = TestClient(app)
     assert c.post("/api/ops/login", json={"password": os.environ["OPS_PASSWORD"]}).status_code == 200
@@ -43,7 +43,7 @@ def main() -> int:
 
     # 1) Upload batch commit order: audit before index (per batch, not empty-intake bootstrap)
     r = c.post(
-        "/api/founding-beta/upload",
+        "/api/founding-pilot/upload",
         files=[pdf("proof.pdf")],
         data={"email": "proof@example.com", "expected_file_count": "1"},
     )
@@ -64,7 +64,7 @@ def main() -> int:
     # 2) Multi-batch 30 files
     names = [f"p{i}.pdf" for i in range(30)]
     r1 = c.post(
-        "/api/founding-beta/upload",
+        "/api/founding-pilot/upload",
         files=[pdf(n) for n in names[:15]],
         data={
             "email": "multi@example.com",
@@ -82,7 +82,7 @@ def main() -> int:
         if b1.get("customer_may_show_success"):
             errors.append("batch1 must not show customer success")
         r2 = c.post(
-            "/api/founding-beta/upload",
+            "/api/founding-pilot/upload",
             files=[pdf(n) for n in names[15:]],
             data={
                 "intake_id": b1["intake_id"],
@@ -105,7 +105,7 @@ def main() -> int:
 
     # 3) No fake success on 9/10 single POST
     r = c.post(
-        "/api/founding-beta/upload",
+        "/api/founding-pilot/upload",
         files=[pdf(f"n{i}.pdf") for i in range(9)],
         data={
             "email": "partial@example.com",
@@ -124,7 +124,7 @@ def main() -> int:
 
     # 4) Hash mismatch detected
     r = c.post(
-        "/api/founding-beta/upload",
+        "/api/founding-pilot/upload",
         files=[pdf("h.pdf")],
         data={"email": "hash@example.com", "expected_file_count": "1"},
     )
@@ -133,7 +133,7 @@ def main() -> int:
     else:
         hiid = r.json()["intake_id"]
         (canonical_intake_dir(hiid) / "uploads" / "h.pdf").write_bytes(b"CORRUPTED")
-        chk = c.get(f"/api/operator/founding-beta/retention-check/{hiid}").json()
+        chk = c.get(f"/api/operator/founding-pilot/retention-check/{hiid}").json()
         if not chk.get("hash_mismatch_detected"):
             errors.append("retention-check must detect hash mismatch after corruption")
 

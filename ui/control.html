@@ -216,7 +216,7 @@
           <p class="org-metric-foot">The organism decides pacing, safety, wording, and links. You only approve or deny. Never auto-posted.</p>
           <div class="kyc-btn-row" style="margin-bottom:0.75rem;">
             <button type="button" class="btn secondary" id="redditIntelRunBtn">Run discovery</button>
-            <button type="button" class="btn secondary" id="redditBetaBroadBtn">Run broader discovery</button>
+            <button type="button" class="btn secondary" id="redditPilotBroadBtn">Run broader discovery</button>
           </div>
           <div id="reddit-acquisition-insights"><p class="kyc-loading">Loading…</p></div>
         </article>
@@ -564,7 +564,7 @@
       if (action === 'kickoff_project' && result && result.project_id) {
         alert('Project created: ' + result.project_id);
       }
-      await loadFoundingBetaIntake();
+      await loadFoundingPilotIntake();
       if (window.CoteTopology && CoteTopology.refresh) {
         CoteTopology.refresh();
       }
@@ -864,16 +864,16 @@
     });
   }
 
-  async function loadFoundingBetaIntake() {
+  async function loadFoundingPilotIntake() {
     const el = document.getElementById('intake-queue-insights');
     if (!el) return;
     try {
       const q =
-        window.CockpitFoundingBeta && CockpitFoundingBeta.refresh
-          ? await CockpitFoundingBeta.refresh(api)
+        window.CockpitFoundingPilot && CockpitFoundingPilot.refresh
+          ? await CockpitFoundingPilot.refresh(api)
           : await api('/api/operator/intake/queue');
-      if (window.CockpitFoundingBeta && CockpitFoundingBeta.startEvidenceProofPolling) {
-        CockpitFoundingBeta.startEvidenceProofPolling(api);
+      if (window.CockpitFoundingPilot && CockpitFoundingPilot.startEvidenceProofPolling) {
+        CockpitFoundingPilot.startEvidenceProofPolling(api);
       }
       const dash = q.dashboard || {};
       const queue = q.queue || [];
@@ -1099,12 +1099,12 @@
     } catch (e) {
       el.innerHTML =
         '<div class="fb-queue-load-error" role="alert">' +
-        '<strong>Founding beta queue unavailable</strong>' +
+        '<strong>Founding pilot queue unavailable</strong>' +
         '<p>' +
         escapeHtml(e.message || String(e)) +
         '</p>' +
         '<button type="button" class="kyc-btn kyc-btn--secondary" id="fbQueueRetry">Retry queue</button></div>';
-      document.getElementById('fbQueueRetry')?.addEventListener('click', loadFoundingBetaIntake);
+      document.getElementById('fbQueueRetry')?.addEventListener('click', loadFoundingPilotIntake);
     }
   }
   async function refreshAllSafeMode() {
@@ -1115,7 +1115,7 @@
     await Promise.allSettled([
       loadSmtpStatus(),
       loadOperationalAlerts(),
-      loadFoundingBetaIntake(),
+      loadFoundingPilotIntake(),
       loadOrganismState(),
     ]);
   }
@@ -1140,7 +1140,7 @@
         + ' · queue=' + (s.queue_depth ?? 0)
         + ' · vio=' + (s.vio_company_count ?? 0)
         + ' · intakes=' + (s.intake_count_active ?? 0) + '/' + (s.intake_count_total ?? 0)
-        + (s.beta_residue_detected ? ' · beta_residue=YES' : '');
+        + (s.pilot_residue_detected ? ' · pilot_residue=YES' : '');
       action.textContent = 'Next: ' + (s.next_recommended_action || '—');
     } catch (err) {
       pill.textContent = 'ERR';
@@ -1164,7 +1164,7 @@
       loadRedditAcquisitionIntelligence(),
       loadOperationalAlerts(),
       loadComplianceIntelligence(),
-      loadFoundingBetaIntake(),
+      loadFoundingPilotIntake(),
       loadOrganismState(),
     ];
     await Promise.allSettled(tasks);
@@ -1252,7 +1252,7 @@
       }
       const conv = j.upload_conversion || {};
       const hottest = (j.hottest_targets || []).slice(0, 6);
-      let html = renderFoundingBeta(j.founding_beta) +
+      let html = renderFoundingPilot(j.founding_pilot) +
         '<p class="org-metric-foot"><strong>Doctrine:</strong> ' + escapeHtml((j.doctrine && j.doctrine.message) || '') + '</p>' +
         '<ul class="guidance-list">' +
         '<li><strong>Upload conversion:</strong> ' + ((conv.rate || 0) * 100).toFixed(1) + '% (' + (conv.completed || 0) + '/' + (conv.started || 0) + ')</li>' +
@@ -1318,7 +1318,7 @@
       const conv = j.upload_conversion || {};
       const pending = j.pending_opportunities || [];
       window.__redditPendingMap = {};
-      let html = renderFoundingBeta(j.founding_beta) +
+      let html = renderFoundingPilot(j.founding_pilot) +
         '<p class="org-metric-foot">Upload conversion: ' + ((conv.rate || 0) * 100).toFixed(1) + '% · Organism handles safety, pacing, and wording.</p>';
       const qd = j.queue_diagnostics || {};
       if (!pending.length) {
@@ -1344,7 +1344,7 @@
             '<p class="reddit-approval-meta"><strong>Source:</strong> ' + escapeHtml(o.source || 'reddit') + ' · <strong>r/' + escapeHtml(o.subreddit || '') + '</strong> · Prey: <strong>' + (o.prey_score || 0) + '</strong> · Cluster: <strong>' + escapeHtml(o.discovery_source_cluster || 'unknown') + '</strong>' +
             (o.discovery_ecosystem ? ' · Ecosystem: <strong>' + escapeHtml(o.discovery_ecosystem) + '</strong>' : '') +
             ' · Intent: <strong>' + escapeHtml(o.author_intent || '') + '</strong>' +
-            (o.beta_fit ? ' · Beta fit: <strong>' + escapeHtml(o.beta_fit) + '</strong>' : '') + '</p>' +
+            (o.pilot_fit ? ' · Pilot fit: <strong>' + escapeHtml(o.pilot_fit) + '</strong>' : '') + '</p>' +
             (o.operational_burden_reason ? '<p class="reddit-approval-meta"><strong>Operational burden:</strong> ' + escapeHtml(o.operational_burden_reason) + '</p>' : '') +
             (o.likely_paperwork ? '<p class="reddit-approval-meta"><strong>Likely paperwork:</strong> ' + escapeHtml(o.likely_paperwork) + '</p>' : '') +
             (o.recommended_next_action ? '<p class="org-metric-foot">' + escapeHtml(o.recommended_next_action) + '</p>' : '') +
@@ -1552,7 +1552,7 @@
   });
 
   document.getElementById('redditIntelRunBtn')?.addEventListener('click', function () { runRedditDiscovery(false); });
-  document.getElementById('redditBetaBroadBtn')?.addEventListener('click', function () { runRedditDiscovery(true); });
+  document.getElementById('redditPilotBroadBtn')?.addEventListener('click', function () { runRedditDiscovery(true); });
   document.getElementById('acquisitionIntelRunBtn')?.addEventListener('click', async function () {
     const el = document.getElementById('acquisition-intelligence-insights');
     if (el) el.innerHTML = '<p class="kyc-loading">Running acquisition cycle…</p>';
@@ -1660,7 +1660,7 @@
     d.textContent = s || '';
     return d.innerHTML;
   }
-  function renderFoundingBeta(fb) {
+  function renderFoundingPilot(fb) {
     if (!fb || !fb.active) return '';
     const m = fb.metrics || {};
     const cats = m.evidence_categories_mapped || {};
@@ -1799,7 +1799,7 @@
       if (window.CockpitStable && CockpitStable.init) {
         await CockpitStable.init();
       }
-      await loadFoundingBetaIntake();
+      await loadFoundingPilotIntake();
       if (window.CoteTopology && CoteTopology.init) {
         await CoteTopology.init();
         CoteTopology.startAutoRefresh(60000);
@@ -1836,7 +1836,7 @@
       root.querySelector('#cockpitMode')?.addEventListener('change', sync);
       document.getElementById('orgRefresh')?.addEventListener('click', function () {
         if (window.CoteTopology && CoteTopology.refresh) CoteTopology.refresh();
-        loadFoundingBetaIntake();
+        loadFoundingPilotIntake();
       });
       document.getElementById('fb-doc-preview-close')?.addEventListener('click', closeDocumentPreview);
       document.getElementById('fb-doc-preview-backdrop')?.addEventListener('click', closeDocumentPreview);

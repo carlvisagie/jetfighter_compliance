@@ -313,6 +313,7 @@ class SchedulerHeartbeatCollector(SignalCollector):
                 row.get("created_utc")
                 or row.get("ts")
                 or row.get("timestamp")
+                or row.get("observed_at_utc")
             )
             if not ts:
                 continue
@@ -331,7 +332,8 @@ class SchedulerHeartbeatCollector(SignalCollector):
                         "event": event,
                         "ts": row.get("created_utc")
                               or row.get("ts")
-                              or row.get("timestamp"),
+                              or row.get("timestamp")
+                              or row.get("observed_at_utc"),
                         "message": row.get("message"),
                     })
 

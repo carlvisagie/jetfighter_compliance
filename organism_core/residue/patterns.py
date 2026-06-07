@@ -2,7 +2,7 @@
 
 A Pattern is a regex to look for. A LocationRule maps a file's location
 to a severity class (critical / active / docs / artifact). The combination
-lets a domain say "founding_beta in services/ is critical, founding_beta
+lets a domain say "founding_pilot in services/ is critical, founding_pilot
 in docs/ is informational".
 """
 from __future__ import annotations

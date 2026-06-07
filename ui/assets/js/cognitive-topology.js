@@ -810,7 +810,7 @@
     var up = (data && data.subsystems && data.subsystems.upload_pipeline) || {};
     var pending = intMetric(up.pending_review || up.queue_depth);
     var urgent = intMetric(up.urgent_count);
-    var fb = global.CockpitFoundingBeta && global.CockpitFoundingBeta.getState();
+    var fb = global.CockpitFoundingPilot && global.CockpitFoundingPilot.getState();
     if (fb && !fb.error) {
       pending = Math.max(pending, fb.pending || 0);
       urgent = Math.max(urgent, fb.urgent || 0);

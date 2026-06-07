@@ -444,7 +444,7 @@ def _boost_learning_from_intake(
     good = 0
     for row in telem_rows:
         subsystem = str(row.get("subsystem") or "")
-        if subsystem not in ("intake", "founding_beta"):
+        if subsystem not in ("intake", "founding_pilot"):
             continue
         et = str(row.get("event_type") or "")
         if et in (

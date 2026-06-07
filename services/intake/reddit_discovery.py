@@ -1,4 +1,4 @@
-"""Founding Beta Reddit discovery — wider operational net, fallback queue, diagnostics."""
+"""Founding Pilot Reddit discovery — wider operational net, fallback queue, diagnostics."""
 from __future__ import annotations
 
 from collections import Counter
@@ -82,7 +82,7 @@ def _empty_queue_summary(diag: CycleDiagnostics, threshold: int, queued: int, di
     return " ".join(parts)
 
 
-def is_founding_beta_discovery_mode() -> bool:
+def is_founding_pilot_discovery_mode() -> bool:
     return is_intake_mode()
 
 
@@ -108,9 +108,9 @@ def classify_queue_block(
         return "not_relevant"
     if qual.get("fit_score", 0) < min_fit_score:
         return "low_fit"
-    from services.acquisition.founding_beta_mode import passes_founding_beta_prey_gate
+    from services.acquisition.founding_pilot_mode import passes_founding_pilot_prey_gate
 
-    if not passes_founding_beta_prey_gate(qual, cls, min_prey_score=effective_prey):
+    if not passes_founding_pilot_prey_gate(qual, cls, min_prey_score=effective_prey):
         if int(qual.get("prey_score", 0)) >= effective_prey - 8:
             return "prey_gate"
         return "low_prey"
@@ -123,7 +123,7 @@ def classify_queue_block(
     return None
 
 
-def passes_founding_beta_fallback_gate(
+def passes_founding_pilot_fallback_gate(
     qual: Dict[str, Any],
     cls: Dict[str, Any],
 ) -> bool:
@@ -160,18 +160,18 @@ def passes_founding_beta_fallback_gate(
     return bool(prob.get("has_operational_need") or int(prob.get("soft_burden_score", 0)) >= 32)
 
 
-def plan_for_founding_beta_fallback(plan: Dict[str, Any]) -> Dict[str, Any]:
+def plan_for_founding_pilot_fallback(plan: Dict[str, Any]) -> Dict[str, Any]:
     out = dict(plan)
     out["show_operator_queue"] = True
     out["engagement_stage"] = out.get("engagement_stage") or "assist_soft"
     out["rationale"] = (
-        "Founding beta fallback — calm operational compliance burden (no distress required). "
+        "Founding pilot fallback — calm operational compliance burden (no distress required). "
         + (out.get("rationale") or "")
     )[:280]
     return out
 
 
-def enrich_founding_beta_candidate_fields(
+def enrich_founding_pilot_candidate_fields(
     record: Dict[str, Any],
     *,
     post: Dict[str, Any],
@@ -186,18 +186,18 @@ def enrich_founding_beta_candidate_fields(
     record["source"] = "reddit"
     record["operational_burden_reason"] = "; ".join(reasons[:4]) or record.get("operational_context", "")
     record["likely_paperwork"] = ", ".join(paperwork[:4]) or "Questionnaires, policies, partial evidence likely"
-    record["beta_fit"] = _beta_fit_label(qual, prob, fallback_used)
+    record["pilot_fit"] = _pilot_fit_label(qual, prob, fallback_used)
     record["recommended_next_action"] = (
-        "Approve — paste founding beta paperwork review offer (validation run, not sales)."
+        "Approve — paste founding pilot paperwork review offer (validation run, not sales)."
         if plan.get("show_operator_queue")
         else "Skip"
     )
-    record["founding_beta_framing"] = (
-        "Free Founding Beta paperwork review — upload what you have; messy/partial is fine."
+    record["founding_pilot_framing"] = (
+        "Free Founding Pilot paperwork review — upload what you have; messy/partial is fine."
     )
 
 
-def _beta_fit_label(qual: Dict[str, Any], prob: Dict[str, Any], fallback: bool) -> str:
+def _pilot_fit_label(qual: Dict[str, Any], prob: Dict[str, Any], fallback: bool) -> str:
     tier = int(qual.get("prey_tier") or prob.get("prey_tier", 4))
     prey = int(qual.get("prey_score", 0))
     if tier == 1 and prey >= 55:
@@ -235,7 +235,7 @@ def emit_cycle_telemetry(stats: Dict[str, Any], diag: CycleDiagnostics) -> None:
                     "samples": diag.near_miss_candidates[:5],
                 },
             )
-        emit_beta_event("beta_discovery_cycle_completed", metadata=meta)
+        emit_pilot_event("pilot_discovery_cycle_completed", metadata=meta)
     except Exception:
         import logging
 

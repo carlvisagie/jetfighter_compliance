@@ -8,7 +8,7 @@ THE INCIDENT (2026-06-05)
      → 400 {"detail": "Invalid project_id"}
 
    The endpoint was wired through `validate_project_id` which rejects
-   anything that doesn't start with `P-`. But the founding-beta
+   anything that doesn't start with `P-`. But the founding-pilot
    pipeline keys its EI artifacts on `FB-*` intake IDs — and that's
    the only pipeline currently in production. Operators had no path
    to view EI for any FB intake.

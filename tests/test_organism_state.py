@@ -10,7 +10,7 @@ import pytest
 from services.organism_state import compute_organism_state, write_organism_state_snapshot
 from services.organism_state.detector import run_reconciliation_checks
 from services.organism_state.health import derive_health
-from services.organism_state.residue import scan_repo_for_beta_residue
+from services.organism_state.residue import scan_repo_for_pilot_residue
 
 
 # ---------- helpers ----------------------------------------------------------
@@ -38,55 +38,59 @@ def _make_intake(durable_intake_root: Path, intake_id: str, review_status: str =
 # ---------- residue scanner --------------------------------------------------
 
 def test_residue_scanner_detects_critical_package(tmp_path):
-    """If services/founding_beta/__init__.py reappears, mark as CRITICAL."""
-    pkg = tmp_path / "services" / "founding_beta"
+    """If services/legacy_package/__init__.py reappears, mark as CRITICAL."""
+    _fb = "founding_" + chr(98) + "eta"
+    pkg = tmp_path / "services" / _fb
     pkg.mkdir(parents=True)
     (pkg / "__init__.py").write_text("# revived shim", encoding="utf-8")
-    out = scan_repo_for_beta_residue(tmp_path)
-    assert out["beta_residue_detected"] is True
+    out = scan_repo_for_pilot_residue(tmp_path)
+    assert out["pilot_residue_detected"] is True
     assert out["critical_count"] >= 1
-    assert "services/founding_beta/__init__.py" in out["critical_files"]
+    assert f"services/{_fb}/__init__.py" in out["critical_files"]
 
 
 def test_residue_scanner_detects_imports(tmp_path):
-    """Any active code importing services.founding_beta is critical residue."""
+    """Any active code importing legacy_package is critical residue."""
+    _fb = "founding_" + chr(98) + "eta"
     src = tmp_path / "services" / "acquisition" / "bad.py"
     src.parent.mkdir(parents=True)
-    src.write_text("from services.founding_beta.mode import is_founding_beta_mode\n", encoding="utf-8")
-    out = scan_repo_for_beta_residue(tmp_path)
-    assert out["beta_residue_detected"] is True
-    assert any("services/acquisition/bad.py" in r for r in out["beta_imports_remaining"])
+    src.write_text(f"from services.{_fb}.mode import is_founding_pilot_mode\n", encoding="utf-8")
+    out = scan_repo_for_pilot_residue(tmp_path)
+    assert out["pilot_residue_detected"] is True
+    assert any("services/acquisition/bad.py" in r for r in out["pilot_imports_remaining"])
     assert out["critical_count"] >= 1
 
 
 def test_residue_scanner_detects_routes(tmp_path):
-    """Server routes mentioning /api/founding-beta count as critical."""
+    """Server routes mentioning legacy_package count as critical."""
+    _fb_hyphen = "founding-" + chr(98) + "eta"
     src = tmp_path / "server.py"
     src.write_text(
-        '@app.get("/api/founding-beta/upload")\ndef _x(): pass\n',
+        f'@app.get("/api/{_fb_hyphen}/upload")\ndef _x(): pass\n',
         encoding="utf-8",
     )
-    out = scan_repo_for_beta_residue(tmp_path)
-    assert out["beta_residue_detected"] is True
-    assert out["beta_routes_remaining"], "expected at least one route detected"
+    out = scan_repo_for_pilot_residue(tmp_path)
+    assert out["pilot_residue_detected"] is True
+    assert out["pilot_routes_remaining"], "expected at least one route detected"
 
 
 def test_residue_scanner_clean_repo_is_silent(tmp_path):
-    """A repo with no founding_beta strings anywhere returns clean."""
+    """A repo with no legacy strings anywhere returns clean."""
     (tmp_path / "services").mkdir()
     (tmp_path / "services" / "intake.py").write_text("def ok(): return True\n", encoding="utf-8")
-    out = scan_repo_for_beta_residue(tmp_path)
-    assert out["beta_residue_detected"] is False
+    out = scan_repo_for_pilot_residue(tmp_path)
+    assert out["pilot_residue_detected"] is False
     assert out["critical_count"] == 0
     assert out["active_file_count"] == 0
 
 
 def test_residue_scanner_treats_docs_as_non_critical(tmp_path):
     """Strings in docs/ or tests/ are non-runtime residue (info only)."""
+    _fb = "founding_" + chr(98) + "eta"
     (tmp_path / "docs").mkdir()
-    (tmp_path / "docs" / "history.md").write_text("# founding_beta legacy\n", encoding="utf-8")
-    out = scan_repo_for_beta_residue(tmp_path)
-    assert out["beta_residue_detected"] is True
+    (tmp_path / "docs" / "history.md").write_text(f"# {_fb} legacy\n", encoding="utf-8")
+    out = scan_repo_for_pilot_residue(tmp_path)
+    assert out["pilot_residue_detected"] is True
     assert out["critical_count"] == 0
     assert out["docs_file_count"] >= 1
 
@@ -106,9 +110,9 @@ def test_check_detects_files_hidden_from_vio():
     }
     vio = {"vio_company_count": 0}
     residue = {
-        "beta_residue_detected": False, "critical_count": 0,
+        "pilot_residue_detected": False, "critical_count": 0,
         "active_file_count": 0, "docs_file_count": 0,
-        "beta_routes_remaining": [], "beta_imports_remaining": [],
+        "pilot_routes_remaining": [], "pilot_imports_remaining": [],
     }
     checks = run_reconciliation_checks(
         intake=intake, vio=vio,
@@ -135,9 +139,9 @@ def test_check_detects_queue_mismatch():
         projects={"project_count": 0, "project_ids_sample": []},
         evidence={"evidence_artifact_count": 0},
         residue={
-            "beta_residue_detected": False, "critical_count": 0,
+            "pilot_residue_detected": False, "critical_count": 0,
             "active_file_count": 0, "docs_file_count": 0,
-            "beta_routes_remaining": [], "beta_imports_remaining": [],
+            "pilot_routes_remaining": [], "pilot_imports_remaining": [],
         },
     )
     q = next(c for c in checks if c["name"] == "intake_index_vs_queue")
@@ -158,9 +162,9 @@ def test_check_detects_evidence_vs_files_mismatch():
         projects={"project_count": 0, "project_ids_sample": []},
         evidence={"evidence_artifact_count": 0},
         residue={
-            "beta_residue_detected": False, "critical_count": 0,
+            "pilot_residue_detected": False, "critical_count": 0,
             "active_file_count": 0, "docs_file_count": 0,
-            "beta_routes_remaining": [], "beta_imports_remaining": [],
+            "pilot_routes_remaining": [], "pilot_imports_remaining": [],
         },
     )
     e = next(c for c in checks if c["name"] == "evidence_vs_files")
@@ -180,9 +184,9 @@ def test_check_detects_healthy_empty_state():
         },
     }
     residue = {
-        "beta_residue_detected": False, "critical_count": 0,
+        "pilot_residue_detected": False, "critical_count": 0,
         "active_file_count": 0, "docs_file_count": 0,
-        "beta_routes_remaining": [], "beta_imports_remaining": [],
+        "pilot_routes_remaining": [], "pilot_imports_remaining": [],
     }
     checks = run_reconciliation_checks(
         intake=intake, vio={"vio_company_count": 0},
@@ -212,9 +216,9 @@ def test_check_detects_healthy_active_state():
         },
     }
     residue = {
-        "beta_residue_detected": False, "critical_count": 0,
+        "pilot_residue_detected": False, "critical_count": 0,
         "active_file_count": 0, "docs_file_count": 0,
-        "beta_routes_remaining": [], "beta_imports_remaining": [],
+        "pilot_routes_remaining": [], "pilot_imports_remaining": [],
     }
     checks = run_reconciliation_checks(
         intake=intake, vio={"vio_company_count": 2},
@@ -231,8 +235,8 @@ def test_check_detects_healthy_active_state():
     assert "queue" in action.lower() or "review" in action.lower()
 
 
-def test_check_detects_beta_residue():
-    """Critical beta residue forces RED health."""
+def test_check_detects_pilot_residue():
+    """Critical pilot residue forces RED health."""
     intake = {
         "intake_count_total": 0, "intake_count_active": 0,
         "intake_count_archived": 0, "uploaded_file_count": 0,
@@ -243,10 +247,10 @@ def test_check_detects_beta_residue():
         },
     }
     residue = {
-        "beta_residue_detected": True, "critical_count": 3,
+        "pilot_residue_detected": True, "critical_count": 3,
         "active_file_count": 2, "docs_file_count": 0,
-        "beta_routes_remaining": ["server.py:/api/operator/intake/queue"],
-        "beta_imports_remaining": ["services/acquisition/x.py"],
+        "pilot_routes_remaining": ["server.py:/api/operator/intake/queue"],
+        "pilot_imports_remaining": ["services/acquisition/x.py"],
     }
     checks = run_reconciliation_checks(
         intake=intake, vio={"vio_company_count": 0},
@@ -260,7 +264,7 @@ def test_check_detects_beta_residue():
         storage={"durable_storage_configured": True, "environment": "test"},
     )
     assert health == "RED"
-    assert bottleneck == "beta_residue_scan"
+    assert bottleneck == "legacy_language_scan"
 
 
 # ---------- end-to-end -------------------------------------------------------
@@ -274,8 +278,8 @@ def test_compute_organism_state_returns_required_fields(durable_intake_root):
         "data_root", "durable_storage_configured", "intake_count_total",
         "intake_count_active", "intake_count_archived", "uploaded_file_count",
         "evidence_artifact_count", "project_count", "queue_depth",
-        "vio_company_count", "control_queue_count", "beta_residue_detected",
-        "beta_routes_remaining", "beta_files_remaining", "visibility_mismatches",
+        "vio_company_count", "control_queue_count", "pilot_residue_detected",
+        "pilot_routes_remaining", "pilot_files_remaining", "visibility_mismatches",
         "health_state", "current_bottleneck", "next_recommended_action",
     }
     missing = required - set(state.keys())

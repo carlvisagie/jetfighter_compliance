@@ -1,4 +1,4 @@
-"""Production durable storage gate for founding beta client paperwork."""
+"""Production durable storage gate for founding pilot client paperwork."""
 from __future__ import annotations
 
 import io
@@ -6,7 +6,7 @@ import io
 import pytest
 
 from services.durable_storage import (
-    founding_beta_upload_allowed,
+    founding_pilot_upload_allowed,
     get_storage_status,
     intake_upload_allowed,
     is_durable_storage_configured,
@@ -18,7 +18,7 @@ from services.intake.storage import intakes_root
 def test_production_rejects_upload_without_kyc_data(prod_env, anon_client, monkeypatch, tmp_path):
     monkeypatch.delenv("KYC_DATA", raising=False)
     monkeypatch.setattr("services.config.DATA", tmp_path.resolve())
-    assert founding_beta_upload_allowed() is False
+    assert founding_pilot_upload_allowed() is False
     r = anon_client.post(
         "/api/intake/upload",
         files=[("files", ("policy.pdf", io.BytesIO(b"%PDF-1.4"), "application/pdf"))],
@@ -69,7 +69,7 @@ def test_storage_status_endpoint(client, monkeypatch, tmp_path):
     body = r.json()
     assert body["ok"] is True
     assert "data_root" in body
-    assert body["founding_beta_intake_enabled"] is True
+    assert body["founding_pilot_intake_enabled"] is True
 
 
 def test_production_rejects_demo_kickoff(prod_env, client, monkeypatch):
@@ -93,7 +93,7 @@ def test_no_ephemeral_fallback_writes_in_production(prod_env, anon_client, monke
     monkeypatch.setattr("services.config.DATA", tmp_path.resolve())
     status = get_storage_status()
     assert status["data_root_ephemeral_in_production"] is True
-    assert status["founding_beta_uploads_enabled"] is False
+    assert status["founding_pilot_uploads_enabled"] is False
     anon_client.post(
         "/api/intake/upload",
         files=[("files", ("x.txt", io.BytesIO(b"x"), "text/plain"))],

@@ -380,7 +380,7 @@
   opacity: 0.92;
 }
 
-.founding-beta-strip {
+.founding-pilot-strip {
   margin-bottom: 0.85rem;
   padding: 0.65rem 0.85rem;
   border-radius: 8px;
@@ -388,7 +388,7 @@
   border: 1px solid rgba(34, 120, 80, 0.35);
 }
 
-.founding-beta-strip .guidance-list {
+.founding-pilot-strip .guidance-list {
   margin-bottom: 0;
 }
 

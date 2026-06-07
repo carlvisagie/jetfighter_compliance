@@ -435,7 +435,7 @@ def score_acquisition_probability(
     if op_pressure.get("selection_rationale") and len(prey_reasons) < 8:
         prey_reasons.append(op_pressure["selection_rationale"][:80])
 
-    from .founding_beta_mode import deployable_intent
+    from .founding_pilot_mode import deployable_intent
 
     deployable = deployable_intent(
         intent,
@@ -677,7 +677,7 @@ def passes_prey_gate(
     min_prey_score: int,
 ) -> bool:
     """Gate operator queue on prey_score + predator profile."""
-    from .founding_beta_mode import intent_passes_prey_gate
+    from .founding_pilot_mode import intent_passes_prey_gate
 
     prob = qualification.get("acquisition_probability") or {}
     intent = classification.get("author_intent", "UNKNOWN")

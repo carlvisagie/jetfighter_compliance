@@ -283,9 +283,9 @@ def process_evidence_upload(
             metadata={"document_type": classification.document_type, "confidence": classification.confidence},
         )
         try:
-            from services.intake.telemetry import emit_intake_event as emit_beta_event
+            from services.intake.telemetry import emit_intake_event as emit_pilot_event
 
-            emit_beta_event(
+            emit_pilot_event(
                 "evidence_mapping_confidence",
                 message=classification.document_type,
                 metadata={
@@ -295,7 +295,7 @@ def process_evidence_upload(
                 },
             )
             if classification.confidence < 0.55:
-                emit_beta_event(
+                emit_pilot_event(
                     "operator_review_needed",
                     metadata={"project_id": project_id, "file": name},
                 )

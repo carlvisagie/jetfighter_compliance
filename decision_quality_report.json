@@ -1,0 +1,54 @@
+{
+  "per_company_analysis": {
+    "FB-VIODEMO001": {
+      "A": 1,
+      "B": 0,
+      "C": 0,
+      "D": 0,
+      "E": 0
+    },
+    "FB-VIODEMO002": {
+      "A": 11,
+      "B": 0,
+      "C": 0,
+      "D": 0,
+      "E": 0
+    },
+    "FB-VIODEMO003": {
+      "A": 10,
+      "B": 0,
+      "C": 0,
+      "D": 0,
+      "E": 0
+    },
+    "FB-VIODEMO004": {
+      "A": 9,
+      "B": 0,
+      "C": 0,
+      "D": 0,
+      "E": 0
+    },
+    "FB-VIODEMO005": {
+      "A": 8,
+      "B": 0,
+      "C": 0,
+      "D": 0,
+      "E": 0
+    }
+  },
+  "aggregate_metrics": {
+    "decision_accuracy_percentage": 100.0,
+    "false_request_percentage": 0.0,
+    "false_confidence_percentage": 0.0,
+    "missed_generation_percentage": 0.0,
+    "human_review_accuracy_percentage": 100.0,
+    "total_decisions_evaluated": 39
+  },
+  "breakdown": {
+    "A_correct": 39,
+    "B_incorrect": 0,
+    "C_missing": 0,
+    "D_overly_conservative": 0,
+    "E_overly_aggressive": 0
+  }
+}

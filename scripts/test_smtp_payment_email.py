@@ -107,7 +107,7 @@ def main() -> int:
         sent = bool((out["smtp_test"] or {}).get("sent"))
         if sent:
             pay = client.post(
-                "/api/operator/founding-beta/action",
+                "/api/operator/founding-pilot/action",
                 json={
                     "intake_id": TEST_INTAKE,
                     "action": "send_payment_link",

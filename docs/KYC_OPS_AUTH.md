@@ -60,6 +60,6 @@ PROD_BASE_URL=https://compliance.keepyourcontracts.com
 - **Protected API:** `/api/operator/*`, `/api/ops/auth-check`, `/api/memory/*`, … → **403** without auth
 - **Public API:** `/healthz`, `/health/ready`, `/api/public/*`, `/api/intake/*` (upload-first customer intake — `upload`, `resolve`, `submit`, `extend`, `complete`, `payment-link`)
 
-> Historical note: `/api/founding-beta/*` and `/ui/founding-beta` were hard-deleted on 2026-05-29 (commit `fabdbc8`). The customer-facing upload path is now `/api/intake/upload`; the operator surface lives under `/api/operator/intake/*`. See `docs/FOUNDING_BETA_RENAME_PLAN.md` for the remaining nomenclature work.
+> Historical note: `/api/founding-pilot/*` and `/ui/founding-pilot` were hard-deleted on 2026-05-29 (commit `fabdbc8`). The customer-facing upload path is now `/api/intake/upload`; the operator surface lives under `/api/operator/intake/*`. See `docs/FOUNDING_PILOT_RENAME_PLAN.md` for the remaining nomenclature work.
 
 Cookie: `kyc_ops_session` (httponly, 7-day max age, `secure` in production).

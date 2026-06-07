@@ -1,4 +1,4 @@
-"""Operator actions on founding beta intakes."""
+"""Operator actions on founding pilot intakes."""
 from __future__ import annotations
 
 from typing import Any, Dict

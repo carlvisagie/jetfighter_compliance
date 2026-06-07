@@ -43,24 +43,24 @@ def run_reconciliation_checks(
 
 
 def _normalize_legacy_residue_input(residue: Dict[str, Any]) -> Dict[str, Any]:
-    """Older tests pass residue as {'beta_routes_remaining': [...], 'critical_count': N, ...}.
+    """Older tests pass residue as {'pilot_routes_remaining': [...], 'critical_count': N, ...}.
 
-    The new BetaResidueCheck reads the organism_core ResidueReport format
+    The new PilotResidueCheck reads the organism_core ResidueReport format
     (classification_counts + matches). Translate legacy dicts into that shape.
     """
     if "classification_counts" in residue or "matches" in residue:
         return residue
 
     matches: List[Dict[str, Any]] = []
-    for path in residue.get("beta_routes_remaining") or []:
+    for path in residue.get("pilot_routes_remaining") or []:
         matches.append({
-            "pattern_id": "beta_route",
+            "pattern_id": "pilot_route",
             "classification": "active",
             "rel_path": str(path),
         })
-    for path in residue.get("beta_imports_remaining") or []:
+    for path in residue.get("pilot_imports_remaining") or []:
         matches.append({
-            "pattern_id": "beta_import",
+            "pattern_id": "pilot_import",
             "classification": "active",
             "rel_path": str(path),
         })
@@ -68,7 +68,7 @@ def _normalize_legacy_residue_input(residue: Dict[str, Any]) -> Dict[str, Any]:
     active_n = int(residue.get("active_file_count", 0))
     docs_n = int(residue.get("docs_file_count", 0))
     return {
-        "detected": bool(residue.get("beta_residue_detected") or matches or active_n or docs_n),
+        "detected": bool(residue.get("pilot_residue_detected") or matches or active_n or docs_n),
         "critical_count": int(residue.get("critical_count", 0)),
         "classification_counts": {
             "active": active_n,

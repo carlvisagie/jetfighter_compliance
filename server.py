@@ -1965,7 +1965,7 @@ def operator_evidence_intelligence(
 
     Historical mismatch: this endpoint was wired through
     `validate_project_id` which rejects anything not prefixed `P-`.
-    But the founding-beta pipeline (the ONLY pipeline currently in
+    But the founding-pilot pipeline (the ONLY pipeline currently in
     production) keys its EI artifacts on `FB-*` intake IDs — so every
     operator request for an FB-* EI snapshot returned 400 with
     "Invalid project_id" even though the artifacts existed on disk
@@ -2122,7 +2122,7 @@ def vio_company_detail(request: Request, intake_id: str):
 def operator_organism_state(request: Request):
     """KYC Aware Organism v0 — self-awareness snapshot.
 
-    Reconciles disk, intake index, queue, VIO, projects, evidence, and beta
+    Reconciles disk, intake index, queue, VIO, projects, evidence, and pilot
     residue. Returns GREEN / AMBER / RED + bottleneck + next action.
     Snapshot is also persisted to {data_root}/organism_state.json and a
     compact row is appended to the snapshot history sidecar.

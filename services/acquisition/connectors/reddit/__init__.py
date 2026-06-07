@@ -127,7 +127,7 @@ def _operator_message_for_error(error_code: str, detail: str) -> str:
         "qualification_pipeline_error": "Qualification pipeline error",
         "prey_scoring_error": "Prey scoring error",
         "soft_burden_analysis_error": "Soft burden analysis error",
-        "founding_beta_discovery_error": "Founding beta discovery error",
+        "founding_pilot_discovery_error": "Founding pilot discovery error",
         "reddit_parse_error": "Reddit parse error",
         "telemetry_serialization_error": "Telemetry warning (run may have partial results)",
         "discovery_time_budget": "Discovery time budget reached",
@@ -160,26 +160,26 @@ def _run_reddit_acquisition_cycle_impl(
         CycleDiagnostics,
         classify_queue_block,
         emit_cycle_telemetry,
-        enrich_founding_beta_candidate_fields,
-        is_founding_beta_discovery_mode,
-        passes_founding_beta_fallback_gate,
-        plan_for_founding_beta_fallback,
+        enrich_founding_pilot_candidate_fields,
+        is_founding_pilot_discovery_mode,
+        passes_founding_pilot_fallback_gate,
+        plan_for_founding_pilot_fallback,
     )
-    from services.acquisition.founding_beta_mode import passes_founding_beta_prey_gate
+    from services.acquisition.founding_pilot_mode import passes_founding_pilot_prey_gate
 
     state = learning.load_learning_state(base)
-    beta_discovery = broad or is_founding_beta_discovery_mode()
+    pilot_discovery = broad or is_founding_pilot_discovery_mode()
     if min_fit_score is None:
-        min_fit_score = 40 if beta_discovery else int(state.get("min_fit_threshold", 50))
+        min_fit_score = 40 if pilot_discovery else int(state.get("min_fit_threshold", 50))
     if min_prey_score is None:
         min_prey_score = int(state.get("min_prey_threshold", DEFAULT_MIN_PREY_SCORE))
-    if beta_discovery:
+    if pilot_discovery:
         max_posts = max(max_posts, 50)
 
     diag = CycleDiagnostics()
     telemetry.emit(
         "reddit_discovery_started",
-        metadata={"connector": CONNECTOR_ID, "founding_beta_discovery": beta_discovery},
+        metadata={"connector": CONNECTOR_ID, "founding_pilot_discovery": pilot_discovery},
         base=base,
     )
     stats: Dict[str, Any] = {
@@ -201,7 +201,7 @@ def _run_reddit_acquisition_cycle_impl(
             limit_per_query=limit_per_query,
             pause_seconds=pause_seconds,
             learning_state=state,
-            founding_beta_broad=beta_discovery,
+            founding_pilot_broad=pilot_discovery,
             base=base,
         )
     except Exception as e:
@@ -262,7 +262,7 @@ def _run_reddit_acquisition_cycle_impl(
         qual = item["qual"]
         prob = qual.get("acquisition_probability") or {}
         intent = item["cls"].get("author_intent", "")
-        from ...founding_beta_mode import deployable_intent
+        from ...founding_pilot_mode import deployable_intent
 
         soft_s = int(prob.get("soft_burden_score", 0))
         prey_candidates.append(
@@ -306,7 +306,7 @@ def _run_reddit_acquisition_cycle_impl(
         qual = item["qual"]
         plan = item["plan"]
         if fallback_used:
-            plan = plan_for_founding_beta_fallback(plan)
+            plan = plan_for_founding_pilot_fallback(plan)
             item["plan"] = plan
 
         pid = str(post.get("post_id") or uuid.uuid4().hex[:8])
@@ -410,7 +410,7 @@ def _run_reddit_acquisition_cycle_impl(
             "auto_post": False,
             "operator_actions": ["approve", "deny"],
             "discovered_utc": utc_now(),
-            "founding_beta_fallback": fallback_used,
+            "founding_pilot_fallback": fallback_used,
             "operational_pressure_badges": (qual.get("acquisition_probability") or {}).get(
                 "operational_pressure_badges", []
             ),
@@ -418,7 +418,7 @@ def _run_reddit_acquisition_cycle_impl(
             "likely_frameworks": burden_profile.get("likely_frameworks", []),
             "future_compliance_burden": burden_profile.get("future_compliance_burden", ""),
         }
-        enrich_founding_beta_candidate_fields(
+        enrich_founding_pilot_candidate_fields(
             record, post=post, qual=qual, cls=cls, plan=plan, fallback_used=fallback_used
         )
         discovery.append_discovered_post(record, base)
@@ -428,16 +428,16 @@ def _run_reddit_acquisition_cycle_impl(
         queued_this_cycle += 1
         queued_post_ids.add(post["post_id"])
         try:
-            from services.intake.telemetry import emit_intake_event as emit_beta_event
+            from services.intake.telemetry import emit_intake_event as emit_pilot_event
 
-            emit_beta_event("beta_candidate_queued", metadata={"post_id": post["post_id"], "fallback": fallback_used})
+            emit_pilot_event("pilot_candidate_queued", metadata={"post_id": post["post_id"], "fallback": fallback_used})
         except Exception:
             pass
         telemetry.emit(
             "reddit_post_discovered",
             post_id=post["post_id"],
             subreddit=post.get("subreddit", ""),
-            metadata={"plan": plan, "auto_post": False, "founding_beta_fallback": fallback_used},
+            metadata={"plan": plan, "auto_post": False, "founding_pilot_fallback": fallback_used},
             base=base,
         )
         telemetry.emit("reddit_draft_generated", post_id=post["post_id"], metadata={"auto_post": False}, base=base)
@@ -528,9 +528,9 @@ def _run_reddit_acquisition_cycle_impl(
         )
         if int(prob.get("operational_pressure_score", 0) or 0) >= 28:
             try:
-                from services.intake.telemetry import emit_intake_event as emit_beta_event
+                from services.intake.telemetry import emit_intake_event as emit_pilot_event
 
-                emit_beta_event(
+                emit_pilot_event(
                     "operational_pressure_detected",
                     metadata={"post_id": post.get("post_id"), "score": prob.get("operational_pressure_score")},
                 )
@@ -578,7 +578,7 @@ def _run_reddit_acquisition_cycle_impl(
                 {"post_id": post.get("post_id"), "error_code": code, "detail": detail}
             )
 
-    if beta_discovery and queued_this_cycle < TARGET_QUEUE_MIN:
+    if pilot_discovery and queued_this_cycle < TARGET_QUEUE_MIN:
         diag.fallback_discovery_used = True
         fallback_fit = min(min_fit_score, FALLBACK_MIN_FIT)
 
@@ -591,7 +591,7 @@ def _run_reddit_acquisition_cycle_impl(
             cls = item["cls"]
             qual = item["qual"]
             plan = item["plan"]
-            if not passes_founding_beta_fallback_gate(qual, cls):
+            if not passes_founding_pilot_fallback_gate(qual, cls):
                 continue
             if qual.get("fit_score", 0) < fallback_fit and not cls.get("relevant"):
                 continue
@@ -604,7 +604,7 @@ def _run_reddit_acquisition_cycle_impl(
         discovered=stats["discovered"],
     )
     stats["queue_diagnostics"] = state["last_cycle_diagnostics"]
-    stats["founding_beta_discovery"] = beta_discovery
+    stats["founding_pilot_discovery"] = pilot_discovery
     try:
         learning.save_learning_state(state, base)
     except Exception as e:
@@ -840,9 +840,9 @@ def _pending_with_knowledge(o: Dict[str, Any]) -> Dict[str, Any]:
         "source": o.get("source", "reddit"),
         "operational_burden_reason": o.get("operational_burden_reason", ""),
         "likely_paperwork": o.get("likely_paperwork", ""),
-        "beta_fit": o.get("beta_fit", ""),
+        "pilot_fit": o.get("pilot_fit", ""),
         "recommended_next_action": o.get("recommended_next_action", ""),
-        "founding_beta_framing": o.get("founding_beta_framing", ""),
+        "founding_pilot_framing": o.get("founding_pilot_framing", ""),
         "why_organism_selected": o.get("why_organism_selected", ""),
         "operational_pressure_badges": o.get("operational_pressure_badges", []),
         "likely_frameworks": o.get("likely_frameworks", []),
@@ -880,18 +880,18 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
 
     acq = acq_dash(base)
 
-    founding_beta: Dict[str, Any] = {}
+    founding_pilot: Dict[str, Any] = {}
     try:
-        from services.intake.stats import get_intake_status as get_founding_beta_status
+        from services.intake.stats import get_intake_status as get_founding_pilot_status
 
-        founding_beta = get_founding_beta_status(base)
+        founding_pilot = get_founding_pilot_status(base)
     except Exception:
         pass
 
     return {
         "ok": True,
         "connector": CONNECTOR_ID,
-        "founding_beta": founding_beta,
+        "founding_pilot": founding_pilot,
         "operator_role": "strategic_approval_only",
         "operator_actions": ["approve", "deny"],
         "doctrine": {
@@ -921,7 +921,7 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
         },
         "upload_conversion": acq.get("upload_conversion", {}),
         "queue_diagnostics": state.get("last_cycle_diagnostics", {}),
-        "founding_beta_discovery_mode": True,
+        "founding_pilot_discovery_mode": True,
         "ignored_count": len(_load_jsonl(IGNORED_POSTS_JSONL, base, limit=100)),
         "safety": {
             "auto_post": False,

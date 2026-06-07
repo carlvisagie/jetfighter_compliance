@@ -100,7 +100,7 @@ class ResidueScanner:
           patterns: regex residue patterns
           rules: classification rules for matched files
           critical_packages: rel_posix paths whose mere existence is critical
-            (e.g. ``services/founding_beta/__init__.py``)
+            (e.g. ``services/founding_pilot/__init__.py``)
           skip_dirs: directory names to skip entirely
           scan_extensions: file extensions to scan (lower-case, leading dot)
           self_paths: prefixes of files that ARE the scanner / its tests —

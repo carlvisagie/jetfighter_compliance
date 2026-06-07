@@ -163,9 +163,9 @@ def test_hash_mismatch_detected_on_retention_check(fb_env, anon_client: TestClie
 
 
 def test_canonical_write_guard_blocks_legacy_path(fb_env):
-    from services.intake.storage import assert_canonical_write_path, founding_beta_root
+    from services.intake.storage import assert_canonical_write_path, founding_pilot_root
 
-    legacy = founding_beta_root() / "intakes" / "FB-deadbeef" / "uploads" / "x.pdf"
+    legacy = founding_pilot_root() / "intakes" / "FB-deadbeef" / "uploads" / "x.pdf"
     with pytest.raises(ValueError, match="non-canonical"):
         assert_canonical_write_path(legacy)
 
@@ -177,10 +177,10 @@ def test_customer_upload_writes_only_canonical_intakes(fb_env, anon_client: Test
         data={"email": "canon@example.com", "expected_file_count": "1"},
     )
     iid = r.json()["intake_id"]
-    from services.intake.storage import canonical_intake_dir, founding_beta_root
+    from services.intake.storage import canonical_intake_dir, founding_pilot_root
 
     assert (canonical_intake_dir(iid) / "uploads" / "canon.pdf").is_file()
-    legacy = founding_beta_root() / "intakes" / iid
+    legacy = founding_pilot_root() / "intakes" / iid
     assert not legacy.is_dir() or not any(legacy.rglob("canon.pdf"))
 
 

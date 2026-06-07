@@ -101,7 +101,7 @@ def run_usaspending_live_connector(
                     segment=row.get("segment", ""),
                     industry=row.get("industry", ""),
                 )
-                row["founding_beta_enrichment"] = fb
+                row["founding_pilot_enrichment"] = fb
                 row["notes"] = (row["notes"] + "\n\n" + fb.get("likely_paperwork_prediction", "")).strip()
             except Exception:
                 pass

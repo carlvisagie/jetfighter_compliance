@@ -41,7 +41,7 @@ recommendations, and residue patterns.
                                 │   collectors.py    → 6 KYC collectors │
                                 │   checks.py        → 8 KYC checks     │
                                 │   recommendations  → KYC action map   │
-                                │   residue_config   → founding_beta    │
+                                │   residue_config   → founding_pilot    │
                                 │   state.py         → build_kyc_engine │
                                 │                                       │
                                 │   Compatibility shims:                │
@@ -107,11 +107,11 @@ scanner can be configured to enforce this if/when desired.
 | `collectors.py`       | 6 KYC SignalCollectors (intake, vio, projects, evidence, storage, git) |
 | `checks.py`           | 8 KYC Check subclasses                                         |
 | `recommendations.py`  | `kyc_recommendations()` registry                               |
-| `residue_config.py`   | KYC patterns (`founding_beta`) + classification rules          |
+| `residue_config.py`   | KYC patterns (`founding_pilot`) + classification rules          |
 | `state.py`            | `build_kyc_engine`, `compute_organism_state`, `write_organism_state_snapshot` |
 | `detector.py` (shim)  | `run_reconciliation_checks` — preserves legacy test signature  |
 | `health.py` (shim)    | `derive_health` — preserves legacy test signature              |
-| `residue.py` (shim)   | `scan_repo_for_beta_residue` — preserves legacy test signature |
+| `residue.py` (shim)   | `scan_repo_for_pilot_residue` — preserves legacy test signature |
 
 **Backward compatibility:** `from services.organism_state import compute_organism_state, write_organism_state_snapshot` works exactly as before. `GET /api/operator/organism/state` returns the same fields. The 15 KYC tests still pass without modification.
 
@@ -171,7 +171,7 @@ engine = AwarenessEngine(
 
 | Product                        | Likely collectors                                | Likely checks                                                       | Residue scanner? |
 |--------------------------------|--------------------------------------------------|---------------------------------------------------------------------|------------------|
-| **KYC** (active)               | intake, vio, projects, evidence, storage, git    | disk_vs_index, queue_vs_vio, evidence_vs_files, beta_residue (8 total) | yes — founding_beta |
+| **KYC** (active)               | intake, vio, projects, evidence, storage, git    | disk_vs_index, queue_vs_vio, evidence_vs_files, pilot_residue (8 total) | yes — founding_pilot |
 | **Purposeful**                 | sessions, chats, memory_writes, embeddings        | session_leak, memory_write_lag, embedding_drift, transcript_orphan  | optional        |
 | **Sage**                       | conversations, model_calls, billing, queue       | model_quota, billing_drift, queue_starvation, prompt_template_drift | optional        |
 | **Just Talk module**           | calls, transcripts, intents                       | transcript_gap, intent_misroute, audio_quality_drop                 | optional        |

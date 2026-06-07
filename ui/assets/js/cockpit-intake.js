@@ -1,5 +1,5 @@
 /**
- * Cockpit founding-beta visibility — banner, atlas summary, organism pulse.
+ * Cockpit founding-pilot visibility — banner, atlas summary, organism pulse.
  */
 (function (global) {
   'use strict';
@@ -81,7 +81,7 @@
       setVisible(banner, true);
       banner.className = 'fb-paperwork-banner fb-paperwork-banner--warn';
       banner.innerHTML =
-        '<strong>Founding beta queue unavailable</strong>' +
+        '<strong>Founding pilot queue unavailable</strong>' +
         '<span class="fb-paperwork-banner__detail">' +
         escapeHtml(state.error.message || String(state.error)) +
         '</span>' +
@@ -462,7 +462,7 @@
     }, 30000);
   }
 
-  global.CockpitFoundingBeta = {
+  global.CockpitFoundingPilot = {
     refresh: refresh,
     refreshStorage: refreshStorage,
     refreshEvidenceProof: refreshEvidenceProof,

@@ -59,7 +59,7 @@ All four probes require `.ops_env` with `OPS_PASSWORD` (+ `RENDER_API_KEY` for t
 7. **`server.py`** — real routes (HTML may lie; code is truth)
 8. **`render.yaml`** — production env contract
 
-Optional but useful: [`docs/PRODUCTION_ENGINEERING_DOCTRINE.md`](docs/PRODUCTION_ENGINEERING_DOCTRINE.md), [`docs/PUBLIC_UI_EXPOSURE_AUDIT.md`](docs/PUBLIC_UI_EXPOSURE_AUDIT.md), [`docs/FOUNDING_BETA_RENAME_PLAN.md`](docs/FOUNDING_BETA_RENAME_PLAN.md) (known-amber tracking).
+Optional but useful: [`docs/PRODUCTION_ENGINEERING_DOCTRINE.md`](docs/PRODUCTION_ENGINEERING_DOCTRINE.md), [`docs/PUBLIC_UI_EXPOSURE_AUDIT.md`](docs/PUBLIC_UI_EXPOSURE_AUDIT.md), [`docs/FOUNDING_PILOT_RENAME_PLAN.md`](docs/FOUNDING_PILOT_RENAME_PLAN.md) (known-amber tracking).
 
 ---
 

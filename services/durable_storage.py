@@ -90,7 +90,7 @@ def intake_pipeline_enabled() -> bool:
     return is_intake_mode()
 
 
-def founding_beta_intake_enabled() -> bool:
+def founding_pilot_intake_enabled() -> bool:
     """Deprecated alias — use intake_pipeline_enabled."""
     return intake_pipeline_enabled()
 
@@ -367,7 +367,7 @@ def intake_upload_allowed() -> bool:
     return True
 
 
-def founding_beta_upload_allowed() -> bool:
+def founding_pilot_upload_allowed() -> bool:
     """Deprecated alias — use intake_upload_allowed."""
     return intake_upload_allowed()
 
@@ -450,7 +450,7 @@ def require_intake_upload_allowed() -> None:
     )
 
 
-def require_founding_beta_upload_allowed() -> None:
+def require_founding_pilot_upload_allowed() -> None:
     """Deprecated alias — use require_intake_upload_allowed."""
     require_intake_upload_allowed()
 
@@ -495,8 +495,8 @@ def get_storage_status() -> Dict[str, Any]:
         "mount_probe": mount,
         "intake_pipeline_enabled": intake_pipeline_enabled(),
         "intake_uploads_enabled": allowed,
-        "founding_beta_intake_enabled": intake_pipeline_enabled(),
-        "founding_beta_uploads_enabled": allowed,
+        "founding_pilot_intake_enabled": intake_pipeline_enabled(),
+        "founding_pilot_uploads_enabled": allowed,
         "upload_block_reason": reason,
         "operator_message": (
             None

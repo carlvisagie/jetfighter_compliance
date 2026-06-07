@@ -32,7 +32,7 @@ def mem_telemetry(monkeypatch, tmp_path):
     sessions = root / "customer_sessions"
     sessions.mkdir(parents=True)
     monkeypatch.setenv("KYC_DATA", str(root))
-    monkeypatch.setenv("KYC_FOUNDING_BETA_MODE", "true")
+    monkeypatch.setenv("KYC_FOUNDING_PILOT_MODE", "true")
     monkeypatch.setattr("services.config.DATA", root)
     monkeypatch.setattr("services.memory.telemetry.memory_dir", lambda base=None: mem)
     monkeypatch.setattr("services.memory.entity_graph.memory_dir", lambda base=None: mem)

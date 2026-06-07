@@ -5,14 +5,14 @@ from organism_core import RecommendationRegistry
 from organism_core.health.checks import CheckResult
 
 
-def _beta_residue_action(r: CheckResult) -> str:
+def _pilot_residue_action(r: CheckResult) -> str:
     ev = r.evidence or {}
-    if ev.get("beta_imports_remaining"):
-        return f"Remove founding_beta imports from: {', '.join(ev['beta_imports_remaining'][:3])}"
-    if ev.get("beta_routes_remaining"):
-        return f"Remove founding_beta routes from: {', '.join(ev['beta_routes_remaining'][:3])}"
+    if ev.get("pilot_imports_remaining"):
+        return f"Remove founding_pilot imports from: {', '.join(ev['pilot_imports_remaining'][:3])}"
+    if ev.get("pilot_routes_remaining"):
+        return f"Remove founding_pilot routes from: {', '.join(ev['pilot_routes_remaining'][:3])}"
     if ev.get("active_file_count", 0) > 0:
-        return "Clean residual founding_beta strings from active source files."
+        return "Clean residual founding_pilot strings from active source files."
     return "Residue is in docs/tests only — non-blocking."
 
 
@@ -31,7 +31,7 @@ def kyc_recommendations() -> RecommendationRegistry:
         "evidence_vs_files": "Run evidence intelligence extraction on uploaded files.",
         "projects_vs_completed_intakes": "Sanity ok.",
         "archives_vs_active": "Sanity check intake archive flags — counts do not sum.",
-        "beta_residue_scan": _beta_residue_action,
+        "pilot_residue_scan": _pilot_residue_action,
     })
     return reg
 

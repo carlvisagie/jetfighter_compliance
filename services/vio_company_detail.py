@@ -283,7 +283,7 @@ def build_company_detail(intake_id: str) -> Dict[str, Any]:
 
     # Doctrine alignment: L1 (`vio_overview.py`) loads EI as
     # `project_id or intake_id`. L2 used to gate purely on `project_id`,
-    # which meant founding-beta intakes (no kickoff project yet) had EI
+    # which meant founding-pilot intakes (no kickoff project yet) had EI
     # artifacts on disk but an empty `evidence` block in the company
     # detail. Operators drilled in and saw an empty evidence/missing/
     # findings branch despite L1 showing real signals. The intake hook

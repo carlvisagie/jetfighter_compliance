@@ -30,9 +30,9 @@ def _is_intake_telemetry_row(row: Dict[str, Any]) -> bool:
     meta = row.get("metadata") or {}
     subsystem = str(row.get("subsystem") or "")
     return (
-        subsystem in ("intake", "founding_beta")
+        subsystem in ("intake", "founding_pilot")
         or meta.get("intake")
-        or meta.get("founding_beta")
+        or meta.get("founding_pilot")
     )
 
 
@@ -42,12 +42,12 @@ def get_intake_status(base: Optional[Path] = None) -> Dict[str, Any]:
     blocks = intake_messaging_blocks()
 
     tel_path = root / "memory" / "telemetry.jsonl"
-    beta_events = [r for r in _read_jsonl(tel_path) if _is_intake_telemetry_row(r)]
-    uploads_started = sum(1 for r in beta_events if r.get("event_type") == "beta_upload_started")
-    uploads_completed = sum(1 for r in beta_events if r.get("event_type") == "beta_upload_completed")
-    file_type_events = [r for r in beta_events if r.get("event_type") == "upload_file_types"]
-    mapping_events = [r for r in beta_events if r.get("event_type") == "evidence_mapping_confidence"]
-    confusion_events = [r for r in beta_events if r.get("event_type") == "onboarding_confusion"]
+    pilot_events = [r for r in _read_jsonl(tel_path) if _is_intake_telemetry_row(r)]
+    uploads_started = sum(1 for r in pilot_events if r.get("event_type") == "pilot_upload_started")
+    uploads_completed = sum(1 for r in pilot_events if r.get("event_type") == "pilot_upload_completed")
+    file_type_events = [r for r in pilot_events if r.get("event_type") == "upload_file_types"]
+    mapping_events = [r for r in pilot_events if r.get("event_type") == "evidence_mapping_confidence"]
+    confusion_events = [r for r in pilot_events if r.get("event_type") == "onboarding_confusion"]
 
     intake_uploads = 0
     pending_intakes = 0
@@ -87,7 +87,7 @@ def get_intake_status(base: Optional[Path] = None) -> Dict[str, Any]:
 
     learning_signals: List[str] = []
     if uploads_completed:
-        learning_signals.append(f"{uploads_completed} beta upload completion(s) recorded")
+        learning_signals.append(f"{uploads_completed} pilot upload completion(s) recorded")
     if session_uploads:
         learning_signals.append(f"{session_uploads} file(s) in pre-contact sessions")
     if avg_confidence is not None:
@@ -108,8 +108,8 @@ def get_intake_status(base: Optional[Path] = None) -> Dict[str, Any]:
         "metrics": {
             "uploads_received": max(uploads_completed, session_uploads, intake_uploads),
             "pending_review": pending_intakes,
-            "beta_uploads_started": uploads_started,
-            "beta_uploads_completed": uploads_completed,
+            "pilot_uploads_started": uploads_started,
+            "pilot_uploads_completed": uploads_completed,
             "onboarding_completion_rate": completion_rate,
             "evidence_categories_mapped": categories,
             "evidence_mapping_confidence_avg": avg_confidence,

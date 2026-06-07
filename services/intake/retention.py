@@ -1,4 +1,4 @@
-"""Founding beta durable retention — filesystem is source of truth; audit receipts prove writes."""
+"""Founding pilot durable retention — filesystem is source of truth; audit receipts prove writes."""
 from __future__ import annotations
 
 import hashlib

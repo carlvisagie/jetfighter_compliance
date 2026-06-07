@@ -21,7 +21,7 @@
 | Document extraction | PDF / DOCX / XLSX / image metadata implemented in `services/evidence_intelligence/extraction.py` — `pypdf`, `python-docx`, `openpyxl`, `Pillow` shipped in `requirements.txt` |
 | Test suite | 865 passed in 264.46s |
 
-**Remaining organism AMBER:** one — `beta_residue_scan` (15 active source files still use the `founding_beta` token for the canonical loose-discovery acquisition mode). Behavior is correct; the name is unfinished. Planned rename is scoped in [`FOUNDING_BETA_RENAME_PLAN.md`](./FOUNDING_BETA_RENAME_PLAN.md). **Not a release blocker.**
+**Remaining organism AMBER:** one — `pilot_residue_scan` (15 active source files still use the `founding_pilot` token for the canonical loose-discovery acquisition mode). Behavior is correct; the name is unfinished. Planned rename is scoped in [`FOUNDING_PILOT_RENAME_PLAN.md`](./FOUNDING_PILOT_RENAME_PLAN.md). **Not a release blocker.**
 
 **Verification scripts shipped in this pass (all hit production via authenticated session, never local data):**
 

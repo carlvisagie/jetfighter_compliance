@@ -105,13 +105,13 @@ def format_target_for_panel(
     return panel
 
 
-def enrich_target_with_founding_beta(
+def enrich_target_with_founding_pilot(
     panel: Dict[str, Any],
     row: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Attach paperwork prediction fields for operator Acquisition panel."""
     row = row or {}
-    fb = row.get("founding_beta_enrichment")
+    fb = row.get("founding_pilot_enrichment")
     if not fb and "usaspending" in (panel.get("source") or ""):
         try:
             from services.intake.paperwork_prediction import predict_federal_supplier_paperwork
@@ -131,9 +131,9 @@ def enrich_target_with_founding_beta(
                 "likely_compliance_burden": fb.get("likely_compliance_burden"),
                 "likely_outreach_angle": fb.get("likely_outreach_angle"),
                 "likely_evidence_request": fb.get("likely_evidence_request"),
-                "recommended_founding_beta_pitch": fb.get("recommended_founding_beta_pitch"),
+                "recommended_founding_pilot_pitch": fb.get("recommended_founding_pilot_pitch"),
                 "why_might_upload_paperwork": fb.get("why_might_upload_paperwork"),
-                "beta_fit": fb.get("beta_fit"),
+                "pilot_fit": fb.get("pilot_fit"),
                 "recommended_next_action": fb.get("recommended_next_action"),
             }
         )
@@ -220,7 +220,7 @@ def ingest_discovery_candidate(
         source=cleaned["source"],
         source_url=cleaned["source_url"],
     )
-    target = enrich_target_with_founding_beta(target, row=row)
+    target = enrich_target_with_founding_pilot(target, row=row)
     _append_intel(TARGETS_JSONL, target, base)
     _append_intel(
         SIGNALS_JSONL,
@@ -510,17 +510,17 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
         for tag in (t.get("signal_bundle") or {}).get("emotional_tags") or []:
             emotional[tag] = emotional.get(tag, 0) + 1
 
-    founding_beta: Dict[str, Any] = {}
+    founding_pilot: Dict[str, Any] = {}
     try:
-        from services.intake.stats import get_intake_status as get_founding_beta_status
+        from services.intake.stats import get_intake_status as get_founding_pilot_status
 
-        founding_beta = get_founding_beta_status(base)
+        founding_pilot = get_founding_pilot_status(base)
     except Exception:
         pass
 
     return {
         "ok": True,
-        "founding_beta": founding_beta,
+        "founding_pilot": founding_pilot,
         "doctrine": {
             "positioning": "burden_removal",
             "message": messaging.CORE_HEADLINE + " " + messaging.CORE_SUBLINE,

@@ -33,13 +33,13 @@ def compute_upload_funnel(*, base: Optional[Path] = None, limit: int = 3000) -> 
     started = _count_events(
         rows,
         "pre_contact_upload_started",
-        "beta_upload_started",
+        "pilot_upload_started",
         "upload_started",
     )
     completed = _count_events(
         rows,
         "pre_contact_upload_completed",
-        "beta_upload_completed",
+        "pilot_upload_completed",
         "upload_completed",
     )
     abandoned = _count_events(
@@ -100,7 +100,7 @@ def compute_acquisition_funnel(*, base: Optional[Path] = None, limit: int = 3000
     denied = _count_events(rows, "operator_denied", "reddit_post_ignored")
     uploads_after_engagement = _count_events(
         rows,
-        "beta_upload_completed",
+        "pilot_upload_completed",
         "pre_contact_upload_completed",
         "workspace_created",
     )
@@ -180,7 +180,7 @@ def compute_evidence_metrics(*, base: Optional[Path] = None, limit: int = 3000) 
     rows = [
         r
         for r in _load_rows(limit=limit, base=base)
-        if r.get("subsystem") in ("evidence_intelligence", "founding_beta")
+        if r.get("subsystem") in ("evidence_intelligence", "founding_pilot")
     ]
     classified = _count_events(rows, "document_classified", "evidence_extraction_completed")
     failures = _count_events(rows, "evidence_extraction_failed", "evidence_mapping_failure")

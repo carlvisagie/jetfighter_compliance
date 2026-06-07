@@ -14,7 +14,7 @@ from fastapi import HTTPException, UploadFile
 
 from services.production import safe_upload_filename
 from services.public_url import get_public_base_url
-from services.security import make_founding_beta_token, parse_founding_beta_token
+from services.security import make_founding_pilot_token, parse_founding_pilot_token
 
 from .storage import (
     all_intake_ids,
@@ -174,7 +174,7 @@ def _commit_intake_state(
 
 def validate_intake_access(intake_id: str, token: str) -> Dict[str, Any]:
     try:
-        info = parse_founding_beta_token(token)
+        info = parse_founding_pilot_token(token)
     except ValueError as e:
         code = str(e)
         if code == "intake_token_expired":
@@ -257,7 +257,7 @@ def create_intake(
     )
     append_transaction_event(intake_id, PHASE_INDEX_COMMITTED, metadata={"committed": True})
     logger.info(
-        "Founding beta intake created %s at %s",
+        "Founding pilot intake created %s at %s",
         intake_id,
         intake_json_path(intake_id).parent,
     )
@@ -422,7 +422,7 @@ async def process_upload(
             deadline=deadline,
         )
         intake_id = record["intake_id"]
-        token = make_founding_beta_token(intake_id)
+        token = make_founding_pilot_token(intake_id)
 
     # Acquisition attribution: store lead_id when a ref=LD-xxx param was passed
     if ref and str(ref).startswith("LD-") and not record.get("lead_id"):
@@ -508,7 +508,7 @@ async def _process_upload_locked(
 
     _safe_emit_intake_event(
         intake_id,
-        "beta_upload_started",
+        "pilot_upload_started",
         message=f"Upload batch for {intake_id}",
         metadata={
             "intake_id": intake_id,
@@ -599,7 +599,7 @@ async def _process_upload_locked(
             entry["reason_detail"] = str(he.detail)
             errors.append({"filename": original_name, "error": str(he.detail)})
         except Exception as exc:
-            logger.warning("Founding beta file save failed: %s", exc)
+            logger.warning("Founding pilot file save failed: %s", exc)
             entry["state"] = STATE_REJECTED
             entry["reason_code"] = REASON_PERSIST_FAILED
             entry["reason_detail"] = "Could not save file"
@@ -750,7 +750,7 @@ async def _process_upload_locked(
                 guard_disk_file_visibility(intake_id, name, context="post_commit")
 
     logger.info(
-        "Founding beta upload committed %s files=%s path=%s committed=%s",
+        "Founding pilot upload committed %s files=%s path=%s committed=%s",
         intake_id,
         record["file_count"],
         intake_json_path(intake_id),
@@ -788,7 +788,7 @@ async def _process_upload_locked(
         ext_counts[e] = ext_counts.get(e, 0) + 1
 
     emit_intake_event(
-        "beta_upload_completed",
+        "pilot_upload_completed",
         message=f"{len(saved)} file(s) on {intake_id}",
         metadata={
             "intake_id": intake_id,
@@ -816,7 +816,7 @@ async def _process_upload_locked(
                 project_id=intake_id,
                 upload_count=len(saved),
                 file_types=list(ext_counts.keys()),
-                source="founding-beta-upload",
+                source="founding-pilot-upload",
                 lead_id=record.get("lead_id") or "",
             )
         except Exception as exc:
@@ -996,7 +996,7 @@ async def _process_upload_locked(
                 )
 
         except Exception as exc:
-            logger.warning("Founding beta classification skipped: %s", exc)
+            logger.warning("Founding pilot classification skipped: %s", exc)
 
     link = _magic_link(intake_id, token)
     qr_bytes = _qr_png(link)
@@ -1129,7 +1129,7 @@ def get_operator_intake_dashboard(limit: int = 20) -> Dict[str, Any]:
                 "file_count": rec.get("file_count", 0),
             }
         )
-        tok = make_founding_beta_token(str(iid))
+        tok = make_founding_pilot_token(str(iid))
         links.append(
             {
                 "intake_id": iid,

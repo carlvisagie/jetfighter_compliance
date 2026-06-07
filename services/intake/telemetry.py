@@ -7,8 +7,8 @@ from .mode import is_intake_mode
 
 INTAKE_EVENT_TYPES = frozenset(
     {
-        "beta_upload_started",
-        "beta_upload_completed",
+        "pilot_upload_started",
+        "pilot_upload_completed",
         "upload_file_types",
         "evidence_mapping_confidence",
         "operator_review_needed",
@@ -42,7 +42,7 @@ def emit_intake_event(
         from services.organism_observability.emit import organism_emit
 
         organism_emit("intake", event_type, message=message[:300], metadata=meta)
-        if event_type in ("beta_upload_completed", "workspace_created"):
+        if event_type in ("pilot_upload_completed", "workspace_created"):
             organism_emit(
                 "acquisition_organism",
                 "upload_conversion_completed",

@@ -133,7 +133,7 @@ def readiness_checks() -> Dict[str, Any]:
         "environment": os.getenv("ENVIRONMENT", "development"),
         "durable_storage_configured": storage["durable_storage_configured"],
         "intake_uploads_enabled": storage["intake_uploads_enabled"],
-        "founding_beta_uploads_enabled": storage.get("founding_beta_uploads_enabled"),
+        "founding_pilot_uploads_enabled": storage.get("founding_pilot_uploads_enabled"),
     }
 
 

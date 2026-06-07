@@ -48,16 +48,16 @@ def parse_session_token(token: str) -> dict:
         raise ValueError("session_invalid") from e
 
 
-_intake_token_signer = URLSafeSerializer(SETTINGS.intake_token_secret, salt="kyc-founding-beta")
+_intake_token_signer = URLSafeSerializer(SETTINGS.intake_token_secret, salt="kyc-founding-pilot")
 INTAKE_TOKEN_MAX_AGE_SECONDS = 90 * 24 * 3600
 
 
-def make_founding_beta_token(intake_id: str) -> str:
-    """Upload magic-link token for founding-beta / intake paperwork (FB-* ids)."""
+def make_founding_pilot_token(intake_id: str) -> str:
+    """Upload magic-link token for founding-pilot / intake paperwork (FB-* ids)."""
     return _intake_token_signer.dumps({"i": intake_id, "ts": int(time.time())})
 
 
-def parse_founding_beta_token(token: str) -> dict:
+def parse_founding_pilot_token(token: str) -> dict:
     try:
         return _intake_token_signer.loads(token, max_age=INTAKE_TOKEN_MAX_AGE_SECONDS)
     except SignatureExpired as e:

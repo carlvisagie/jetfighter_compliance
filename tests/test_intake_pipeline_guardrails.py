@@ -79,7 +79,7 @@ def test_queue_reports_empty_reason(fb_data, client):
 
 def test_operator_intake_queue_serves_uploaded_intakes(client, fb_data, anon_client):
     """The canonical intake queue endpoint must surface freshly uploaded
-    intakes. The former /api/operator/founding-beta-intake shim is gone —
+    intakes. The former /api/operator/founding-pilot-intake shim is gone —
     the queue endpoint IS the canonical surface now."""
     anon_client.post(
         "/api/intake/upload",

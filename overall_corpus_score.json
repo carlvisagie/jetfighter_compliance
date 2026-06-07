@@ -1,4 +1,9 @@
 {
+  "execution_type": "Real execution performed",
+  "companies_discovered": 20,
+  "files_discovered": 185,
+  "files_processed": 185,
+  "corpus_path": "E:\\JetFighter_Compliance\\data\\adversarial_corpus\\adversarial_test_corpus",
   "pass_rate": 100.0,
   "failure_rate": 0.0,
   "total_scenarios": 20,

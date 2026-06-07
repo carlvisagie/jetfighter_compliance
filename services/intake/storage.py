@@ -1,4 +1,4 @@
-"""Founding beta filesystem storage — canonical paths and intake inventory."""
+"""Founding pilot filesystem storage — canonical paths and intake inventory."""
 from __future__ import annotations
 
 import json
@@ -42,9 +42,9 @@ PENDING_REVIEW_STATUSES = frozenset(
 )
 
 
-def founding_beta_root() -> Path:
+def founding_pilot_root() -> Path:
     """Deprecated layout root — reads only; new writes use intakes_root()."""
-    return _data_root() / "founding_beta"
+    return _data_root() / "founding_pilot"
 
 
 def intakes_root() -> Path:
@@ -55,7 +55,7 @@ def intakes_root() -> Path:
 
 
 def assert_canonical_write_path(path: Path) -> None:
-    """All intake writes must land under canonical intakes/ — never legacy founding_beta/intakes."""
+    """All intake writes must land under canonical intakes/ — never legacy founding_pilot/intakes."""
     from .durable_root import assert_durable_write_path
 
     canonical = intakes_root().resolve()
@@ -69,7 +69,7 @@ def assert_canonical_write_path(path: Path) -> None:
 def legacy_intakes_roots() -> List[Path]:
     """Read-only legacy trees merged into inventory scans."""
     roots: List[Path] = []
-    old = founding_beta_root() / "intakes"
+    old = founding_pilot_root() / "intakes"
     if old.is_dir():
         roots.append(old)
     return roots
@@ -78,7 +78,7 @@ def legacy_intakes_roots() -> List[Path]:
 def index_jsonl() -> Path:
     p = intakes_root() / "index.jsonl"
     p.parent.mkdir(parents=True, exist_ok=True)
-    legacy = founding_beta_root() / "intakes_index.jsonl"
+    legacy = founding_pilot_root() / "intakes_index.jsonl"
     if not p.is_file() and legacy.is_file():
         return legacy
     return p
@@ -454,8 +454,8 @@ def count_upload_files() -> int:
 
 
 def legacy_migration_status() -> Dict[str, Any]:
-    """Read-only scan of legacy founding_beta/ intakes not yet copied to canonical intakes/."""
-    legacy_root = founding_beta_root() / "intakes"
+    """Read-only scan of legacy founding_pilot/ intakes not yet copied to canonical intakes/."""
+    legacy_root = founding_pilot_root() / "intakes"
     canonical = intakes_root()
     pending: List[str] = []
     if legacy_root.is_dir():
@@ -516,7 +516,7 @@ def intake_diagnostics() -> Dict[str, Any]:
         "roots_match": write_root == read_root,
         "durable_storage_configured": storage["durable_storage_configured"],
         "intake_uploads_enabled": storage["intake_uploads_enabled"],
-        "founding_beta_uploads_enabled": storage.get("founding_beta_uploads_enabled"),
+        "founding_pilot_uploads_enabled": storage.get("founding_pilot_uploads_enabled"),
         "upload_block_reason": storage.get("upload_block_reason"),
         "canonical_intakes_root": str(root.resolve()),
         "legacy_intakes_roots": [str(p.resolve()) for p in legacy_intakes_roots()],

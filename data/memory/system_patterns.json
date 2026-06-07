@@ -1,64 +1,41 @@
 {
   "version": 1,
-  "updated_utc": "2026-06-06T22:37:51Z",
+  "updated_utc": "2026-06-07T12:36:42Z",
   "subsystem_health": {
+    "evidence_intelligence": {
+      "success_rate": 0.929,
+      "events": 434,
+      "failures": 31,
+      "status": "healthy"
+    },
     "intake": {
       "success_rate": 1.0,
-      "events": 256,
+      "events": 65,
       "failures": 0,
       "status": "healthy"
     },
-    "acquisition_organism": {
+    "storage": {
       "success_rate": 1.0,
-      "events": 32,
+      "events": 1,
       "failures": 0,
-      "status": "healthy"
-    },
-    "operational_alerts": {
-      "success_rate": 1.0,
-      "events": 41,
-      "failures": 0,
-      "status": "healthy"
-    },
-    "email": {
-      "success_rate": 0.5,
-      "events": 2,
-      "failures": 1,
-      "status": "unhealthy"
-    },
-    "customer_session": {
-      "success_rate": 1.0,
-      "events": 7,
-      "failures": 0,
-      "status": "healthy"
-    },
-    "system": {
-      "success_rate": 1.0,
-      "events": 8,
-      "failures": 0,
-      "status": "healthy"
-    },
-    "evidence_intelligence": {
-      "success_rate": 0.994,
-      "events": 154,
-      "failures": 1,
       "status": "healthy"
     }
   },
-  "repeated_failures": [],
+  "repeated_failures": [
+    {
+      "key": "evidence_intelligence:evidence_mapping_failure",
+      "count": 31,
+      "suggestion": "Review evidence_intelligence:evidence_mapping_failure failures"
+    }
+  ],
   "reliability_patterns": {
+    "evidence_intelligence": 0.929,
     "intake": 1.0,
-    "acquisition_organism": 1.0,
-    "operational_alerts": 1.0,
-    "email": 0.5,
-    "customer_session": 1.0,
-    "system": 1.0,
-    "evidence_intelligence": 0.994
+    "storage": 1.0
   },
   "conversion_patterns": {},
   "failure_patterns": {
-    "email:smtp_unconfigured": 1,
-    "evidence_intelligence:evidence_mapping_failure": 1
+    "evidence_intelligence:evidence_mapping_failure": 31
   },
   "bottleneck_patterns": {},
   "best_paths": {
@@ -67,6 +44,6 @@
     ]
   },
   "recommended_improvements": [
-    "Email transport reliability low \u2014 verify SMTP or disable until configured."
+    "Review evidence_intelligence:evidence_mapping_failure failures"
   ]
 }

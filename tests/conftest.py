@@ -11,7 +11,7 @@ Two hard rules enforced here:
      canonical `data/` directory.
 
   2. At session start we snapshot the mtimes of canonical
-     `data/intakes/`, `data/projects/`, `data/founding_beta/`, and
+     `data/intakes/`, `data/projects/`, `data/founding_pilot/`, and
      `data/ledger/`. At session end we assert nothing in those paths
      changed. A test that mutates the real disk loudly fails the session.
 
@@ -33,7 +33,7 @@ _TEST_SESSION_DATA_ROOT = Path(
 ).resolve()
 os.environ["KYC_DATA"] = str(_TEST_SESSION_DATA_ROOT)
 os.environ.setdefault("ENVIRONMENT", "test")
-for _sub in ("intakes", "projects", "memory", "founding_beta", "ledger", "logs"):
+for _sub in ("intakes", "projects", "memory", "founding_pilot", "ledger", "logs"):
     (_TEST_SESSION_DATA_ROOT / _sub).mkdir(parents=True, exist_ok=True)
 
 # Mirror repo-shipped READ-ONLY seed JSON into the session tmp. Tests load
@@ -78,7 +78,7 @@ TEST_OPS_PASSWORD = "test-ops-password-for-pytest"
 
 
 # ── Canonical-data tripwire ─────────────────────────────────────────────────
-_CANONICAL_GUARD_PATHS = ("intakes", "projects", "founding_beta", "ledger")
+_CANONICAL_GUARD_PATHS = ("intakes", "projects", "founding_pilot", "ledger")
 
 
 def _snapshot_canonical_data() -> dict:
@@ -170,7 +170,7 @@ def _isolated_kyc_data(monkeypatch):
 @pytest.fixture
 def durable_intake_root(monkeypatch, tmp_path):
     """
-    Isolated writable KYC_DATA for founding-beta intake tests.
+    Isolated writable KYC_DATA for founding-pilot intake tests.
     Does not weaken production gates — tests must opt in explicitly.
     """
     root = tmp_path.resolve()
@@ -179,16 +179,16 @@ def durable_intake_root(monkeypatch, tmp_path):
     (root / "memory").mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("ENVIRONMENT", "test")
     monkeypatch.setenv("KYC_DATA", str(root))
-    monkeypatch.setenv("KYC_FOUNDING_BETA_MODE", "true")
+    monkeypatch.setenv("KYC_FOUNDING_PILOT_MODE", "true")
     monkeypatch.setattr("services.config.DATA", root)
     monkeypatch.setattr("services.config.PROJECTS", root / "projects")
     from services.durable_storage import (
-        founding_beta_upload_allowed,
+        founding_pilot_upload_allowed,
         is_durable_storage_configured,
     )
 
     assert is_durable_storage_configured() is True
-    assert founding_beta_upload_allowed() is True
+    assert founding_pilot_upload_allowed() is True
     from services.intake.durable_root import initialize_mount_probe
 
     initialize_mount_probe()
@@ -197,13 +197,13 @@ def durable_intake_root(monkeypatch, tmp_path):
 
 @pytest.fixture
 def fb_data(durable_intake_root):
-    """Alias — canonical durable intake root for founding-beta tests."""
+    """Alias — canonical durable intake root for founding-pilot tests."""
     return durable_intake_root
 
 
 @pytest.fixture
 def fb_env(durable_intake_root, monkeypatch):
-    """Durable intake root + founding-beta learning hook path."""
+    """Durable intake root + founding-pilot learning hook path."""
     mem = durable_intake_root / "memory"
     monkeypatch.setattr(
         "services.intake.learning_hooks._LEARNING",
@@ -216,7 +216,7 @@ def fb_env(durable_intake_root, monkeypatch):
 def prod_env(monkeypatch):
     """Production ENVIRONMENT — use with explicit KYC_DATA or expect 503."""
     monkeypatch.setenv("ENVIRONMENT", "production")
-    monkeypatch.setenv("KYC_FOUNDING_BETA_MODE", "true")
+    monkeypatch.setenv("KYC_FOUNDING_PILOT_MODE", "true")
 
 
 @pytest.fixture(autouse=True)

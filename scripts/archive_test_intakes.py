@@ -37,7 +37,7 @@ def main() -> int:
         results = []
         for iid in ids:
             r = client.post(
-                "/api/operator/founding-beta/action",
+                "/api/operator/founding-pilot/action",
                 headers=headers,
                 json={"intake_id": iid, "action": "archive", "operator_note": "Launch cleanup — test intake archived"},
             )
@@ -52,7 +52,7 @@ def main() -> int:
                 }
             )
 
-        q = client.get("/api/operator/founding-beta/queue", headers=headers)
+        q = client.get("/api/operator/founding-pilot/queue", headers=headers)
         qbody = q.json() if q.status_code == 200 else {}
         active_ids = {row.get("intake_id") for row in qbody.get("queue") or []}
         still_visible = [iid for iid in ids if iid in active_ids]

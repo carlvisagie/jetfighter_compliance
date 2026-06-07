@@ -271,7 +271,7 @@ def test_conflicting_company_names_detected(ei_project):
     f_a.write_text("This policy is issued by Acme Defense LLC.", encoding="utf-8")
 
     f_b = tmp / "projects" / pid / "evidence" / "doc_b.txt"
-    f_b.write_text("Agreement between Beta Industries Inc and client.", encoding="utf-8")
+    f_b.write_text("Agreement between Pilot Industries Inc and client.", encoding="utf-8")
 
     process_evidence_upload(pid, f_a)
     process_evidence_upload(pid, f_b)
@@ -306,7 +306,7 @@ def test_review_queue_persists_conflicting_extractions(ei_project):
     f_a.write_text("This policy is issued by Acme Defense LLC.",
                    encoding="utf-8")
     f_b = tmp / "projects" / pid / "evidence" / "conflict_b.txt"
-    f_b.write_text("Agreement between Beta Industries Inc and client.",
+    f_b.write_text("Agreement between Pilot Industries Inc and client.",
                    encoding="utf-8")
 
     process_evidence_upload(pid, f_a)

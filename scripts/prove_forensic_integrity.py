@@ -18,7 +18,7 @@ def main() -> int:
     (root / "intakes").mkdir()
     os.environ["ENVIRONMENT"] = "test"
     os.environ["KYC_DATA"] = str(root)
-    os.environ["KYC_FOUNDING_BETA_MODE"] = "true"
+    os.environ["KYC_FOUNDING_PILOT_MODE"] = "true"
     os.environ["OPS_PASSWORD"] = "test-ops-password-for-pytest"
     os.environ["OPS_SECRET"] = "test-ops-secret-for-pytest"
 
@@ -42,7 +42,7 @@ def main() -> int:
 
     # 1) Upload registers evidence
     r = c.post(
-        "/api/founding-beta/upload",
+        "/api/founding-pilot/upload",
         files=[pdf("proof.pdf")],
         data={"email": "proof@example.com", "expected_file_count": "1"},
     )
@@ -86,7 +86,7 @@ def main() -> int:
 
     # 5) Partial upload — no fake success
     r = c.post(
-        "/api/founding-beta/upload",
+        "/api/founding-pilot/upload",
         files=[pdf(f"p{i}.pdf") for i in range(3)],
         data={
             "email": "partial@example.com",

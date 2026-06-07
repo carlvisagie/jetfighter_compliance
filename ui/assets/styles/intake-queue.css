@@ -206,7 +206,7 @@
   color: #ffe8d0;
 }
 
-#founding-beta-intake-panel.fb-queue-panel--highlight {
+#founding-pilot-intake-panel.fb-queue-panel--highlight {
   outline: 2px solid rgba(100, 200, 255, 0.65);
   outline-offset: 4px;
   box-shadow: 0 0 24px rgba(80, 180, 255, 0.25);
@@ -232,7 +232,7 @@
   }
 }
 
-/* Founding Beta operator review queue */
+/* Founding Pilot operator review queue */
 .fb-queue-summary {
   margin-bottom: 1rem;
 }

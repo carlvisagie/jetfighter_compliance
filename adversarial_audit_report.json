@@ -1,0 +1,532 @@
+{
+  "accuracy": 95.0,
+  "total_scenarios": 20,
+  "scenarios": [
+    {
+      "scenario": "Conflicting company names",
+      "believed_facts": [
+        "technology: AWS",
+        "document: policy"
+      ],
+      "generated": [
+        "ssp",
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "backup_policy",
+        "training_policy"
+      ],
+      "requested": [
+        "mfa_evidence"
+      ],
+      "review_flags": 3,
+      "safety_warnings": [
+        "Contradiction detected in company_name"
+      ],
+      "assumptions": 4,
+      "confidence": 0.9,
+      "correct_decision": true
+    },
+    {
+      "scenario": "Conflicting domains",
+      "believed_facts": [
+        "technology: AWS",
+        "domain: cmmc",
+        "document: policy"
+      ],
+      "generated": [
+        "ssp",
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "backup_policy",
+        "training_policy"
+      ],
+      "requested": [
+        "mfa_evidence"
+      ],
+      "review_flags": 3,
+      "safety_warnings": [
+        "Contradiction detected in domain"
+      ],
+      "assumptions": 4,
+      "confidence": 0.9,
+      "correct_decision": true
+    },
+    {
+      "scenario": "Multiple subsidiaries",
+      "believed_facts": [
+        "company_name: Sub A",
+        "company_name: Sub B",
+        "technology: AWS",
+        "document: policy"
+      ],
+      "generated": [
+        "ssp",
+        "access_control_policy",
+        "incident_response_plan",
+        "vendor_policy",
+        "backup_policy",
+        "training_policy"
+      ],
+      "requested": [
+        "mfa_evidence"
+      ],
+      "review_flags": 2,
+      "safety_warnings": [],
+      "assumptions": 4,
+      "confidence": 0.9,
+      "correct_decision": true
+    },
+    {
+      "scenario": "Mixed frameworks (HIPAA + CMMC)",
+      "believed_facts": [
+        "domain: hipaa",
+        "technology: AWS",
+        "domain: cmmc",
+        "document: policy"
+      ],
+      "generated": [
+        "ssp",
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "backup_policy",
+        "training_policy"
+      ],
+      "requested": [
+        "mfa_evidence"
+      ],
+      "review_flags": 2,
+      "safety_warnings": [],
+      "assumptions": 4,
+      "confidence": 0.9,
+      "correct_decision": true
+    },
+    {
+      "scenario": "Missing pages",
+      "believed_facts": [
+        "document: partial_policy"
+      ],
+      "generated": [
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "training_policy"
+      ],
+      "requested": [
+        "ssp_poam",
+        "backup_evidence",
+        "mfa_evidence"
+      ],
+      "review_flags": 0,
+      "safety_warnings": [],
+      "assumptions": 3,
+      "confidence": 0.3,
+      "correct_decision": true
+    },
+    {
+      "scenario": "OCR corruption",
+      "believed_facts": [
+        "document: scan"
+      ],
+      "generated": [
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "training_policy"
+      ],
+      "requested": [
+        "missing_company_name",
+        "missing_domain",
+        "ssp_poam",
+        "backup_evidence",
+        "mfa_evidence"
+      ],
+      "review_flags": 0,
+      "safety_warnings": [],
+      "assumptions": 3,
+      "confidence": 0.0,
+      "correct_decision": true
+    },
+    {
+      "scenario": "Duplicate uploads",
+      "believed_facts": [
+        "technology: AWS",
+        "technology: AWS",
+        "document: policy",
+        "document: policy"
+      ],
+      "generated": [
+        "ssp",
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "backup_policy",
+        "training_policy"
+      ],
+      "requested": [
+        "mfa_evidence"
+      ],
+      "review_flags": 2,
+      "safety_warnings": [],
+      "assumptions": 4,
+      "confidence": 0.9,
+      "correct_decision": true
+    },
+    {
+      "scenario": "Stale documents",
+      "believed_facts": [
+        "technology: AWS",
+        "document: policy"
+      ],
+      "generated": [
+        "ssp",
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "backup_policy",
+        "training_policy"
+      ],
+      "requested": [
+        "mfa_evidence"
+      ],
+      "review_flags": 2,
+      "safety_warnings": [],
+      "assumptions": 4,
+      "confidence": 0.9,
+      "correct_decision": true
+    },
+    {
+      "scenario": "Contradictory policies",
+      "believed_facts": [
+        "technology: AWS",
+        "document: policy"
+      ],
+      "generated": [
+        "ssp",
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "backup_policy",
+        "training_policy"
+      ],
+      "requested": [
+        "mfa_evidence"
+      ],
+      "review_flags": 3,
+      "safety_warnings": [
+        "Contradiction detected in mfa_enforced"
+      ],
+      "assumptions": 4,
+      "confidence": 0.9,
+      "correct_decision": true
+    },
+    {
+      "scenario": "Missing signatures",
+      "believed_facts": [
+        "technology: AWS",
+        "document: policy"
+      ],
+      "generated": [
+        "ssp",
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "backup_policy",
+        "training_policy"
+      ],
+      "requested": [
+        "mfa_evidence"
+      ],
+      "review_flags": 2,
+      "safety_warnings": [],
+      "assumptions": 4,
+      "confidence": 0.9,
+      "correct_decision": true
+    },
+    {
+      "scenario": "Mixed vendor environments",
+      "believed_facts": [
+        "technology: AWS",
+        "technology: Azure",
+        "technology: Okta",
+        "technology: Entra ID",
+        "document: policy"
+      ],
+      "generated": [
+        "ssp",
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "backup_policy",
+        "training_policy"
+      ],
+      "requested": [
+        "mfa_evidence"
+      ],
+      "review_flags": 2,
+      "safety_warnings": [],
+      "assumptions": 3,
+      "confidence": 0.9,
+      "correct_decision": true
+    },
+    {
+      "scenario": "Wrong file names",
+      "believed_facts": [
+        "technology: AWS",
+        "document: recipe.pdf"
+      ],
+      "generated": [
+        "ssp",
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "backup_policy",
+        "training_policy"
+      ],
+      "requested": [
+        "mfa_evidence"
+      ],
+      "review_flags": 2,
+      "safety_warnings": [],
+      "assumptions": 4,
+      "confidence": 0.9,
+      "correct_decision": true
+    },
+    {
+      "scenario": "Incomplete asset inventories",
+      "believed_facts": [
+        "technology: Laptop",
+        "document: policy"
+      ],
+      "generated": [
+        "ssp",
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "training_policy"
+      ],
+      "requested": [
+        "backup_evidence",
+        "mfa_evidence"
+      ],
+      "review_flags": 2,
+      "safety_warnings": [],
+      "assumptions": 4,
+      "confidence": 0.9,
+      "correct_decision": true
+    },
+    {
+      "scenario": "Ambiguous identity providers",
+      "believed_facts": [
+        "technology: SSO Login Page",
+        "document: policy"
+      ],
+      "generated": [
+        "ssp",
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "training_policy"
+      ],
+      "requested": [
+        "backup_evidence",
+        "mfa_evidence"
+      ],
+      "review_flags": 2,
+      "safety_warnings": [],
+      "assumptions": 4,
+      "confidence": 0.6,
+      "correct_decision": true
+    },
+    {
+      "scenario": "Ambiguous cloud providers",
+      "believed_facts": [
+        "technology: Cloud Server",
+        "document: policy"
+      ],
+      "generated": [
+        "ssp",
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "training_policy"
+      ],
+      "requested": [
+        "backup_evidence",
+        "mfa_evidence"
+      ],
+      "review_flags": 2,
+      "safety_warnings": [],
+      "assumptions": 4,
+      "confidence": 0.6,
+      "correct_decision": true
+    },
+    {
+      "scenario": "No contact information",
+      "believed_facts": [
+        "technology: AWS",
+        "document: policy"
+      ],
+      "generated": [
+        "ssp",
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "backup_policy",
+        "training_policy"
+      ],
+      "requested": [
+        "mfa_evidence"
+      ],
+      "review_flags": 2,
+      "safety_warnings": [],
+      "assumptions": 4,
+      "confidence": 0.9,
+      "correct_decision": true
+    },
+    {
+      "scenario": "No company name",
+      "believed_facts": [
+        "technology: AWS",
+        "document: policy"
+      ],
+      "generated": [
+        "ssp",
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "backup_policy",
+        "training_policy"
+      ],
+      "requested": [
+        "mfa_evidence"
+      ],
+      "review_flags": 2,
+      "safety_warnings": [],
+      "assumptions": 4,
+      "confidence": 0.9,
+      "correct_decision": false
+    },
+    {
+      "scenario": "Excessive irrelevant documents",
+      "believed_facts": [
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt",
+        "document: receipt"
+      ],
+      "generated": [
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "training_policy"
+      ],
+      "requested": [
+        "missing_domain",
+        "ssp_poam",
+        "backup_evidence",
+        "mfa_evidence"
+      ],
+      "review_flags": 0,
+      "safety_warnings": [],
+      "assumptions": 3,
+      "confidence": 0.0,
+      "correct_decision": true
+    },
+    {
+      "scenario": "Legacy technologies",
+      "believed_facts": [
+        "technology: Windows Server 2003",
+        "document: policy"
+      ],
+      "generated": [
+        "ssp",
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "training_policy"
+      ],
+      "requested": [
+        "backup_evidence",
+        "mfa_evidence"
+      ],
+      "review_flags": 2,
+      "safety_warnings": [],
+      "assumptions": 4,
+      "confidence": 0.9,
+      "correct_decision": true
+    },
+    {
+      "scenario": "Conflicting evidence over time",
+      "believed_facts": [
+        "technology: AWS",
+        "technology: Azure",
+        "document: policy"
+      ],
+      "generated": [
+        "ssp",
+        "access_control_policy",
+        "incident_response_plan",
+        "policy",
+        "backup_policy",
+        "training_policy"
+      ],
+      "requested": [
+        "mfa_evidence"
+      ],
+      "review_flags": 2,
+      "safety_warnings": [],
+      "assumptions": 4,
+      "confidence": 0.9,
+      "correct_decision": true
+    }
+  ]
+}

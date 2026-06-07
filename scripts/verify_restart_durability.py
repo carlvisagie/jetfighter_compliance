@@ -200,7 +200,7 @@ def main() -> int:
 
     files = [("files", (FN, PAYLOAD, "application/pdf"))]
     data = {"email": f"restart-durability-{ts}@keepyourcontracts.com", "expected_file_count": "1"}
-    up = client.post(f"{BASE}/api/founding-beta/upload", files=files, data=data, headers=headers)
+    up = client.post(f"{BASE}/api/founding-pilot/upload", files=files, data=data, headers=headers)
     ub = up.json() if up.status_code == 200 else {}
     iid = ub.get("intake_id")
     out["upload"] = {

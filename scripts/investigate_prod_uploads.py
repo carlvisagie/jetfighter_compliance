@@ -109,10 +109,10 @@ def main() -> int:
                 sub = str(r.get("subsystem") or "")
                 meta = r.get("metadata") or {}
                 if (
-                    sub in ("intake", "founding_beta")
+                    sub in ("intake", "founding_pilot")
                     or "upload" in et.lower()
                     or meta.get("intake_id")
-                    or meta.get("founding_beta")
+                    or meta.get("founding_pilot")
                 ):
                     intake_events.append(
                         {
@@ -133,7 +133,7 @@ def main() -> int:
             if r.status_code == 200:
                 body = r.json()
                 if path.endswith("cockpit"):
-                    fb = body.get("founding_beta") or body.get("intake") or {}
+                    fb = body.get("founding_pilot") or body.get("intake") or {}
                     out["findings"]["cockpit_intake_metrics"] = fb.get("metrics") or fb
                 else:
                     up = (body.get("subsystems") or {}).get("upload_pipeline") or {}

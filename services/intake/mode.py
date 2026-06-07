@@ -6,4 +6,4 @@ import os
 
 def is_intake_mode() -> bool:
     """When true, organism optimizes for real uploads and quiet operational burden."""
-    return os.getenv("KYC_FOUNDING_BETA_MODE", "true").lower() in ("1", "true", "yes", "on")
+    return os.getenv("KYC_FOUNDING_PILOT_MODE", "true").lower() in ("1", "true", "yes", "on")

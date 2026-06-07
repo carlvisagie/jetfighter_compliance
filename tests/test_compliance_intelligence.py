@@ -214,7 +214,7 @@ def test_digest_generation(ci_data):
 
 def test_full_cycle_with_mock_fetch(ci_data):
     html_a = "<html><title>CMMC</title><body>alpha</body></html>"
-    html_b = "<html><title>CMMC updated</title><body>beta cmmc dfars</body></html>"
+    html_b = "<html><title>CMMC updated</title><body>pilot cmmc dfars</body></html>"
 
     def make_resp(text):
         r = MagicMock()

@@ -60,7 +60,7 @@ def main() -> int:
             "body": proof_before.json() if proof_before.status_code == 200 else proof_before.text[:300],
         }
 
-        diag = get("/api/operator/founding-beta/diagnostics")
+        diag = get("/api/operator/founding-pilot/diagnostics")
         out["steps"]["3_diagnostics"] = {
             "status": diag.status_code,
             "body": diag.json() if diag.status_code == 200 else diag.text[:500],
@@ -68,7 +68,7 @@ def main() -> int:
 
         files = [("files", ("prod-forensic-proof.pdf", b"%PDF-1.4 prod forensic proof", "application/pdf"))]
         data = {"email": "forensic-proof-prod@keepyourcontracts.com", "expected_file_count": "1"}
-        upload = client.post("/api/founding-beta/upload", files=files, data=data)
+        upload = client.post("/api/founding-pilot/upload", files=files, data=data)
         upload_body = upload.json() if upload.status_code == 200 else {"error": upload.text[:500]}
         iid = upload_body.get("intake_id") if upload.status_code == 200 else None
         out["steps"]["4_upload"] = {"status": upload.status_code, "body": upload_body, "intake_id": iid}

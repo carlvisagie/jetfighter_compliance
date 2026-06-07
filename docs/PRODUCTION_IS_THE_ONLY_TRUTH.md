@@ -94,7 +94,7 @@ This rule is the **first** thing in `AGENTS.md`. Violation is a process bug.
 1. Sets `KYC_DATA` to a per-session `tmp_path` **before** any `services.config` import.
 2. Patches `services.config.DATA` and `services.config.PROJECTS` to the same tmp_path.
 3. Patches the ledger path so test events do not append to the real `data/ledger/ledger.log`.
-4. Snapshots `data/intakes/`, `data/projects/`, `data/founding_beta/`, and `data/ledger/` mtimes at session start.
+4. Snapshots `data/intakes/`, `data/projects/`, `data/founding_pilot/`, and `data/ledger/` mtimes at session start.
 5. Asserts at session end that none of those mtimes changed. A test that mutates the canonical `data/` directory fails the session loudly.
 
 Enforced by `tests/test_pytest_data_isolation_guardrail.py`.

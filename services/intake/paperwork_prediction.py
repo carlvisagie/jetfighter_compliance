@@ -1,10 +1,10 @@
-"""USASpending / federal supplier paperwork likelihood — founding beta outreach angles."""
+"""USASpending / federal supplier paperwork likelihood — founding pilot outreach angles."""
 from __future__ import annotations
 
 import re
 from typing import Any, Dict, List
 
-from .messaging import BETA_HEADLINE, beta_outreach_snippet
+from .messaging import PILOT_HEADLINE, pilot_outreach_snippet
 
 
 def predict_federal_supplier_paperwork(
@@ -14,7 +14,7 @@ def predict_federal_supplier_paperwork(
     segment: str = "",
     industry: str = "",
 ) -> Dict[str, Any]:
-    """Enrich lawful public federal targets with paperwork-focused founding beta framing."""
+    """Enrich lawful public federal targets with paperwork-focused founding pilot framing."""
     blob = f"{company_name} {notes} {segment} {industry}".lower()
     indicators: List[str] = []
     if re.search(r"defense|aerospace|machin|fabricat|supplier|subcontract", blob):
@@ -39,10 +39,10 @@ def predict_federal_supplier_paperwork(
         "even when public data does not show emotional distress."
     )
     angle = (
-        "Offer a free Founding Beta paperwork review: upload what they already have "
+        "Offer a free Founding Pilot paperwork review: upload what they already have "
         "(questionnaires, policies, screenshots, spreadsheets) — no perfect SSP required."
     )
-    pitch = beta_outreach_snippet(include_route=False)
+    pitch = pilot_outreach_snippet(include_route=False)
     why_upload = (
         "Small manufacturers and subcontractors often hold partial compliance artifacts "
         "before they know what applies — ideal for upload-first gap identification."
@@ -53,9 +53,9 @@ def predict_federal_supplier_paperwork(
         "likely_compliance_burden": burden,
         "likely_outreach_angle": angle,
         "likely_evidence_request": "Customer/prime questionnaires, flowdown clauses, cyber insurance forms",
-        "recommended_founding_beta_pitch": pitch,
+        "recommended_founding_pilot_pitch": pitch,
         "why_might_upload_paperwork": why_upload,
-        "beta_headline": BETA_HEADLINE,
-        "beta_fit": "moderate — federal supplier paperwork likely",
-        "recommended_next_action": "Route to inquiry founding beta — do not cold-sell",
+        "pilot_headline": PILOT_HEADLINE,
+        "pilot_fit": "moderate — federal supplier paperwork likely",
+        "recommended_next_action": "Route to inquiry founding pilot — do not cold-sell",
     }

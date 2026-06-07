@@ -304,7 +304,7 @@ def discover_posts(
 
     max_queries: Optional[int] = None,
 
-    founding_beta_broad: bool = False,
+    founding_pilot_broad: bool = False,
 
     time_budget_sec: Optional[float] = None,
 
@@ -370,13 +370,13 @@ def discover_posts(
 
         try:
 
-            if founding_beta_broad:
+            if founding_pilot_broad:
 
-                from ...intelligence.discovery_expansion import build_founding_beta_discovery_plan
+                from ...intelligence.discovery_expansion import build_founding_pilot_discovery_plan
 
 
 
-                plan = build_founding_beta_discovery_plan(learning_state=learning_state)
+                plan = build_founding_pilot_discovery_plan(learning_state=learning_state)
 
                 limit_per_query = max(limit_per_query, 10)
 

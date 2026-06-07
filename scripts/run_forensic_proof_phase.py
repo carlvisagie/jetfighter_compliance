@@ -18,7 +18,7 @@ def main() -> int:
     (root / "intakes").mkdir()
     os.environ["ENVIRONMENT"] = "test"
     os.environ["KYC_DATA"] = str(root)
-    os.environ["KYC_FOUNDING_BETA_MODE"] = "true"
+    os.environ["KYC_FOUNDING_PILOT_MODE"] = "true"
     os.environ["OPS_PASSWORD"] = "test-ops-password-for-pytest"
     os.environ["OPS_SECRET"] = "test-ops-secret-for-pytest"
 
@@ -52,7 +52,7 @@ def main() -> int:
 
     # 1 upload
     r = c.post(
-        "/api/founding-beta/upload",
+        "/api/founding-pilot/upload",
         files=[("files", ("proof-phase.pdf", io.BytesIO(b"%PDF-1.4 proof-phase"), "application/pdf"))],
         data={"email": "proof-phase@example.com", "expected_file_count": "1"},
     )
@@ -139,7 +139,7 @@ def main() -> int:
 
     # Fresh upload for index/audit tests
     r2 = c.post(
-        "/api/founding-beta/upload",
+        "/api/founding-pilot/upload",
         files=[("files", ("recover.pdf", io.BytesIO(b"%PDF-1.4 recover"), "application/pdf"))],
         data={"email": "recover@example.com", "expected_file_count": "1"},
     )
@@ -166,7 +166,7 @@ def main() -> int:
 
     # 13 alter audit
     r3 = c.post(
-        "/api/founding-beta/upload",
+        "/api/founding-pilot/upload",
         files=[("files", ("audit-test.pdf", io.BytesIO(b"%PDF-1.4 audit"), "application/pdf"))],
         data={"email": "audit@example.com", "expected_file_count": "1"},
     )

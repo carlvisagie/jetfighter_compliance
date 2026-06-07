@@ -134,17 +134,17 @@ def _flatten_for_legacy_api(core_snapshot: Dict[str, Any]) -> Dict[str, Any]:
     git = sigs.get("git", {}) or {}
     residue = core_snapshot.get("residue", {}) or {}
 
-    beta_imports: list = []
-    beta_routes: list = []
+    pilot_imports: list = []
+    pilot_routes: list = []
     active_files: list = []
     for m in residue.get("matches", []):
         cls = m.get("classification")
         pid = m.get("pattern_id")
         rel = m.get("rel_path")
-        if pid == "beta_import" and cls == "active":
-            beta_imports.append(rel)
-        elif pid == "beta_route" and cls == "active":
-            beta_routes.append(rel)
+        if pid == "legacy_import" and cls == "active":
+            pilot_imports.append(rel)
+        elif pid == "legacy_route" and cls == "active":
+            pilot_routes.append(rel)
         if cls == "active" and rel not in active_files:
             active_files.append(rel)
 
@@ -169,16 +169,16 @@ def _flatten_for_legacy_api(core_snapshot: Dict[str, Any]) -> Dict[str, Any]:
         "queue_depth": int(intake.get("queue_depth", 0)),
         "vio_company_count": int(vio.get("vio_company_count", 0)),
         "control_queue_count": int(intake.get("queue_depth", 0)),
-        "beta_residue_detected": bool(residue.get("detected", False)),
-        "beta_routes_remaining": beta_routes[:10],
-        "beta_files_remaining": int(sum(cls_counts.values())) + len(residue.get("critical_paths", []) or []),
+        "pilot_residue_detected": bool(residue.get("detected", False)),
+        "pilot_routes_remaining": pilot_routes[:10],
+        "pilot_files_remaining": int(sum(cls_counts.values())) + len(residue.get("critical_paths", []) or []),
         "residue_detail": {
             "critical_count": int(residue.get("critical_count", 0)),
             "active_file_count": int(cls_counts.get("active", 0)),
             "docs_file_count": int(cls_counts.get("docs", 0)),
             "artifact_file_count": int(cls_counts.get("artifact", 0)),
             "active_files": active_files[:25],
-            "beta_imports_remaining": beta_imports[:10],
+            "pilot_imports_remaining": pilot_imports[:10],
         },
     })
     return legacy
