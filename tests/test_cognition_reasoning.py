@@ -63,7 +63,12 @@ def test_missing_company_name_blocks_generation():
     gaps = [{"gap_id": "access_control", "label": "Access Control"}]
     
     resolutions = evaluate_all_gaps(gaps, state)
-    res = resolutions[0]
+    
+    assert len(resolutions) > 0
+    assert resolutions[0].gap_id == "missing_company_name"
+    assert resolutions[0].strategy == ResolutionStrategy.REQUEST
+    
+    res = resolutions[1]
     
     assert res.strategy == ResolutionStrategy.PARTIAL
     assert "company_identity" in res.missing_fields
@@ -78,7 +83,12 @@ def test_technical_entities_alone_do_not_permit_generation():
     gaps = [{"gap_id": "backup_evidence", "label": "Backup Policy"}]
     
     resolutions = evaluate_all_gaps(gaps, state)
-    res = resolutions[0]
+    
+    assert len(resolutions) > 0
+    assert resolutions[0].gap_id == "missing_company_name"
+    assert resolutions[0].strategy == ResolutionStrategy.REQUEST
+    
+    res = resolutions[1]
     
     assert res.strategy == ResolutionStrategy.PARTIAL
     assert "company_identity" in res.missing_fields

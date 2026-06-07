@@ -1,0 +1,37 @@
+[
+  {
+    "checklist_item": "Launch gate passed",
+    "status": "Verified",
+    "notes": "Workload elimination >= 75%, Decision Accuracy >= 95%."
+  },
+  {
+    "checklist_item": "Corpus passed",
+    "status": "Verified",
+    "notes": "100% pass rate on adversarial real corpus execution."
+  },
+  {
+    "checklist_item": "OCR safety verified",
+    "status": "Verified",
+    "notes": "Timeout (45s), page-count (50), file-size limit (15MB), and corrupted PDF fallback tested."
+  },
+  {
+    "checklist_item": "Identity anchor verified",
+    "status": "Verified",
+    "notes": "Company name, validated legal entity, or verified domain ownership blocks missing generations."
+  },
+  {
+    "checklist_item": "Human review queue operational",
+    "status": "Verified",
+    "notes": "Surfaces low-confidence inferences and evidence-hiding OCR failures."
+  },
+  {
+    "checklist_item": "Payment confirmation process documented",
+    "status": "Verified",
+    "notes": "Manual operator verification of PayPal link required prior to final delivery."
+  },
+  {
+    "checklist_item": "Operator escalation process documented",
+    "status": "Verified",
+    "notes": "Operator over-the-shoulder monitoring and review checkpoints in place."
+  }
+]
