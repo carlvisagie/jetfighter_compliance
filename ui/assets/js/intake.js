@@ -172,6 +172,13 @@
         statusEl.textContent = 'Add at least one file.';
         return;
       }
+      if (window.kycExpectedRetryCount && selectedFiles.length !== window.kycExpectedRetryCount) {
+        if (!window.kycRetryWarned) {
+          window.kycRetryWarned = true;
+          statusEl.textContent = 'Warning: Selected file count (' + selectedFiles.length + ') does not match missing file count (' + window.kycExpectedRetryCount + '). Click Submit again to proceed anyway.';
+          return;
+        }
+      }
       if (!contactOk() && !intakeInput.value) {
         statusEl.textContent = 'Enter your email or phone so we can follow up.';
         return;
@@ -294,7 +301,7 @@
       (j.durable_receipt_created ? 'Yes' : 'No') +
       '</li></ul>' +
       (mismatch
-        ? '<p class="kyc-fb-custody-warn" role="alert">Chain-of-custody mismatch — not all selected files were verified. Use your magic link to retry.</p>'
+        ? '<p class="kyc-fb-custody-warn" role="alert">Chain-of-custody mismatch — not all selected files were verified. Please re-select the missing files below and upload again.</p>'
         : '');
   }
 
@@ -305,14 +312,27 @@
     renderCustodySummary(j, 'fbCustodySummary');
     var expected = j.expected_file_count != null ? j.expected_file_count : selectedFiles.length;
     var verified = j.verified_file_count != null ? j.verified_file_count : 0;
-    var missing = (j.missing_files || []).join(', ');
-    statusEl.textContent =
-      'Upload incomplete — expected ' +
-      expected +
-      ' file(s), verified ' +
-      verified +
-      (missing ? '. Missing: ' + missing : '') +
-      '. Use your magic link to retry missing files.';
+    var missingCount = expected - verified;
+    
+    var missingFiles = j.missing_files || [];
+    if (!missingFiles.length && j.rejected_files) {
+      missingFiles = j.rejected_files.map(function(f) { return f.original_name || f.filename || f; });
+    }
+    
+    if (missingFiles && missingFiles.length > 0) {
+      var html = 'Some selected files did not upload successfully. Please re-select the missing files below and upload again.\nMissing files:\n';
+      missingFiles.forEach(function(f) {
+        html += '- ' + f + '\n';
+      });
+      statusEl.innerText = html.trim();
+    } else {
+      statusEl.textContent = missingCount + ' selected files did not verify. Please re-select those files and upload again.';
+    }
+    
+    selectedFiles = [];
+    renderFileList();
+    window.kycExpectedRetryCount = missingCount;
+    
     document.getElementById('fbSubmit').disabled = false;
     if (j.intake_id) intakeInput.value = j.intake_id;
     if (j.token) tokenInput.value = j.token;
@@ -342,7 +362,7 @@
         Number(j.verified_file_count) !== Number(j.expected_file_count) ||
         failed > 0;
       integrityNote.textContent = mismatch
-        ? 'Warning: chain-of-custody mismatch detected. Not all selected files were verified — use your magic link to retry.'
+        ? 'Warning: chain-of-custody mismatch detected. Not all selected files were verified — please re-select the missing files below and upload again.'
         : '';
       integrityNote.classList.toggle('kyc-fb-custody-warn', mismatch);
     }
