@@ -30,6 +30,7 @@ from services.organism_state.collectors import (
     StorageCollector,
     UnconfirmedPaymentsCollector,
     VioCollector,
+    CognitionValidationCollector,
 )
 from services.organism_state.recommendations import kyc_recommendations
 from services.organism_state.residue_config import kyc_residue_scanner
@@ -104,6 +105,7 @@ def build_kyc_engine(*, repo_root: Optional[Path] = None) -> AwarenessEngine:
             SchedulerHeartbeatCollector(),
             UnconfirmedPaymentsCollector(),
             GitCollector(repo_root=root),
+            CognitionValidationCollector(),
         ],
         checks=list(all_checks()),
         recommendations=kyc_recommendations(),

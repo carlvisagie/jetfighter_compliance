@@ -447,7 +447,8 @@
 | Evidence Intelligence | Memory | Internal | Facts | YES | YES | NO |
 | Memory | Cognition | Internal | State | YES | YES | NO |
 | Cognition | Validation | Internal | Evaluation | YES | YES | NO |
-| Validation | VIO | HTTP | Verdict | YES | YES | YES |
+| Validation | Organism State | Internal | ValidationReport | YES (after patch) | YES | YES |
+| Validation | VIO | via organism state | Verdict | NO | YES | YES |
 | VIO | Operator | UI | Dashboard | YES | NO | YES |
 | Scheduler | Jobs | Process | Task | YES | YES | YES |
 | Telemetry | Organism State | Internal | Metrics | YES | YES | YES |

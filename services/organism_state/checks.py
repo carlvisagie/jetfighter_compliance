@@ -468,8 +468,69 @@ class SchedulerHeartbeatCheck(Check):
         )
 
 
+class CognitionValidationCheck(Check):
+    name = "cognition_validation_quality"
+
+    def evaluate(self, signals: SignalBundle) -> CheckResult:
+        section = signals.section("cognition_validation") or {}
+        if not section.get("available"):
+            return CheckResult(
+                name=self.name, ok=True, severity=Severity.INFO,
+                detail="No cognition validation data available.",
+                evidence=dict(section),
+            )
+            
+        checked = int(section.get("projects_checked", 0))
+        safety = int(section.get("projects_with_safety_warnings", 0))
+        malformed = int(section.get("malformed_reports", 0))
+        gen_no_val = int(section.get("generated_without_validation", 0))
+        human_rev = int(section.get("projects_with_human_review", 0))
+        conf = float(section.get("avg_confidence", 0.0))
+        
+        if checked == 0 and not malformed and not gen_no_val:
+            return CheckResult(
+                name=self.name, ok=True, severity=Severity.INFO,
+                detail="No projects with cognition validation reports yet.",
+                evidence=dict(section),
+            )
+
+        if safety > 0 or malformed > 0 or gen_no_val > 0 or (checked > 0 and conf < 0.50):
+            if safety > 0 or malformed > 0:
+                detail = f"Cognition validation RED: {safety + malformed} project(s) have safety_warnings or malformed validation output."
+            elif gen_no_val > 0:
+                detail = f"Cognition validation RED: {gen_no_val} project(s) generated documents without a validation report."
+            else:
+                detail = f"Cognition validation RED: average confidence {conf:.2f} is below 0.50 threshold."
+                
+            return CheckResult(
+                name=self.name, ok=False, severity=Severity.RED,
+                detail=detail,
+                evidence=dict(section),
+            )
+
+        if human_rev > 0:
+            return CheckResult(
+                name=self.name, ok=False, severity=Severity.AMBER,
+                detail=f"Cognition validation requires review: {human_rev} project(s) contain human_review_items.",
+                evidence=dict(section),
+            )
+
+        if conf >= 0.75:
+            return CheckResult(
+                name=self.name, ok=True, severity=Severity.INFO,
+                detail=f"Cognition validation healthy: {checked} project(s) checked; 0 safety warnings; average confidence {conf:.2f}.",
+                evidence=dict(section),
+            )
+
+        return CheckResult(
+            name=self.name, ok=False, severity=Severity.AMBER,
+            detail=f"Cognition validation confidence marginal: average confidence {conf:.2f}.",
+            evidence=dict(section),
+        )
+
+
 def all_checks():
-    """Ordered tuple of KYC's 11 checks."""
+    """Ordered tuple of KYC's 12 checks."""
     return (
         DiskPersistenceCheck(),
         DiskVsIntakeIndexCheck(),
@@ -482,4 +543,5 @@ def all_checks():
         LegacyLanguageCheck(),
         SchedulerHeartbeatCheck(),
         UnconfirmedPaymentsCheck(),
+        CognitionValidationCheck(),
     )

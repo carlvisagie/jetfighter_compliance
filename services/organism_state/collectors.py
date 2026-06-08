@@ -382,3 +382,81 @@ class GitCollector(SignalCollector):
             return out.stdout.strip()
         except Exception:
             return ""
+
+
+class CognitionValidationCollector(SignalCollector):
+    name = "cognition_validation"
+
+    def collect(self) -> Dict[str, Any]:
+        from services.durable_storage import active_data_root
+        import json
+        
+        projects_dir = active_data_root() / "projects"
+        if not projects_dir.exists():
+            return {
+                "projects_checked": 0,
+                "avg_confidence": 0.0,
+                "projects_with_human_review": 0,
+                "projects_with_safety_warnings": 0,
+                "malformed_reports": 0,
+                "generated_without_validation": 0,
+                "available": False
+            }
+            
+        checked = 0
+        total_conf = 0.0
+        human_review = 0
+        safety_warnings = 0
+        malformed = 0
+        generated_no_val = 0
+        
+        for pdir in projects_dir.iterdir():
+            if not pdir.is_dir():
+                continue
+            cog_dir = pdir / "cognition"
+            if not cog_dir.exists():
+                continue
+                
+            val_path = cog_dir / "validation_report.json"
+            sum_path = cog_dir / "cognition_summary.json"
+            
+            has_val = val_path.exists()
+            
+            if sum_path.exists():
+                try:
+                    with open(sum_path, "r", encoding="utf-8") as f:
+                        s_data = json.load(f)
+                        docs = s_data.get("generated_documents", [])
+                        if docs and not has_val:
+                            generated_no_val += 1
+                except Exception:
+                    pass
+            
+            if has_val:
+                try:
+                    with open(val_path, "r", encoding="utf-8") as f:
+                        v_data = json.load(f)
+                    
+                    conf = float(v_data.get("confidence_summary", 0.0))
+                    hr = len(v_data.get("human_review_items", []))
+                    sw = len(v_data.get("safety_warnings", []))
+                    
+                    checked += 1
+                    total_conf += conf
+                    if hr > 0:
+                        human_review += 1
+                    if sw > 0:
+                        safety_warnings += 1
+                        
+                except Exception:
+                    malformed += 1
+                    
+        return {
+            "projects_checked": checked,
+            "avg_confidence": total_conf / checked if checked > 0 else 0.0,
+            "projects_with_human_review": human_review,
+            "projects_with_safety_warnings": safety_warnings,
+            "malformed_reports": malformed,
+            "generated_without_validation": generated_no_val,
+            "available": True
+        }
