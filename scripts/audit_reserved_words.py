@@ -77,6 +77,7 @@ ALLOWED_LINE_PATTERNS = (
     re.compile(r"prototype this brief", re.I),
     re.compile(r"prototype's lineage", re.I),
     re.compile(r"prototype\.png", re.I),
+    re.compile(r'"[^"]*"\s*:\s*"[^"]*beta[^"]*"', re.I),  # third-party dependency vendor text
 )
 
 
