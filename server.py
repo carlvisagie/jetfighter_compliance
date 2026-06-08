@@ -2127,6 +2127,88 @@ def vio_company_detail(request: Request, intake_id: str):
     return build_company_detail(intake_id.strip())
 
 
+@app.post("/api/operator/admin/purge-test-corpus")
+def operator_admin_purge_test_corpus(request: Request):
+    from services.production import require_ops_access
+    from services.durable_storage import active_data_root
+    from services.intake.storage import sync_index_from_filesystem, index_jsonl
+    from services.intake.inventory import reconcile_intake_inventory
+    from services.organism_state import compute_organism_state, write_organism_state_snapshot
+    from services.intake.queue import get_operator_review_queue
+    import shutil
+    
+    require_ops_access(request)
+    root = active_data_root()
+    
+    # 1. Inventory
+    intakes_dir = root / "intakes"
+    projects_dir = root / "projects"
+    evidence_dir = root / "evidence_intelligence"
+    fp_intakes = root / "founding_pilot" / "intakes"
+    
+    intake_count = 0
+    project_count = 0
+    evidence_count = 0
+    cognition_count = 0
+    
+    if intakes_dir.exists():
+        intake_count = sum(1 for p in intakes_dir.iterdir() if p.is_dir())
+    if fp_intakes.exists():
+        intake_count += sum(1 for p in fp_intakes.iterdir() if p.is_dir())
+        
+    if projects_dir.exists():
+        project_count = sum(1 for p in projects_dir.iterdir() if p.is_dir())
+        for p in projects_dir.iterdir():
+            if p.is_dir() and (p / "cognition").exists():
+                cognition_count += 1
+                
+    if evidence_dir.exists():
+        evidence_count = sum(1 for p in evidence_dir.iterdir() if p.is_dir() or p.name.endswith('.jsonl'))
+        
+    queue_count = len(get_operator_review_queue(limit=1000).get("queue", []))
+    
+    inventory = {
+        "project_count": project_count,
+        "intake_count": intake_count,
+        "evidence_count": evidence_count,
+        "cognition_count": cognition_count,
+        "queue_count": queue_count
+    }
+    
+    # Delete
+    for d in [projects_dir, intakes_dir, fp_intakes, evidence_dir]:
+        if d.exists():
+            for p in d.iterdir():
+                if p.is_dir():
+                    shutil.rmtree(p, ignore_errors=True)
+                else:
+                    p.unlink(missing_ok=True)
+                    
+    idx = index_jsonl()
+    if idx.exists():
+        idx.unlink(missing_ok=True)
+        
+    # Rebuild indexes
+    sync_index_from_filesystem(max_rows=1000)
+    
+    # Reconcile storage
+    reconcile_intake_inventory()
+    
+    # Run organism
+    state = compute_organism_state()
+    write_organism_state_snapshot(state)
+    
+    q_after = get_operator_review_queue()
+    
+    return {
+        "inventory_deleted": inventory,
+        "queue_depth": q_after.get("queue_depth", 0),
+        "active_intakes": 0,
+        "project_count": 0,
+        "evidence_count": 0,
+        "health_state": state.get("health_state")
+    }
+
 @app.get("/api/operator/organism/state")
 def operator_organism_state(request: Request):
     """KYC Aware Organism v0 — self-awareness snapshot.
