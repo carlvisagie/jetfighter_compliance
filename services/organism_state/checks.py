@@ -529,8 +529,51 @@ class CognitionValidationCheck(Check):
         )
 
 
+class ComplianceIntelligenceHealthCheck(Check):
+    name = "compliance_intelligence_health"
+
+    def evaluate(self, signals: SignalBundle) -> CheckResult:
+        section = signals.section("compliance_intelligence_status") or {}
+        if not section.get("available"):
+            return CheckResult(
+                name=self.name, ok=True, severity=Severity.INFO,
+                detail="No compliance intelligence data available.",
+                evidence=dict(section),
+            )
+            
+        high = int(section.get("high_severity_pending", 0))
+        medium = int(section.get("medium_severity_pending", 0))
+        stale = int(section.get("sources_stale", 0))
+        failed = bool(section.get("failed_compliance_cycle"))
+        
+        if high > 0 or stale > 0 or failed:
+            details = []
+            if high > 0: details.append(f"{high} high severity pending")
+            if stale > 0: details.append(f"{stale} sources stale")
+            if failed: details.append("failed compliance cycle")
+            
+            return CheckResult(
+                name=self.name, ok=False, severity=Severity.RED,
+                detail="Compliance intelligence RED: " + ", ".join(details) + ".",
+                evidence=dict(section),
+            )
+
+        if medium > 0:
+            return CheckResult(
+                name=self.name, ok=False, severity=Severity.AMBER,
+                detail=f"Compliance intelligence AMBER: {medium} medium severity pending.",
+                evidence=dict(section),
+            )
+
+        return CheckResult(
+            name=self.name, ok=True, severity=Severity.INFO,
+            detail="Compliance intelligence GREEN: No actionable items pending.",
+            evidence=dict(section),
+        )
+
+
 def all_checks():
-    """Ordered tuple of KYC's 12 checks."""
+    """Ordered tuple of KYC's 13 checks."""
     return (
         DiskPersistenceCheck(),
         DiskVsIntakeIndexCheck(),
@@ -544,4 +587,5 @@ def all_checks():
         SchedulerHeartbeatCheck(),
         UnconfirmedPaymentsCheck(),
         CognitionValidationCheck(),
+        ComplianceIntelligenceHealthCheck(),
     )

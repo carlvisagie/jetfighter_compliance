@@ -460,3 +460,60 @@ class CognitionValidationCollector(SignalCollector):
             "generated_without_validation": generated_no_val,
             "available": True
         }
+
+
+class ComplianceIntelligenceStatusCollector(SignalCollector):
+    name = "compliance_intelligence_status"
+
+    def collect(self) -> Dict[str, Any]:
+        try:
+            from services.compliance_intelligence import get_operator_dashboard
+            from services.memory.telemetry import load_telemetry
+        except Exception as e:
+            return {
+                "available": False,
+                "reason": f"import_error: {e}",
+            }
+            
+        dash = get_operator_dashboard()
+        pending = dash.get("pending_reviews", [])
+        
+        high_severity_pending = 0
+        medium_severity_pending = 0
+        for p in pending:
+            sev = (p.get("severity") or "").lower()
+            if sev in ("high", "critical"):
+                high_severity_pending += 1
+            elif sev == "medium":
+                medium_severity_pending += 1
+
+        last_successful_cycle = None
+        failed_compliance_cycle = False
+        # Load telemetry from compliance_intel subsystem
+        try:
+            rows = load_telemetry(limit=200, subsystem="compliance_intel")
+            for row in rows:
+                if row.get("event") == "fetch_failed" or (row.get("event") == "fetch_completed" and not row.get("ok", True)):
+                    failed_compliance_cycle = True
+                if row.get("event") == "fetch_completed" and row.get("ok", True):
+                    last_successful_cycle = row.get("ts") or row.get("created_utc")
+                    break
+        except Exception:
+            pass
+
+        changes = dash.get("latest_changes", [])
+        last_change_detected = None
+        if changes:
+            last_change_detected = changes[-1].get("detected_at_utc")
+
+        return {
+            "available": True,
+            "pending_reviews": dash.get("pending_review_count", 0),
+            "high_severity_pending": high_severity_pending,
+            "medium_severity_pending": medium_severity_pending,
+            "sources_stale": len(dash.get("stale_sources", [])),
+            "failed_compliance_cycle": failed_compliance_cycle,
+            "unreachable_sources": len(dash.get("unreachable_sources", [])),
+            "last_successful_cycle": last_successful_cycle,
+            "last_change_detected": last_change_detected,
+        }

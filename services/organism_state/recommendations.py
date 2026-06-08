@@ -32,8 +32,22 @@ def kyc_recommendations() -> RecommendationRegistry:
         "projects_vs_completed_intakes": "Sanity ok.",
         "archives_vs_active": "Sanity check intake archive flags — counts do not sum.",
         "pilot_residue_scan": _pilot_residue_action,
+        "compliance_intelligence_health": _compliance_intel_action,
     })
     return reg
+
+def _compliance_intel_action(r: CheckResult) -> str:
+    ev = r.evidence or {}
+    if ev.get("failed_compliance_cycle"):
+        return "Check compliance_intel telemetry for fetch errors or unreachable sources."
+    if int(ev.get("sources_stale", 0)) > 0:
+        return "Stale sources detected — manually run a compliance fetch cycle."
+    if int(ev.get("high_severity_pending", 0)) > 0:
+        return "Review high-severity compliance intelligence items in Control Center immediately."
+    if int(ev.get("medium_severity_pending", 0)) > 0:
+        return "Review pending compliance intelligence items in Control Center."
+    return "Compliance intelligence healthy."
+
 
 
 def _disk_persistence_action(r: CheckResult) -> str:

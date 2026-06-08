@@ -31,6 +31,7 @@ from services.organism_state.collectors import (
     UnconfirmedPaymentsCollector,
     VioCollector,
     CognitionValidationCollector,
+    ComplianceIntelligenceStatusCollector,
 )
 from services.organism_state.recommendations import kyc_recommendations
 from services.organism_state.residue_config import kyc_residue_scanner
@@ -106,6 +107,7 @@ def build_kyc_engine(*, repo_root: Optional[Path] = None) -> AwarenessEngine:
             UnconfirmedPaymentsCollector(),
             GitCollector(repo_root=root),
             CognitionValidationCollector(),
+            ComplianceIntelligenceStatusCollector(),
         ],
         checks=list(all_checks()),
         recommendations=kyc_recommendations(),
@@ -134,6 +136,7 @@ def _flatten_for_legacy_api(core_snapshot: Dict[str, Any]) -> Dict[str, Any]:
     storage = sigs.get("storage", {}) or {}
     persistence = sigs.get("disk_persistence", {}) or {}
     git = sigs.get("git", {}) or {}
+    ci_status = sigs.get("compliance_intelligence_status", {}) or {}
     residue = core_snapshot.get("residue", {}) or {}
 
     pilot_imports: list = []
@@ -171,6 +174,7 @@ def _flatten_for_legacy_api(core_snapshot: Dict[str, Any]) -> Dict[str, Any]:
         "queue_depth": int(intake.get("queue_depth", 0)),
         "vio_company_count": int(vio.get("vio_company_count", 0)),
         "control_queue_count": int(intake.get("queue_depth", 0)),
+        "compliance_intelligence": dict(ci_status),
         "pilot_residue_detected": bool(residue.get("detected", False)),
         "pilot_routes_remaining": pilot_routes[:10],
         "pilot_files_remaining": int(sum(cls_counts.values())) + len(residue.get("critical_paths", []) or []),
