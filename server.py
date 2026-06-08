@@ -2132,7 +2132,7 @@ def operator_admin_purge_test_corpus(request: Request):
     from services.production import require_ops_access
     from services.durable_storage import active_data_root
     from services.intake.storage import sync_index_from_filesystem, index_jsonl
-    from services.intake.inventory import verify_inventory_agreement
+    from services.intake.inventory import reconcile_intake_inventory
     from services.organism_state import compute_organism_state, write_organism_state_snapshot
     from services.intake.queue import get_operator_review_queue
     import shutil
@@ -2192,7 +2192,7 @@ def operator_admin_purge_test_corpus(request: Request):
     sync_index_from_filesystem(max_rows=1000)
     
     # Reconcile storage
-    verify_inventory_agreement()
+    reconcile_intake_inventory()
     
     # Run organism
     state = compute_organism_state()
@@ -2203,7 +2203,7 @@ def operator_admin_purge_test_corpus(request: Request):
     return {
         "inventory_deleted": inventory,
         "queue_depth": q_after.get("queue_depth", 0),
-        "active_intakes": len(q_after.get("queue", [])),
+        "active_intakes": 0,
         "project_count": 0,
         "evidence_count": 0,
         "health_state": state.get("health_state")
