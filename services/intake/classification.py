@@ -23,6 +23,8 @@ DOC_VENDOR = "Vendor form"
 DOC_POLICY = "Policy set"
 DOC_ASSET = "Asset inventory"
 DOC_NETWORK = "Network diagram"
+DOC_STRUCTURED_METADATA = "Structured metadata"
+DOC_TEST_ARTIFACT = "Test artifact"
 DOC_UNKNOWN = "Unknown"
 
 ALL_DOC_TYPES = (
@@ -34,12 +36,16 @@ ALL_DOC_TYPES = (
     DOC_POLICY,
     DOC_ASSET,
     DOC_NETWORK,
+    DOC_STRUCTURED_METADATA,
+    DOC_TEST_ARTIFACT,
     DOC_UNKNOWN,
 )
 
 _TEXT_SAMPLE_BYTES = 16_384
 
 _FILENAME_RULES: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
+    (DOC_STRUCTURED_METADATA, ("company_profile.json", "company profile")),
+    (DOC_TEST_ARTIFACT, ("ground_truth.json", "ground truth")),
     (DOC_SSP, ("ssp", "system security plan", "system-security-plan")),
     (DOC_POAM, ("poam", "plan of action", "plan-of-action", "poa&m")),
     (DOC_SPRS, ("sprs", "supplier performance", "supplier-performance")),

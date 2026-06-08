@@ -37,6 +37,15 @@ ALLOWED_EXTENSIONS = frozenset(
         ".csv",
         ".txt",
         ".zip",
+        ".json",
+        ".xml",
+        ".md",
+        ".log",
+        ".yaml",
+        ".yml",
+        ".html",
+        ".eml",
+        ".msg",
     }
 )
 
@@ -186,7 +195,7 @@ def _validate_extension(safe_name: str) -> None:
     if ext and ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"File type not allowed: {ext}. Use PDF, images, Office docs, CSV, or ZIP.",
+            detail=f"File type not allowed: {ext}. Allowed formats: PDF, Word, Excel, ZIP, images, CSV, TXT, JSON, XML, MD, YAML, LOG, HTML, EML, MSG.",
         )
 
 
