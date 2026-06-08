@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "description": "Canonical seed pointer — production concepts live in concepts.json",
+  "concepts_file": "concepts.json",
+  "relationships_file": "relationships.json",
+  "import_policy": "Legacy E:/ and C:/ encyclopedia folders are import-only via scripts/import_legacy_encyclopedia.py",
+  "runtime": "repo data/knowledge_cockpit only"
+}

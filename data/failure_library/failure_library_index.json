@@ -1,0 +1,13 @@
+[
+  {
+    "failure_id": "FL-0001",
+    "date_discovered": "2026-06-07T00:00:00Z",
+    "source": "Schema Definition Example",
+    "severity": "low",
+    "root_cause": "N/A",
+    "impact": "N/A",
+    "fix_applied": "N/A",
+    "test_added": "N/A",
+    "status": "resolved"
+  }
+]

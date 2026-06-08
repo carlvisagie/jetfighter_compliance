@@ -1,0 +1,33 @@
+{
+  "job_id": "J-post_payment-20250926T183244888259Z",
+  "kind": "post_payment",
+  "status": "done",
+  "created_utc": "2025-09-26T18:32:44Z",
+  "attempts": 1,
+  "last_error": "",
+  "payload": {
+    "order_id": "CP-DEMO-1758911564830",
+    "email": "you@keepyourcontracts.com",
+    "name": "Carl",
+    "skus": [
+      "CMMC-L1"
+    ]
+  },
+  "history": [
+    {
+      "ts": "2026-05-18T07:50:14Z",
+      "status": "running",
+      "note": "start"
+    },
+    {
+      "ts": "2026-05-18T07:50:14Z",
+      "status": "done",
+      "note": "ok"
+    }
+  ],
+  "result": {
+    "ok": true,
+    "project_id": "P-CP-DEMO-1758911564830-20260518T075014Z",
+    "intake_url": "http://127.0.0.1:8080/ui/intake?token=eyJwIjoiUC1DUC1ERU1PLTE3NTg5MTE1NjQ4MzAtMjAyNjA1MThUMDc1MDE0WiIsImUiOiJ5b3VAa2VlcHlvdXJjb250cmFjdHMuY29tIiwidHMiOjE3NzkwOTA2MTR9.0CJmHY04GQfUQXg6AdfXR1q-hQ4"
+  }
+}

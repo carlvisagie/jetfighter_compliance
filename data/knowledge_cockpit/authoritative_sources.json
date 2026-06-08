@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "generated_utc": "2026-05-27T05:57:37Z",
+  "sources": [
+    {
+      "title": "NIST SP 800-171 Rev.3 (Final)",
+      "publisher": "NIST CSRC",
+      "url": "https://csrc.nist.gov/pubs/sp/800/171/r3/final",
+      "scope": "CUI baseline",
+      "type": "Publication"
+    },
+    {
+      "title": "NIST SP 800-171A Rev.3 (Assessment)",
+      "publisher": "NIST CSRC",
+      "url": "https://csrc.nist.gov/pubs/sp/800/171/a/r3/final",
+      "scope": "Assessment procedures",
+      "type": "Publication"
+    },
+    {
+      "title": "NIST SP 800-53 Rev.5 (Controls)",
+      "publisher": "NIST CSRC",
+      "url": "https://csrc.nist.gov/pubs/sp/800/53/r5/final",
+      "scope": "Controls",
+      "type": "Publication"
+    },
+    {
+      "title": "EU AI Act \u2014 Regulation (EU) 2024/1689 (OJ)",
+      "publisher": "EUR-Lex",
+      "url": "https://eur-lex.europa.eu/eli/reg/2024/1689/oj/eng",
+      "scope": "AI governance",
+      "type": "Regulation"
+    },
+    {
+      "title": "GDPR \u2014 Regulation (EU) 2016/679 (OJ)",
+      "publisher": "EUR-Lex",
+      "url": "https://eur-lex.europa.eu/eli/reg/2016/679/oj/eng",
+      "scope": "Data protection",
+      "type": "Regulation"
+    },
+    {
+      "title": "CISA KEV Catalog",
+      "publisher": "CISA",
+      "url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+      "scope": "Threats",
+      "type": "Portal"
+    }
+  ]
+}

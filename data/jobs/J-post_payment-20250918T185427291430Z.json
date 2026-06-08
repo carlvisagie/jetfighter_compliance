@@ -1,0 +1,34 @@
+{
+  "job_id": "J-post_payment-20250918T185427291430Z",
+  "kind": "post_payment",
+  "status": "done",
+  "created_utc": "2025-09-18T18:54:27Z",
+  "attempts": 1,
+  "last_error": "",
+  "payload": {
+    "order_id": "YIPEE-DEMO-1",
+    "email": "you@keepyourcontracts.com",
+    "name": "Carl",
+    "skus": [
+      "CMMC-L2",
+      "DPP-ESPR"
+    ]
+  },
+  "history": [
+    {
+      "ts": "2025-09-18T18:54:28Z",
+      "status": "running",
+      "note": "start"
+    },
+    {
+      "ts": "2025-09-18T18:54:28Z",
+      "status": "done",
+      "note": "ok"
+    }
+  ],
+  "result": {
+    "ok": true,
+    "project_id": "P-YIPEE-DEMO-1-20250918T185428Z",
+    "intake_url": "http://127.0.0.1:8080/ui/intake?token=eyJwIjoiUC1ZSVBFRS1ERU1PLTEtMjAyNTA5MThUMTg1NDI4WiIsImUiOiJ5b3VAa2VlcHlvdXJjb250cmFjdHMuY29tIiwidHMiOjE3NTgyMjE2Njh9.r42xmnICPi-MX3iKW5CpyuR0gGY"
+  }
+}
