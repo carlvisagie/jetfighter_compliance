@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from organism_core import Check, CheckResult, Severity, SignalBundle
+from services.compliance_health.organism_check import ComplianceHealthCoverageCheck
 
 
 class DiskVsIntakeIndexCheck(Check):
@@ -573,7 +574,7 @@ class ComplianceIntelligenceHealthCheck(Check):
 
 
 def all_checks():
-    """Ordered tuple of KYC's 13 checks."""
+    """Ordered tuple of KYC's 14 checks."""
     return (
         DiskPersistenceCheck(),
         DiskVsIntakeIndexCheck(),
@@ -588,4 +589,5 @@ def all_checks():
         UnconfirmedPaymentsCheck(),
         CognitionValidationCheck(),
         ComplianceIntelligenceHealthCheck(),
+        ComplianceHealthCoverageCheck(),
     )
