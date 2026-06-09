@@ -496,9 +496,25 @@ async def _process_upload_locked(
     prior_ui = dict(record.get("upload_integrity") or {})
     prior_lifecycle = list(prior_ui.get("file_lifecycle") or [])
 
+    prior_expected_count = int(prior_ui.get("expected_file_count") or 0)
     received_count = len(files)
-    expected_count = int(expected_file_count or 0) or received_count
-    expected_names = list(expected_file_names or [])
+    current_expected_count = int(expected_file_count or 0) or received_count
+    
+    # Accumulate expected file count like received file count
+    prior_batch_complete = prior_ui.get("batch_complete", True)
+    if prior_expected_count == 0:
+        expected_count = current_expected_count
+    elif not prior_batch_complete:
+        expected_count = max(prior_expected_count, current_expected_count)
+    else:
+        expected_count = prior_expected_count + current_expected_count
+
+    current_expected_names = list(expected_file_names or [])
+    prior_expected_files = prior_ui.get("expected_files") or []
+    expected_names = [f.get("name") for f in prior_expected_files if f.get("name")]
+    for n in current_expected_names:
+        if n not in expected_names:
+            expected_names.append(n)
 
     batch_complete = manifest.get("batch_complete")
     if batch_complete is None:

@@ -60,7 +60,7 @@ def test_multi_batch_upload_stale_expected_repaired(fb_env, anon_client: TestCli
     api = client.post(f"/api/operator/integrity/repair/{iid}")
     assert api.status_code == 200
     payload = api.json()
-    assert payload.get("action") == "metadata_repaired_from_disk"
+    assert payload.get("action") == "no_repair_needed"
     assert payload.get("ok") is True
 
     rec = load_intake_record(iid)

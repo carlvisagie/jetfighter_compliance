@@ -116,7 +116,7 @@ def test_concurrent_uploads_same_intake(fb_env, anon_client: TestClient):
     first = anon_client.post(
         "/api/intake/upload",
         files=[_pdf("c1.pdf")],
-        data={"email": "conc@example.com", "expected_file_count": "1"},
+        data={"email": "conc@example.com", "expected_file_count": "10"},
     ).json()
     iid, token = first["intake_id"], first["token"]
     results: list = []
