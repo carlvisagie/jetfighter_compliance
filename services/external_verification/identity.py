@@ -21,7 +21,7 @@ def _extract_claimed_identity(project_id: str) -> dict:
     """
     from ..config import DATA
     
-    intake_dir = DATA / "intake" / project_id
+    intake_dir = DATA / "intakes" / project_id
     
     # Try company_profile.json
     profile_path = intake_dir / "company_profile.json"

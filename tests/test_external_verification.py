@@ -336,7 +336,7 @@ def test_feeds_compliance_health_registry(clean_external_verification, monkeypat
     
     # Create test project with company_profile.json
     data_dir = clean_external_verification / "data"
-    intake_dir = data_dir / "intake" / "TEST-FEED"
+    intake_dir = data_dir / "intakes" / "TEST-FEED"
     intake_dir.mkdir(parents=True, exist_ok=True)
     
     profile = {

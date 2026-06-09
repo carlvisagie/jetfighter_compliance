@@ -11,14 +11,12 @@ from services.compliance_health.schemas import RequirementStatus
 
 
 @pytest.fixture
-def clean_intake_integration(tmp_path, monkeypatch):
+def clean_intake_integration(durable_intake_root, monkeypatch):
     """Clean state for intake integration testing."""
-    import services.config
-    monkeypatch.setattr(services.config, "DATA", tmp_path / "data")
     # Initialize compliance health requirements
     from services.compliance_health.registry import seed_requirements
     seed_requirements()
-    yield tmp_path
+    yield durable_intake_root
 
 
 def test_verified_intake_triggers_external_verification(clean_intake_integration, monkeypatch, client):
