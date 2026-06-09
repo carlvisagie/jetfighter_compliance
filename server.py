@@ -1748,6 +1748,52 @@ def operator_intake_audit(request: Request, intake_id: str):
     return get_intake_audit(intake_id.strip())
 
 
+@app.get("/api/operator/external-verification/{project_id}")
+def operator_external_verification(request: Request, project_id: str):
+    """Get external SAM/UEI/CAGE verification status for a project."""
+    from services.production import require_ops_access
+    from services.external_verification import get_verification
+    
+    require_ops_access(request)
+    
+    verification = get_verification(project_id.strip())
+    
+    if not verification:
+        raise HTTPException(status_code=404, detail="No verification result found")
+    
+    return {
+        "project_id": verification.project_id,
+        "status": verification.status.value,
+        "sam_status": verification.sam_status.value,
+        "uei_status": verification.uei_status.value,
+        "cage_status": verification.cage_status.value,
+        "registration_status": verification.registration_status.value,
+        "legal_name_claimed": verification.legal_name_claimed,
+        "uei_claimed": verification.uei_claimed,
+        "cage_claimed": verification.cage_claimed,
+        "matched_legal_name": verification.matched_legal_name,
+        "matched_address": verification.matched_address,
+        "active_registration": verification.active_registration,
+        "exclusions_status": verification.exclusions_status.value,
+        "confidence": verification.confidence,
+        "source": verification.source,
+        "source_checked_utc": verification.source_checked_utc,
+        "issues": [
+            {
+                "field": i.field,
+                "severity": i.severity,
+                "detail": i.detail,
+                "claimed_value": i.claimed_value,
+                "actual_value": i.actual_value,
+            }
+            for i in verification.issues
+        ],
+        "evidence_refs": verification.evidence_refs,
+        "certifications": verification.certifications,
+        "representations": verification.representations,
+    }
+
+
 
 
 @app.get("/api/operator/intake/retention-check/{intake_id}")

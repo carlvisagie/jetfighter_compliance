@@ -324,6 +324,41 @@ def _apply_custody_status(record: Dict[str, Any], integrity: Dict[str, Any], *, 
     )
 
 
+def _trigger_external_verification_if_complete(record: Dict[str, Any]) -> None:
+    """
+    Trigger external SAM/UEI/CAGE verification after intake reaches verified_complete.
+    
+    Rules:
+    - Only trigger if custody_status == verified_complete
+    - Non-blocking: continues even if SAM_GOV_API_KEY missing
+    - Graceful: UNKNOWN if API unavailable, doesn't block intake
+    """
+    from .integrity import STATUS_VERIFIED_COMPLETE
+    
+    custody_status = str(record.get("custody_status") or "").lower()
+    if custody_status != STATUS_VERIFIED_COMPLETE:
+        return
+    
+    intake_id = record.get("intake_id")
+    if not intake_id:
+        return
+    
+    try:
+        from services.external_verification import verify_contractor_identity
+        
+        # Run verification (non-blocking, graceful if API missing)
+        verification = verify_contractor_identity(intake_id, force_refresh=False)
+        
+        logger.info(
+            f"External verification triggered for {intake_id}: "
+            f"status={verification.status.value}, "
+            f"confidence={verification.confidence}"
+        )
+    except Exception as e:
+        # Don't block intake if verification fails
+        logger.warning(f"External verification failed for {intake_id}: {e}")
+
+
 def _safe_emit_intake_event(
     intake_id: str,
     event_type: str,
@@ -746,6 +781,10 @@ async def _process_upload_locked(
         integrity,
         durability_ok=bool(durability.get("durability_verified", not saved)),
     )
+    
+    # Trigger external verification if intake reached verified_complete
+    _trigger_external_verification_if_complete(record)
+    
     integrity = record["upload_integrity"]
 
     committed = bool(durability.get("durability_verified")) if saved else True

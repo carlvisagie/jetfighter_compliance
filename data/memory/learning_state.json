@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_utc": "2026-06-04T07:15:10Z",
+  "updated_utc": "2026-06-09T00:29:07Z",
   "signal_effectiveness": {
     "intake:intake_received": {
       "success": 2602,
@@ -351,7 +351,7 @@
       ]
     },
     "compliance:central-memory": {
-      "success": 34,
+      "success": 37,
       "fail": 0,
       "outcomes": [
         "compliance_intel",
@@ -377,9 +377,12 @@
       ]
     },
     "compliance:launch-path": {
-      "success": 17,
+      "success": 23,
       "fail": 0,
       "outcomes": [
+        "compliance_intel",
+        "compliance_intel",
+        "compliance_intel",
         "compliance_intel",
         "compliance_intel",
         "compliance_intel",
@@ -668,6 +671,13 @@
         "evidence_confirmation",
         "evidence_confirmation"
       ]
+    },
+    "compliance:controlled-onboarding-acquisition": {
+      "success": 1,
+      "fail": 0,
+      "outcomes": [
+        "compliance_intel"
+      ]
     }
   },
   "conversion_counts": {
@@ -678,15 +688,6 @@
   },
   "paperwork_patterns": {
     "high_fit": [
-      "CHG-1e4dd49eca21",
-      "CHG-2f50ce31d67f",
-      "CHG-37ccbd76cbd0",
-      "CHG-e9efaccbc362",
-      "Unknown",
-      "Policy set",
-      "CHG-c85c76f559ce",
-      "CHG-4d0d7adbc1e7",
-      "CHG-66d57f095b48",
       "CHG-a67ca5a0bfa9",
       "SSP",
       "CHG-1883a08eebe6",
@@ -707,7 +708,16 @@
       "CHG-c6b04bb61102",
       "CHG-57c482609aae",
       "CHG-8d8f5b78b256",
-      "CHG-b90824bcf915"
+      "CHG-b90824bcf915",
+      "CHG-35c9bde4f868",
+      "CHG-ea0d68b02f7a",
+      "CHG-5a9cb5e99c38",
+      "CHG-e3da01f3acfc",
+      "CHG-4b149a9e7c49",
+      "CHG-b4879835f374",
+      "CHG-f0218c5142db",
+      "CHG-012362586a49",
+      "CHG-3c8503bd9573"
     ],
     "low_fit": []
   },
