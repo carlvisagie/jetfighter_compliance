@@ -1707,6 +1707,37 @@ def operator_repair_intake_index(request: Request, write: bool = True, limit: in
     return sync_intake_index_from_disk(write=write, limit=min(max(limit, 1), 500))
 
 
+@app.post("/api/operator/test-data/purge")
+def operator_purge_test_data(request: Request, dry_run: bool = True, confirm: str = ""):
+    """
+    Purge all test data with safety checks.
+    
+    Safety protections:
+    - Requires ops authentication
+    - Blocks if customer_count > 0
+    - Blocks if non-test intakes detected
+    - Dry-run by default (dry_run=true)
+    - Write mode requires confirm=DELETE_TEST_DATA
+    
+    Deletes:
+    - data/intakes/*
+    - data/projects/*
+    - data/evidence_intelligence/*
+    - data/external_verification/*
+    - data/cognition/*
+    
+    Preserves:
+    - Platform intelligence
+    - Code, config, schemas
+    - Memory, knowledge cockpit
+    """
+    from services.intake.test_data_purge import purge_test_data
+    from services.production import require_ops_access
+    
+    require_ops_access(request)
+    return purge_test_data(dry_run=dry_run, confirm=confirm)
+
+
 @app.get("/api/operator/intake/raw-disk-scan")
 def operator_intake_raw_disk_scan(request: Request, intake_id: str = ""):
     """Live filesystem scan — never cached."""
