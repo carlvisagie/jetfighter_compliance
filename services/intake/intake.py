@@ -324,6 +324,92 @@ def _apply_custody_status(record: Dict[str, Any], integrity: Dict[str, Any], *, 
     )
 
 
+def _trigger_auto_kickoff_if_eligible(intake_id: str, record: Dict[str, Any]) -> None:
+    """
+    Trigger automatic project kickoff if intake qualifies.
+    
+    Auto-kickoff occurs when:
+    1. Intake reaches verified_complete
+    2. Payment confirmed OR validation mode enabled
+    
+    Validation mode bypasses payment gate for testing/validation projects.
+    Commercial projects require payment confirmation.
+    
+    Logs audit trail for all payment bypasses.
+    """
+    from .integrity import STATUS_VERIFIED_COMPLETE
+    from .validation_mode import is_auto_kickoff_eligible, should_bypass_payment_gate
+    
+    custody_status = str(record.get("custody_status") or "").lower()
+    if custody_status != STATUS_VERIFIED_COMPLETE:
+        return
+    
+    # Check if already kicked off (prevent duplicates)
+    if record.get("project_kickoff_completed"):
+        return
+    
+    # Check eligibility (payment or validation mode)
+    eligible, reason = is_auto_kickoff_eligible(record)
+    if not eligible:
+        logger.info(
+            f"Auto-kickoff skipped for {intake_id}: {reason}"
+        )
+        return
+    
+    # Prepare operator note
+    if should_bypass_payment_gate(record):
+        # Validation mode: explicit payment bypass with audit trail
+        validation_flags = []
+        if record.get("validation_project"):
+            validation_flags.append("validation_project=true")
+        if record.get("founding_pilot"):
+            validation_flags.append("founding_pilot=true")
+        if intake_id.startswith("FB-test-"):
+            validation_flags.append("test_intake")
+        
+        operator_note = (
+            f"PAYMENT_OVERRIDE: Validation mode auto-kickoff "
+            f"({', '.join(validation_flags)}). "
+            f"Platform validation project — payment gate bypassed intentionally."
+        )
+        logger.warning(
+            f"Auto-kickoff bypassing payment gate for {intake_id}: "
+            f"reason={reason}, flags={validation_flags}"
+        )
+    else:
+        # Payment confirmed: normal commercial flow
+        operator_note = f"Auto-kickoff after payment confirmation (organism automated)"
+        logger.info(
+            f"Auto-kickoff triggered for {intake_id}: payment confirmed"
+        )
+    
+    try:
+        from .kickoff import kickoff_project_from_intake
+        
+        # Execute project kickoff
+        result = kickoff_project_from_intake(
+            intake_id=intake_id,
+            operator_note=operator_note
+        )
+        
+        # Mark as kicked off to prevent duplicates
+        record["project_kickoff_completed"] = True
+        record["project_kickoff_at_utc"] = _utc_now()
+        record["auto_kickoff_reason"] = reason
+        record["project_id"] = result.get("project_id")  # Store project_id
+        
+        logger.info(
+            f"Auto-kickoff completed for {intake_id}: "
+            f"project_id={result.get('project_id')}, reason={reason}"
+        )
+        
+    except Exception as e:
+        logger.error(
+            f"Auto-kickoff failed for {intake_id}: {e}",
+            exc_info=True
+        )
+
+
 def _trigger_external_verification_if_complete(record: Dict[str, Any]) -> None:
     """
     Trigger external SAM/UEI/CAGE verification after intake reaches verified_complete.
@@ -440,6 +526,8 @@ async def process_upload(
     expected_file_names: Optional[List[str]] = None,
     upload_manifest: Optional[Dict[str, Any]] = None,
     request_metadata: Optional[Dict[str, Any]] = None,
+    validation_project: bool = False,
+    founding_pilot: bool = False,
 ) -> Dict[str, Any]:
     require_intake_upload_allowed()
     if not files:
@@ -458,6 +546,11 @@ async def process_upload(
         if deadline:
             record["deadline"] = deadline.strip()[:120]
             record["urgent"] = True
+        # Update validation flags if provided
+        if validation_project:
+            record["validation_project"] = True
+        if founding_pilot:
+            record["founding_pilot"] = True
     else:
         record = create_intake(
             email=email,
@@ -468,6 +561,12 @@ async def process_upload(
         )
         intake_id = record["intake_id"]
         token = make_founding_pilot_token(intake_id)
+        
+        # Set validation flags for new intakes
+        if validation_project:
+            record["validation_project"] = True
+        if founding_pilot:
+            record["founding_pilot"] = True
 
     # Acquisition attribution: store lead_id when a ref=LD-xxx param was passed
     if ref and str(ref).startswith("LD-") and not record.get("lead_id"):
@@ -785,6 +884,9 @@ async def _process_upload_locked(
     # Trigger external verification if intake reached verified_complete
     _trigger_external_verification_if_complete(record)
     
+    # Auto-kickoff for validation projects (payment confirmed or validation mode)
+    _trigger_auto_kickoff_if_eligible(intake_id, record)
+    
     integrity = record["upload_integrity"]
 
     committed = bool(durability.get("durability_verified")) if saved else True
@@ -1009,12 +1111,9 @@ async def _process_upload_locked(
                             "reason": "EI crashed or returned no intelligence."
                         })
 
-                # RUN COGNITION AFTER EVIDENCE INTELLIGENCE (even if EI fails)
-                try:
-                    from services.cognition.storage import run_cognition_safely
-                    run_cognition_safely(intake_id)
-                except Exception as cog_exc:
-                    logger.warning("Cognition run failed for %s: %s", intake_id, cog_exc)
+                # NOTE: Cognition and Evidence Intelligence now run AFTER project kickoff
+                # to ensure they operate on projects/{project_id}/ structure.
+                # See services/intake/kickoff.py post-kickoff intelligence trigger.
 
             except Exception as _ei_outer:
                 logger.warning(

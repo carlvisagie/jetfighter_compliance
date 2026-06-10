@@ -1061,6 +1061,8 @@ async def intake_upload(
     expected_file_count: int = Form(0),
     expected_file_names: str = Form(""),
     upload_manifest: str = Form(""),
+    validation_project: str = Form(""),
+    founding_pilot: str = Form(""),
 ):
     from services.intake.intake import process_upload
     from services.intake.integrity import parse_expected_file_names, parse_upload_manifest
@@ -1080,6 +1082,8 @@ async def intake_upload(
         expected_file_count=expected_file_count,
         expected_file_names=parse_expected_file_names(expected_file_names),
         upload_manifest=parse_upload_manifest(upload_manifest),
+        validation_project=validation_project.strip().lower() in ("true", "1", "yes"),
+        founding_pilot=founding_pilot.strip().lower() in ("true", "1", "yes"),
         request_metadata={
             "source_ip": xf.split(",")[0].strip() if xf else client_host,
             "x-forwarded_for": xf,

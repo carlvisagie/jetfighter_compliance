@@ -9,6 +9,11 @@ from services.cognition.storage import run_cognition_safely
 
 @pytest.mark.asyncio
 async def test_cognition_runtime_hook_called(tmp_path):
+    """
+    PATCH 13A-3C: Cognition now runs AFTER project kickoff, not during upload.
+    This test verifies cognition is NOT called prematurely during intake processing.
+    Cognition will run when kickoff_project_from_intake() is called.
+    """
     # Mock everything around the upload flow to just test if the hook is called
     with patch("services.intake.intake._safe_emit_intake_event"), \
          patch("services.intake.intake.emit_intake_event"), \
@@ -38,11 +43,18 @@ async def test_cognition_runtime_hook_called(tmp_path):
         except Exception as e:
             pass # ignore expected errors down the line if any
 
-        mock_run_cognition.assert_called_once()
+        # CHANGED: Cognition should NOT be called during upload anymore
+        # It runs after project kickoff in services/intake/kickoff.py
+        mock_run_cognition.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_upload_succeeds_if_cognition_fails(tmp_path):
+    """
+    PATCH 13A-3C: Cognition runs post-kickoff, so upload always succeeds.
+    This test is kept for backwards compatibility but cognition failure
+    no longer affects upload success since they're decoupled.
+    """
     with patch("services.intake.intake._safe_emit_intake_event"), \
          patch("services.intake.intake.emit_intake_event"), \
          patch("services.intake.intake._append_index"), \
@@ -56,7 +68,7 @@ async def test_upload_succeeds_if_cognition_fails(tmp_path):
          patch("services.evidence_intelligence.process_evidence_upload"), \
          patch("services.cognition.storage.run_cognition_safely") as mock_run_cognition:
 
-        # Cognition raises error
+        # Cognition raises error (but won't be called during upload anyway)
         mock_run_cognition.side_effect = Exception("Cognition hard failure")
 
         (tmp_path / "uploads").mkdir(parents=True, exist_ok=True)
@@ -70,5 +82,5 @@ async def test_upload_succeeds_if_cognition_fails(tmp_path):
 
         res = await process_upload([mock_uf], email="test@test.com", company="Test")
         
-        # Upload should still return ok=True
+        # Upload should still return ok=True (cognition is post-kickoff)
         assert res.get("ok") is True

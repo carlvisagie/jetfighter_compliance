@@ -20,6 +20,58 @@ from .telemetry import emit_intake_event
 logger = logging.getLogger(__name__)
 
 
+def _run_post_kickoff_intelligence(project_id: str, intake_id: str) -> None:
+    """
+    Run Evidence Intelligence and Cognition after project kickoff.
+    
+    This ensures both systems operate on the correct projects/{project_id}/
+    directory structure with properly linked evidence files.
+    
+    Runs non-blocking to avoid delaying kickoff response.
+    """
+    # Run Evidence Intelligence
+    try:
+        from services.evidence_intelligence import process_evidence_upload
+        evidence_dir = PROJECTS / project_id / "evidence"
+        if evidence_dir.is_dir():
+            evidence_files = [f for f in evidence_dir.iterdir() if f.is_file()]
+            if evidence_files:
+                logger.info(
+                    f"Post-kickoff Evidence Intelligence for {project_id}: "
+                    f"{len(evidence_files)} files"
+                )
+                for evidence_file in evidence_files:
+                    try:
+                        process_evidence_upload(project_id, evidence_file)
+                    except Exception as ei_exc:
+                        logger.warning(
+                            f"Evidence Intelligence failed for {project_id}/{evidence_file.name}: {ei_exc}"
+                        )
+    except Exception as ei_outer:
+        logger.warning(
+            f"Post-kickoff Evidence Intelligence dispatch failed for {project_id}: {ei_outer}"
+        )
+    
+    # Run Cognition
+    try:
+        from services.cognition.storage import run_cognition_safely
+        logger.info(f"Post-kickoff Cognition for {project_id}")
+        run_cognition_safely(project_id)
+    except Exception as cog_exc:
+        logger.warning(
+            f"Post-kickoff Cognition failed for {project_id}: {cog_exc}"
+        )
+    
+    emit_intake_event(
+        "post_kickoff_intelligence_completed",
+        message=f"Intelligence processing completed for {project_id}",
+        metadata={
+            "project_id": project_id,
+            "intake_id": intake_id,
+        },
+    )
+
+
 def kickoff_project_from_intake(
     intake_id: str,
     *,
@@ -121,6 +173,10 @@ def kickoff_project_from_intake(
             "files_linked": len(linked),
         },
     )
+    
+    # Post-kickoff intelligence trigger
+    # Run Evidence Intelligence and Cognition on the newly created project
+    _run_post_kickoff_intelligence(project_id, intake_id)
 
     return {
         "ok": True,
