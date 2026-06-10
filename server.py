@@ -1697,6 +1697,16 @@ def operator_intake_reconcile_intake(request: Request, intake_id: str):
     return reconcile_intake(intake_id.strip())
 
 
+@app.post("/api/operator/intake/repair-index")
+def operator_repair_intake_index(request: Request, write: bool = True, limit: int = 200):
+    """Repair intake index — sync disk intakes to operational index."""
+    from services.intake.repair_index import sync_intake_index_from_disk
+    from services.production import require_ops_access
+    
+    require_ops_access(request)
+    return sync_intake_index_from_disk(write=write, limit=min(max(limit, 1), 500))
+
+
 @app.get("/api/operator/intake/raw-disk-scan")
 def operator_intake_raw_disk_scan(request: Request, intake_id: str = ""):
     """Live filesystem scan — never cached."""
