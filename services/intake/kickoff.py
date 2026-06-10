@@ -9,7 +9,7 @@ from typing import Any, Dict, List
 
 from fastapi import HTTPException
 
-from services.config import PROJECTS
+from services import config as _config
 from services.ledger import register_artifact
 from services.process import init_workflow, set_phase
 from services.projects import new_project
@@ -32,7 +32,7 @@ def _run_post_kickoff_intelligence(project_id: str, intake_id: str) -> None:
     # Run Evidence Intelligence
     try:
         from services.evidence_intelligence import process_evidence_upload
-        evidence_dir = PROJECTS / project_id / "evidence"
+        evidence_dir = _config.PROJECTS / project_id / "evidence"
         if evidence_dir.is_dir():
             evidence_files = [f for f in evidence_dir.iterdir() if f.is_file()]
             if evidence_files:
@@ -112,7 +112,7 @@ def kickoff_project_from_intake(
     except Exception as exc:
         logger.warning("Workflow init for intake kickoff %s: %s", intake_id, exc)
 
-    evidence_dir = PROJECTS / project_id / "evidence"
+    evidence_dir = _config.PROJECTS / project_id / "evidence"
     evidence_dir.mkdir(parents=True, exist_ok=True)
     linked: List[str] = []
 
@@ -132,7 +132,7 @@ def kickoff_project_from_intake(
         except Exception:
             pass
 
-    comm = PROJECTS / project_id / "communications"
+    comm = _config.PROJECTS / project_id / "communications"
     comm.mkdir(parents=True, exist_ok=True)
     intake_meta = {
         "company": rec.get("company") or "",
@@ -146,7 +146,7 @@ def kickoff_project_from_intake(
         intake_meta["operator_note"] = operator_note.strip()[:1000]
     (comm / "intake.json").write_text(json.dumps(intake_meta, indent=2), encoding="utf-8")
 
-    meta_path = PROJECTS / project_id / "meta.json"
+    meta_path = _config.PROJECTS / project_id / "meta.json"
     if meta_path.is_file():
         try:
             pm = json.loads(meta_path.read_text(encoding="utf-8"))

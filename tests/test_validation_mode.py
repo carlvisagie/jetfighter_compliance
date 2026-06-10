@@ -254,7 +254,7 @@ def test_post_kickoff_intelligence_runs_evidence_intelligence(tmp_path):
     evidence_dir.mkdir(parents=True)
     (evidence_dir / "test.pdf").write_text("fake pdf content")
     
-    with patch("services.intake.kickoff.PROJECTS", tmp_path / "projects"):
+    with patch("services.config.PROJECTS", tmp_path / "projects"):
         with patch("services.evidence_intelligence.process_evidence_upload") as mock_ei:
             with patch("services.cognition.storage.run_cognition_safely") as mock_cog:
                 with patch("services.intake.kickoff.logger"):
@@ -278,7 +278,7 @@ def test_post_kickoff_intelligence_handles_ei_errors(tmp_path):
     evidence_dir.mkdir(parents=True)
     (evidence_dir / "test.pdf").write_text("fake pdf content")
     
-    with patch("services.intake.kickoff.PROJECTS", tmp_path / "projects"):
+    with patch("services.config.PROJECTS", tmp_path / "projects"):
         with patch("services.evidence_intelligence.process_evidence_upload") as mock_ei:
             with patch("services.cognition.storage.run_cognition_safely") as mock_cog:
                 with patch("services.intake.kickoff.logger") as mock_logger:
@@ -303,7 +303,7 @@ def test_post_kickoff_intelligence_handles_cognition_errors(tmp_path):
     evidence_dir = tmp_path / "projects" / project_id / "evidence"
     evidence_dir.mkdir(parents=True)
     
-    with patch("services.intake.kickoff.PROJECTS", tmp_path / "projects"):
+    with patch("services.config.PROJECTS", tmp_path / "projects"):
         with patch("services.cognition.storage.run_cognition_safely") as mock_cog:
             with patch("services.intake.kickoff.logger") as mock_logger:
                 mock_cog.side_effect = Exception("Cognition failed")
