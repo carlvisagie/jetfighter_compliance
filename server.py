@@ -2188,6 +2188,213 @@ def operator_evidence_intelligence_reprocess(
     return reprocess_intake_evidence(iid, wipe=bool(wipe))
 
 
+# ── Remediation Memory — organism learning foundation ──────────────────────────
+@app.get("/api/operator/remediation/outcomes")
+def operator_remediation_outcomes(
+    request: Request,
+    limit: int = 100,
+    project_id: str = "",
+    requirement_id: str = "",
+    category: str = "",
+    resolution_status: str = "",
+):
+    """Get remediation outcomes with optional filters."""
+    from services.production import require_ops_access
+    from services.remediation_memory import load_outcomes
+
+    require_ops_access(request)
+
+    outcomes = load_outcomes(
+        limit=limit,
+        project_id=project_id if project_id else None,
+        requirement_id=requirement_id if requirement_id else None,
+        category=category if category else None,
+        resolution_status=resolution_status if resolution_status else None,
+    )
+
+    return {
+        "ok": True,
+        "count": len(outcomes),
+        "outcomes": [o.model_dump() for o in outcomes],
+    }
+
+
+@app.get("/api/operator/remediation/outcomes/{outcome_id}")
+def operator_remediation_outcome(request: Request, outcome_id: str):
+    """Get a specific remediation outcome."""
+    from services.production import require_ops_access
+    from services.remediation_memory import get_outcome
+
+    require_ops_access(request)
+
+    outcome = get_outcome(outcome_id)
+    if not outcome:
+        raise HTTPException(status_code=404, detail="Outcome not found")
+
+    return {"ok": True, "outcome": outcome.model_dump()}
+
+
+@app.post("/api/operator/remediation/outcomes")
+async def operator_remediation_record_outcome(request: Request, body: dict = Body(...)):
+    """Record a new remediation outcome."""
+    from services.production import require_ops_access
+    from services.remediation_memory import record_outcome
+
+    require_ops_access(request)
+
+    outcome = record_outcome(
+        project_id=body.get("project_id", ""),
+        action_taken=body.get("action_taken", ""),
+        implementation_method=body.get("implementation_method", ""),
+        resolution_status=body.get("resolution_status", "resolved"),
+        requirement_id=body.get("requirement_id"),
+        gap_id=body.get("gap_id"),
+        category=body.get("category", "general"),
+        success_evidence=body.get("success_evidence"),
+        blocking_factors=body.get("blocking_factors"),
+        duration_days=body.get("duration_days"),
+        cost_usd=body.get("cost_usd"),
+        estimated_duration_days=body.get("estimated_duration_days"),
+        estimated_cost_usd=body.get("estimated_cost_usd"),
+        complexity=body.get("complexity"),
+        lessons_learned=body.get("lessons_learned"),
+        would_recommend=body.get("would_recommend"),
+        alternative_approaches=body.get("alternative_approaches"),
+        operator_email=body.get("operator_email"),
+        metadata=body.get("metadata"),
+    )
+
+    return {"ok": True, "outcome": outcome.model_dump()}
+
+
+@app.get("/api/operator/remediation/summary")
+def operator_remediation_summary(
+    request: Request,
+    project_id: str = "",
+    requirement_id: str = "",
+    category: str = "",
+):
+    """Get remediation outcome summary statistics."""
+    from services.production import require_ops_access
+    from services.remediation_memory.storage import get_outcome_summary
+
+    require_ops_access(request)
+
+    summary = get_outcome_summary(
+        project_id=project_id if project_id else None,
+        requirement_id=requirement_id if requirement_id else None,
+        category=category if category else None,
+    )
+
+    return {"ok": True, "summary": summary.model_dump()}
+
+
+@app.get("/api/operator/remediation/lessons")
+def operator_remediation_lessons(
+    request: Request,
+    limit: int = 50,
+    category: str = "",
+    requirement_id: str = "",
+):
+    """Get remediation lessons learned."""
+    from services.production import require_ops_access
+    from services.remediation_memory import load_lessons
+
+    require_ops_access(request)
+
+    lessons = load_lessons(
+        limit=limit,
+        category=category if category else None,
+        requirement_id=requirement_id if requirement_id else None,
+    )
+
+    return {
+        "ok": True,
+        "count": len(lessons),
+        "lessons": [l.model_dump() for l in lessons],
+    }
+
+
+@app.post("/api/operator/remediation/lessons")
+async def operator_remediation_record_lesson(request: Request, body: dict = Body(...)):
+    """Record a new remediation lesson learned."""
+    from services.production import require_ops_access
+    from services.remediation_memory import record_lesson
+
+    require_ops_access(request)
+
+    lesson = record_lesson(
+        title=body.get("title", ""),
+        description=body.get("description", ""),
+        category=body.get("category", "general"),
+        requirement_ids=body.get("requirement_ids"),
+        outcome_ids=body.get("outcome_ids"),
+        project_ids=body.get("project_ids"),
+        what_worked=body.get("what_worked"),
+        what_failed=body.get("what_failed"),
+        recommended_approach=body.get("recommended_approach"),
+        avoid_approach=body.get("avoid_approach"),
+        severity=body.get("severity", "info"),
+        operator_email=body.get("operator_email"),
+        metadata=body.get("metadata"),
+    )
+
+    return {"ok": True, "lesson": lesson.model_dump()}
+
+
+@app.get("/api/operator/remediation/methods")
+def operator_remediation_methods(
+    request: Request,
+    limit: int = 50,
+    category: str = "",
+    requirement_id: str = "",
+):
+    """Get implementation methods."""
+    from services.production import require_ops_access
+    from services.remediation_memory import load_methods
+
+    require_ops_access(request)
+
+    methods = load_methods(
+        limit=limit,
+        category=category if category else None,
+        requirement_id=requirement_id if requirement_id else None,
+    )
+
+    return {
+        "ok": True,
+        "count": len(methods),
+        "methods": [m.model_dump() for m in methods],
+    }
+
+
+@app.post("/api/operator/remediation/methods")
+async def operator_remediation_record_method(request: Request, body: dict = Body(...)):
+    """Record a new implementation method."""
+    from services.production import require_ops_access
+    from services.remediation_memory import record_implementation_method
+
+    require_ops_access(request)
+
+    method = record_implementation_method(
+        name=body.get("name", ""),
+        description=body.get("description", ""),
+        category=body.get("category", "general"),
+        requirement_ids=body.get("requirement_ids"),
+        gap_types=body.get("gap_types"),
+        steps=body.get("steps"),
+        prerequisites=body.get("prerequisites"),
+        tools_required=body.get("tools_required"),
+        typical_duration_days=body.get("typical_duration_days"),
+        typical_cost_usd=body.get("typical_cost_usd"),
+        complexity=body.get("complexity"),
+        created_by=body.get("created_by"),
+        metadata=body.get("metadata"),
+    )
+
+    return {"ok": True, "method": method.model_dump()}
+
+
 # ── VIO 2.0 — visual awareness interface ──────────────────────────────────────
 @app.get("/api/operator/vio/overview")
 def vio_overview(request: Request, limit: int = 60):

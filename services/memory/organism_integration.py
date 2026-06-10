@@ -82,6 +82,18 @@ ENGINE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "duplicate_truth_risk": "medium",
         "fix_needed": "Parallel weights store; outcomes bridged to central timeline",
     },
+    "remediation_memory": {
+        "label": "Remediation Memory (outcomes + lessons)",
+        "paths": ["services/remediation_memory/"],
+        "classification": "plugged",
+        "reads": [],
+        "writes": ["data/remediation_memory/*.jsonl", "central memory via bridge"],
+        "read_before": False,
+        "write_after": True,
+        "orphan_risk": "low",
+        "duplicate_truth_risk": "low",
+        "fix_needed": "",
+    },
     "inquiry_submit": {
         "label": "Inquiry submit",
         "paths": ["server.py (/api/inquiry/submit)", "ui/inquiry.html"],
@@ -409,6 +421,69 @@ def safe_write_after_acquisition_outcome(
             record_learning_signal(stage, conv, success=True, base=base)
     except Exception as e:
         logger.warning("Central memory write (acquisition outcome): %s", e)
+
+
+def safe_write_after_remediation_outcome(
+    *,
+    entity_id: str,
+    outcome_id: str,
+    project_id: str,
+    requirement_id: Optional[str] = None,
+    gap_id: Optional[str] = None,
+    action: str,
+    method: str,
+    category: str,
+    resolution_status: str,
+    duration_days: Optional[int] = None,
+    cost_usd: Optional[float] = None,
+    complexity: Optional[str] = None,
+    success: bool,
+    metadata: Optional[Dict[str, Any]] = None,
+    base: Optional[Any] = None,
+) -> None:
+    """Bridge remediation outcome to central memory timeline + learning.
+
+    Links remediation outcomes to entity timeline for cross-project analysis.
+    Future industry intelligence layer will mine these events for patterns.
+    """
+    try:
+        append_timeline(
+            entity_id,
+            event_type="remediation_outcome",
+            ref_type="remediation",
+            ref_id=outcome_id,
+            payload={
+                "project_id": project_id,
+                "requirement_id": requirement_id,
+                "gap_id": gap_id,
+                "action": action,
+                "method": method,
+                "category": category,
+                "resolution_status": resolution_status,
+                "duration_days": duration_days,
+                "cost_usd": cost_usd,
+                "complexity": complexity,
+                "success": success,
+                "metadata": metadata or {},
+            },
+            base=base,
+        )
+
+        # Feed learning layer
+        record_learning_signal(
+            f"remediation:{category}:{method}",
+            "remediation_outcome",
+            success=success,
+            segment=category,
+            base=base,
+        )
+
+        logger.info(
+            f"Linked remediation outcome {outcome_id} to entity {entity_id} timeline"
+        )
+
+    except Exception as e:
+        logger.warning(f"safe_write_after_remediation_outcome failed: {e}")
 
 
 def safe_write_after_forensic_event(
