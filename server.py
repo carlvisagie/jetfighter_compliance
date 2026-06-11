@@ -1608,6 +1608,19 @@ def operator_organism_state(project_id: str = "", mode: str = ""):
     return get_organism_state_view(project_id=project_id, mode=mode)
 
 
+@app.get("/api/operator/project-observability/{project_id}")
+def operator_project_observability(request: Request, project_id: str):
+    """PATCH 13A-4D: Complete project observability — single endpoint to answer 
+    'What happened to this customer?' without SSH, filesystem, or logs.
+    
+    Returns: kickoff state, evidence intelligence, cognition, validation,
+    compliance health, and timeline events.
+    """
+    from services.production import require_ops_access
+    from services.project_observability import get_project_observability
+
+    require_ops_access(request)
+    return get_project_observability(project_id.strip())
 
 
 @app.get("/api/operator/intake/queue")
