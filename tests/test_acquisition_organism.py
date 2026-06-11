@@ -125,7 +125,7 @@ def test_message_burden_removal_no_guarantees():
     msg = generate_message(lead, "A")
     assert "upload" in msg["cta"].lower()
     assert "guaranteed certification" not in msg["body"].lower()
-    assert msg["doctrine"] == "upload_first_no_auto_send"
+    assert msg["doctrine"] == "upload_first_auto_send"
 
 
 def test_operator_dashboard(acq_env):

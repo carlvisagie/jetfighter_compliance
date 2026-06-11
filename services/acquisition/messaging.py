@@ -69,8 +69,8 @@ def generate_message(
         "cta": v["cta"],
         "framing": v["framing"],
         "company_name": company,
-        "doctrine": "upload_first_no_auto_send",
-        "operator_note": "Review and send manually — organism does not auto-contact.",
+        "doctrine": "upload_first_auto_send",
+        "operator_note": "Autonomous outreach enabled — organism sends to qualified leads with valid contact info.",
     }
 
 
