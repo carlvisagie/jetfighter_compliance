@@ -29,7 +29,24 @@ def _run_post_kickoff_intelligence(project_id: str, intake_id: str) -> None:
     
     Runs non-blocking to avoid delaying kickoff response.
     """
+    # Organism event: Intelligence processing started
+    try:
+        from services.memory.organism_integration import safe_write_after_workflow
+        safe_write_after_workflow(
+            project_id,
+            step_id="post_kickoff_intelligence_started",
+            phase="INTELLIGENCE",
+            metadata={
+                "intake_id": intake_id,
+                "stage": "evidence_intelligence",
+            }
+        )
+    except Exception:
+        pass
+    
     # Run Evidence Intelligence
+    ei_success = False
+    ei_files_processed = 0
     try:
         from services.evidence_intelligence import process_evidence_upload
         evidence_dir = _config.PROJECTS / project_id / "evidence"
@@ -43,24 +60,76 @@ def _run_post_kickoff_intelligence(project_id: str, intake_id: str) -> None:
                 for evidence_file in evidence_files:
                     try:
                         process_evidence_upload(project_id, evidence_file)
+                        ei_files_processed += 1
                     except Exception as ei_exc:
                         logger.warning(
                             f"Evidence Intelligence failed for {project_id}/{evidence_file.name}: {ei_exc}"
                         )
+                ei_success = True
     except Exception as ei_outer:
         logger.warning(
             f"Post-kickoff Evidence Intelligence dispatch failed for {project_id}: {ei_outer}"
         )
     
+    # Organism event: Evidence Intelligence completed
+    try:
+        from services.memory.organism_integration import safe_write_after_workflow
+        safe_write_after_workflow(
+            project_id,
+            step_id="evidence_intelligence_completed",
+            phase="INTELLIGENCE",
+            metadata={
+                "intake_id": intake_id,
+                "success": ei_success,
+                "files_processed": ei_files_processed,
+            }
+        )
+    except Exception:
+        pass
+    
     # Run Cognition
+    cognition_success = False
     try:
         from services.cognition.storage import run_cognition_safely
         logger.info(f"Post-kickoff Cognition for {project_id}")
-        run_cognition_safely(project_id)
+        result = run_cognition_safely(project_id)
+        cognition_success = (result.get("status") == "success")
     except Exception as cog_exc:
         logger.warning(
             f"Post-kickoff Cognition failed for {project_id}: {cog_exc}"
         )
+    
+    # Organism event: Cognition completed
+    try:
+        from services.memory.organism_integration import safe_write_after_workflow
+        safe_write_after_workflow(
+            project_id,
+            step_id="cognition_completed",
+            phase="INTELLIGENCE",
+            metadata={
+                "intake_id": intake_id,
+                "success": cognition_success,
+            }
+        )
+    except Exception:
+        pass
+    
+    # Organism event: Intelligence processing completed
+    try:
+        from services.memory.organism_integration import safe_write_after_workflow
+        safe_write_after_workflow(
+            project_id,
+            step_id="post_kickoff_intelligence_completed",
+            phase="INTELLIGENCE",
+            metadata={
+                "intake_id": intake_id,
+                "evidence_intelligence_success": ei_success,
+                "evidence_intelligence_files": ei_files_processed,
+                "cognition_success": cognition_success,
+            }
+        )
+    except Exception:
+        pass
     
     emit_intake_event(
         "post_kickoff_intelligence_completed",
@@ -68,6 +137,8 @@ def _run_post_kickoff_intelligence(project_id: str, intake_id: str) -> None:
         metadata={
             "project_id": project_id,
             "intake_id": intake_id,
+            "evidence_intelligence_success": ei_success,
+            "cognition_success": cognition_success,
         },
     )
 

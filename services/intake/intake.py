@@ -1038,88 +1038,22 @@ async def _process_upload_locked(
                     intake_id=intake_id,
                 )
 
-            # ── Evidence intelligence — extract on intake, not on kickoff ──
-            # The doctrine says EI is "automated extraction, classification,
-            # profiling" of uploads. Running it only at kickoff means the
-            # operator reviews intakes with no entity/gap signal — which is
-            # what the VIO L2 KPI tiles and L1 attention strip read. We run
-            # it here using `intake_id` as the EI key; vio_overview already
-            # falls back to intake_id when project_id is missing.
-            # Best-effort: never let extraction failures break the intake.
-            try:
-                from services.evidence_intelligence import process_evidence_upload
-                from .file_durability import is_upload_payload_file
-
-                # SCOPE: only customer uploads under intakes/{id}/uploads/.
-                # Earlier this loop used `rglob("*")` against the whole intake
-                # directory, which dragged `intake.json`, `classification.json`,
-                # and every `*.durability.json` sidecar through EI as if they
-                # were customer evidence. Production upload FB-1dfab13c120b on
-                # 2026-06-04 surfaced exactly that — see the forensic note in
-                # docs/EVIDENCE_INTELLIGENCE_LAYER.md. EI must only ever see
-                # what the customer actually uploaded.
-                _ei_dir   = canonical_intake_dir(intake_id) / "uploads"
-                _ei_files = (
-                    sorted(
-                        p for p in _ei_dir.iterdir()
-                        if p.is_file() and is_upload_payload_file(p.name)
-                    )
-                    if _ei_dir.is_dir()
-                    else []
-                )
-                ei_crashes = 0
-                for _f in _ei_files:
-                    try:
-                        res = process_evidence_upload(
-                            project_id=intake_id,
-                            file_path=_f,
-                            artifact_id=_f.name,
-                        )
-                        if getattr(res, "status", "") == "failed":
-                            ei_crashes += 1
-                    except Exception as _ei_exc:
-                        ei_crashes += 1
-                        logger.warning(
-                            "Evidence extraction skipped for %s/%s: %s",
-                            intake_id, _f.name, _ei_exc,
-                        )
-                if _ei_files:
-                    emit_intake_event(
-                        "evidence_intelligence_dispatched",
-                        message=intake_id,
-                        metadata={
-                            "intake_id":       intake_id,
-                            "files_dispatched": len(_ei_files),
-                        },
-                    )
-
-                    from services.evidence_intelligence import get_operator_evidence_intelligence
-                    ei_metrics = get_operator_evidence_intelligence(intake_id)
-                    no_intelligence = (ei_metrics.get("entity_count") == 0 and ei_metrics.get("primary_domain") == "general")
-                    if ei_crashes > 0 or no_intelligence:
-                        # Write timeline event
-                        from services.intake.transactions import append_transaction_event
-                        append_transaction_event(intake_id, "evidence_intelligence_blind", ok=False, metadata={"ei_crashes": ei_crashes, "no_intelligence": no_intelligence})
-                        
-                        # Write review queue item
-                        from services.evidence_intelligence.storage import append_review_item
-                        append_review_item(intake_id, {
-                            "kind": "evidence_intelligence_blind",
-                            "file": "multiple" if len(_ei_files) > 1 else _ei_files[0].name,
-                            "artifact_id": "",
-                            "created_utc": _utc_now(),
-                            "reason": "EI crashed or returned no intelligence."
-                        })
-
-                # NOTE: Cognition and Evidence Intelligence now run AFTER project kickoff
-                # to ensure they operate on projects/{project_id}/ structure.
-                # See services/intake/kickoff.py post-kickoff intelligence trigger.
-
-            except Exception as _ei_outer:
-                logger.warning(
-                    "Evidence intelligence dispatch failed for %s: %s",
-                    intake_id, _ei_outer,
-                )
+            # ── Evidence Intelligence and Cognition moved to post-kickoff ──
+            # PATCH 13A-4B: Evidence Intelligence and Cognition now execute
+            # exclusively post-kickoff to ensure they operate on the correct
+            # projects/{project_id}/ directory structure with properly linked
+            # evidence files. This preserves the intakes/ immutable custody model.
+            #
+            # Execution flow:
+            # 1. Upload → verified_complete
+            # 2. External verification
+            # 3. Auto-kickoff (validation mode) or manual kickoff
+            # 4. Project structure created: projects/{project_id}/
+            # 5. Evidence copied to projects/{project_id}/evidence/
+            # 6. Evidence Intelligence runs on projects/{project_id}/
+            # 7. Cognition runs on projects/{project_id}/
+            #
+            # See services/intake/kickoff.py::_run_post_kickoff_intelligence()
 
             # Autonomous payment link dispatch — gated off by default per
             # docs/FIRST_SALE_OPERATOR_SOP.md (operator must review the intake
