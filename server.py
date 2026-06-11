@@ -3073,7 +3073,7 @@ async def operator_acquisition_optout(body: dict = Body(default={})):
 # ---------------------------------------------------------------------------
 
 @app.get("/api/operator/customer-intelligence")
-def operator_customer_intelligence():
+def operator_customer_intelligence(request: Request):
     """
     IDEAL CUSTOMER INTELLIGENCE COCKPIT
     
@@ -3132,7 +3132,7 @@ def operator_customer_intelligence():
 
 
 @app.get("/api/operator/customer-intelligence/{record_id}")
-def operator_customer_intelligence_detail(record_id: str):
+def operator_customer_intelligence_detail(request: Request, record_id: str):
     """Get full intelligence record with all evidenced fields."""
     from services.production import require_ops_access
     from services.acquisition.ideal_customer_profile import load_intelligence_record
@@ -3150,7 +3150,7 @@ def operator_customer_intelligence_detail(record_id: str):
 
 
 @app.post("/api/operator/customer-intelligence/enrich/{record_id}")
-async def operator_customer_intelligence_enrich(record_id: str, body: dict = Body(default={})):
+async def operator_customer_intelligence_enrich(request: Request, record_id: str, body: dict = Body(default={})):
     """
     Manually enrich an intelligence record with operator-provided data.
     
@@ -3193,7 +3193,7 @@ async def operator_customer_intelligence_enrich(record_id: str, body: dict = Bod
 
 
 @app.get("/api/operator/customer-intelligence/icp")
-def operator_customer_intelligence_icp():
+def operator_customer_intelligence_icp(request: Request):
     """Get the current Ideal Customer Profile definition."""
     from services.production import require_ops_access
     from services.acquisition.ideal_customer_profile import get_icp_definition
@@ -3211,7 +3211,7 @@ def operator_customer_intelligence_icp():
 # ---------------------------------------------------------------------------
 
 @app.get("/api/operator/top-prospects")
-def operator_top_prospects():
+def operator_top_prospects(request: Request):
     """
     TOP 100 PROSPECTS REPORT
     
@@ -3235,7 +3235,7 @@ def operator_top_prospects():
 
 
 @app.get("/api/operator/customer-intelligence/cockpit")
-def operator_customer_intelligence_cockpit():
+def operator_customer_intelligence_cockpit(request: Request):
     """
     CUSTOMER INTELLIGENCE COCKPIT
     
@@ -3253,7 +3253,7 @@ def operator_customer_intelligence_cockpit():
 
 
 @app.get("/api/operator/customer-intelligence/validate/{record_id}")
-def operator_customer_intelligence_validate(record_id: str):
+def operator_customer_intelligence_validate(request: Request, record_id: str):
     """
     ORGANISM 5-QUESTION TEST
     
@@ -3284,7 +3284,7 @@ def operator_customer_intelligence_validate(record_id: str):
 
 
 @app.get("/api/operator/customer-intelligence/enrichment-status/{record_id}")
-def operator_customer_intelligence_enrichment_status(record_id: str):
+def operator_customer_intelligence_enrichment_status(request: Request, record_id: str):
     """Get enrichment status for a single record."""
     from services.production import require_ops_access
     from services.acquisition.ideal_customer_profile import load_intelligence_record
