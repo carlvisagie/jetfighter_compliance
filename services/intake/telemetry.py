@@ -38,6 +38,7 @@ INTAKE_EVENT_TYPES = frozenset(
 )
 
 # PATCH 13A-4F: Canonical lifecycle event names
+# PATCH 13A-4G: Added payment_confirmed for commercial workflow
 LIFECYCLE_EVENTS = frozenset(
     {
         "upload_started",
@@ -45,6 +46,7 @@ LIFECYCLE_EVENTS = frozenset(
         "verified_complete",
         "external_verification_started",
         "external_verification_completed",
+        "payment_confirmed",  # PATCH 13A-4G
         "project_kickoff_started",
         "project_kickoff_completed",
         "evidence_intelligence_started",

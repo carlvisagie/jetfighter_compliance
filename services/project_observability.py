@@ -296,6 +296,73 @@ def _get_compliance_health_state(project_id: str) -> Dict[str, Any]:
     return state
 
 
+def _get_payment_state(project_id: str) -> Dict[str, Any]:
+    """
+    PATCH 13A-4G: Get payment state from intake record.
+    
+    Returns payment workflow visibility:
+    - payment_link_sent: bool
+    - payment_confirmed: bool
+    - payment timestamps
+    - product details
+    - kickoff_blocked_by_payment: bool
+    """
+    from services.intake.storage import load_intake_record
+    
+    state = {
+        "payment_link_sent": False,
+        "payment_link_sent_at_utc": "",
+        "payment_confirmed": False,
+        "payment_received_at_utc": "",
+        "payment_confirmed_via": "",
+        "product_id": "",
+        "product_title": "",
+        "price_display": "",
+        "kickoff_blocked_by_payment": False,
+    }
+    
+    # Try to find linked intake
+    project_root = _projects_root() / project_id
+    meta = _read_json_safe(project_root / "meta.json")
+    intake_meta = _read_json_safe(project_root / "communications" / "intake.json")
+    
+    intake_id = meta.get("canonical_intake_id") or intake_meta.get("canonical_intake_id") or ""
+    
+    # If no intake link, check if project_id is an intake ID
+    if not intake_id and project_id.startswith("FB-"):
+        intake_id = project_id
+    
+    if not intake_id:
+        return state
+    
+    try:
+        intake_record = load_intake_record(intake_id, persist_recovery=False)
+        payment = intake_record.get("payment") or {}
+        
+        state["payment_link_sent"] = bool(payment.get("payment_link_generated_at_utc"))
+        state["payment_link_sent_at_utc"] = payment.get("payment_link_sent_at_utc") or ""
+        state["payment_confirmed"] = bool(payment.get("payment_received_at_utc"))
+        state["payment_received_at_utc"] = payment.get("payment_received_at_utc") or ""
+        state["payment_confirmed_via"] = payment.get("payment_confirmed_via") or ""
+        state["product_id"] = payment.get("product_id") or ""
+        state["product_title"] = payment.get("product_title") or ""
+        state["price_display"] = payment.get("price_display") or ""
+        
+        # Check if kickoff would be blocked by payment
+        # Kickoff is blocked if: payment link sent but not confirmed, and not validation mode
+        is_validation_mode = bool(intake_record.get("validation_project") or intake_record.get("founding_pilot"))
+        state["kickoff_blocked_by_payment"] = (
+            state["payment_link_sent"] 
+            and not state["payment_confirmed"] 
+            and not is_validation_mode
+        )
+        
+    except Exception as e:
+        logger.debug(f"Could not load intake record for payment state {intake_id}: {e}")
+    
+    return state
+
+
 def _get_timeline_events(project_id: str) -> List[Dict[str, Any]]:
     """Get relevant timeline events from telemetry."""
     from services.durable_storage import active_data_root
@@ -308,6 +375,7 @@ def _get_timeline_events(project_id: str) -> List[Dict[str, Any]]:
         all_events = _read_jsonl_safe(telemetry_path, limit=1000)
         
         # PATCH 13A-4F: Canonical lifecycle events + backward-compatible aliases
+        # PATCH 13A-4G: Added payment_confirmed
         relevant_types = {
             # Canonical lifecycle events
             "upload_started",
@@ -315,6 +383,7 @@ def _get_timeline_events(project_id: str) -> List[Dict[str, Any]]:
             "verified_complete",
             "external_verification_started",
             "external_verification_completed",
+            "payment_confirmed",  # PATCH 13A-4G
             "project_kickoff_started",
             "project_kickoff_completed",
             "evidence_intelligence_started",
@@ -331,6 +400,7 @@ def _get_timeline_events(project_id: str) -> List[Dict[str, Any]]:
             "post_kickoff_intelligence_completed",
             "intake_kickoff_project",
             "intake_verified_complete",
+            "operator_payment_received",  # PATCH 13A-4G: Legacy alias
         }
         
         for evt in all_events:
@@ -399,6 +469,7 @@ def get_project_observability(project_id: str) -> Dict[str, Any]:
     
     # Build observability payload
     kickoff = _get_kickoff_state(project_id)
+    payment = _get_payment_state(project_id)  # PATCH 13A-4G
     evidence_intelligence = _get_evidence_intelligence_state(project_id)
     cognition = _get_cognition_state(project_id)
     validation = _get_validation_state(project_id)
@@ -410,6 +481,7 @@ def get_project_observability(project_id: str) -> Dict[str, Any]:
         "project_id": project_id,
         "queried_at_utc": _utc_now(),
         "kickoff": kickoff,
+        "payment": payment,  # PATCH 13A-4G
         "evidence_intelligence": evidence_intelligence,
         "cognition": cognition,
         "validation": validation,

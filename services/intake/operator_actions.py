@@ -336,14 +336,20 @@ def _confirm_payment_received(
     except Exception:
         pass
 
-    emit_intake_event(
-        "operator_payment_received",
-        message=f"Operator confirmed payment for {payment.get('product_title')}",
+    # PATCH 13A-4G: Emit canonical payment_confirmed lifecycle event
+    from .telemetry import emit_lifecycle_event
+    emit_lifecycle_event(
+        "payment_confirmed",
+        message=f"Payment confirmed for {payment.get('product_title')}",
         metadata={
-            "intake_id":     intake_id,
-            "product_id":    payment.get("product_id"),
-            "received_via": "operator",
+            "intake_id": intake_id,
+            "product_id": payment.get("product_id"),
+            "product_title": payment.get("product_title"),
+            "price_display": payment.get("price_display"),
+            "confirmed_via": "operator",
+            "payment_received_at_utc": now,
         },
+        alias="operator_payment_received",  # Backward compatibility
     )
     record_intake_learning(
         "operator_payment_received",
