@@ -20,7 +20,7 @@ from .telemetry import emit_intake_event
 logger = logging.getLogger(__name__)
 
 
-def _run_post_kickoff_intelligence(project_id: str, intake_id: str) -> None:
+def _run_post_kickoff_intelligence(project_id: str, intake_id: str, email: str = "") -> None:
     """
     Run Evidence Intelligence and Cognition after project kickoff.
     
@@ -28,64 +28,85 @@ def _run_post_kickoff_intelligence(project_id: str, intake_id: str) -> None:
     directory structure with properly linked evidence files.
     
     Runs non-blocking to avoid delaying kickoff response.
-    """
-    # Organism event: Intelligence processing started
-    try:
-        from services.memory.organism_integration import safe_write_after_workflow
-        safe_write_after_workflow(
-            project_id,
-            step_id="post_kickoff_intelligence_started",
-            phase="INTELLIGENCE",
-            metadata={
-                "intake_id": intake_id,
-                "stage": "evidence_intelligence",
-            }
-        )
-    except Exception:
-        pass
     
-    # Run Evidence Intelligence
-    ei_success = False
-    ei_files_processed = 0
+    PATCH 13A-4C: Fixed EI success semantics and organism timeline integration.
+    - ei_success = True only when ALL files succeed
+    - ei_partial = True when some succeed and some fail
+    - Accurate file counts tracked
+    - Organism timeline receives proper metadata via emit_intake_event
+    """
+    from .telemetry import emit_intake_event as _emit_event
+    
+    # Emit organism-visible event: Intelligence processing started
+    _emit_event(
+        "post_kickoff_intelligence_started",
+        message=f"Starting intelligence processing for {project_id}",
+        metadata={
+            "project_id": project_id,
+            "intake_id": intake_id,
+            "email": email,
+            "stage": "evidence_intelligence",
+        },
+    )
+    
+    # Run Evidence Intelligence with accurate success tracking
+    # PATCH 13A-4C: Fixed semantics - success only when ALL files succeed
+    ei_attempted = False
+    ei_total = 0
+    ei_success_count = 0
+    ei_failed_count = 0
+    
     try:
         from services.evidence_intelligence import process_evidence_upload
+        from .file_durability import is_upload_payload_file
+        
         evidence_dir = _config.PROJECTS / project_id / "evidence"
         if evidence_dir.is_dir():
-            evidence_files = [f for f in evidence_dir.iterdir() if f.is_file()]
+            evidence_files = [
+                f for f in evidence_dir.iterdir() 
+                if f.is_file() and is_upload_payload_file(f.name)
+            ]
+            ei_total = len(evidence_files)
+            
             if evidence_files:
+                ei_attempted = True
                 logger.info(
                     f"Post-kickoff Evidence Intelligence for {project_id}: "
-                    f"{len(evidence_files)} files"
+                    f"{ei_total} files"
                 )
                 for evidence_file in evidence_files:
                     try:
                         process_evidence_upload(project_id, evidence_file)
-                        ei_files_processed += 1
+                        ei_success_count += 1
                     except Exception as ei_exc:
+                        ei_failed_count += 1
                         logger.warning(
                             f"Evidence Intelligence failed for {project_id}/{evidence_file.name}: {ei_exc}"
                         )
-                ei_success = True
     except Exception as ei_outer:
         logger.warning(
             f"Post-kickoff Evidence Intelligence dispatch failed for {project_id}: {ei_outer}"
         )
     
-    # Organism event: Evidence Intelligence completed
-    try:
-        from services.memory.organism_integration import safe_write_after_workflow
-        safe_write_after_workflow(
-            project_id,
-            step_id="evidence_intelligence_completed",
-            phase="INTELLIGENCE",
-            metadata={
-                "intake_id": intake_id,
-                "success": ei_success,
-                "files_processed": ei_files_processed,
-            }
-        )
-    except Exception:
-        pass
+    # Compute accurate success flags
+    ei_success = ei_attempted and (ei_failed_count == 0) and (ei_success_count > 0)
+    ei_partial = ei_attempted and (ei_success_count > 0) and (ei_failed_count > 0)
+    
+    # Emit organism-visible event: Evidence Intelligence completed
+    _emit_event(
+        "evidence_intelligence_completed",
+        message=f"Evidence Intelligence completed for {project_id}",
+        metadata={
+            "project_id": project_id,
+            "intake_id": intake_id,
+            "ei_attempted": ei_attempted,
+            "ei_success": ei_success,
+            "ei_partial": ei_partial,
+            "ei_total": ei_total,
+            "ei_success_count": ei_success_count,
+            "ei_failed_count": ei_failed_count,
+        },
+    )
     
     # Run Cognition
     cognition_success = False
@@ -99,45 +120,30 @@ def _run_post_kickoff_intelligence(project_id: str, intake_id: str) -> None:
             f"Post-kickoff Cognition failed for {project_id}: {cog_exc}"
         )
     
-    # Organism event: Cognition completed
-    try:
-        from services.memory.organism_integration import safe_write_after_workflow
-        safe_write_after_workflow(
-            project_id,
-            step_id="cognition_completed",
-            phase="INTELLIGENCE",
-            metadata={
-                "intake_id": intake_id,
-                "success": cognition_success,
-            }
-        )
-    except Exception:
-        pass
+    # Emit organism-visible event: Cognition completed
+    _emit_event(
+        "cognition_completed",
+        message=f"Cognition completed for {project_id}",
+        metadata={
+            "project_id": project_id,
+            "intake_id": intake_id,
+            "cognition_success": cognition_success,
+        },
+    )
     
-    # Organism event: Intelligence processing completed
-    try:
-        from services.memory.organism_integration import safe_write_after_workflow
-        safe_write_after_workflow(
-            project_id,
-            step_id="post_kickoff_intelligence_completed",
-            phase="INTELLIGENCE",
-            metadata={
-                "intake_id": intake_id,
-                "evidence_intelligence_success": ei_success,
-                "evidence_intelligence_files": ei_files_processed,
-                "cognition_success": cognition_success,
-            }
-        )
-    except Exception:
-        pass
-    
+    # Emit final organism-visible event: Intelligence processing completed
     emit_intake_event(
         "post_kickoff_intelligence_completed",
         message=f"Intelligence processing completed for {project_id}",
         metadata={
             "project_id": project_id,
             "intake_id": intake_id,
-            "evidence_intelligence_success": ei_success,
+            "ei_attempted": ei_attempted,
+            "ei_success": ei_success,
+            "ei_partial": ei_partial,
+            "ei_total": ei_total,
+            "ei_success_count": ei_success_count,
+            "ei_failed_count": ei_failed_count,
             "cognition_success": cognition_success,
         },
     )
@@ -150,6 +156,22 @@ def kickoff_project_from_intake(
     order_id: str = "",
 ) -> Dict[str, Any]:
     rec = load_intake_record(intake_id, persist_recovery=True)
+    
+    # PATCH 13A-4C: Idempotency guard — prevent duplicate project creation
+    existing_project = rec.get("project_id")
+    if existing_project:
+        logger.warning(
+            f"Kickoff idempotency guard: intake {intake_id} already has project {existing_project}"
+        )
+        return {
+            "ok": True,
+            "intake_id": intake_id,
+            "project_id": existing_project,
+            "files_linked": [],
+            "intake_json_path": str(intake_json_path(intake_id)),
+            "idempotent_return": True,
+        }
+    
     uploads = ensure_canonical_intake_dir(intake_id) / "uploads"
     if not uploads.is_dir() or not any(uploads.iterdir()):
         raise HTTPException(status_code=400, detail="Intake has no files on durable disk")
@@ -247,7 +269,8 @@ def kickoff_project_from_intake(
     
     # Post-kickoff intelligence trigger
     # Run Evidence Intelligence and Cognition on the newly created project
-    _run_post_kickoff_intelligence(project_id, intake_id)
+    # Pass email to help organism timeline find the entity
+    _run_post_kickoff_intelligence(project_id, intake_id, email=email)
 
     return {
         "ok": True,

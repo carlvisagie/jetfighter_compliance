@@ -392,11 +392,14 @@ def _trigger_auto_kickoff_if_eligible(intake_id: str, record: Dict[str, Any]) ->
             operator_note=operator_note
         )
         
-        # Mark as kicked off to prevent duplicates
+        # PATCH 13A-4C: Mark as kicked off AND persist immediately to prevent duplicates
         record["project_kickoff_completed"] = True
         record["project_kickoff_at_utc"] = _utc_now()
         record["auto_kickoff_reason"] = reason
-        record["project_id"] = result.get("project_id")  # Store project_id
+        record["project_id"] = result.get("project_id")
+        
+        # Persist kickoff state to disk immediately for idempotency
+        _save_intake(intake_id, record)
         
         logger.info(
             f"Auto-kickoff completed for {intake_id}: "
