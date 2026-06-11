@@ -115,6 +115,7 @@ def _get_evidence_intelligence_state(project_id: str) -> Dict[str, Any]:
         "ei_total": 0,
         "ei_success_count": 0,
         "ei_failed_count": 0,
+        "ei_pending_count": 0,
         "profile_exists": False,
         "gaps_count": 0,
         "review_items_count": 0,
@@ -149,27 +150,63 @@ def _get_evidence_intelligence_state(project_id: str) -> Dict[str, Any]:
     entities = _read_jsonl_safe(entities_path)
     state["entities_count"] = len(entities)
     
-    # Load classifications for timing
+    # Load extractions — this captures ALL files including pending_analysis
+    # which don't get written to classifications.jsonl (early return path)
+    extractions_path = ei_dir / "extractions.jsonl"
+    extractions = _read_jsonl_safe(extractions_path)
+    extractions_started = False
+    extractions_files = set()
+    if extractions:
+        extractions_started = True
+        if not state["ei_started_utc"]:
+            state["ei_started_utc"] = extractions[0].get("recorded_utc") or ""
+        state["ei_completed_utc"] = extractions[-1].get("recorded_utc") or state["ei_completed_utc"]
+        
+        # Count by status from extractions
+        for ext in extractions:
+            ext_file = ext.get("source_file") or ext.get("artifact_id") or ""
+            ext_status = ext.get("status") or ""
+            if ext_file:
+                extractions_files.add(ext_file)
+            if ext_status == "completed":
+                state["ei_success_count"] += 1
+            elif ext_status == "pending_analysis":
+                state["ei_pending_count"] += 1
+            elif ext_status in ("error", "failed") or ext.get("error"):
+                state["ei_failed_count"] += 1
+    
+    # Load classifications for timing and success counting
+    # This is the primary source when extractions.jsonl doesn't exist (legacy projects)
     classifications_path = ei_dir / "classifications.jsonl"
     classifications = _read_jsonl_safe(classifications_path)
     if classifications:
-        state["ei_started_utc"] = classifications[0].get("recorded_utc") or ""
+        if not state["ei_started_utc"]:
+            state["ei_started_utc"] = classifications[0].get("recorded_utc") or ""
         state["ei_completed_utc"] = classifications[-1].get("recorded_utc") or state["ei_completed_utc"]
         
-        # Count successes and failures
+        # Count successes/failures from classifications ONLY if not already counted via extractions
         for cls in classifications:
+            cls_file = cls.get("source_file") or cls.get("filename") or ""
+            # Skip if already counted in extractions
+            if cls_file and cls_file in extractions_files:
+                continue
             if cls.get("status") == "error" or cls.get("error"):
                 state["ei_failed_count"] += 1
             else:
                 state["ei_success_count"] += 1
     
-    # Determine status
-    if state["ei_started_utc"] or state["profile_exists"]:
-        if state["ei_failed_count"] > 0 and state["ei_success_count"] > 0:
+    # Determine status based on all evidence
+    ei_ran = state["ei_started_utc"] or state["profile_exists"] or extractions_started
+    total_processed = state["ei_success_count"] + state["ei_pending_count"]
+    
+    if ei_ran:
+        if state["ei_failed_count"] > 0 and total_processed > 0:
             state["status"] = "PARTIAL"
-        elif state["ei_failed_count"] > 0 and state["ei_success_count"] == 0:
+        elif state["ei_failed_count"] > 0 and total_processed == 0:
             state["status"] = "FAILED"
-        elif state["ei_success_count"] > 0 or state["profile_exists"]:
+        elif total_processed > 0 or state["profile_exists"]:
+            # COMPLETED if we have successful extractions OR pending_analysis files
+            # pending_analysis means EI ran but needs manual follow-up (e.g. scanned PDF)
             state["status"] = "COMPLETED"
         else:
             state["status"] = "RUNNING"
