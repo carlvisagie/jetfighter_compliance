@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Deliverables | KeepYourContracts Operator</title>
+  <link rel="stylesheet" href="/ui/assets/styles/design-system.css">
+  <link rel="stylesheet" href="/ui/assets/styles/layout.css">
+  <link rel="stylesheet" href="/ui/assets/styles/components.css">
+  <style>
+    .deliverables-page { max-width: 1000px; margin: 0 auto; padding: 2rem; }
+    .status-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 4px; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
+    .status-not_ready { background: #fef3cd; color: #856404; }
+    .status-ready_for_review { background: #cce5ff; color: #004085; }
+    .status-approved { background: #d4edda; color: #155724; }
+    .status-sent { background: #d1ecf1; color: #0c5460; }
+    .section { background: #fff; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .section h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
+    .missing-list { list-style: none; padding: 0; }
+    .missing-list li { padding: 0.5rem; background: #fff3cd; border-left: 3px solid #ffc107; margin-bottom: 0.5rem; }
+    .doc-list { list-style: none; padding: 0; }
+    .doc-list li { padding: 0.75rem; background: #f8f9fa; border-radius: 4px; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
+    .doc-list a { color: #007bff; text-decoration: none; }
+    .doc-list a:hover { text-decoration: underline; }
+    .action-row { display: flex; gap: 1rem; margin-top: 1.5rem; }
+    .action-row button { padding: 0.75rem 1.5rem; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
+    .btn-approve { background: #28a745; color: white; }
+    .btn-approve:hover { background: #218838; }
+    .btn-approve:disabled { background: #6c757d; cursor: not-allowed; }
+    .btn-send { background: #007bff; color: white; }
+    .btn-send:hover { background: #0056b3; }
+    .btn-send:disabled { background: #6c757d; cursor: not-allowed; }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+    .summary-item { padding: 1rem; background: #f8f9fa; border-radius: 4px; }
+    .summary-item label { font-size: 0.75rem; color: #6c757d; text-transform: uppercase; }
+    .summary-item .value { font-size: 1.25rem; font-weight: 600; }
+    .timeline-list { list-style: none; padding: 0; max-height: 300px; overflow-y: auto; }
+    .timeline-list li { padding: 0.5rem; border-left: 2px solid #dee2e6; margin-left: 0.5rem; padding-left: 1rem; margin-bottom: 0.25rem; }
+    .timeline-list .event-type { font-weight: 600; color: #495057; }
+    .timeline-list .event-time { font-size: 0.75rem; color: #6c757d; }
+    .error-box { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 1rem; border-radius: 4px; }
+    .loading { text-align: center; padding: 3rem; color: #6c757d; }
+    .back-link { display: inline-block; margin-bottom: 1rem; color: #6c757d; text-decoration: none; }
+    .back-link:hover { color: #495057; }
+  </style>
+</head>
+<body class="kyc-page">
+  <header class="kyc-topbar">
+    <a class="kyc-brand" href="/ui/vio-react">Keep<span>YourContracts</span></a>
+    <nav class="kyc-nav">
+      <a href="/ui/vio-react">Cockpit</a>
+      <a href="/ui/memory.html">Memory</a>
+    </nav>
+  </header>
+
+  <main class="deliverables-page">
+    <a href="/ui/vio-react" class="back-link">&larr; Back to Cockpit</a>
+    
+    <div id="content">
+      <div class="loading">Loading deliverables...</div>
+    </div>
+  </main>
+
+  <script>
+  (async function() {
+    const params = new URLSearchParams(location.search);
+    const projectId = params.get('project_id') || params.get('id') || '';
+    
+    if (!projectId) {
+      document.getElementById('content').innerHTML = '<div class="error-box">No project_id provided. Add ?project_id=... to the URL.</div>';
+      return;
+    }
+    
+    try {
+      const res = await fetch(`/api/operator/project-deliverables/${encodeURIComponent(projectId)}`);
+      const data = await res.json();
+      
+      if (!data.ok) {
+        document.getElementById('content').innerHTML = `<div class="error-box">${data.error || 'Failed to load deliverables'}</div>`;
+        return;
+      }
+      
+      renderDeliverables(data, projectId);
+    } catch (err) {
+      document.getElementById('content').innerHTML = `<div class="error-box">Error: ${err.message}</div>`;
+    }
+  })();
+  
+  function renderDeliverables(data, projectId) {
+    const statusLabels = {
+      'not_ready': 'Not Ready',
+      'ready_for_review': 'Ready for Review',
+      'approved': 'Approved',
+      'sent': 'Delivered'
+    };
+    
+    let html = `
+      <h1>Project Deliverables</h1>
+      <p><strong>Project ID:</strong> ${projectId}</p>
+      <p><span class="status-badge status-${data.operator_status}">${statusLabels[data.operator_status] || data.operator_status}</span></p>
+    `;
+    
+    // Missing stages
+    if (data.missing_stages && data.missing_stages.length > 0) {
+      html += `
+        <div class="section">
+          <h3>Missing Stages</h3>
+          <ul class="missing-list">
+            ${data.missing_stages.map(s => `<li>${s}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+    
+    // Summary
+    const obs = data.observability || {};
+    const ei = data.evidence_intelligence || {};
+    const cog = data.cognition || {};
+    const val = data.validation || {};
+    const ch = data.compliance_health || {};
+    
+    html += `
+      <div class="section">
+        <h3>Processing Summary</h3>
+        <div class="summary-grid">
+          <div class="summary-item">
+            <label>Evidence Intelligence</label>
+            <div class="value">${ei.status || 'N/A'}</div>
+          </div>
+          <div class="summary-item">
+            <label>Cognition</label>
+            <div class="value">${cog.status || 'N/A'}</div>
+          </div>
+          <div class="summary-item">
+            <label>Validation</label>
+            <div class="value">${val.status || 'N/A'}</div>
+          </div>
+          <div class="summary-item">
+            <label>Compliance Health</label>
+            <div class="value">${ch.overall_status || 'N/A'}</div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Compliance Health
+    if (ch.assessment_present) {
+      html += `
+        <div class="section">
+          <h3>Compliance Health Assessment</h3>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <label>Overall Status</label>
+              <div class="value">${ch.overall_status}</div>
+            </div>
+            <div class="summary-item">
+              <label>Coverage</label>
+              <div class="value">${(ch.coverage_percent || 0).toFixed(1)}%</div>
+            </div>
+            <div class="summary-item">
+              <label>Missing Verifications</label>
+              <div class="value">${ch.missing_verifications_count || 0}</div>
+            </div>
+            <div class="summary-item">
+              <label>Blocking Failures</label>
+              <div class="value">${ch.blocking_failures_count || 0}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Validation
+    if (val.validation_report_present) {
+      html += `
+        <div class="section">
+          <h3>Validation Report</h3>
+          <div class="summary-grid">
+            <div class="summary-item">
+              <label>Review Items</label>
+              <div class="value">${val.human_review_items_count || 0}</div>
+            </div>
+            <div class="summary-item">
+              <label>Safety Warnings</label>
+              <div class="value">${val.safety_warnings_count || 0}</div>
+            </div>
+            <div class="summary-item">
+              <label>Confidence</label>
+              <div class="value">${val.confidence_score ? (val.confidence_score * 100).toFixed(0) + '%' : 'N/A'}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Generated Documents
+    if (data.generated_documents && data.generated_documents.length > 0) {
+      html += `
+        <div class="section">
+          <h3>Generated Documents</h3>
+          <ul class="doc-list">
+            ${data.generated_documents.map(d => `
+              <li>
+                <span>${d.name}</span>
+                <span class="doc-type">${d.type}</span>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      `;
+    }
+    
+    // Download Links
+    if (data.download_links && data.download_links.length > 0) {
+      html += `
+        <div class="section">
+          <h3>Download Links</h3>
+          <ul class="doc-list">
+            ${data.download_links.map(d => `
+              <li>
+                <span>${d.name}</span>
+                <a href="${d.path}" target="_blank">Download</a>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      `;
+    }
+    
+    // Timeline
+    const timeline = (obs.timeline || []).slice(-15);
+    if (timeline.length > 0) {
+      html += `
+        <div class="section">
+          <h3>Recent Timeline Events</h3>
+          <ul class="timeline-list">
+            ${timeline.reverse().map(e => `
+              <li>
+                <span class="event-type">${e.event_type}</span>
+                <span class="event-time">${e.timestamp || ''}</span>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      `;
+    }
+    
+    // Actions
+    const canApprove = data.ready && data.operator_status === 'ready_for_review';
+    const canSend = data.operator_status === 'approved';
+    const alreadySent = data.operator_status === 'sent';
+    
+    html += `
+      <div class="section">
+        <h3>Operator Actions</h3>
+        ${data.approved_at_utc ? `<p>Approved: ${data.approved_at_utc} by ${data.approved_by || 'operator'}</p>` : ''}
+        ${data.sent_at_utc ? `<p>Sent: ${data.sent_at_utc} to ${data.sent_to || 'customer'}</p>` : ''}
+        <div class="action-row">
+          <button class="btn-approve" id="btnApprove" ${canApprove ? '' : 'disabled'}>
+            ${data.operator_status === 'not_ready' ? 'Not Ready' : (data.approved_at_utc ? 'Already Approved' : 'Approve Deliverables')}
+          </button>
+          <button class="btn-send" id="btnSend" ${canSend ? '' : 'disabled'}>
+            ${alreadySent ? 'Already Sent' : 'Mark as Sent'}
+          </button>
+        </div>
+      </div>
+    `;
+    
+    document.getElementById('content').innerHTML = html;
+    
+    // Wire up buttons
+    document.getElementById('btnApprove').addEventListener('click', async () => {
+      if (!canApprove) return;
+      try {
+        const res = await fetch(`/api/operator/project-deliverables/${encodeURIComponent(projectId)}/approve`, { method: 'POST' });
+        const result = await res.json();
+        if (result.ok) {
+          alert('Deliverables approved!');
+          location.reload();
+        } else {
+          alert('Error: ' + (result.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    });
+    
+    document.getElementById('btnSend').addEventListener('click', async () => {
+      if (!canSend) return;
+      try {
+        const res = await fetch(`/api/operator/project-deliverables/${encodeURIComponent(projectId)}/send`, { method: 'POST' });
+        const result = await res.json();
+        if (result.ok) {
+          alert('Deliverables marked as sent!');
+          location.reload();
+        } else {
+          alert('Error: ' + (result.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    });
+  }
+  </script>
+</body>
+</html>

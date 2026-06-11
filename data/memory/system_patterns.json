@@ -1,22 +1,22 @@
 {
   "version": 1,
-  "updated_utc": "2026-06-09T18:57:59Z",
+  "updated_utc": "2026-06-10T23:30:15Z",
   "subsystem_health": {
     "evidence_intelligence": {
-      "success_rate": 0.929,
-      "events": 380,
-      "failures": 27,
+      "success_rate": 0.931,
+      "events": 377,
+      "failures": 26,
       "status": "healthy"
     },
     "intake": {
       "success_rate": 1.0,
-      "events": 57,
+      "events": 55,
       "failures": 0,
       "status": "healthy"
     },
     "storage": {
       "success_rate": 1.0,
-      "events": 6,
+      "events": 11,
       "failures": 0,
       "status": "healthy"
     },
@@ -36,7 +36,7 @@
   "repeated_failures": [
     {
       "key": "evidence_intelligence:evidence_mapping_failure",
-      "count": 27,
+      "count": 26,
       "suggestion": "Review evidence_intelligence:evidence_mapping_failure failures"
     },
     {
@@ -46,7 +46,7 @@
     }
   ],
   "reliability_patterns": {
-    "evidence_intelligence": 0.929,
+    "evidence_intelligence": 0.931,
     "intake": 1.0,
     "storage": 1.0,
     "compliance_intel": 0.925,
@@ -54,7 +54,7 @@
   },
   "conversion_patterns": {},
   "failure_patterns": {
-    "evidence_intelligence:evidence_mapping_failure": 27,
+    "evidence_intelligence:evidence_mapping_failure": 26,
     "compliance_intel:fetch_failed": 4
   },
   "bottleneck_patterns": {},

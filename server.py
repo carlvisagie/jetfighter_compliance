@@ -305,6 +305,13 @@ def upload_ui_alias():
     return FileResponse(ROOT / "ui" / "upload.html")
 
 
+@app.get("/ui/deliverables")
+@app.get("/ui/deliverables.html")
+@app.get("/ui/project/{project_id}/deliverables")
+def deliverables_page(project_id: str = ""):
+    """PATCH 13A-5B: Deliverables workbench UI."""
+    return FileResponse(ROOT / "ui" / "deliverables.html")
+
 
 # ---------- Startup ----------
 @app.on_event("startup")
@@ -1621,6 +1628,39 @@ def operator_project_observability(request: Request, project_id: str):
 
     require_ops_access(request)
     return get_project_observability(project_id.strip())
+
+
+@app.get("/api/operator/project-deliverables/{project_id}")
+def operator_project_deliverables(request: Request, project_id: str):
+    """PATCH 13A-5B: Project deliverables workbench — view, approve, and deliver.
+    
+    Returns: readiness state, generated documents, download links, operator status.
+    """
+    from services.production import require_ops_access
+    from services.project_deliverables import get_project_deliverables
+
+    require_ops_access(request)
+    return get_project_deliverables(project_id.strip())
+
+
+@app.post("/api/operator/project-deliverables/{project_id}/approve")
+def operator_approve_deliverables(request: Request, project_id: str):
+    """PATCH 13A-5B: Approve deliverables as ready to send to customer."""
+    from services.production import require_ops_access
+    from services.project_deliverables import approve_deliverables
+
+    require_ops_access(request)
+    return approve_deliverables(project_id.strip())
+
+
+@app.post("/api/operator/project-deliverables/{project_id}/send")
+def operator_send_deliverables(request: Request, project_id: str, recipient_email: str = ""):
+    """PATCH 13A-5B: Mark deliverables as sent to customer."""
+    from services.production import require_ops_access
+    from services.project_deliverables import send_deliverables
+
+    require_ops_access(request)
+    return send_deliverables(project_id.strip(), recipient_email=recipient_email)
 
 
 @app.get("/api/operator/intake/queue")
