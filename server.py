@@ -3131,6 +3131,20 @@ def operator_customer_intelligence(request: Request):
     }
 
 
+@app.get("/api/operator/customer-intelligence/icp")
+def operator_customer_intelligence_icp(request: Request):
+    """Get the current Ideal Customer Profile definition."""
+    from services.production import require_ops_access
+    from services.acquisition.ideal_customer_profile import get_icp_definition
+    
+    require_ops_access(request)
+    
+    return {
+        "ok": True,
+        "icp": get_icp_definition(),
+    }
+
+
 @app.get("/api/operator/customer-intelligence/{record_id}")
 def operator_customer_intelligence_detail(request: Request, record_id: str):
     """Get full intelligence record with all evidenced fields."""
@@ -3189,20 +3203,6 @@ async def operator_customer_intelligence_enrich(request: Request, record_id: str
         "record_id": record_id,
         "intelligence_completeness": record.compute_intelligence_completeness(),
         "icp_match": record.get_icp_match(),
-    }
-
-
-@app.get("/api/operator/customer-intelligence/icp")
-def operator_customer_intelligence_icp(request: Request):
-    """Get the current Ideal Customer Profile definition."""
-    from services.production import require_ops_access
-    from services.acquisition.ideal_customer_profile import get_icp_definition
-    
-    require_ops_access(request)
-    
-    return {
-        "ok": True,
-        "icp": get_icp_definition(),
     }
 
 
