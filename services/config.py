@@ -40,6 +40,9 @@ class Settings(BaseModel):
     public_base_url: str = os.getenv("PUBLIC_BASE_URL","http://127.0.0.1:8080")
     intake_token_secret: str = os.getenv("INTAKE_TOKEN_SECRET","dev-dev-dev-dev-dev")
     environment: str = os.getenv("ENVIRONMENT", "development")
+    # PATCH 13A-8A: Acquisition outreach safety gate — default FALSE, must be explicitly enabled
+    acquisition_auto_send_enabled: bool = os.getenv("ACQUISITION_AUTO_SEND_ENABLED", "false").lower() == "true"
+    acquisition_daily_send_cap: int = int(os.getenv("ACQUISITION_DAILY_SEND_CAP", "50"))
 
 SETTINGS = Settings()
 

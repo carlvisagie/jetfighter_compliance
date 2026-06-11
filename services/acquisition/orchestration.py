@@ -242,50 +242,88 @@ def ingest_discovery_candidate(
         base=base,
     )
 
-    # Autonomous outreach: send email if lead has valid contact and meets quality threshold
+    # PATCH 13A-8A: Autonomous outreach safety gate
+    # Auto-send is DISABLED by default. All leads remain draft_only until
+    # explicitly approved by operator via send-approved endpoints.
     email_sent = False
     email_result: Dict[str, Any] = {}
-    auto_send_enabled = msg.get("doctrine") == "upload_first_auto_send"
     has_valid_email = lead.contact_email and "@" in lead.contact_email
     meets_quality_threshold = lead.fit_score >= 60 and qual.get("overall_confidence", 0) >= 0.6
-
-    if auto_send_enabled and has_valid_email and meets_quality_threshold:
-        try:
-            from services.communications.email_service import send_outreach_invite
-
-            routes = routing.build_upload_route(
+    
+    # Import safety module
+    from . import outreach_safety
+    
+    # Check if auto-send is enabled via environment flag
+    auto_send_flag_enabled = outreach_safety.is_auto_send_enabled()
+    
+    # SAFETY GATE: Even if doctrine says auto_send, we check the env flag first
+    if auto_send_flag_enabled and has_valid_email and meets_quality_threshold:
+        # Check full eligibility (suppression, optout, daily cap, etc.)
+        eligibility = outreach_safety.check_send_eligibility(
+            lead.contact_email,
+            lead.lead_id,
+            require_operator_approval=True,  # Still require operator approval
+            operator_approved=False,  # Discovery never auto-approves
+        )
+        
+        if eligibility.get("eligible"):
+            # This path is currently unreachable because require_operator_approval=True
+            # and operator_approved=False. This is intentional safety behavior.
+            pass
+        else:
+            # Log that we blocked the auto-send due to policy
+            telemetry.emit(
+                "blocked_auto_send_due_to_policy",
                 lead_id=lead.lead_id,
-                segment=lead.segment or "compliance-heavy",
-                campaign_id=campaign_id,
-                message_variant=message_variant,
+                target_id=target["target_id"],
+                metadata={
+                    "reason": eligibility.get("reason"),
+                    "detail": eligibility.get("detail"),
+                    "email": lead.contact_email,
+                    "auto_send_flag_enabled": auto_send_flag_enabled,
+                },
+                base=base,
             )
-            invite_url = routes["primary_url"]
-            from urllib.parse import urlparse, urlunparse
-            _parsed = urlparse(invite_url)
-            upload_url = urlunparse(_parsed._replace(path="/ui/intake"))
+            outreach_safety.log_send_attempt(
+                lead.lead_id,
+                lead.contact_email,
+                approved=False,
+                sent=False,
+                blocked_reason=eligibility.get("reason", "policy"),
+                operator_approved=False,
+                auto_send=True,
+            )
+            outreach_safety.increment_daily_blocked_count(eligibility.get("reason", "policy"))
+    elif has_valid_email and meets_quality_threshold and not auto_send_flag_enabled:
+        # Log that auto-send was blocked because flag is disabled
+        telemetry.emit(
+            "blocked_auto_send_due_to_policy",
+            lead_id=lead.lead_id,
+            target_id=target["target_id"],
+            metadata={
+                "reason": "auto_send_disabled",
+                "detail": "ACQUISITION_AUTO_SEND_ENABLED=false",
+                "email": lead.contact_email,
+                "auto_send_flag_enabled": False,
+            },
+            base=base,
+        )
 
-            email_result = send_outreach_invite(
-                to_email=lead.contact_email,
-                company_name=lead.company_name,
-                contact_name=lead.contact_name,
-                invite_url=invite_url,
-                upload_url=upload_url,
-                lead_id=lead.lead_id,
-            )
-            email_sent = bool(email_result.get("sent"))
-            target["outreach_status"] = "sent" if email_sent else "send_attempted"
-            target["outreach_email_sent"] = email_sent
-            target["outreach_timestamp"] = utc_now()
-        except Exception as e:
-            email_result = {"error": str(e)}
-            target["outreach_status"] = "send_failed"
+    # Target always remains draft_only during discovery — operator must approve
+    target["outreach_status"] = "draft_only"
+    target["auto_send_blocked"] = not auto_send_flag_enabled
+    target["requires_operator_approval"] = True
 
     telemetry.emit(
         "acquisition_message_sent",
         target_id=target["target_id"],
-        success=email_sent,
-        message="auto_sent" if email_sent else ("auto_send_attempted" if auto_send_enabled and has_valid_email else "draft_only"),
-        metadata={**msg, "email_result": email_result, "auto_send_enabled": auto_send_enabled},
+        success=False,  # Never auto-sent during discovery
+        message="draft_only",
+        metadata={
+            **msg,
+            "auto_send_flag_enabled": auto_send_flag_enabled,
+            "blocked_reason": "operator_approval_required" if auto_send_flag_enabled else "auto_send_disabled",
+        },
         base=base,
     )
     try:
@@ -295,7 +333,16 @@ def ingest_discovery_candidate(
     except Exception:
         pass
 
-    return {"ok": True, "target": target, "lead": lead.to_dict(), "email_sent": email_sent, "email_result": email_result}
+    # PATCH 13A-8A: email_sent is always False during discovery — operator must approve
+    return {
+        "ok": True,
+        "target": target,
+        "lead": lead.to_dict(),
+        "email_sent": False,
+        "email_result": {},
+        "requires_operator_approval": True,
+        "auto_send_enabled": auto_send_flag_enabled,
+    }
 
 
 def ingest_public_signal(

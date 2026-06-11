@@ -2739,6 +2739,243 @@ async def operator_acquisition_approve_lead(body: dict = Body(default={})):
     return await run_blocking(approve_and_invite_lead, lead_id)
 
 
+# ---------------------------------------------------------------------------
+# PATCH 13A-8A: Acquisition outreach safety endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/api/operator/acquisition/outreach-safety")
+def operator_acquisition_outreach_safety():
+    """Get outreach safety status — suppression list, daily cap, opt-outs."""
+    from services.acquisition.outreach_safety import get_outreach_safety_status, load_send_log
+    
+    status = get_outreach_safety_status()
+    status["recent_send_log"] = load_send_log(limit=20)
+    return status
+
+
+@app.post("/api/operator/acquisition/send-approved/{lead_id}")
+async def operator_acquisition_send_approved(lead_id: str, body: dict = Body(default={})):
+    """
+    PATCH 13A-8A: Operator explicitly approves and sends outreach to a single lead.
+    
+    This is the ONLY path for outreach to be sent. Discovery does not auto-send.
+    """
+    from services.runtime_boot import module_pause_response
+    from services.runtime_blocking import run_blocking
+    from services.acquisition import outreach_safety
+    from services.acquisition.storage import load_all_leads
+    from services.acquisition.orchestration import approve_and_invite_lead
+    from services.acquisition import telemetry
+    
+    paused = module_pause_response("acquisition")
+    if paused is not None:
+        return paused
+    
+    lead_id = lead_id.strip()
+    if not lead_id:
+        return {"ok": False, "error": "lead_id required"}
+    
+    # Load the lead to check eligibility
+    leads, _ = load_all_leads()
+    target_lead = None
+    for lead in leads:
+        if lead.lead_id == lead_id:
+            target_lead = lead
+            break
+    
+    if target_lead is None:
+        return {"ok": False, "error": "lead_not_found", "lead_id": lead_id}
+    
+    if not target_lead.contact_email or "@" not in target_lead.contact_email:
+        return {"ok": False, "error": "no_valid_email", "lead_id": lead_id}
+    
+    # Check full eligibility with operator_approved=True
+    eligibility = outreach_safety.check_send_eligibility(
+        target_lead.contact_email,
+        lead_id,
+        require_operator_approval=True,
+        operator_approved=True,  # Operator is approving now
+    )
+    
+    if not eligibility.get("eligible"):
+        outreach_safety.log_send_attempt(
+            lead_id,
+            target_lead.contact_email,
+            approved=False,
+            sent=False,
+            blocked_reason=eligibility.get("reason", "unknown"),
+            operator_approved=True,
+            auto_send=False,
+        )
+        return {
+            "ok": False,
+            "error": eligibility.get("reason"),
+            "detail": eligibility.get("detail"),
+            "lead_id": lead_id,
+        }
+    
+    # Actually send via the existing approve_and_invite_lead
+    result = await run_blocking(approve_and_invite_lead, lead_id)
+    
+    # Log the send attempt
+    email_sent = result.get("email_sent", False)
+    outreach_safety.log_send_attempt(
+        lead_id,
+        target_lead.contact_email,
+        approved=True,
+        sent=email_sent,
+        blocked_reason="" if email_sent else (result.get("smtp_note") or "send_failed"),
+        operator_approved=True,
+        auto_send=False,
+    )
+    
+    if email_sent:
+        outreach_safety.increment_daily_send_count()
+        telemetry.emit(
+            "operator_approved_send",
+            lead_id=lead_id,
+            success=True,
+            metadata={"email": target_lead.contact_email, "company": target_lead.company_name},
+        )
+    
+    return result
+
+
+@app.post("/api/operator/acquisition/send-batch-approved")
+async def operator_acquisition_send_batch_approved(body: dict = Body(default={})):
+    """
+    PATCH 13A-8A: Operator approves and sends outreach to multiple leads.
+    
+    Body: {"lead_ids": ["L-xxx", "L-yyy", ...]}
+    
+    Returns results for each lead. Respects daily cap and suppression list.
+    """
+    from services.runtime_boot import module_pause_response
+    from services.acquisition import outreach_safety
+    
+    paused = module_pause_response("acquisition")
+    if paused is not None:
+        return paused
+    
+    lead_ids = body.get("lead_ids") or []
+    if not lead_ids or not isinstance(lead_ids, list):
+        return {"ok": False, "error": "lead_ids list required"}
+    
+    # Check remaining daily capacity
+    remaining = outreach_safety.get_remaining_daily_sends()
+    if remaining == 0:
+        return {
+            "ok": False,
+            "error": "daily_cap_reached",
+            "detail": f"Daily send cap of {outreach_safety.get_daily_send_cap()} reached.",
+        }
+    
+    # Cap the batch to remaining capacity
+    batch_size = min(len(lead_ids), remaining)
+    lead_ids_to_send = lead_ids[:batch_size]
+    
+    results = []
+    for lead_id in lead_ids_to_send:
+        # Use the single-send endpoint logic
+        try:
+            result = await operator_acquisition_send_approved(lead_id, {})
+            results.append({"lead_id": lead_id, **result})
+        except Exception as e:
+            results.append({"lead_id": lead_id, "ok": False, "error": str(e)})
+    
+    sent_count = sum(1 for r in results if r.get("email_sent"))
+    blocked_count = sum(1 for r in results if not r.get("ok"))
+    
+    return {
+        "ok": True,
+        "requested": len(lead_ids),
+        "processed": len(results),
+        "sent": sent_count,
+        "blocked": blocked_count,
+        "remaining_daily": outreach_safety.get_remaining_daily_sends(),
+        "results": results,
+    }
+
+
+@app.get("/api/operator/acquisition/pending-approval")
+def operator_acquisition_pending_approval():
+    """Get all leads pending operator approval for outreach."""
+    from services.acquisition.storage import load_all_leads
+    from services.acquisition import outreach_safety
+    
+    leads, _ = load_all_leads()
+    pending = []
+    
+    for lead in leads:
+        if lead.status not in ("new", "reviewed", "approved_pending_send"):
+            continue
+        if not lead.contact_email or "@" not in lead.contact_email:
+            continue
+        
+        # Check eligibility (without sending)
+        eligibility = outreach_safety.check_send_eligibility(
+            lead.contact_email,
+            lead.lead_id,
+            require_operator_approval=True,
+            operator_approved=True,  # Simulate approval
+        )
+        
+        pending.append({
+            "lead_id": lead.lead_id,
+            "company_name": lead.company_name,
+            "contact_name": lead.contact_name,
+            "contact_email": lead.contact_email,
+            "fit_score": lead.fit_score,
+            "status": lead.status,
+            "eligible": eligibility.get("eligible"),
+            "eligibility_reason": eligibility.get("reason"),
+            "created_utc": lead.created_utc,
+        })
+    
+    # Sort by fit score descending
+    pending.sort(key=lambda x: -(x.get("fit_score") or 0))
+    
+    safety_status = outreach_safety.get_outreach_safety_status()
+    
+    return {
+        "ok": True,
+        "pending_count": len(pending),
+        "pending_leads": pending,
+        "safety_status": safety_status,
+    }
+
+
+@app.post("/api/operator/acquisition/suppression/add")
+async def operator_acquisition_suppression_add(body: dict = Body(default={})):
+    """Add an email to the suppression list."""
+    from services.acquisition import outreach_safety
+    
+    email = str(body.get("email") or "").strip()
+    reason = str(body.get("reason") or "manual").strip()
+    lead_id = str(body.get("lead_id") or "").strip()
+    note = str(body.get("note") or "").strip()
+    
+    if not email:
+        return {"ok": False, "error": "email required"}
+    
+    return outreach_safety.add_to_suppression(email, reason=reason, lead_id=lead_id, note=note)
+
+
+@app.post("/api/operator/acquisition/optout")
+async def operator_acquisition_optout(body: dict = Body(default={})):
+    """Record an opt-out request (also adds to suppression)."""
+    from services.acquisition import outreach_safety
+    
+    email = str(body.get("email") or "").strip()
+    source = str(body.get("source") or "manual").strip()
+    lead_id = str(body.get("lead_id") or "").strip()
+    
+    if not email:
+        return {"ok": False, "error": "email required"}
+    
+    return outreach_safety.record_optout(email, source=source, lead_id=lead_id)
+
+
 @app.get("/api/operator/operational-alerts")
 def operator_operational_alerts():
     from services.alerts import get_operator_dashboard

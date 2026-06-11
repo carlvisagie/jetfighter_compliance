@@ -70,7 +70,7 @@ def generate_message(
         "framing": v["framing"],
         "company_name": company,
         "doctrine": "upload_first_auto_send",
-        "operator_note": "Autonomous outreach enabled — organism sends to qualified leads with valid contact info.",
+        "operator_note": "SAFETY GATE: Drafts generated but sends require operator approval via /send-approved endpoint.",
     }
 
 
