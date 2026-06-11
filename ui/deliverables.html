@@ -14,6 +14,10 @@
     .status-ready_for_review { background: #cce5ff; color: #004085; }
     .status-approved { background: #d4edda; color: #155724; }
     .status-sent { background: #d1ecf1; color: #0c5460; }
+    .release-status { font-size: 1.5rem; font-weight: 700; padding: 0.5rem 1rem; border-radius: 6px; display: inline-block; }
+    .release-RED { background: #f8d7da; color: #721c24; border: 2px solid #f5c6cb; }
+    .release-AMBER { background: #fff3cd; color: #856404; border: 2px solid #ffc107; }
+    .release-GREEN { background: #d4edda; color: #155724; border: 2px solid #28a745; }
     .section { background: #fff; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .section h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
     .missing-list { list-style: none; padding: 0; }
@@ -42,6 +46,17 @@
     .loading { text-align: center; padding: 3rem; color: #6c757d; }
     .back-link { display: inline-block; margin-bottom: 1rem; color: #6c757d; text-decoration: none; }
     .back-link:hover { color: #495057; }
+    .gates-table { width: 100%; border-collapse: collapse; }
+    .gates-table th, .gates-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #dee2e6; }
+    .gates-table th { background: #f8f9fa; font-weight: 600; }
+    .gate-PASS { color: #155724; }
+    .gate-FAIL { color: #721c24; font-weight: 600; }
+    .gate-WARNING { color: #856404; }
+    .blocking-tag { background: #dc3545; color: white; font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 3px; margin-left: 0.5rem; }
+    .override-form { background: #fff3cd; padding: 1rem; border-radius: 4px; margin-top: 1rem; }
+    .override-form textarea { width: 100%; min-height: 80px; margin: 0.5rem 0; padding: 0.5rem; border: 1px solid #ffc107; border-radius: 4px; }
+    .btn-override { background: #ffc107; color: #212529; }
+    .btn-override:hover { background: #e0a800; }
   </style>
 </head>
 <body class="kyc-page">
@@ -72,21 +87,27 @@
     }
     
     try {
-      const res = await fetch(`/api/operator/project-deliverables/${encodeURIComponent(projectId)}`);
-      const data = await res.json();
+      // Fetch both deliverables and release scan
+      const [delRes, scanRes] = await Promise.all([
+        fetch(`/api/operator/project-deliverables/${encodeURIComponent(projectId)}`),
+        fetch(`/api/operator/final-release-scan/${encodeURIComponent(projectId)}`)
+      ]);
+      
+      const data = await delRes.json();
+      const scan = await scanRes.json();
       
       if (!data.ok) {
         document.getElementById('content').innerHTML = `<div class="error-box">${data.error || 'Failed to load deliverables'}</div>`;
         return;
       }
       
-      renderDeliverables(data, projectId);
+      renderDeliverables(data, scan, projectId);
     } catch (err) {
       document.getElementById('content').innerHTML = `<div class="error-box">Error: ${err.message}</div>`;
     }
   })();
   
-  function renderDeliverables(data, projectId) {
+  function renderDeliverables(data, scan, projectId) {
     const statusLabels = {
       'not_ready': 'Not Ready',
       'ready_for_review': 'Ready for Review',
@@ -95,10 +116,54 @@
     };
     
     let html = `
-      <h1>Project Deliverables</h1>
+      <h1>Project Deliverables &amp; Release</h1>
       <p><strong>Project ID:</strong> ${projectId}</p>
-      <p><span class="status-badge status-${data.operator_status}">${statusLabels[data.operator_status] || data.operator_status}</span></p>
     `;
+    
+    // Release Scanner Section
+    if (scan && scan.ok) {
+      html += `
+        <div class="section">
+          <h3>Final Release Inspection</h3>
+          <p>Release Status: <span class="release-status release-${scan.release_status}">${scan.release_status}</span></p>
+          ${scan.deliverables_hash ? `<p><small>Deliverables Hash: ${scan.deliverables_hash}</small></p>` : ''}
+          
+          <table class="gates-table">
+            <thead>
+              <tr>
+                <th>Gate</th>
+                <th>Status</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(scan.gates || []).map(g => `
+                <tr>
+                  <td>${g.gate}${g.blocking ? '<span class="blocking-tag">BLOCKING</span>' : ''}</td>
+                  <td class="gate-${g.status}">${g.status}</td>
+                  <td>${g.reason}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          ${scan.release_status === 'AMBER' && !scan.approval_state?.amber_override ? `
+            <div class="override-form" id="overrideForm">
+              <h4>AMBER Override Required</h4>
+              <p>Warnings exist. Provide justification to proceed:</p>
+              <textarea id="overrideReason" placeholder="Enter override justification (minimum 10 characters)..."></textarea>
+              <button class="btn-override" id="btnOverride">Submit Override</button>
+            </div>
+          ` : ''}
+          
+          ${scan.approval_state?.amber_override ? `
+            <p><strong>AMBER Override:</strong> ${scan.approval_state.amber_override_reason || 'Approved'} (at ${scan.approval_state.amber_override_at_utc || 'unknown'})</p>
+          ` : ''}
+        </div>
+      `;
+    }
+    
+    html += `<p><span class="status-badge status-${data.operator_status}">${statusLabels[data.operator_status] || data.operator_status}</span></p>`;
     
     // Missing stages
     if (data.missing_stages && data.missing_stages.length > 0) {
@@ -245,22 +310,25 @@
       `;
     }
     
-    // Actions
-    const canApprove = data.ready && data.operator_status === 'ready_for_review';
-    const canSend = data.operator_status === 'approved';
-    const alreadySent = data.operator_status === 'sent';
+    // Actions - based on release scan
+    const scanState = scan?.approval_state || {};
+    const canApprove = scan?.ok && (scan.release_status === 'GREEN' || (scan.release_status === 'AMBER' && scanState.amber_override));
+    const isApproved = scanState.approved;
+    const canSend = isApproved && !scanState.sent;
+    const alreadySent = scanState.sent;
     
     html += `
       <div class="section">
-        <h3>Operator Actions</h3>
-        ${data.approved_at_utc ? `<p>Approved: ${data.approved_at_utc} by ${data.approved_by || 'operator'}</p>` : ''}
-        ${data.sent_at_utc ? `<p>Sent: ${data.sent_at_utc} to ${data.sent_to || 'customer'}</p>` : ''}
+        <h3>Release Actions</h3>
+        ${scanState.approved ? `<p><strong>Approved:</strong> ${scanState.approved_at_utc} by ${scanState.approved_by || 'operator'}</p>` : ''}
+        ${scanState.sent ? `<p><strong>Sent:</strong> ${scanState.sent_at_utc} to ${scanState.sent_to || 'customer'}</p>` : ''}
+        ${scan?.release_status === 'RED' ? '<p class="error-box">Cannot approve: resolve all blocking failures first.</p>' : ''}
         <div class="action-row">
-          <button class="btn-approve" id="btnApprove" ${canApprove ? '' : 'disabled'}>
-            ${data.operator_status === 'not_ready' ? 'Not Ready' : (data.approved_at_utc ? 'Already Approved' : 'Approve Deliverables')}
+          <button class="btn-approve" id="btnApprove" ${canApprove && !isApproved ? '' : 'disabled'}>
+            ${scan?.release_status === 'RED' ? 'Blocked (RED)' : (isApproved ? 'Already Approved' : 'Approve Release')}
           </button>
           <button class="btn-send" id="btnSend" ${canSend ? '' : 'disabled'}>
-            ${alreadySent ? 'Already Sent' : 'Mark as Sent'}
+            ${alreadySent ? 'Already Sent' : (isApproved ? 'Send to Customer' : 'Approve First')}
           </button>
         </div>
       </div>
@@ -268,14 +336,38 @@
     
     document.getElementById('content').innerHTML = html;
     
-    // Wire up buttons
+    // Wire up override button
+    const overrideBtn = document.getElementById('btnOverride');
+    if (overrideBtn) {
+      overrideBtn.addEventListener('click', async () => {
+        const reason = document.getElementById('overrideReason').value;
+        if (!reason || reason.length < 10) {
+          alert('Override reason must be at least 10 characters');
+          return;
+        }
+        try {
+          const res = await fetch(`/api/operator/final-release-scan/${encodeURIComponent(projectId)}/override-amber?reason=${encodeURIComponent(reason)}`, { method: 'POST' });
+          const result = await res.json();
+          if (result.ok) {
+            alert('AMBER override recorded');
+            location.reload();
+          } else {
+            alert('Error: ' + (result.error || 'Unknown error'));
+          }
+        } catch (err) {
+          alert('Error: ' + err.message);
+        }
+      });
+    }
+    
+    // Wire up approve button
     document.getElementById('btnApprove').addEventListener('click', async () => {
-      if (!canApprove) return;
+      if (!canApprove || isApproved) return;
       try {
-        const res = await fetch(`/api/operator/project-deliverables/${encodeURIComponent(projectId)}/approve`, { method: 'POST' });
+        const res = await fetch(`/api/operator/final-release-scan/${encodeURIComponent(projectId)}/approve`, { method: 'POST' });
         const result = await res.json();
         if (result.ok) {
-          alert('Deliverables approved!');
+          alert('Release approved!');
           location.reload();
         } else {
           alert('Error: ' + (result.error || 'Unknown error'));
@@ -285,13 +377,14 @@
       }
     });
     
+    // Wire up send button
     document.getElementById('btnSend').addEventListener('click', async () => {
       if (!canSend) return;
       try {
-        const res = await fetch(`/api/operator/project-deliverables/${encodeURIComponent(projectId)}/send`, { method: 'POST' });
+        const res = await fetch(`/api/operator/final-release-scan/${encodeURIComponent(projectId)}/send`, { method: 'POST' });
         const result = await res.json();
         if (result.ok) {
-          alert('Deliverables marked as sent!');
+          alert('Release sent to customer!');
           location.reload();
         } else {
           alert('Error: ' + (result.error || 'Unknown error'));

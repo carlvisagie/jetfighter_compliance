@@ -1663,6 +1663,46 @@ def operator_send_deliverables(request: Request, project_id: str, recipient_emai
     return send_deliverables(project_id.strip(), recipient_email=recipient_email)
 
 
+@app.get("/api/operator/final-release-scan/{project_id}")
+def operator_final_release_scan(request: Request, project_id: str):
+    """PATCH 13A-5C: Final release gate scan — all gates must pass before release."""
+    from services.production import require_ops_access
+    from services.final_release_scan import scan_release_gates
+
+    require_ops_access(request)
+    return scan_release_gates(project_id.strip())
+
+
+@app.post("/api/operator/final-release-scan/{project_id}/approve")
+def operator_approve_release(request: Request, project_id: str):
+    """PATCH 13A-5C: Approve release after all gates pass."""
+    from services.production import require_ops_access
+    from services.final_release_scan import approve_release
+
+    require_ops_access(request)
+    return approve_release(project_id.strip())
+
+
+@app.post("/api/operator/final-release-scan/{project_id}/override-amber")
+def operator_override_amber(request: Request, project_id: str, reason: str = ""):
+    """PATCH 13A-5C: Override AMBER status with explicit justification."""
+    from services.production import require_ops_access
+    from services.final_release_scan import override_amber
+
+    require_ops_access(request)
+    return override_amber(project_id.strip(), reason=reason)
+
+
+@app.post("/api/operator/final-release-scan/{project_id}/send")
+def operator_send_release(request: Request, project_id: str, recipient_email: str = ""):
+    """PATCH 13A-5C: Mark release as sent to customer."""
+    from services.production import require_ops_access
+    from services.final_release_scan import send_release
+
+    require_ops_access(request)
+    return send_release(project_id.strip(), recipient_email=recipient_email)
+
+
 @app.get("/api/operator/intake/queue")
 def operator_intake_queue(request: Request, limit: int = 40):
     from services.intake.queue import get_operator_review_queue
