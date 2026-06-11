@@ -154,6 +154,18 @@ def _flatten_for_legacy_api(core_snapshot: Dict[str, Any]) -> Dict[str, Any]:
             active_files.append(rel)
 
     cls_counts = residue.get("classification_counts") or {}
+    
+    # PATCH 13A-9: Add intake classification summary for operational purification
+    try:
+        from services.intake.classification import get_classification_summary
+        classification_summary = get_classification_summary()
+    except Exception:
+        classification_summary = {
+            "real_customer_count": 0,
+            "first_real_customer_arrived": False,
+            "by_type": {},
+        }
+    
     legacy = dict(core_snapshot)
     legacy.update({
         "timestamp_utc": core_snapshot["timestamp_utc"],
@@ -186,6 +198,11 @@ def _flatten_for_legacy_api(core_snapshot: Dict[str, Any]) -> Dict[str, Any]:
             "active_files": active_files[:25],
             "pilot_imports_remaining": pilot_imports[:10],
         },
+        # PATCH 13A-9: First customer detection metrics
+        "real_customer_count": classification_summary.get("real_customer_count", 0),
+        "first_real_customer_arrived": classification_summary.get("first_real_customer_arrived", False),
+        "first_real_customer_id": classification_summary.get("first_real_customer_id"),
+        "classification_summary": classification_summary,
     })
     return legacy
 

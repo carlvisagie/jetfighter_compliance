@@ -2518,6 +2518,97 @@ def vio_company_detail(request: Request, intake_id: str):
     return build_company_detail(intake_id.strip())
 
 
+# ---------------------------------------------------------------------------
+# PATCH 13A-9: Intake Classification for Operational Purification
+# ---------------------------------------------------------------------------
+
+@app.get("/api/operator/classification/summary")
+def operator_classification_summary(request: Request):
+    """Get classification summary with REAL customer count and first customer detection."""
+    from services.production import require_ops_access
+    from services.intake.classification import get_classification_summary, load_classifications
+    
+    require_ops_access(request)
+    
+    summary = get_classification_summary()
+    summary["all_classifications"] = load_classifications()
+    return summary
+
+
+@app.post("/api/operator/classification/run")
+def operator_classification_run(request: Request):
+    """Auto-classify all intakes. Does NOT modify intake data."""
+    from services.production import require_ops_access
+    from services.intake.classification import classify_all_intakes
+    
+    require_ops_access(request)
+    return classify_all_intakes()
+
+
+@app.post("/api/operator/classification/promote/{intake_id}")
+def operator_classification_promote(request: Request, intake_id: str, body: dict = Body(default={})):
+    """Operator promotes an intake to REAL classification."""
+    from services.production import require_ops_access
+    from services.intake.classification import promote_to_real
+    
+    require_ops_access(request)
+    note = str(body.get("note") or "").strip()
+    return promote_to_real(intake_id.strip(), operator_note=note)
+
+
+@app.post("/api/operator/classification/demote/{intake_id}")
+def operator_classification_demote(request: Request, intake_id: str, body: dict = Body(default={})):
+    """Operator demotes an intake to TEST classification."""
+    from services.production import require_ops_access
+    from services.intake.classification import demote_to_test
+    
+    require_ops_access(request)
+    note = str(body.get("note") or "").strip()
+    return demote_to_test(intake_id.strip(), operator_note=note)
+
+
+@app.get("/api/operator/classification/real-only")
+def operator_classification_real_only(request: Request):
+    """Get only REAL customer intakes for clean operational view."""
+    from services.production import require_ops_access
+    from services.intake.classification import get_real_only_intakes, get_classification_summary
+    
+    require_ops_access(request)
+    
+    real_ids = get_real_only_intakes()
+    summary = get_classification_summary()
+    
+    return {
+        "ok": True,
+        "real_customer_count": summary["real_customer_count"],
+        "first_real_customer_arrived": summary["first_real_customer_arrived"],
+        "first_real_customer_id": summary["first_real_customer_id"],
+        "real_intake_ids": real_ids,
+    }
+
+
+@app.get("/api/operator/classification/test-lab")
+def operator_classification_test_lab(request: Request):
+    """Get TEST + VALIDATION + DEMO intakes for lab view."""
+    from services.production import require_ops_access
+    from services.intake.classification import get_test_lab_intakes, load_classifications
+    
+    require_ops_access(request)
+    
+    lab_ids = get_test_lab_intakes()
+    classifications = load_classifications()
+    
+    return {
+        "ok": True,
+        "lab_intake_count": len(lab_ids),
+        "lab_intake_ids": lab_ids,
+        "classifications": {
+            intake_id: classifications.get(intake_id, {})
+            for intake_id in lab_ids
+        },
+    }
+
+
 @app.post("/api/operator/admin/purge-test-corpus")
 def operator_admin_purge_test_corpus(request: Request):
     from services.production import require_ops_access
