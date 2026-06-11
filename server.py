@@ -3145,6 +3145,24 @@ def operator_customer_intelligence_icp(request: Request):
     }
 
 
+@app.get("/api/operator/customer-intelligence/cockpit")
+def operator_customer_intelligence_cockpit(request: Request):
+    """
+    CUSTOMER INTELLIGENCE COCKPIT
+    
+    Operator view showing:
+    - Top prospects grouped by recommendation
+    - Companies needing enrichment
+    - Known vs Unknown evidence percentages
+    """
+    from services.production import require_ops_access
+    from services.acquisition.enrichment import get_cockpit_view
+    
+    require_ops_access(request)
+    
+    return get_cockpit_view()
+
+
 @app.get("/api/operator/customer-intelligence/{record_id}")
 def operator_customer_intelligence_detail(request: Request, record_id: str):
     """Get full intelligence record with all evidenced fields."""
@@ -3232,24 +3250,6 @@ def operator_top_prospects(request: Request):
     require_ops_access(request)
     
     return generate_top_prospects_report(limit=100)
-
-
-@app.get("/api/operator/customer-intelligence/cockpit")
-def operator_customer_intelligence_cockpit(request: Request):
-    """
-    CUSTOMER INTELLIGENCE COCKPIT
-    
-    Operator view showing:
-    - Top prospects grouped by recommendation
-    - Companies needing enrichment
-    - Known vs Unknown evidence percentages
-    """
-    from services.production import require_ops_access
-    from services.acquisition.enrichment import get_cockpit_view
-    
-    require_ops_access(request)
-    
-    return get_cockpit_view()
 
 
 @app.get("/api/operator/customer-intelligence/validate/{record_id}")
