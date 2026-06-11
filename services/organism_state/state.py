@@ -166,6 +166,20 @@ def _flatten_for_legacy_api(core_snapshot: Dict[str, Any]) -> Dict[str, Any]:
             "by_type": {},
         }
     
+    # PATCH 13A-12: Add customer intelligence metrics
+    try:
+        from services.acquisition.ideal_customer_profile import get_intelligence_summary
+        intelligence_summary = get_intelligence_summary()
+    except Exception:
+        intelligence_summary = {
+            "total_records": 0,
+            "by_icp_tier": {},
+            "by_recommendation": {},
+            "intelligence_completeness": {},
+            "contactable": 0,
+            "average_completeness": 0,
+        }
+    
     legacy = dict(core_snapshot)
     legacy.update({
         "timestamp_utc": core_snapshot["timestamp_utc"],
@@ -203,6 +217,17 @@ def _flatten_for_legacy_api(core_snapshot: Dict[str, Any]) -> Dict[str, Any]:
         "first_real_customer_arrived": classification_summary.get("first_real_customer_arrived", False),
         "first_real_customer_id": classification_summary.get("first_real_customer_id"),
         "classification_summary": classification_summary,
+        # PATCH 13A-12: Customer Intelligence Engine metrics
+        "discovered_entities": intelligence_summary.get("total_records", 0),
+        "qualified_entities": (
+            intelligence_summary.get("by_icp_tier", {}).get("TIER_1", 0) +
+            intelligence_summary.get("by_icp_tier", {}).get("TIER_2", 0)
+        ),
+        "intelligence_complete_entities": intelligence_summary.get("intelligence_completeness", {}).get("81-100", 0),
+        "contactable_entities": intelligence_summary.get("contactable", 0),
+        "ideal_customers": intelligence_summary.get("by_icp_tier", {}).get("TIER_1", 0),
+        "unknown_entities": intelligence_summary.get("by_recommendation", {}).get("ENRICH", 0),
+        "intelligence_summary": intelligence_summary,
     })
     return legacy
 

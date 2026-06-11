@@ -5,6 +5,8 @@ Lawful federal open data — no API key, no login, no scraping private systems.
 https://api.usaspending.gov/
 
 Does NOT auto-send outreach. Draft messages only.
+
+PATCH 13A-12: BURDEN_CONTEXT removed. All signals must come from real evidence.
 """
 from __future__ import annotations
 
@@ -29,12 +31,6 @@ DEFAULT_QUERIES = [
     "government subcontractor",
     "metal fabrication defense",
 ]
-
-# Inferred burden context for signal detection (public award recipients)
-BURDEN_CONTEXT = (
-    "federal contractor subcontractor CMMC DFARS compliance documentation "
-    "audit evidence security questionnaire overwhelmed where do I start"
-)
 
 
 def run_usaspending_live_connector(
@@ -89,9 +85,9 @@ def run_usaspending_live_connector(
                 continue
             seen.add(name_key)
 
-            notes = (row.get("notes") or "") + " " + BURDEN_CONTEXT
+            # PATCH 13A-12: Notes are preserved as-is from public API.
+            # No artificial signals injected. All evidence must be real.
             row = dict(row)
-            row["notes"] = notes.strip()
             try:
                 from services.intake.paperwork_prediction import predict_federal_supplier_paperwork
 

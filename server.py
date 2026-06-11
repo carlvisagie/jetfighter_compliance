@@ -2773,13 +2773,14 @@ async def operator_acquisition_intelligence_run(body: dict = Body(default={})):
         if body.get("run_live_connector") or body.get("connector") == "usaspending":
             from services.acquisition.connectors.usaspending_live import run_usaspending_live_connector
 
+            _min_fit = body.get("min_fit_score")
             return await run_blocking(
                 run_usaspending_live_connector,
                 queries=body.get("queries"),
                 limit_per_query=int(body.get("limit_per_query") or 12),
                 campaign_id=str(body.get("campaign_id") or "upload-first"),
                 message_variant=str(body.get("message_variant") or "A"),
-                min_fit_score=int(body.get("min_fit_score") or 50),
+                min_fit_score=int(_min_fit) if _min_fit is not None else 50,
             )
         if body.get("connector") == "reddit" or body.get("run_reddit_connector"):
             from services.acquisition.connectors.reddit import run_reddit_acquisition_cycle
@@ -3065,6 +3066,260 @@ async def operator_acquisition_optout(body: dict = Body(default={})):
         return {"ok": False, "error": "email required"}
     
     return outreach_safety.record_optout(email, source=source, lead_id=lead_id)
+
+
+# ---------------------------------------------------------------------------
+# PATCH 13A-12: Customer Intelligence Engine
+# ---------------------------------------------------------------------------
+
+@app.get("/api/operator/customer-intelligence")
+def operator_customer_intelligence():
+    """
+    IDEAL CUSTOMER INTELLIGENCE COCKPIT
+    
+    Returns all intelligence records with ICP match, completeness, and recommendations.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.ideal_customer_profile import (
+        get_all_intelligence_records,
+        get_intelligence_summary,
+        get_icp_definition,
+    )
+    
+    require_ops_access(request)
+    
+    records = get_all_intelligence_records()
+    
+    # Build cockpit data
+    cockpit_rows = []
+    for record in records:
+        icp = record.get_icp_match()
+        cockpit_rows.append({
+            "record_id": record.record_id,
+            "company": record.company_name.value if record.company_name.value else "Unknown",
+            "uei": record.uei.value if record.uei.value else "",
+            "icp_tier": icp.get("tier", "NO_MATCH"),
+            "icp_match_score": icp.get("match_score", 0),
+            "intelligence_completeness": record.compute_intelligence_completeness(),
+            "ability_to_pay": record.compute_ability_to_pay(),
+            "contactability": record.compute_contactability(),
+            "urgency": record.urgency_score.value if record.urgency_score.state.value == "KNOWN" else None,
+            "recommendation": icp.get("recommendation", "IGNORE"),
+            "criteria_met": icp.get("criteria_met", []),
+            "criteria_unknown": icp.get("criteria_unknown", []),
+            "source_lead_id": record.source_lead_id,
+        })
+    
+    # Sort by recommendation priority
+    priority_order = {"HIGH PRIORITY": 0, "CONTACT": 1, "WATCH": 2, "ENRICH": 3, "IGNORE": 4}
+    cockpit_rows.sort(key=lambda r: (priority_order.get(r["recommendation"], 5), -r["icp_match_score"]))
+    
+    return {
+        "ok": True,
+        "summary": get_intelligence_summary(),
+        "icp_definition": get_icp_definition(),
+        "records": cockpit_rows,
+        "columns": [
+            "Company",
+            "ICP Match",
+            "Intelligence Completeness",
+            "Ability To Pay",
+            "Contactability",
+            "Urgency",
+            "Recommended Action",
+        ],
+    }
+
+
+@app.get("/api/operator/customer-intelligence/{record_id}")
+def operator_customer_intelligence_detail(record_id: str):
+    """Get full intelligence record with all evidenced fields."""
+    from services.production import require_ops_access
+    from services.acquisition.ideal_customer_profile import load_intelligence_record
+    
+    require_ops_access(request)
+    
+    record = load_intelligence_record(record_id)
+    if not record:
+        return {"ok": False, "error": "record_not_found"}
+    
+    return {
+        "ok": True,
+        "record": record.to_dict(),
+    }
+
+
+@app.post("/api/operator/customer-intelligence/enrich/{record_id}")
+async def operator_customer_intelligence_enrich(record_id: str, body: dict = Body(default={})):
+    """
+    Manually enrich an intelligence record with operator-provided data.
+    
+    All fields must include source and confidence.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.ideal_customer_profile import (
+        load_intelligence_record,
+        save_intelligence_record,
+        EvidencedValue,
+        SignalState,
+    )
+    
+    require_ops_access(request)
+    
+    record = load_intelligence_record(record_id)
+    if not record:
+        return {"ok": False, "error": "record_not_found"}
+    
+    # Apply enrichment updates
+    enrichments = body.get("enrichments", {})
+    for field_name, field_data in enrichments.items():
+        if hasattr(record, field_name):
+            ev = EvidencedValue(
+                value=field_data.get("value"),
+                source=field_data.get("source", "operator_input"),
+                confidence=float(field_data.get("confidence", 0.8)),
+                state=SignalState.KNOWN,
+            )
+            setattr(record, field_name, ev)
+    
+    save_intelligence_record(record)
+    
+    return {
+        "ok": True,
+        "record_id": record_id,
+        "intelligence_completeness": record.compute_intelligence_completeness(),
+        "icp_match": record.get_icp_match(),
+    }
+
+
+@app.get("/api/operator/customer-intelligence/icp")
+def operator_customer_intelligence_icp():
+    """Get the current Ideal Customer Profile definition."""
+    from services.production import require_ops_access
+    from services.acquisition.ideal_customer_profile import get_icp_definition
+    
+    require_ops_access(request)
+    
+    return {
+        "ok": True,
+        "icp": get_icp_definition(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# PATCH 13A-13: Customer Intelligence Enrichment Engine
+# ---------------------------------------------------------------------------
+
+@app.get("/api/operator/top-prospects")
+def operator_top_prospects():
+    """
+    TOP 100 PROSPECTS REPORT
+    
+    Returns top 100 companies ranked by evidence quality.
+    For every company shows:
+    - Rank
+    - Company name
+    - ICP Tier
+    - Completeness
+    - Known evidence
+    - Unknown evidence
+    - Recommendation
+    - Reasoning
+    """
+    from services.production import require_ops_access
+    from services.acquisition.enrichment import generate_top_prospects_report
+    
+    require_ops_access(request)
+    
+    return generate_top_prospects_report(limit=100)
+
+
+@app.get("/api/operator/customer-intelligence/cockpit")
+def operator_customer_intelligence_cockpit():
+    """
+    CUSTOMER INTELLIGENCE COCKPIT
+    
+    Operator view showing:
+    - Top prospects grouped by recommendation
+    - Companies needing enrichment
+    - Known vs Unknown evidence percentages
+    """
+    from services.production import require_ops_access
+    from services.acquisition.enrichment import get_cockpit_view
+    
+    require_ops_access(request)
+    
+    return get_cockpit_view()
+
+
+@app.get("/api/operator/customer-intelligence/validate/{record_id}")
+def operator_customer_intelligence_validate(record_id: str):
+    """
+    ORGANISM 5-QUESTION TEST
+    
+    Validates if the organism can answer:
+    1. Who is the best prospect?
+    2. Why?
+    3. What evidence supports that?
+    4. What evidence is missing?
+    5. What should happen next?
+    
+    If ANY question cannot be answered, ranking is FORBIDDEN.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.ideal_customer_profile import load_intelligence_record
+    from services.acquisition.enrichment import can_answer_five_questions
+    
+    require_ops_access(request)
+    
+    record = load_intelligence_record(record_id)
+    if not record:
+        return {"ok": False, "error": "record_not_found"}
+    
+    return {
+        "ok": True,
+        "record_id": record_id,
+        "validation": can_answer_five_questions(record),
+    }
+
+
+@app.get("/api/operator/customer-intelligence/enrichment-status/{record_id}")
+def operator_customer_intelligence_enrichment_status(record_id: str):
+    """Get enrichment status for a single record."""
+    from services.production import require_ops_access
+    from services.acquisition.ideal_customer_profile import load_intelligence_record
+    from services.acquisition.enrichment import (
+        compute_enrichment_score,
+        get_known_fields,
+        get_unknown_fields,
+        get_missing_critical_fields,
+        get_next_missing_evidence,
+        compute_recommendation,
+        get_enrichment_state,
+    )
+    
+    require_ops_access(request)
+    
+    record = load_intelligence_record(record_id)
+    if not record:
+        return {"ok": False, "error": "record_not_found"}
+    
+    recommendation, reasoning = compute_recommendation(record)
+    
+    return {
+        "ok": True,
+        "record_id": record_id,
+        "company_name": record.company_name.value if record.company_name.value else "Unknown",
+        "enrichment_score": compute_enrichment_score(record),
+        "completeness": record.compute_intelligence_completeness(),
+        "enrichment_state": get_enrichment_state(record).value,
+        "known_fields": get_known_fields(record),
+        "unknown_fields": get_unknown_fields(record),
+        "missing_critical": get_missing_critical_fields(record),
+        "next_missing_evidence": get_next_missing_evidence(record),
+        "recommendation": recommendation.value,
+        "reasoning": reasoning,
+    }
 
 
 @app.get("/api/operator/operational-alerts")
