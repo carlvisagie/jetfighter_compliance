@@ -296,6 +296,15 @@ def kickoff_project_from_intake(
     # Run Evidence Intelligence and Cognition on the newly created project
     # Pass email to help organism timeline find the entity
     _run_post_kickoff_intelligence(project_id, intake_id, email=email)
+    
+    # PATCH 13A-4F.2: Trigger Compliance Health Assessment after post-kickoff intelligence
+    # This consolidates requirement registry state into a project-level assessment
+    # and emits compliance_health_completed lifecycle event
+    try:
+        from services.compliance_health.assessment import build_assessment
+        build_assessment(project_id)
+    except Exception as ch_exc:
+        logger.warning("Compliance Health failed for %s: %s", project_id, ch_exc)
 
     return {
         "ok": True,
