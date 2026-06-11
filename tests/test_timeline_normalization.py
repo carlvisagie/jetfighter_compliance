@@ -21,7 +21,7 @@ from services.intake.telemetry import (
 class TestLifecycleEventsRegistry:
     """Test that all 14 canonical events are registered."""
     
-    def test_all_14_events_registered(self):
+    def test_all_15_events_registered(self):
         """Verify all required lifecycle events are in LIFECYCLE_EVENTS."""
         required = {
             "upload_started",
@@ -29,6 +29,7 @@ class TestLifecycleEventsRegistry:
             "verified_complete",
             "external_verification_started",
             "external_verification_completed",
+            "payment_confirmed",  # PATCH 13A-4G
             "project_kickoff_started",
             "project_kickoff_completed",
             "evidence_intelligence_started",
@@ -40,7 +41,7 @@ class TestLifecycleEventsRegistry:
             "compliance_health_completed",
         }
         assert required == LIFECYCLE_EVENTS
-        assert len(LIFECYCLE_EVENTS) == 14
+        assert len(LIFECYCLE_EVENTS) == 15
 
 
 class TestEmitLifecycleEvent:

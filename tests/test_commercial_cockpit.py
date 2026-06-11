@@ -26,7 +26,8 @@ class TestPaymentConfirmedLifecycleEvent:
     
     @patch("services.intake.telemetry.is_intake_mode", return_value=True)
     @patch("services.organism_observability.emit.organism_emit")
-    def test_confirm_payment_emits_lifecycle_event(self, mock_emit, mock_mode, tmp_path):
+    @patch("services.intake.storage.assert_canonical_write_path", return_value=None)
+    def test_confirm_payment_emits_lifecycle_event(self, mock_assert, mock_emit, mock_mode, tmp_path):
         """confirm_payment_received emits payment_confirmed lifecycle event."""
         # Setup intake directory
         intakes_dir = tmp_path / "intakes"
@@ -48,7 +49,7 @@ class TestPaymentConfirmedLifecycleEvent:
         }
         (intake_dir / "intake.json").write_text(json.dumps(record), encoding="utf-8")
         
-        with patch("services.intake.storage.INTAKE_ROOT", intakes_dir):
+        with patch("services.intake.storage.intakes_root", return_value=intakes_dir):
             from services.intake.operator_actions import _confirm_payment_received
             result = _confirm_payment_received(intake_id)
         
@@ -61,7 +62,8 @@ class TestPaymentConfirmedLifecycleEvent:
     
     @patch("services.intake.telemetry.is_intake_mode", return_value=True)
     @patch("services.organism_observability.emit.organism_emit")
-    def test_confirm_payment_emits_with_alias(self, mock_emit, mock_mode, tmp_path):
+    @patch("services.intake.storage.assert_canonical_write_path", return_value=None)
+    def test_confirm_payment_emits_with_alias(self, mock_assert, mock_emit, mock_mode, tmp_path):
         """payment_confirmed also emits backward-compatible alias."""
         intakes_dir = tmp_path / "intakes"
         intake_id = "FB-alias-test"
@@ -78,7 +80,7 @@ class TestPaymentConfirmedLifecycleEvent:
         }
         (intake_dir / "intake.json").write_text(json.dumps(record), encoding="utf-8")
         
-        with patch("services.intake.storage.INTAKE_ROOT", intakes_dir):
+        with patch("services.intake.storage.intakes_root", return_value=intakes_dir):
             from services.intake.operator_actions import _confirm_payment_received
             _confirm_payment_received(intake_id)
         
@@ -91,7 +93,8 @@ class TestPaymentConfirmedLifecycleEvent:
 class TestObservabilityPaymentState:
     """Test observability includes payment state."""
     
-    def test_observability_includes_payment_section(self, tmp_path):
+    @patch("services.intake.storage.assert_canonical_write_path", return_value=None)
+    def test_observability_includes_payment_section(self, mock_assert, tmp_path):
         """get_project_observability returns payment section."""
         data_dir = tmp_path / "data"
         intakes_dir = data_dir / "intakes"
@@ -131,7 +134,8 @@ class TestObservabilityPaymentState:
         assert payment["product_id"] == "cmmc_l1"
         assert payment["kickoff_blocked_by_payment"] is True
     
-    def test_observability_payment_confirmed_state(self, tmp_path):
+    @patch("services.intake.storage.assert_canonical_write_path", return_value=None)
+    def test_observability_payment_confirmed_state(self, mock_assert, tmp_path):
         """Observability shows payment confirmed state correctly."""
         data_dir = tmp_path / "data"
         intakes_dir = data_dir / "intakes"
@@ -166,7 +170,8 @@ class TestObservabilityPaymentState:
         assert payment["payment_confirmed_via"] == "operator"
         assert payment["kickoff_blocked_by_payment"] is False
     
-    def test_observability_validation_mode_not_blocked(self, tmp_path):
+    @patch("services.intake.storage.assert_canonical_write_path", return_value=None)
+    def test_observability_validation_mode_not_blocked(self, mock_assert, tmp_path):
         """Validation mode projects are not blocked by payment."""
         data_dir = tmp_path / "data"
         intakes_dir = data_dir / "intakes"
@@ -229,7 +234,8 @@ class TestKickoffUnlockedAfterPayment:
         }
         (intake_dir / "intake.json").write_text(json.dumps(record), encoding="utf-8")
         
-        with patch("services.intake.storage.INTAKE_ROOT", intakes_dir):
+        with patch("services.intake.storage.intakes_root", return_value=intakes_dir), \
+             patch("services.intake.durable_root.durable_data_root", return_value=tmp_path):
             from services.intake.kickoff import kickoff_project_from_intake
             from fastapi import HTTPException
             
@@ -264,7 +270,8 @@ class TestKickoffUnlockedAfterPayment:
         }
         (intake_dir / "intake.json").write_text(json.dumps(record), encoding="utf-8")
         
-        with patch("services.intake.storage.INTAKE_ROOT", intakes_dir), \
+        with patch("services.intake.storage.intakes_root", return_value=intakes_dir), \
+             patch("services.intake.durable_root.durable_data_root", return_value=tmp_path), \
              patch("services.config.PROJECTS", projects_dir), \
              patch("services.intake.kickoff._config.PROJECTS", projects_dir), \
              patch("services.intake.kickoff._config.DATA", tmp_path), \
@@ -306,7 +313,8 @@ class TestDuplicateConfirmationIdempotent:
         }
         (intake_dir / "intake.json").write_text(json.dumps(record), encoding="utf-8")
         
-        with patch("services.intake.storage.INTAKE_ROOT", intakes_dir):
+        with patch("services.intake.storage.intakes_root", return_value=intakes_dir), \
+             patch("services.intake.durable_root.durable_data_root", return_value=tmp_path):
             from services.intake.operator_actions import _confirm_payment_received
             result = _confirm_payment_received(intake_id)
         
