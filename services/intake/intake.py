@@ -297,7 +297,7 @@ def _qr_png(link: str) -> bytes:
 
 
 def _apply_custody_status(record: Dict[str, Any], integrity: Dict[str, Any], *, durability_ok: bool) -> None:
-    from .integrity import derive_intake_status, review_status_from_custody
+    from .integrity import derive_intake_status, review_status_from_custody, STATUS_VERIFIED_COMPLETE
 
     integrity = dict(integrity)
     batch_complete = bool(integrity.get("batch_complete", True))
@@ -322,6 +322,20 @@ def _apply_custody_status(record: Dict[str, Any], integrity: Dict[str, Any], *, 
         "rejected_files",
         "abandoned_upload",
     )
+    
+    # PATCH 13A-4F: Emit verified_complete lifecycle event
+    if custody_status == STATUS_VERIFIED_COMPLETE:
+        from .telemetry import emit_lifecycle_event
+        emit_lifecycle_event(
+            "verified_complete",
+            message=f"Intake {record.get('intake_id')} verified complete",
+            metadata={
+                "intake_id": record.get("intake_id"),
+                "file_count": integrity.get("verified_file_count"),
+                "expected_file_count": integrity.get("expected_file_count"),
+                "custody_status": custody_status,
+            },
+        )
 
 
 def _trigger_auto_kickoff_if_eligible(intake_id: str, record: Dict[str, Any]) -> None:
@@ -669,9 +683,10 @@ async def _process_upload_locked(
     custody_early = dict(record.get("upload_custody") or {})
     record["upload_custody"] = custody_early
 
-    _safe_emit_intake_event(
-        intake_id,
-        "pilot_upload_started",
+    # PATCH 13A-4F: Emit canonical upload_started with pilot_upload_started alias
+    from .telemetry import emit_lifecycle_event
+    emit_lifecycle_event(
+        "upload_started",
         message=f"Upload batch for {intake_id}",
         metadata={
             "intake_id": intake_id,
@@ -679,7 +694,7 @@ async def _process_upload_locked(
             "expected_file_count": expected_count,
             "batch_complete": batch_complete,
         },
-        custody=custody_early,
+        alias="pilot_upload_started",
     )
 
     for uf in files[:MAX_FILES_PER_REQUEST]:
@@ -957,8 +972,9 @@ async def _process_upload_locked(
         e = f.get("ext") or "unknown"
         ext_counts[e] = ext_counts.get(e, 0) + 1
 
-    emit_intake_event(
-        "pilot_upload_completed",
+    # PATCH 13A-4F: Emit canonical upload_completed with pilot_upload_completed alias
+    emit_lifecycle_event(
+        "upload_completed",
         message=f"{len(saved)} file(s) on {intake_id}",
         metadata={
             "intake_id": intake_id,
@@ -968,6 +984,7 @@ async def _process_upload_locked(
             "committed": committed,
             "lead_id": record.get("lead_id") or "",
         },
+        alias="pilot_upload_completed",
     )
     emit_intake_event(
         "upload_file_types",

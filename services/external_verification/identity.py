@@ -54,6 +54,19 @@ def _extract_claimed_identity(project_id: str) -> dict:
     return {"legal_name": None, "uei": None, "cage": None}
 
 
+def _emit_verification_event(event_type: str, project_id: str, metadata: dict = None) -> None:
+    """Emit external verification lifecycle event."""
+    try:
+        from services.intake.telemetry import emit_lifecycle_event
+        emit_lifecycle_event(
+            event_type,
+            message=f"External verification {event_type} for {project_id}",
+            metadata={"project_id": project_id, **(metadata or {})},
+        )
+    except Exception:
+        pass
+
+
 def verify_contractor_identity(
     project_id: str,
     force_refresh: bool = False,
@@ -80,6 +93,9 @@ def verify_contractor_identity(
         cached = load_verification(project_id)
         if cached:
             return cached
+    
+    # PATCH 13A-4F: Emit external_verification_started
+    _emit_verification_event("external_verification_started", project_id)
     
     # Extract claimed identity
     claimed = _extract_claimed_identity(project_id)
@@ -109,6 +125,19 @@ def verify_contractor_identity(
     
     # Feed compliance health registry
     _feed_compliance_health(verification)
+    
+    # PATCH 13A-4F: Emit external_verification_completed
+    _emit_verification_event(
+        "external_verification_completed",
+        project_id,
+        metadata={
+            "status": verification.status.value if verification.status else "UNKNOWN",
+            "confidence": verification.confidence,
+            "uei_status": verification.uei_status.value if verification.uei_status else "UNKNOWN",
+            "cage_status": verification.cage_status.value if verification.cage_status else "UNKNOWN",
+            "registration_status": verification.registration_status.value if verification.registration_status else "UNKNOWN",
+        },
+    )
     
     return verification
 

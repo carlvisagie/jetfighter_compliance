@@ -346,7 +346,15 @@ def test_intelligence_artifacts_exist_only_under_projects(fb_env, anon_client: T
 
 
 def test_post_kickoff_events_appear_in_telemetry(tmp_path):
-    """Post-kickoff events should be logged to telemetry."""
+    """Post-kickoff events should be logged to telemetry.
+    
+    PATCH 13A-4F: Updated to check for canonical event names.
+    - evidence_intelligence_started (canonical) + post_kickoff_intelligence_started (alias)
+    - cognition_started (canonical)
+    - evidence_intelligence_completed (canonical)
+    - cognition_completed (canonical)
+    - post_kickoff_intelligence_completed (alias)
+    """
     from services.intake.kickoff import _run_post_kickoff_intelligence
     
     project_id = "P-telemetry-test"
@@ -360,17 +368,23 @@ def test_post_kickoff_events_appear_in_telemetry(tmp_path):
     def capture_emit(*args, **kwargs):
         captured_events.append({"event_type": args[0] if args else None, "kwargs": kwargs})
     
+    # PATCH 13A-4F: Patch at both module level and imported references
     with patch("services.config.PROJECTS", tmp_path / "projects"):
         with patch("services.evidence_intelligence.process_evidence_upload"):
             with patch("services.cognition.storage.run_cognition_safely", return_value={"status": "success"}):
-                with patch("services.intake.kickoff.emit_intake_event", capture_emit):
-                    with patch("services.intake.telemetry.emit_intake_event", capture_emit):
-                        _run_post_kickoff_intelligence(project_id, intake_id, email="telemetry@test.com")
+                # Patch telemetry source
+                with patch("services.intake.telemetry.emit_intake_event", capture_emit):
+                    with patch("services.intake.telemetry.emit_lifecycle_event", capture_emit):
+                        # Also patch imported reference in kickoff module
+                        with patch("services.intake.kickoff.emit_intake_event", capture_emit):
+                            _run_post_kickoff_intelligence(project_id, intake_id, email="telemetry@test.com")
     
     event_types = [e["event_type"] for e in captured_events]
     
-    # All required events should be emitted
-    assert "post_kickoff_intelligence_started" in event_types
+    # PATCH 13A-4F: Check canonical event names (aliases may also be present)
+    # evidence_intelligence_started is canonical, post_kickoff_intelligence_started is alias
+    assert "evidence_intelligence_started" in event_types or "post_kickoff_intelligence_started" in event_types
+    assert "cognition_started" in event_types
     assert "evidence_intelligence_completed" in event_types
     assert "cognition_completed" in event_types
     assert "post_kickoff_intelligence_completed" in event_types

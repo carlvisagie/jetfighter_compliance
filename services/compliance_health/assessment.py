@@ -68,6 +68,24 @@ def build_assessment(project_id: str) -> ComplianceHealthAssessment:
     path = assessment_path(project_id)
     path.write_text(json.dumps(assessment.model_dump(), indent=2), encoding="utf-8")
     
+    # PATCH 13A-4F: Emit compliance_health_completed lifecycle event
+    try:
+        from services.intake.telemetry import emit_lifecycle_event
+        emit_lifecycle_event(
+            "compliance_health_completed",
+            message=f"Compliance health assessment completed for {project_id}",
+            metadata={
+                "project_id": project_id,
+                "assessment_id": assessment.assessment_id,
+                "overall_status": assessment.overall_status,
+                "coverage_percent": assessment.verification_coverage_percent,
+                "missing_count": len(missing),
+                "blocking_failures": len(blocking_failed),
+            },
+        )
+    except Exception:
+        pass
+    
     return assessment
 
 

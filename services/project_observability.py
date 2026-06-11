@@ -307,17 +307,30 @@ def _get_timeline_events(project_id: str) -> List[Dict[str, Any]]:
     if telemetry_path.is_file():
         all_events = _read_jsonl_safe(telemetry_path, limit=1000)
         
-        # Filter events related to this project
+        # PATCH 13A-4F: Canonical lifecycle events + backward-compatible aliases
         relevant_types = {
-            "post_kickoff_intelligence_started",
+            # Canonical lifecycle events
+            "upload_started",
+            "upload_completed",
+            "verified_complete",
+            "external_verification_started",
+            "external_verification_completed",
+            "project_kickoff_started",
+            "project_kickoff_completed",
+            "evidence_intelligence_started",
             "evidence_intelligence_completed",
+            "cognition_started",
             "cognition_completed",
-            "post_kickoff_intelligence_completed",
+            "validation_started",
             "validation_completed",
             "compliance_health_completed",
+            # Legacy aliases for backward compatibility
+            "pilot_upload_started",
+            "pilot_upload_completed",
+            "post_kickoff_intelligence_started",
+            "post_kickoff_intelligence_completed",
             "intake_kickoff_project",
             "intake_verified_complete",
-            "external_verification_completed",
         }
         
         for evt in all_events:

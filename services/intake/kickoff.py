@@ -37,16 +37,18 @@ def _run_post_kickoff_intelligence(project_id: str, intake_id: str, email: str =
     """
     from .telemetry import emit_intake_event as _emit_event
     
-    # Emit organism-visible event: Intelligence processing started
-    _emit_event(
-        "post_kickoff_intelligence_started",
-        message=f"Starting intelligence processing for {project_id}",
+    # PATCH 13A-4F: Emit canonical evidence_intelligence_started with alias
+    from .telemetry import emit_lifecycle_event
+    emit_lifecycle_event(
+        "evidence_intelligence_started",
+        message=f"Starting Evidence Intelligence for {project_id}",
         metadata={
             "project_id": project_id,
             "intake_id": intake_id,
             "email": email,
             "stage": "evidence_intelligence",
         },
+        alias="post_kickoff_intelligence_started",
     )
     
     # Run Evidence Intelligence with accurate success tracking
@@ -108,6 +110,16 @@ def _run_post_kickoff_intelligence(project_id: str, intake_id: str, email: str =
         },
     )
     
+    # PATCH 13A-4F: Emit cognition_started
+    emit_lifecycle_event(
+        "cognition_started",
+        message=f"Starting Cognition for {project_id}",
+        metadata={
+            "project_id": project_id,
+            "intake_id": intake_id,
+        },
+    )
+    
     # Run Cognition
     cognition_success = False
     try:
@@ -155,6 +167,8 @@ def kickoff_project_from_intake(
     operator_note: str = "",
     order_id: str = "",
 ) -> Dict[str, Any]:
+    from .telemetry import emit_lifecycle_event
+    
     rec = load_intake_record(intake_id, persist_recovery=True)
     
     # PATCH 13A-4C: Idempotency guard — prevent duplicate project creation
@@ -171,6 +185,15 @@ def kickoff_project_from_intake(
             "intake_json_path": str(intake_json_path(intake_id)),
             "idempotent_return": True,
         }
+    
+    # PATCH 13A-4F: Emit project_kickoff_started
+    emit_lifecycle_event(
+        "project_kickoff_started",
+        message=f"Starting project kickoff for {intake_id}",
+        metadata={
+            "intake_id": intake_id,
+        },
+    )
     
     uploads = ensure_canonical_intake_dir(intake_id) / "uploads"
     if not uploads.is_dir() or not any(uploads.iterdir()):
@@ -257,14 +280,16 @@ def kickoff_project_from_intake(
 
     _save_intake(intake_id, rec)
 
-    emit_intake_event(
-        "intake_kickoff_project",
+    # PATCH 13A-4F: Emit project_kickoff_completed with alias
+    emit_lifecycle_event(
+        "project_kickoff_completed",
         message=f"{intake_id} → {project_id}",
         metadata={
             "intake_id": intake_id,
             "project_id": project_id,
             "files_linked": len(linked),
         },
+        alias="intake_kickoff_project",
     )
     
     # Post-kickoff intelligence trigger

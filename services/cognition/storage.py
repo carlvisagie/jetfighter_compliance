@@ -223,9 +223,34 @@ def run_cognition_safely(project_id: str, base_dir: Path = None) -> dict:
             f.write(metrics.model_dump_json(indent=2))
             
         # 8. Write validation_report.json
+        # PATCH 13A-4F: Emit validation_started
+        try:
+            from services.intake.telemetry import emit_lifecycle_event
+            emit_lifecycle_event(
+                "validation_started",
+                message=f"Starting validation for {project_id}",
+                metadata={"project_id": project_id},
+            )
+        except Exception:
+            pass
+        
         validation = build_validation_report(project_id, state, resolutions, docs)
         with open(cognition_dir / "validation_report.json", "w", encoding="utf-8") as f:
             f.write(validation.model_dump_json(indent=2))
+        
+        # PATCH 13A-4F: Emit validation_completed
+        try:
+            emit_lifecycle_event(
+                "validation_completed",
+                message=f"Validation completed for {project_id}",
+                metadata={
+                    "project_id": project_id,
+                    "human_review_items": len(validation.human_review_items),
+                    "safety_warnings": len(validation.safety_warnings),
+                },
+            )
+        except Exception:
+            pass
             
         # 9. Write organism_score.json and launch_gate.json
         scorecard = calculate_scorecard(state, metrics, validation)
