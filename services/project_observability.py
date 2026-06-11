@@ -400,11 +400,21 @@ def _get_payment_state(project_id: str) -> Dict[str, Any]:
     return state
 
 
-def _get_timeline_events(project_id: str) -> List[Dict[str, Any]]:
-    """Get relevant timeline events from telemetry."""
+def _get_timeline_events(project_id: str, intake_id: str = "") -> List[Dict[str, Any]]:
+    """Get relevant timeline events from telemetry.
+    
+    PATCH 13A-5E: Also includes events for linked intake_id to capture
+    upload_started, upload_completed, external_verification_completed,
+    and other intake-scoped events that occur before project kickoff.
+    """
     from services.durable_storage import active_data_root
     
     events: List[Dict[str, Any]] = []
+    
+    # Build set of IDs to search for (project_id AND linked intake_id)
+    search_ids = {project_id}
+    if intake_id:
+        search_ids.add(intake_id)
     
     # Load from telemetry.jsonl
     telemetry_path = active_data_root() / "memory" / "telemetry.jsonl"
@@ -441,13 +451,21 @@ def _get_timeline_events(project_id: str) -> List[Dict[str, Any]]:
         }
         
         for evt in all_events:
-            # Check if event is about this project
+            # Check if event is about this project OR its linked intake
             meta = evt.get("metadata") or {}
-            evt_project = meta.get("project_id") or meta.get("intake_id") or ""
+            evt_project = meta.get("project_id") or ""
+            evt_intake = meta.get("intake_id") or ""
             
-            if project_id in str(evt) or evt_project == project_id:
+            # Match if any search ID appears in metadata OR in event string
+            matches_id = (
+                evt_project in search_ids
+                or evt_intake in search_ids
+                or any(sid in str(evt) for sid in search_ids)
+            )
+            
+            if matches_id:
                 event_type = evt.get("event_type") or evt.get("event") or ""
-                if event_type in relevant_types or project_id in str(evt):
+                if event_type in relevant_types or any(sid in str(evt) for sid in search_ids):
                     events.append({
                         "event_type": event_type,
                         "timestamp": evt.get("timestamp") or evt.get("recorded_utc") or "",
@@ -511,7 +529,9 @@ def get_project_observability(project_id: str) -> Dict[str, Any]:
     cognition = _get_cognition_state(project_id)
     validation = _get_validation_state(project_id)
     compliance_health = _get_compliance_health_state(project_id)
-    timeline = _get_timeline_events(project_id)
+    # PATCH 13A-5E: Pass intake_id to capture intake-scoped events
+    intake_id = kickoff.get("canonical_intake_id") or ""
+    timeline = _get_timeline_events(project_id, intake_id=intake_id)
     
     return {
         "ok": True,
