@@ -481,6 +481,13 @@ def create_intelligence_from_discovery(
     uei: str = "",
     location: str = "",
     source: str = "usaspending_public_api",
+    lead_id: str = "",
+    website: str = "",
+    contact_email: str = "",
+    industry: str = "",
+    notes: str = "",
+    contract_value: Optional[float] = None,
+    naics: str = "",
 ) -> CustomerIntelligenceRecord:
     """
     Create a minimal intelligence record from discovery data.
@@ -488,6 +495,7 @@ def create_intelligence_from_discovery(
     Most fields will be UNKNOWN - this is honest, not a failure.
     """
     record = CustomerIntelligenceRecord()
+    record.source_lead_id = lead_id
     
     # Set what we know
     if company_name:
@@ -514,6 +522,38 @@ def create_intelligence_from_discovery(
             state=SignalState.KNOWN,
         )
     
+    if website:
+        record.website = EvidencedValue(
+            value=website,
+            source=source,
+            confidence=0.90,
+            state=SignalState.KNOWN,
+        )
+    
+    if contact_email:
+        record.contact_email = EvidencedValue(
+            value=contact_email,
+            source=source,
+            confidence=0.85,
+            state=SignalState.KNOWN,
+        )
+    
+    if industry:
+        record.industry = EvidencedValue(
+            value=industry,
+            source=source,
+            confidence=0.75,
+            state=SignalState.KNOWN,
+        )
+    
+    if naics:
+        record.naics = EvidencedValue(
+            value=naics,
+            source=source,
+            confidence=0.95,
+            state=SignalState.KNOWN,
+        )
+    
     # Contract count is at least 1 since they're in USASpending
     record.contract_count = EvidencedValue(
         value=1,  # Minimum - they have at least one award
@@ -521,6 +561,25 @@ def create_intelligence_from_discovery(
         confidence=0.50,  # Low confidence on exact count
         state=SignalState.KNOWN,
     )
+    
+    if contract_value is not None:
+        record.contract_value = EvidencedValue(
+            value=contract_value,
+            source=source,
+            confidence=0.90,
+            state=SignalState.KNOWN,
+        )
+    
+    # Check for DoD exposure from notes or industry
+    notes_lower = (notes or "").lower()
+    industry_lower = (industry or "").lower()
+    if any(kw in notes_lower or kw in industry_lower for kw in ["dod", "defense", "military", "army", "navy", "air force"]):
+        record.dod_exposure = EvidencedValue(
+            value=True,
+            source=source,
+            confidence=0.70,
+            state=SignalState.KNOWN,
+        )
     
     # Update computed scores
     record.contactability_score = EvidencedValue(
@@ -547,7 +606,11 @@ def _intelligence_dir() -> Path:
 def save_intelligence_record(record: CustomerIntelligenceRecord) -> None:
     """Save intelligence record to disk."""
     if not record.record_id:
-        record.record_id = f"INT-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+        import uuid
+        # Use timestamp + uuid suffix to ensure uniqueness even within same second
+        ts = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
+        suffix = uuid.uuid4().hex[:6]
+        record.record_id = f"INT-{ts}-{suffix}"
     
     record.updated_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     
@@ -648,3 +711,124 @@ def get_intelligence_summary() -> Dict[str, Any]:
         summary["average_completeness"] = round(total_completeness / len(records), 1)
     
     return summary
+
+
+def find_intelligence_by_company(company_name: str) -> Optional[CustomerIntelligenceRecord]:
+    """Find an existing intelligence record by company name (case-insensitive)."""
+    if not company_name:
+        return None
+    
+    normalized = company_name.strip().lower()
+    for record in get_all_intelligence_records():
+        if record.company_name.value and record.company_name.value.strip().lower() == normalized:
+            return record
+    return None
+
+
+def find_intelligence_by_lead_id(lead_id: str) -> Optional[CustomerIntelligenceRecord]:
+    """Find an existing intelligence record by source lead ID."""
+    if not lead_id:
+        return None
+    
+    for record in get_all_intelligence_records():
+        if record.source_lead_id == lead_id:
+            return record
+    return None
+
+
+def create_or_update_intelligence(
+    company_name: str,
+    uei: str = "",
+    location: str = "",
+    source: str = "usaspending_public_api",
+    lead_id: str = "",
+    website: str = "",
+    contact_email: str = "",
+    industry: str = "",
+    notes: str = "",
+    contract_value: Optional[float] = None,
+    naics: str = "",
+) -> tuple[CustomerIntelligenceRecord, bool]:
+    """
+    Create or update an intelligence record.
+    
+    Returns (record, is_new) tuple.
+    Deduplicates by company name (case-insensitive).
+    """
+    # Check for existing record by lead_id first, then by company name
+    existing = find_intelligence_by_lead_id(lead_id) if lead_id else None
+    if not existing:
+        existing = find_intelligence_by_company(company_name)
+    
+    if existing:
+        # Update existing record with any new information
+        if website and existing.website.state == SignalState.UNKNOWN:
+            existing.website = EvidencedValue(
+                value=website,
+                source=source,
+                confidence=0.90,
+                state=SignalState.KNOWN,
+            )
+        if contact_email and existing.contact_email.state == SignalState.UNKNOWN:
+            existing.contact_email = EvidencedValue(
+                value=contact_email,
+                source=source,
+                confidence=0.85,
+                state=SignalState.KNOWN,
+            )
+        if location and existing.location.state == SignalState.UNKNOWN:
+            existing.location = EvidencedValue(
+                value=location,
+                source=source,
+                confidence=0.80,
+                state=SignalState.KNOWN,
+            )
+        if industry and existing.industry.state == SignalState.UNKNOWN:
+            existing.industry = EvidencedValue(
+                value=industry,
+                source=source,
+                confidence=0.75,
+                state=SignalState.KNOWN,
+            )
+        if uei and existing.uei.state == SignalState.UNKNOWN:
+            existing.uei = EvidencedValue(
+                value=uei,
+                source=source,
+                confidence=0.99,
+                state=SignalState.KNOWN,
+            )
+        if naics and existing.naics.state == SignalState.UNKNOWN:
+            existing.naics = EvidencedValue(
+                value=naics,
+                source=source,
+                confidence=0.95,
+                state=SignalState.KNOWN,
+            )
+        
+        # Update contactability
+        existing.contactability_score = EvidencedValue(
+            value=existing.compute_contactability(),
+            source="computed",
+            confidence=0.90,
+            state=SignalState.KNOWN,
+        )
+        
+        save_intelligence_record(existing)
+        return existing, False
+    
+    # Create new record
+    record = create_intelligence_from_discovery(
+        company_name=company_name,
+        uei=uei,
+        location=location,
+        source=source,
+        lead_id=lead_id,
+        website=website,
+        contact_email=contact_email,
+        industry=industry,
+        notes=notes,
+        contract_value=contract_value,
+        naics=naics,
+    )
+    save_intelligence_record(record)
+    return record, True

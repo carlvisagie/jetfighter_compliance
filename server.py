@@ -3322,6 +3322,79 @@ def operator_customer_intelligence_enrichment_status(request: Request, record_id
     }
 
 
+@app.post("/api/operator/customer-intelligence/backfill")
+async def operator_customer_intelligence_backfill(request: Request):
+    """
+    PATCH 13A-14A: Backfill intelligence records from existing leads/targets.
+    
+    Creates CustomerIntelligenceRecords for all existing leads that don't
+    already have one. Does NOT send emails or contact leads.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.storage import load_all_leads
+    from services.acquisition.ideal_customer_profile import (
+        create_or_update_intelligence,
+        find_intelligence_by_lead_id,
+    )
+    
+    require_ops_access(request)
+    
+    leads, _ = load_all_leads()
+    
+    stats = {
+        "ok": True,
+        "total_leads": len(leads),
+        "created": 0,
+        "updated": 0,
+        "skipped": 0,
+        "errors": 0,
+        "error_samples": [],
+    }
+    
+    for lead in leads:
+        try:
+            # Check if already exists
+            existing = find_intelligence_by_lead_id(lead.lead_id)
+            if existing:
+                stats["skipped"] += 1
+                continue
+            
+            record, is_new = create_or_update_intelligence(
+                company_name=lead.company_name,
+                uei="",  # Not available in leads
+                location=lead.location or "",
+                source=lead.source or "backfill",
+                lead_id=lead.lead_id,
+                website=lead.website or "",
+                contact_email=lead.contact_email or "",
+                industry=lead.industry or "",
+                notes=lead.notes or "",
+                naics="",  # Not available in leads
+            )
+            
+            if is_new:
+                stats["created"] += 1
+            else:
+                stats["updated"] += 1
+                
+        except Exception as e:
+            stats["errors"] += 1
+            if len(stats["error_samples"]) < 5:
+                stats["error_samples"].append({
+                    "lead_id": lead.lead_id,
+                    "company": lead.company_name,
+                    "error": str(e)[:100],
+                })
+    
+    stats["message"] = (
+        f"Backfill complete: {stats['created']} created, "
+        f"{stats['updated']} updated, {stats['skipped']} skipped, "
+        f"{stats['errors']} errors."
+    )
+    
+    return stats
+
+
 @app.get("/api/operator/operational-alerts")
 def operator_operational_alerts():
     from services.alerts import get_operator_dashboard

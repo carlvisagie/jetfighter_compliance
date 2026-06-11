@@ -242,6 +242,48 @@ def ingest_discovery_candidate(
         base=base,
     )
 
+    # PATCH 13A-14A: Create CustomerIntelligenceRecord for the new intelligence system
+    intelligence_record = None
+    intelligence_created = False
+    try:
+        from .ideal_customer_profile import create_or_update_intelligence
+        
+        intelligence_record, intelligence_created = create_or_update_intelligence(
+            company_name=company,
+            uei=row.get("uei", ""),
+            location=cleaned.get("location", ""),
+            source=cleaned.get("source", "public_discovery"),
+            lead_id=lead.lead_id,
+            website=cleaned.get("website", ""),
+            contact_email=cleaned.get("contact_email", ""),
+            industry=cleaned.get("industry", ""),
+            notes=cleaned.get("notes", ""),
+            contract_value=row.get("contract_value"),
+            naics=row.get("naics", ""),
+        )
+        
+        telemetry.emit(
+            "intelligence_record_created" if intelligence_created else "intelligence_record_updated",
+            lead_id=lead.lead_id,
+            target_id=target["target_id"],
+            metadata={
+                "record_id": intelligence_record.record_id if intelligence_record else None,
+                "company_name": company,
+                "is_new": intelligence_created,
+            },
+            base=base,
+        )
+    except Exception as e:
+        # Intelligence creation failure must not break discovery
+        telemetry.emit(
+            "intelligence_creation_failed",
+            lead_id=lead.lead_id,
+            target_id=target["target_id"],
+            success=False,
+            metadata={"error": str(e)[:200], "company_name": company},
+            base=base,
+        )
+
     # PATCH 13A-8A: Autonomous outreach safety gate
     # Auto-send is DISABLED by default. All leads remain draft_only until
     # explicitly approved by operator via send-approved endpoints.
