@@ -3383,6 +3383,80 @@ async def operator_customer_intelligence_decision_maker_enrich_single(
     }
 
 
+# =============================================================================
+# PATCH 13A-21: Compliance Trigger Intelligence Endpoints
+# =============================================================================
+
+@app.get("/api/operator/customer-intelligence/trigger-signals")
+def operator_customer_intelligence_trigger_signals(
+    request: Request,
+):
+    """
+    PATCH 13A-21: Get compliance trigger signal inventory.
+    
+    Returns available and missing trigger signals.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.compliance_trigger_intelligence import get_trigger_signal_inventory
+    
+    require_ops_access(request)
+    
+    return get_trigger_signal_inventory()
+
+
+@app.get("/api/operator/customer-intelligence/compliance-triggers")
+def operator_customer_intelligence_compliance_triggers(
+    request: Request,
+    limit: int = 20,
+):
+    """
+    PATCH 13A-21: Get top compliance trigger report.
+    
+    Returns companies ranked by trigger strength with full explainability.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.compliance_trigger_intelligence import generate_compliance_trigger_report
+    
+    require_ops_access(request)
+    
+    if limit > 50:
+        limit = 50
+    
+    return generate_compliance_trigger_report(limit=limit)
+
+
+@app.get("/api/operator/customer-intelligence/compliance-trigger-validation")
+def operator_customer_intelligence_compliance_trigger_validation(
+    request: Request,
+):
+    """
+    PATCH 13A-21: Validate compliance trigger intelligence.
+    
+    Returns validation status and best trigger company.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.compliance_trigger_intelligence import validate_compliance_trigger_intelligence
+    
+    require_ops_access(request)
+    
+    return validate_compliance_trigger_intelligence()
+
+
+@app.get("/api/operator/customer-intelligence/compliance-trigger-metrics")
+def operator_customer_intelligence_compliance_trigger_metrics(
+    request: Request,
+):
+    """
+    PATCH 13A-21: Get compliance trigger metrics for organism state.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.compliance_trigger_intelligence import compute_compliance_trigger_metrics
+    
+    require_ops_access(request)
+    
+    return compute_compliance_trigger_metrics()
+
+
 @app.get("/api/operator/customer-intelligence/{record_id}")
 def operator_customer_intelligence_detail(request: Request, record_id: str):
     """Get full intelligence record with all evidenced fields."""
