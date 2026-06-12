@@ -369,7 +369,8 @@ def _flatten_for_legacy_api(core_snapshot: Dict[str, Any]) -> Dict[str, Any]:
     # PATCH PRODUCTION-ONLY-2: Classification-aware health
     try:
         classification_health = _compute_classification_health(core_snapshot, all_classifications)
-    except Exception:
+    except Exception as e:
+        logger.exception("Classification health computation failed: %s", e)
         classification_health = {
             "real_project_count": 0,
             "test_project_count": 0,
@@ -383,6 +384,7 @@ def _flatten_for_legacy_api(core_snapshot: Dict[str, Any]) -> Dict[str, Any]:
             "real_only_health": "GREEN",
             "test_only_health": "UNKNOWN",
             "real_only_launch_verdict": "UNKNOWN",
+            "_error": str(e),
         }
     
     # PATCH 13A-12: Add customer intelligence metrics
