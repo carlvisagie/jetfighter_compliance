@@ -60,13 +60,15 @@ powershell -File scripts/verify-production-live.ps1
 
 See [`CENTRAL_MEMORY.md`](./CENTRAL_MEMORY.md) and [`KYC_ORGANISM_INTEGRATION_AUDIT.md`](./KYC_ORGANISM_INTEGRATION_AUDIT.md). Ops UI: `/ui/memory.html`.
 
-## Lead Discovery Engine
+## Customer Intelligence System
 
-See [`LEAD_DISCOVERY_ENGINE.md`](./LEAD_DISCOVERY_ENGINE.md) — CSV import, scoring, review queue. Ops UI: `/ui/lead_discovery.html`. Run: `python scripts/acquisition_import_candidates.py`.
+See [`AUTONOMOUS_ACQUISITION_ORGANISM.md`](./AUTONOMOUS_ACQUISITION_ORGANISM.md) — CustomerIntelligenceRecord, enrichment pipelines, buying likelihood, decision maker intelligence. Operator panel: Control → Customer Intelligence.
+
+For the complete documentation map: [`ACQUISITION_DOCUMENT_MAP.md`](./ACQUISITION_DOCUMENT_MAP.md).
 
 ## Controlled onboarding tests (MVP)
 
-See [`CONTROLLED_ONBOARDING_ACQUISITION.md`](./CONTROLLED_ONBOARDING_ACQUISITION.md) — targets, outreach copy, CSV tracking, Sintra worker roles. Ops UI: `/ui/onboarding_validation.html`.
+See [`CONTROLLED_ONBOARDING_ACQUISITION.md`](./CONTROLLED_ONBOARDING_ACQUISITION.md) — target segments, outreach messaging, feedback capture.
 
 ## Agent context
 

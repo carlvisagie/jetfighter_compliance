@@ -2,8 +2,7 @@
 
 **Purpose:** Run 5–15 real onboarding tests—not a marketing program.  
 **Live entry:** `https://compliance.keepyourcontracts.com/ui/inquiry.html`  
-**Ops hub:** `/ui/onboarding_validation.html`  
-**Tracking files:** `data/acquisition/`
+**Acquisition intelligence:** See [`AUTONOMOUS_ACQUISITION_ORGANISM.md`](./AUTONOMOUS_ACQUISITION_ORGANISM.md)
 
 ---
 
@@ -16,7 +15,7 @@ Pick subjects you can **observe end-to-end** (inquiry → intake → upload). On
 | **Aerospace suppliers** | Tier 2/3 shops, machine shops, coating/NADCAP-adjacent vendors selling into primes | Documentation stress, customer audit packets, CMMC pressure | No documentation owner; wants instant certification |
 | **Manufacturing operators** | Plant/ops leaders with customer compliance questionnaires | Repeatable evidence requests, scattered policies on drives | Under 10 employees with no compliance owner |
 | **Compliance-heavy SMBs** | Regulated services (medical supply, defense services, critical infrastructure vendors) | Already maintain policies; need structure not slogans | Shopping on price only; no time for intake |
-| **Audit/documentation stressed** | Person who owns “send the binder” before customer visits | Clear pain: version chaos, missing artifacts, last-minute scrambles | Refuses to upload samples; expects you to pass audit for them |
+| **Audit/documentation stressed** | Person who owns "send the binder" before customer visits | Clear pain: version chaos, missing artifacts, last-minute scrambles | Refuses to upload samples; expects you to pass audit for them |
 
 **MVP cohort size:** 5–8 subjects max. Pause outreach after cohort fills.
 
@@ -29,7 +28,7 @@ Pick subjects you can **observe end-to-end** (inquiry → intake → upload). On
 
 ## B. Messaging (copy-ready)
 
-Tone: calm, operational, plain English. No AI hype, no “organism,” no architecture talk.
+Tone: calm, operational, plain English. No AI hype, no "organism," no architecture talk.
 
 ### LinkedIn outreach (short)
 
@@ -37,10 +36,10 @@ Tone: calm, operational, plain English. No AI hype, no “organism,” no archit
 > Hi [Name] — I work with small suppliers who get hit with documentation requests from primes and audits. We run a simple readiness review: you show what you already have, we help organize it and flag gaps. No pitch deck — one form, then a short intake. Worth a 10-minute look if paperwork is eating your week?
 
 **Manufacturing operator**
-> Hi [Name] — many ops leaders I talk to are tired of digging for the same policies every time a customer asks for proof. We offer a structured readiness review: upload what exists, get clarity on what’s missing. If that’s a current headache, I can send the one-link start.
+> Hi [Name] — many ops leaders I talk to are tired of digging for the same policies every time a customer asks for proof. We offer a structured readiness review: upload what exists, get clarity on what's missing. If that's a current headache, I can send the one-link start.
 
 **Compliance-heavy / audit-stressed**
-> Hi [Name] — if you’re the person who pulls the binder together before visits, this may help. We focus on documentation clarity and a guided intake—not promises about passing audits. One link to start a readiness review when you have 15 minutes.
+> Hi [Name] — if you're the person who pulls the binder together before visits, this may help. We focus on documentation clarity and a guided intake—not promises about passing audits. One link to start a readiness review when you have 15 minutes.
 
 ### Email outreach (short)
 
@@ -55,7 +54,7 @@ Tone: calm, operational, plain English. No AI hype, no “organism,” no archit
 >  
 > Start here: https://compliance.keepyourcontracts.com/ui/inquiry.html?subject=CMMC%20Level%201&ref=mvp-email-[id]  
 >  
-> If timing’s wrong, reply “later” — no follow-up barrage.  
+> If timing's wrong, reply "later" — no follow-up barrage.  
 >  
 > [Your name]
 
@@ -63,31 +62,40 @@ Tone: calm, operational, plain English. No AI hype, no “organism,” no archit
 
 > Thanks for trying this with us.  
 >  
-> **What to do:** Open the link below and submit the readiness review (2–3 minutes). You’ll get an intake link—please complete intake the same day if possible so we can see the full path.  
+> **What to do:** Open the link below and submit the readiness review (2–3 minutes). You'll get an intake link—please complete intake the same day if possible so we can see the full path.  
 >  
-> **What to have ready:** One sample policy, org chart, or customer questionnaire you’ve struggled with.  
+> **What to have ready:** One sample policy, org chart, or customer questionnaire you've struggled with.  
 >  
-> **What we don’t do:** We don’t guarantee audit outcomes or certification. This is organization and visibility support.  
+> **What we don't do:** We don't guarantee audit outcomes or certification. This is organization and visibility support.  
 >  
 > Link: [personalized inquiry URL with `ref=`]  
 >  
-> If anything is confusing, reply to this email—that’s exactly what we’re testing.
+> If anything is confusing, reply to this email—that's exactly what we're testing.
 
 ---
 
-## C. Tracking (lightweight)
+## C. Prospect intelligence
 
-Use `data/acquisition/tracking.csv` (one row per subject).
+Prospect discovery and qualification is handled by the **Customer Intelligence System**. See [`AUTONOMOUS_ACQUISITION_ORGANISM.md`](./AUTONOMOUS_ACQUISITION_ORGANISM.md) for full details.
 
-| Stage | Field | How to mark |
-|-------|-------|-------------|
-| Outreach sent | `outreach_sent` | YYYY-MM-DD |
-| Response received | `response_received` | Y / date |
-| Inquiry clicked | `inquiry_clicked` | Y if they opened your link |
-| Inquiry submitted | `inquiry_submitted` | Match `project_id` from ops inbox |
-| Intake completed | `intake_completed` | Workflow `intake_received` = done |
+**Key concepts:**
 
-**Inquiry routing:** Every outreach link includes `ref=mvp-[segment]-[001]` (see ops hub). The ref is appended to the inquiry message for ops matching.
+| Component | Purpose |
+|-----------|---------|
+| `CustomerIntelligenceRecord` | Structured intelligence on each prospect |
+| `EvidencedValue` | Every field has value, source, confidence, state |
+| Buying Likelihood Engine | Evidence-backed prospect ranking |
+| Decision Maker Intelligence | Identifies who can buy |
+
+**Operator workflow:**
+
+1. Discovery runs via `/api/operator/acquisition-intelligence/run`
+2. Intelligence records enriched via USASpending, website discovery
+3. Top prospects ranked at `/api/operator/top-prospects`
+4. Operator reviews evidence and decides to contact (or not)
+5. **All outreach is manual and operator-approved**
+
+**Inquiry routing:** Every outreach link includes `ref=mvp-[segment]-[001]`. The ref is appended to the inquiry message for ops matching.
 
 **Correlate in ops:** Control → Inbox / Status → project `P-INQ-…` → events `EVT-…-ORDER`.
 
@@ -95,37 +103,21 @@ Use `data/acquisition/tracking.csv` (one row per subject).
 
 ## D. Feedback capture
 
-Use `data/acquisition/feedback.csv` after each subject completes or abandons.
+Track feedback after each subject completes or abandons.
 
 | Category | Examples to log |
 |----------|-----------------|
-| Confusion | “Didn’t know what to upload,” “subject line unclear” |
+| Confusion | "Didn't know what to upload," "subject line unclear" |
 | Abandonment | Stopped after inquiry / before intake / before upload |
-| Friction | Too many fields, link didn’t open on mobile, intake token expired |
-| Trust | “Thought you were certifying body,” “wanted price first” |
-| Wording | Misread CTA, “readiness review” vs “audit” |
+| Friction | Too many fields, link didn't open on mobile, intake token expired |
+| Trust | "Thought you were certifying body," "wanted price first" |
+| Wording | Misread CTA, "readiness review" vs "audit" |
 
 Use `data/acquisition/observation_log.md` for **human onboarding observation** (screen share notes, time-on-step, verbatim quotes).
 
 ---
 
-## E. Sintra workers (controlled testing only)
-
-Use workers as **draft assistants**, not autonomous outbound engines. Owner approves every send.
-
-| Worker | Role in this MVP | Do | Don’t |
-|--------|------------------|-----|-------|
-| **Buddy** | Warm tone, relationship-safe follow-ups | Soften LinkedIn DM, thank-you after intake | Mass connection requests |
-| **Milli** | Target list + segment tags | Build spreadsheet of 10 names with segment A–D | Scrape thousands of leads |
-| **Penn** | Copy clarity | Tighten email/invite to 120 words, plain English | Add AI/futurist language |
-| **Soshie** (optional) | Schedule reminder posts | 1 post/week max pointing to readiness review | Ad campaigns, automation bots |
-
-**Prompt shell for Penn/Milli:**
-> We are running 5 controlled onboarding tests for a documentation readiness service. Audience: [segment]. Write a 3-sentence LinkedIn message and a 6-sentence email. Rules: no AI hype, no guarantees of passing audits, emphasize organizing existing documents. Include placeholder for ref link.
-
----
-
-## F. Human onboarding observation checklist
+## E. Human onboarding observation checklist
 
 During each test session, note:
 
@@ -140,7 +132,7 @@ Stop the cohort when **3 completes full path** or **5 total subjects**—whichev
 
 ---
 
-## G. Segment inquiry links (copy into outreach)
+## F. Segment inquiry links (copy into outreach)
 
 | Segment | URL |
 |---------|-----|
@@ -153,7 +145,7 @@ Base: `https://compliance.keepyourcontracts.com`
 
 ---
 
-## H. Success criteria for this phase
+## G. Success criteria for this phase
 
 | Metric | MVP pass |
 |--------|----------|
@@ -161,3 +153,11 @@ Base: `https://compliance.keepyourcontracts.com`
 | Documented feedback rows | ≥ 1 per subject |
 | Critical blocker | None that stop intake without ops workaround |
 | Scale outreach | **Not started** until cohort feedback incorporated |
+
+---
+
+## Related documents
+
+- [`AUTONOMOUS_ACQUISITION_ORGANISM.md`](./AUTONOMOUS_ACQUISITION_ORGANISM.md) — Canonical acquisition architecture
+- [`LAUNCH_PATH.md`](./LAUNCH_PATH.md) — Production onboarding flow
+- [`FIRST_SALE_OPERATOR_SOP.md`](./FIRST_SALE_OPERATOR_SOP.md) — Payment workflow

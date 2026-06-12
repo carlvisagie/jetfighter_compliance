@@ -1,40 +1,35 @@
 # Acquisition (controlled MVP)
 
-**Not a CRM.** Lead discovery + manual funnel tracking.
+**Not a CRM.** Evidence-backed customer intelligence.
 
-## Lead Discovery Engine
+## Customer Intelligence System
 
-| Path | Use |
-|------|-----|
-| `leads/import_candidates.csv` | Paste owner/Sintra candidates, then run import script |
-| `leads/leads.jsonl` / `leads.csv` | Scored lead store (append-only import) |
-| `leads/review_queue.csv` | fit ≥ 65, needs owner review |
-| `reports/latest_discovery_report.md` | Last import summary |
+The acquisition system is documented in [`docs/AUTONOMOUS_ACQUISITION_ORGANISM.md`](../../docs/AUTONOMOUS_ACQUISITION_ORGANISM.md).
 
-```bash
-python scripts/acquisition_import_candidates.py
-```
+For the complete documentation map: [`docs/ACQUISITION_DOCUMENT_MAP.md`](../../docs/ACQUISITION_DOCUMENT_MAP.md).
 
-See `docs/LEAD_DISCOVERY_ENGINE.md` and `/ui/lead_discovery.html`.
-
-## Onboarding funnel tracking
-
-| File | Use |
-|------|-----|
-| `tracking.csv` | Funnel per subject (outreach → intake complete) |
-| `feedback.csv` | Confusion, friction, trust, wording |
-| `observation_log.md` | Human session notes |
-
-Use `ref=<lead_id>` from discovery handoff links. See `docs/CONTROLLED_ONBOARDING_ACQUISITION.md`.
-
-## Autonomous acquisition organism
+### Key directories
 
 | Path | Use |
 |------|-----|
-| `intelligence/targets.jsonl` | Scored targets with signals + upload routes |
-| `intelligence/signals.jsonl` | Detected pain/urgency bundles |
-| `intelligence/interactions.jsonl` | Organism telemetry mirror |
-| `intelligence/campaigns.jsonl` | Campaign runs |
-| `intelligence/winners.jsonl` / `failures.jsonl` / `experiments.jsonl` | Learning loop |
+| `../customer_intelligence/` | CustomerIntelligenceRecord JSON files |
+| `observation_log.md` | Human session notes for MVP validation |
 
-See `docs/AUTONOMOUS_ACQUISITION_ORGANISM.md`. Operator panel: Control → Acquisition Intelligence.
+### Operator access
+
+- **Customer Intelligence:** Control → Customer Intelligence
+- **Top Prospects:** `/api/operator/top-prospects`
+- **Buying Likelihood:** `/api/operator/customer-intelligence/buying-likelihood`
+
+## Legacy files (historical)
+
+The following files are from the superseded CSV-based system and are no longer used:
+
+| Path | Status |
+|------|--------|
+| `leads/` | Legacy lead storage (superseded by CustomerIntelligenceRecord) |
+| `tracking.csv` | Legacy funnel tracking |
+| `feedback.csv` | Legacy feedback capture |
+| `intelligence/` | Legacy signals/targets |
+
+See [`docs/LEAD_DISCOVERY_ENGINE.md`](../../docs/LEAD_DISCOVERY_ENGINE.md) (DEPRECATED) for historical reference only.

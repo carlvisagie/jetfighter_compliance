@@ -1,5 +1,12 @@
 # Lead Discovery Engine
 
+> **⚠️ DEPRECATED** — This document no longer reflects production architecture.  
+> **Refer to:** [`docs/AUTONOMOUS_ACQUISITION_ORGANISM.md`](./AUTONOMOUS_ACQUISITION_ORGANISM.md)  
+> **Reason:** The CSV-based lead import workflow has been replaced by the CustomerIntelligenceRecord system with USASpending discovery, enrichment pipelines, and buying likelihood intelligence.  
+> **Deprecated:** 2026-06-12
+
+---
+
 Production-grade **prospect intake** for JetFighter_Compliance. Finds and scores **candidate** companies from owner-approved sources—not autonomous spam outreach.
 
 ## What it does

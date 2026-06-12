@@ -1,5 +1,12 @@
 # Forensic acquisition intelligence
 
+> **⚠️ DEPRECATED** — This document no longer reflects production architecture.  
+> **Refer to:** [`docs/AUTONOMOUS_ACQUISITION_ORGANISM.md`](./AUTONOMOUS_ACQUISITION_ORGANISM.md)  
+> **Reason:** The intelligence scoring system (`ability_to_pay_score`, `urgency_score`, `compliance_pain_score`) has been replaced by evidence-backed `EvidencedValue` fields, buying signals, and the Buying Likelihood Engine.  
+> **Deprecated:** 2026-06-12
+
+---
+
 Lawful organizational memory for JetFighter_Compliance. **Not surveillance** — only user-provided onboarding data, uploaded paperwork metadata, and lawful public discovery sources.
 
 ## Core principle
