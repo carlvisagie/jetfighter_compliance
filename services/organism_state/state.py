@@ -100,7 +100,7 @@ def _compute_classification_health(
             validation_project_count += 1
     
     # Analyze blockers by classification
-    # A blocker is a RED check - need to identify which projects cause each RED
+    # A blocker is a RED check - use check evidence for classification
     real_blockers: List[Dict[str, Any]] = []
     test_blockers: List[Dict[str, Any]] = []
     validation_blockers: List[Dict[str, Any]] = []
@@ -114,55 +114,79 @@ def _compute_classification_health(
         check_name = check.get("name", "")
         evidence = check.get("evidence", {}) or {}
         
-        # Determine if this blocker is caused by real or test data
-        # For cognition/compliance checks, we need to look at which projects are involved
-        affected_projects = []
-        
-        # Check if evidence contains project-related info
-        if "projects_with_safety_warnings" in evidence or "projects_checked" in evidence:
-            # This is a cognition check - all projects in the system
-            affected_projects = list(project_intake_map.keys())
-        elif "coverage_data" in evidence:
-            # Compliance coverage - affects all projects
-            affected_projects = list(project_intake_map.keys())
-        
-        # Classify blocker by project types involved
-        blocker_by_real = False
-        blocker_by_test = False
-        blocker_by_validation = False
-        
-        for proj_id in affected_projects:
-            intake_id = project_intake_map.get(proj_id)
-            if not intake_id:
-                continue
-            cls = intake_class_map.get(intake_id, "UNKNOWN")
-            if cls == "REAL":
-                blocker_by_real = True
-            elif cls == "TEST":
-                blocker_by_test = True
-            elif cls == "VALIDATION":
-                blocker_by_validation = True
-        
         blocker_info = {
             "check_name": check_name,
             "detail": check.get("detail", ""),
-            "affected_project_count": len(affected_projects),
         }
         
-        # If blocker affects real projects, it's a real blocker
-        # If only test/validation, it's test contamination
-        if blocker_by_real:
-            real_blockers.append(blocker_info)
-        elif blocker_by_test:
-            test_blockers.append(blocker_info)
-        elif blocker_by_validation:
-            validation_blockers.append(blocker_info)
-        elif affected_projects:
-            # Has projects but couldn't classify
-            unknown_blockers.append(blocker_info)
+        # Check if evidence already has classification data (from updated collectors)
+        if "blocker_projects" in evidence:
+            # Use the pre-computed blocker classification
+            blocker_projects = evidence.get("blocker_projects", []) or []
+            has_real = any(p.get("real_customer") for p in blocker_projects)
+            has_test = any(p.get("classification") == "TEST" for p in blocker_projects)
+            has_validation = any(p.get("classification") == "VALIDATION" for p in blocker_projects)
+            
+            blocker_info["blocker_projects"] = blocker_projects
+            blocker_info["real_count"] = evidence.get("real_blocker_count", 0)
+            blocker_info["test_count"] = evidence.get("test_blocker_count", 0)
+            
+            if has_real:
+                real_blockers.append(blocker_info)
+            elif has_test or has_validation:
+                # Test contamination - not a real blocker
+                if has_validation:
+                    validation_blockers.append(blocker_info)
+                else:
+                    test_blockers.append(blocker_info)
+            else:
+                unknown_blockers.append(blocker_info)
         else:
-            # No projects affected - likely test contamination or missing classification
-            test_blockers.append(blocker_info)
+            # Fallback: determine if this blocker is caused by real or test data
+            # For cognition/compliance checks, we need to look at which projects are involved
+            affected_projects = []
+            
+            # Check if evidence contains project-related info
+            if "projects_with_safety_warnings" in evidence or "projects_checked" in evidence:
+                # This is a cognition check - all projects in the system
+                affected_projects = list(project_intake_map.keys())
+            elif "coverage_data" in evidence:
+                # Compliance coverage - affects all projects
+                affected_projects = list(project_intake_map.keys())
+            
+            # Classify blocker by project types involved
+            blocker_by_real = False
+            blocker_by_test = False
+            blocker_by_validation = False
+            
+            for proj_id in affected_projects:
+                intake_id = project_intake_map.get(proj_id)
+                if not intake_id:
+                    continue
+                cls = intake_class_map.get(intake_id, "UNKNOWN")
+                if cls == "REAL":
+                    blocker_by_real = True
+                elif cls == "TEST":
+                    blocker_by_test = True
+                elif cls == "VALIDATION":
+                    blocker_by_validation = True
+            
+            blocker_info["affected_project_count"] = len(affected_projects)
+            
+            # If blocker affects real projects, it's a real blocker
+            # If only test/validation, it's test contamination
+            if blocker_by_real:
+                real_blockers.append(blocker_info)
+            elif blocker_by_test:
+                test_blockers.append(blocker_info)
+            elif blocker_by_validation:
+                validation_blockers.append(blocker_info)
+            elif affected_projects:
+                # Has projects but couldn't classify
+                unknown_blockers.append(blocker_info)
+            else:
+                # No projects affected - likely test contamination or missing classification
+                test_blockers.append(blocker_info)
     
     # Calculate health states
     all_red_checks = [c for c in checks if c.get("severity") == "RED"]
