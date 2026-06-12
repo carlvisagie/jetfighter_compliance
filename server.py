@@ -62,6 +62,13 @@ def intake_page():
     return FileResponse(ROOT / "ui" / "intake.html")
 
 
+@app.get("/ui/deliverables")
+@app.get("/ui/project/{project_id}/deliverables")
+def deliverables_page(project_id: str = ""):
+    """PATCH 13A-5B: Deliverables workbench UI."""
+    return FileResponse(ROOT / "ui" / "deliverables.html")
+
+
 
 
 app.include_router(telemetry_router)
@@ -303,14 +310,6 @@ def upload_page():
 @app.get("/ui/upload.html")
 def upload_ui_alias():
     return FileResponse(ROOT / "ui" / "upload.html")
-
-
-@app.get("/ui/deliverables")
-@app.get("/ui/deliverables.html")
-@app.get("/ui/project/{project_id}/deliverables")
-def deliverables_page(project_id: str = ""):
-    """PATCH 13A-5B: Deliverables workbench UI."""
-    return FileResponse(ROOT / "ui" / "deliverables.html")
 
 
 # ---------- Startup ----------
