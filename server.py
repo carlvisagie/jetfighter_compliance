@@ -3163,6 +3163,56 @@ def operator_customer_intelligence_cockpit(request: Request):
     return get_cockpit_view()
 
 
+# PATCH 13A-18: Contact intelligence endpoints (must be before /{record_id} route)
+
+@app.get("/api/operator/customer-intelligence/top-contactable")
+def operator_customer_intelligence_top_contactable(
+    request: Request,
+    limit: int = 20,
+):
+    """
+    PATCH 13A-18: Top contactable companies report.
+    
+    Shows companies ranked by contact intelligence quality.
+    NO OUTREACH. NO EMAILS. EVIDENCE ONLY.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.contact_intelligence import generate_top_contactable_report
+    
+    require_ops_access(request)
+    
+    if limit > 50:
+        limit = 50
+    
+    return generate_top_contactable_report(limit=limit)
+
+
+@app.get("/api/operator/customer-intelligence/contact-metrics")
+def operator_customer_intelligence_contact_metrics(
+    request: Request,
+):
+    """
+    PATCH 13A-18: Contact intelligence metrics.
+    
+    Returns:
+    - contactable_entities
+    - decision_maker_entities
+    - email_known_entities
+    - phone_known_entities
+    - leadership_known_entities
+    - contact_ready_entities
+    """
+    from services.production import require_ops_access
+    from services.acquisition.contact_intelligence import compute_contact_metrics
+    
+    require_ops_access(request)
+    
+    return {
+        "ok": True,
+        "metrics": compute_contact_metrics(),
+    }
+
+
 @app.get("/api/operator/customer-intelligence/{record_id}")
 def operator_customer_intelligence_detail(request: Request, record_id: str):
     """Get full intelligence record with all evidenced fields."""
@@ -3602,54 +3652,6 @@ async def operator_customer_intelligence_contact_enrich_single(
     return {
         "ok": True,
         "result": result.to_dict(),
-    }
-
-
-@app.get("/api/operator/customer-intelligence/top-contactable")
-def operator_customer_intelligence_top_contactable(
-    request: Request,
-    limit: int = 20,
-):
-    """
-    PATCH 13A-18: Top contactable companies report.
-    
-    Shows companies ranked by contact intelligence quality.
-    NO OUTREACH. NO EMAILS. EVIDENCE ONLY.
-    """
-    from services.production import require_ops_access
-    from services.acquisition.contact_intelligence import generate_top_contactable_report
-    
-    require_ops_access(request)
-    
-    if limit > 50:
-        limit = 50
-    
-    return generate_top_contactable_report(limit=limit)
-
-
-@app.get("/api/operator/customer-intelligence/contact-metrics")
-def operator_customer_intelligence_contact_metrics(
-    request: Request,
-):
-    """
-    PATCH 13A-18: Contact intelligence metrics.
-    
-    Returns:
-    - contactable_entities
-    - decision_maker_entities
-    - email_known_entities
-    - phone_known_entities
-    - leadership_known_entities
-    - contact_ready_entities
-    """
-    from services.production import require_ops_access
-    from services.acquisition.contact_intelligence import compute_contact_metrics
-    
-    require_ops_access(request)
-    
-    return {
-        "ok": True,
-        "metrics": compute_contact_metrics(),
     }
 
 
