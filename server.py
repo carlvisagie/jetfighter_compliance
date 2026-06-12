@@ -2831,6 +2831,193 @@ async def operator_acquisition_approve_lead(body: dict = Body(default={})):
 
 
 # ---------------------------------------------------------------------------
+# PATCH ACQ-IMPLEMENT-2: SAM Contactability Enrichment
+# ---------------------------------------------------------------------------
+
+@app.post("/api/operator/acquisition-intelligence/sam-enrich")
+async def operator_sam_enrich(request: Request, body: dict = Body(default={})):
+    """
+    PATCH ACQ-IMPLEMENT-2: Run SAM contactability enrichment on SAM-eligible companies.
+    
+    Extracts website, POC email, phone, and names from SAM.gov.
+    Updates CustomerIntelligenceRecords with SAM data.
+    """
+    from services.production import require_ops_access
+    from services.runtime_blocking import run_blocking
+    
+    require_ops_access(request)
+    
+    limit = int(body.get("limit", 30))
+    update_records = body.get("update_records", True)
+    
+    def _run_sam_enrichment():
+        from services.external_verification.sam_gov import (
+            extract_sam_contactability,
+            sam_contactability_to_dict,
+            is_api_configured,
+        )
+        from services.acquisition.ideal_customer_profile import (
+            get_all_intelligence_records,
+            save_intelligence_record,
+            EvidencedValue,
+            SignalState,
+        )
+        from datetime import datetime, timezone
+        
+        result = {
+            "timestamp_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "api_configured": is_api_configured(),
+            "limit": limit,
+            "update_records": update_records,
+            "pre": {"with_website": 0, "with_email": 0, "contactable": 0},
+            "sam_results": {"queried": 0, "success": 0, "website": 0, "email": 0, "poc": 0},
+            "post": {"with_website": 0, "with_email": 0, "contactable": 0},
+            "companies": [],
+            "errors": [],
+        }
+        
+        if not is_api_configured():
+            result["errors"].append("SAM_GOV_API_KEY not configured")
+            return result
+        
+        # Get records with UEI
+        all_records = get_all_intelligence_records()
+        uei_records = [r for r in all_records if r.uei and r.uei.value]
+        
+        # Unique UEIs
+        seen_ueis = set()
+        unique_records = []
+        for r in uei_records:
+            uei = r.uei.value
+            if uei not in seen_ueis:
+                seen_ueis.add(uei)
+                unique_records.append(r)
+        
+        records_to_process = unique_records[:limit]
+        
+        # Pre-metrics
+        for r in uei_records:
+            if r.website.state == SignalState.KNOWN and r.website.value:
+                result["pre"]["with_website"] += 1
+            if r.contact_email.state == SignalState.KNOWN and r.contact_email.value:
+                result["pre"]["with_email"] += 1
+            if (r.website.state == SignalState.KNOWN and r.website.value and
+                r.contact_email.state == SignalState.KNOWN and r.contact_email.value):
+                result["pre"]["contactable"] += 1
+        
+        # Process each record
+        for record in records_to_process:
+            uei = record.uei.value
+            result["sam_results"]["queried"] += 1
+            
+            try:
+                sam_data = extract_sam_contactability(uei)
+                
+                company_result = {
+                    "uei": uei,
+                    "company": record.company_name.value or "Unknown",
+                    "api_success": sam_data.api_success,
+                    "website": sam_data.website,
+                    "poc_email": sam_data.poc_email,
+                    "poc_name": f"{sam_data.poc_first_name or ''} {sam_data.poc_last_name or ''}".strip() or None,
+                    "poc_title": sam_data.poc_title,
+                    "poc_count": len(sam_data.all_pocs),
+                    "updated": False,
+                }
+                
+                if sam_data.api_success:
+                    result["sam_results"]["success"] += 1
+                    if sam_data.website:
+                        result["sam_results"]["website"] += 1
+                    if sam_data.poc_email:
+                        result["sam_results"]["email"] += 1
+                    if sam_data.all_pocs:
+                        result["sam_results"]["poc"] += 1
+                    
+                    if update_records:
+                        updated = False
+                        
+                        if sam_data.website and record.website.state == SignalState.UNKNOWN:
+                            record.website = EvidencedValue(
+                                value=sam_data.website,
+                                source="sam_gov_entity_api",
+                                confidence=0.95,
+                                state=SignalState.KNOWN,
+                            )
+                            updated = True
+                        
+                        if sam_data.poc_email and record.contact_email.state == SignalState.UNKNOWN:
+                            record.contact_email = EvidencedValue(
+                                value=sam_data.poc_email,
+                                source="sam_gov_poc",
+                                confidence=0.90,
+                                state=SignalState.KNOWN,
+                            )
+                            updated = True
+                        
+                        full_name = f"{sam_data.poc_first_name or ''} {sam_data.poc_last_name or ''}".strip()
+                        if full_name and record.contact_name.state == SignalState.UNKNOWN:
+                            record.contact_name = EvidencedValue(
+                                value=full_name,
+                                source="sam_gov_poc",
+                                confidence=0.90,
+                                state=SignalState.KNOWN,
+                            )
+                            updated = True
+                        
+                        if sam_data.poc_phone and record.contact_phone.state == SignalState.UNKNOWN:
+                            record.contact_phone = EvidencedValue(
+                                value=sam_data.poc_phone,
+                                source="sam_gov_poc",
+                                confidence=0.90,
+                                state=SignalState.KNOWN,
+                            )
+                            updated = True
+                        
+                        if sam_data.legal_name and record.legal_name.state == SignalState.UNKNOWN:
+                            record.legal_name = EvidencedValue(
+                                value=sam_data.legal_name,
+                                source="sam_gov_entity_api",
+                                confidence=0.99,
+                                state=SignalState.KNOWN,
+                            )
+                            updated = True
+                        
+                        if updated:
+                            save_intelligence_record(record)
+                            company_result["updated"] = True
+                
+                result["companies"].append(company_result)
+                
+            except Exception as e:
+                result["errors"].append(f"Error processing {uei}: {str(e)}")
+        
+        # Post-metrics
+        all_records = get_all_intelligence_records()
+        uei_records = [r for r in all_records if r.uei and r.uei.value]
+        
+        for r in uei_records:
+            if r.website.state == SignalState.KNOWN and r.website.value:
+                result["post"]["with_website"] += 1
+            if r.contact_email.state == SignalState.KNOWN and r.contact_email.value:
+                result["post"]["with_email"] += 1
+            if (r.website.state == SignalState.KNOWN and r.website.value and
+                r.contact_email.state == SignalState.KNOWN and r.contact_email.value):
+                result["post"]["contactable"] += 1
+        
+        # Calculate deltas
+        result["improvement"] = {
+            "website_delta": result["post"]["with_website"] - result["pre"]["with_website"],
+            "email_delta": result["post"]["with_email"] - result["pre"]["with_email"],
+            "contactable_delta": result["post"]["contactable"] - result["pre"]["contactable"],
+        }
+        
+        return result
+    
+    return await run_blocking(_run_sam_enrichment)
+
+
+# ---------------------------------------------------------------------------
 # PATCH 13A-8A: Acquisition outreach safety endpoints
 # ---------------------------------------------------------------------------
 
