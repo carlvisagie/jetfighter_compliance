@@ -178,10 +178,25 @@ def evaluate_icp_match(intelligence: "CustomerIntelligenceRecord") -> Dict[str, 
     # Recent award activity
     if intelligence.award_recency.state == SignalState.UNKNOWN:
         tier_1_unknown.append("recent_award_activity")
-    elif intelligence.award_recency.value and intelligence.award_recency.value <= 365:
-        tier_1_met.append("recent_award_activity")
     else:
-        tier_1_missing.append("recent_award_activity")
+        # award_recency can be int (days) or str (date like "2024-06-15")
+        recency_val = intelligence.award_recency.value
+        is_recent = False
+        if isinstance(recency_val, int):
+            is_recent = recency_val <= 365
+        elif isinstance(recency_val, str) and recency_val:
+            try:
+                from datetime import datetime, timezone
+                award_date = datetime.strptime(recency_val[:10], "%Y-%m-%d")
+                days_ago = (datetime.now() - award_date).days
+                is_recent = days_ago <= 365
+            except (ValueError, TypeError):
+                pass
+        
+        if is_recent:
+            tier_1_met.append("recent_award_activity")
+        else:
+            tier_1_missing.append("recent_award_activity")
     
     # Check if Tier 1 match
     if len(tier_1_met) >= 4:

@@ -3395,6 +3395,83 @@ async def operator_customer_intelligence_backfill(request: Request):
     return stats
 
 
+@app.post("/api/operator/customer-intelligence/enrich")
+async def operator_customer_intelligence_enrich_all(
+    request: Request,
+    body: dict = Body(default={}),
+):
+    """
+    PATCH 13A-15: Evidence Enrichment Engine.
+    
+    Enrich all intelligence records with evidence from public sources.
+    NO OUTREACH. NO EMAILS. NO AUTO-SEND. NO MARKETING.
+    ONLY EVIDENCE COLLECTION.
+    
+    Returns before/after comparison for each company.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.evidence_enrichment import enrich_all_companies
+    
+    require_ops_access(request)
+    
+    limit = body.get("limit", 20)
+    if limit > 50:
+        limit = 50  # Cap at 50 to avoid overloading API
+    
+    result = enrich_all_companies(limit=limit)
+    
+    return result
+
+
+@app.post("/api/operator/customer-intelligence/enrich/{record_id}")
+async def operator_customer_intelligence_enrich_single(
+    request: Request,
+    record_id: str,
+):
+    """
+    PATCH 13A-15: Enrich a single company's intelligence record.
+    
+    NO OUTREACH. NO EMAILS. ONLY EVIDENCE COLLECTION.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.ideal_customer_profile import load_intelligence_record
+    from services.acquisition.evidence_enrichment import enrich_single_company
+    
+    require_ops_access(request)
+    
+    record = load_intelligence_record(record_id)
+    if not record:
+        return {"ok": False, "error": "record_not_found"}
+    
+    result = enrich_single_company(record)
+    
+    return {
+        "ok": True,
+        "result": result.to_dict(),
+    }
+
+
+@app.get("/api/operator/customer-intelligence/enrichment-comparison")
+def operator_customer_intelligence_enrichment_comparison(
+    request: Request,
+    limit: int = 20,
+):
+    """
+    PATCH 13A-15: Generate before/after comparison for top companies.
+    
+    Shows completeness delta, ICP tier delta, recommendation delta.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.evidence_enrichment import generate_enrichment_comparison
+    
+    require_ops_access(request)
+    
+    if limit > 50:
+        limit = 50
+    
+    return generate_enrichment_comparison(limit=limit)
+
+
 @app.get("/api/operator/operational-alerts")
 def operator_operational_alerts():
     from services.alerts import get_operator_dashboard
