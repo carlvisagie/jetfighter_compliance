@@ -58,6 +58,76 @@
     hidden
   ></div>
 
+  <!-- PATCH PRE-LAUNCH-6: Production Truth Dashboard -->
+  <section class="kyc-section" id="production-truth-panel" style="padding-top:0.5rem;">
+    <header class="kyc-section-head">
+      <span class="kyc-label-overline">Production Truth</span>
+      <h2 id="production-truth-verdict">Loading...</h2>
+      <p id="production-truth-subtitle">Classification-aware health — separates real customers from test/validation residue.</p>
+    </header>
+    <div class="org-summary-strip" id="production-truth-metrics">
+      <div class="org-metric">
+        <div class="org-metric-label">Real Customers</div>
+        <div class="org-metric-value" id="pt-real-customers">—</div>
+        <div class="org-metric-foot">Classified REAL</div>
+      </div>
+      <div class="org-metric">
+        <div class="org-metric-label">Real Projects</div>
+        <div class="org-metric-value" id="pt-real-projects">—</div>
+        <div class="org-metric-foot">From real intakes</div>
+      </div>
+      <div class="org-metric">
+        <div class="org-metric-label">Real Blockers</div>
+        <div class="org-metric-value" id="pt-real-blockers">—</div>
+        <div class="org-metric-foot">Affecting real customers</div>
+      </div>
+      <div class="org-metric">
+        <div class="org-metric-label">Test Blockers</div>
+        <div class="org-metric-value" id="pt-test-blockers">—</div>
+        <div class="org-metric-foot">Test/validation residue</div>
+      </div>
+    </div>
+    <div class="org-health-grid" style="margin-top:1rem;">
+      <article class="org-card" id="pt-real-only-card">
+        <div class="org-card-head">
+          <h3 class="org-card-title">Real-Only Health</h3>
+          <span class="org-card-state info" id="pt-real-only-health">—</span>
+        </div>
+        <div class="org-card-body">
+          <p class="org-metric-foot" id="pt-real-only-detail">Health when counting only real customer data.</p>
+        </div>
+      </article>
+      <article class="org-card" id="pt-all-data-card">
+        <div class="org-card-head">
+          <h3 class="org-card-title">All-Data Health</h3>
+          <span class="org-card-state info" id="pt-all-data-health">—</span>
+        </div>
+        <div class="org-card-body">
+          <p class="org-metric-foot" id="pt-all-data-detail">Health including test/validation data (may show RED from test contamination).</p>
+        </div>
+      </article>
+      <article class="org-card" id="pt-founding-card">
+        <div class="org-card-head">
+          <h3 class="org-card-title">Founding Customer</h3>
+          <span class="org-card-state info" id="pt-founding-verdict">—</span>
+        </div>
+        <div class="org-card-body">
+          <p class="org-metric-foot" id="pt-founding-detail">First real customer status.</p>
+        </div>
+      </article>
+      <article class="org-card" id="pt-launch-card">
+        <div class="org-card-head">
+          <h3 class="org-card-title">Launch Verdict</h3>
+          <span class="org-card-state info" id="pt-launch-verdict">—</span>
+        </div>
+        <div class="org-card-body">
+          <p class="org-metric-foot" id="pt-launch-detail">Real-only launch readiness.</p>
+        </div>
+      </article>
+    </div>
+    <div id="pt-blockers-by-classification" style="margin-top:1rem;"></div>
+  </section>
+
   <div
     id="fb-integrity-banner"
     class="fb-integrity-banner fb-integrity-banner--hidden"
@@ -1142,11 +1212,122 @@
         + ' · intakes=' + (s.intake_count_active ?? 0) + '/' + (s.intake_count_total ?? 0)
         + (s.pilot_residue_detected ? ' · pilot_residue=YES' : '');
       action.textContent = 'Next: ' + (s.next_recommended_action || '—');
+      
+      // PATCH PRE-LAUNCH-6: Update Production Truth panel
+      loadProductionTruth(s);
     } catch (err) {
       pill.textContent = 'ERR';
       pill.classList.add('critical');
       bottle.textContent = 'Failed to load organism state: ' + err.message;
       action.textContent = '';
+    }
+  }
+  
+  function loadProductionTruth(s) {
+    // Metrics
+    document.getElementById('pt-real-customers').textContent = s.real_customer_count ?? 0;
+    document.getElementById('pt-real-projects').textContent = s.real_project_count ?? 0;
+    document.getElementById('pt-real-blockers').textContent = s.real_blocker_count ?? 0;
+    document.getElementById('pt-test-blockers').textContent = (s.test_blocker_count ?? 0) + (s.validation_blocker_count ?? 0);
+    
+    // Real-Only Health
+    const realHealth = (s.real_only_health || 'UNKNOWN').toUpperCase();
+    const realPill = document.getElementById('pt-real-only-health');
+    realPill.textContent = realHealth;
+    realPill.classList.remove('info', 'warning', 'critical', 'success');
+    if (realHealth === 'GREEN') realPill.classList.add('success');
+    else if (realHealth === 'AMBER') realPill.classList.add('warning');
+    else if (realHealth === 'RED') realPill.classList.add('critical');
+    else realPill.classList.add('info');
+    
+    // All-Data Health
+    const allHealth = (s.all_data_health || s.health_state || 'UNKNOWN').toUpperCase();
+    const allPill = document.getElementById('pt-all-data-health');
+    allPill.textContent = allHealth;
+    allPill.classList.remove('info', 'warning', 'critical', 'success');
+    if (allHealth === 'GREEN') allPill.classList.add('success');
+    else if (allHealth === 'AMBER') allPill.classList.add('warning');
+    else if (allHealth === 'RED') allPill.classList.add('critical');
+    else allPill.classList.add('info');
+    
+    // Founding Customer Verdict
+    const foundingPill = document.getElementById('pt-founding-verdict');
+    const foundingDetail = document.getElementById('pt-founding-detail');
+    if (s.first_real_customer_arrived) {
+      foundingPill.textContent = 'ARRIVED';
+      foundingPill.classList.remove('info', 'warning', 'critical');
+      foundingPill.classList.add('success');
+      foundingDetail.textContent = 'First real customer: ' + (s.first_real_customer_id || 'unknown');
+    } else {
+      foundingPill.textContent = 'AWAITING';
+      foundingPill.classList.remove('success', 'warning', 'critical');
+      foundingPill.classList.add('info');
+      foundingDetail.textContent = 'No real customers yet. Platform ready for founding customer.';
+    }
+    
+    // Launch Verdict
+    const launchVerdict = (s.real_only_launch_verdict || 'UNKNOWN').toUpperCase();
+    const launchPill = document.getElementById('pt-launch-verdict');
+    const launchDetail = document.getElementById('pt-launch-detail');
+    launchPill.textContent = launchVerdict;
+    launchPill.classList.remove('info', 'warning', 'critical', 'success');
+    if (launchVerdict === 'READY') {
+      launchPill.classList.add('success');
+      launchDetail.textContent = 'No real blockers. Platform ready for real customers.';
+    } else if (launchVerdict === 'NO_REAL_CUSTOMERS') {
+      launchPill.classList.add('info');
+      launchDetail.textContent = 'Awaiting first real customer. Real-only health is GREEN.';
+    } else if (launchVerdict === 'BLOCKED') {
+      launchPill.classList.add('critical');
+      launchDetail.textContent = 'Real customer blockers exist. Fix before launch.';
+    } else {
+      launchPill.classList.add('info');
+      launchDetail.textContent = 'Launch status unknown.';
+    }
+    
+    // Top verdict header
+    const verdictEl = document.getElementById('production-truth-verdict');
+    const subtitleEl = document.getElementById('production-truth-subtitle');
+    if ((s.real_customer_count ?? 0) === 0 && (s.real_blocker_count ?? 0) === 0) {
+      verdictEl.textContent = 'AWAITING FIRST CUSTOMER';
+      verdictEl.style.color = '#60a5fa';
+      subtitleEl.textContent = 'Real-only health is GREEN. All RED warnings are test/validation residue.';
+    } else if ((s.real_blocker_count ?? 0) > 0) {
+      verdictEl.textContent = 'REAL BLOCKERS EXIST';
+      verdictEl.style.color = '#ff7864';
+      subtitleEl.textContent = s.real_blocker_count + ' blocker(s) affecting real customers.';
+    } else {
+      verdictEl.textContent = 'PRODUCTION HEALTHY';
+      verdictEl.style.color = '#64dc9e';
+      subtitleEl.textContent = s.real_customer_count + ' real customer(s), 0 real blockers.';
+    }
+    
+    // Blockers by classification
+    const blockersEl = document.getElementById('pt-blockers-by-classification');
+    if (blockersEl) {
+      const ch = s.classification_health || {};
+      const realBlockers = ch.real_blockers || [];
+      const testBlockers = ch.test_blockers || [];
+      const valBlockers = ch.validation_blockers || [];
+      
+      let html = '';
+      if (realBlockers.length > 0) {
+        html += '<div class="org-card" style="border-left:4px solid #ff7864;margin-bottom:0.5rem;"><div class="org-card-body">';
+        html += '<p><strong style="color:#ff7864;">REAL BLOCKERS (' + realBlockers.length + ')</strong></p>';
+        realBlockers.forEach(function(b) {
+          html += '<p class="org-metric-foot">• ' + escapeHtml(b.check_name) + ': ' + escapeHtml(b.detail || '') + '</p>';
+        });
+        html += '</div></div>';
+      }
+      if (testBlockers.length > 0 || valBlockers.length > 0) {
+        html += '<details style="margin-top:0.5rem;"><summary class="org-metric-foot" style="cursor:pointer;">Test/Validation Blockers (' + (testBlockers.length + valBlockers.length) + ') — not affecting real customers</summary>';
+        html += '<div style="padding:0.5rem;background:rgba(255,255,255,0.03);border-radius:4px;margin-top:0.25rem;">';
+        testBlockers.concat(valBlockers).forEach(function(b) {
+          html += '<p class="org-metric-foot" style="color:#888;">• ' + escapeHtml(b.check_name) + ': ' + escapeHtml((b.detail || '').slice(0, 100)) + '</p>';
+        });
+        html += '</div></details>';
+      }
+      blockersEl.innerHTML = html;
     }
   }
   async function refreshAll() {
