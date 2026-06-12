@@ -3213,6 +3213,111 @@ def operator_customer_intelligence_contact_metrics(
     }
 
 
+# =============================================================================
+# PATCH 13A-19: DECISION MAKER INTELLIGENCE ENDPOINTS
+# =============================================================================
+
+@app.get("/api/operator/customer-intelligence/decision-maker-metrics")
+def operator_customer_intelligence_decision_maker_metrics(
+    request: Request,
+):
+    """
+    PATCH 13A-19: Decision maker intelligence metrics.
+    
+    Returns:
+    - decision_maker_entities
+    - leadership_entities
+    - procurement_relevant_entities
+    - decision_maker_ready_entities
+    """
+    from services.production import require_ops_access
+    from services.acquisition.decision_maker_intelligence import compute_decision_maker_metrics
+    
+    require_ops_access(request)
+    
+    return {
+        "ok": True,
+        "metrics": compute_decision_maker_metrics(),
+    }
+
+
+@app.get("/api/operator/customer-intelligence/top-procurement-relevant")
+def operator_customer_intelligence_top_procurement_relevant(
+    request: Request,
+    limit: int = 20,
+):
+    """
+    PATCH 13A-19: Top procurement-relevant companies report.
+    
+    Shows companies ranked by procurement relevance.
+    Answers: Who specifically should we contact?
+    
+    NO OUTREACH. NO EMAILS. EVIDENCE ONLY.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.decision_maker_intelligence import generate_procurement_relevant_report
+    
+    require_ops_access(request)
+    
+    if limit > 50:
+        limit = 50
+    
+    return generate_procurement_relevant_report(limit=limit)
+
+
+@app.post("/api/operator/customer-intelligence/decision-maker-enrich")
+async def operator_customer_intelligence_decision_maker_enrich(
+    request: Request,
+    body: dict = Body(default={}),
+):
+    """
+    PATCH 13A-19: Decision Maker Intelligence Enrichment.
+    
+    Discovers decision makers from public website sources.
+    NO OUTREACH. NO EMAILS. NO AUTO-CONTACT. ONLY EVIDENCE COLLECTION.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.decision_maker_intelligence import enrich_all_decision_maker_intelligence
+    
+    require_ops_access(request)
+    
+    limit = body.get("limit", 30)
+    if limit > 50:
+        limit = 50
+    
+    result = enrich_all_decision_maker_intelligence(limit=limit)
+    
+    return result
+
+
+@app.post("/api/operator/customer-intelligence/decision-maker-enrich/{record_id}")
+async def operator_customer_intelligence_decision_maker_enrich_single(
+    request: Request,
+    record_id: str,
+):
+    """
+    PATCH 13A-19: Enrich single record with decision maker intelligence.
+    
+    NO OUTREACH. NO EMAILS. ONLY EVIDENCE COLLECTION.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.ideal_customer_profile import load_intelligence_record
+    from services.acquisition.decision_maker_intelligence import enrich_decision_maker_intelligence
+    
+    require_ops_access(request)
+    
+    record = load_intelligence_record(record_id)
+    if not record:
+        return {"ok": False, "error": "record_not_found"}
+    
+    result = enrich_decision_maker_intelligence(record)
+    
+    return {
+        "ok": True,
+        "result": result.to_dict(),
+    }
+
+
 @app.get("/api/operator/customer-intelligence/{record_id}")
 def operator_customer_intelligence_detail(request: Request, record_id: str):
     """Get full intelligence record with all evidenced fields."""

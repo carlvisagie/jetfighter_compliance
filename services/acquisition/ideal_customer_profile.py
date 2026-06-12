@@ -320,6 +320,21 @@ class CustomerIntelligenceRecord:
     website: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("website"))
     location: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("location"))
     
+    # PATCH 13A-19: Decision Maker Intelligence
+    decision_maker_name: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("decision_maker_name"))
+    decision_maker_title: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("decision_maker_title"))
+    decision_maker_source: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("decision_maker_source"))
+    owner_name: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("owner_name"))
+    president_name: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("president_name"))
+    ceo_name: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("ceo_name"))
+    founder_name: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("founder_name"))
+    contracts_manager: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("contracts_manager"))
+    compliance_manager: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("compliance_manager"))
+    quality_manager: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("quality_manager"))
+    operations_manager: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("operations_manager"))
+    leadership_count: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("leadership_count"))
+    organization_type: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("organization_type"))
+    
     # Derived Scores (computed from evidence)
     contactability_score: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("contactability_score"))
     ability_to_pay_score: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("ability_to_pay_score"))
@@ -448,6 +463,21 @@ class CustomerIntelligenceRecord:
             "leadership_page_url": self.leadership_page_url.to_dict(),
             "website": self.website.to_dict(),
             "location": self.location.to_dict(),
+            # PATCH 13A-19: Decision Maker fields
+            "decision_maker_name": self.decision_maker_name.to_dict(),
+            "decision_maker_title": self.decision_maker_title.to_dict(),
+            "decision_maker_source": self.decision_maker_source.to_dict(),
+            "owner_name": self.owner_name.to_dict(),
+            "president_name": self.president_name.to_dict(),
+            "ceo_name": self.ceo_name.to_dict(),
+            "founder_name": self.founder_name.to_dict(),
+            "contracts_manager": self.contracts_manager.to_dict(),
+            "compliance_manager": self.compliance_manager.to_dict(),
+            "quality_manager": self.quality_manager.to_dict(),
+            "operations_manager": self.operations_manager.to_dict(),
+            "leadership_count": self.leadership_count.to_dict(),
+            "organization_type": self.organization_type.to_dict(),
+            # Derived scores
             "contactability_score": self.contactability_score.to_dict(),
             "ability_to_pay_score": self.ability_to_pay_score.to_dict(),
             "urgency_score": self.urgency_score.to_dict(),
@@ -492,6 +522,21 @@ class CustomerIntelligenceRecord:
             leadership_page_url=get_ev("leadership_page_url"),
             website=get_ev("website"),
             location=get_ev("location"),
+            # PATCH 13A-19: Decision Maker fields
+            decision_maker_name=get_ev("decision_maker_name"),
+            decision_maker_title=get_ev("decision_maker_title"),
+            decision_maker_source=get_ev("decision_maker_source"),
+            owner_name=get_ev("owner_name"),
+            president_name=get_ev("president_name"),
+            ceo_name=get_ev("ceo_name"),
+            founder_name=get_ev("founder_name"),
+            contracts_manager=get_ev("contracts_manager"),
+            compliance_manager=get_ev("compliance_manager"),
+            quality_manager=get_ev("quality_manager"),
+            operations_manager=get_ev("operations_manager"),
+            leadership_count=get_ev("leadership_count"),
+            organization_type=get_ev("organization_type"),
+            # Derived scores
             contactability_score=get_ev("contactability_score"),
             ability_to_pay_score=get_ev("ability_to_pay_score"),
             urgency_score=get_ev("urgency_score"),
@@ -710,6 +755,13 @@ def get_intelligence_summary() -> Dict[str, Any]:
             "leadership_known_entities": 0,
             "contact_ready_entities": 0,
         },
+        # PATCH 13A-19: Decision maker intelligence metrics
+        "decision_maker_metrics": {
+            "decision_maker_entities": 0,
+            "leadership_entities": 0,
+            "procurement_relevant_entities": 0,
+            "decision_maker_ready_entities": 0,
+        },
     }
     
     total_completeness = 0
@@ -768,6 +820,34 @@ def get_intelligence_summary() -> Dict[str, Any]:
         
         if leadership_known:
             summary["contact_metrics"]["leadership_known_entities"] += 1
+        
+        # PATCH 13A-19: Decision maker metrics
+        dm_name_known = record.decision_maker_name.state == SignalState.KNOWN and record.decision_maker_name.value
+        dm_title_known = record.decision_maker_title.state == SignalState.KNOWN and record.decision_maker_title.value
+        leadership_count_known = record.leadership_count.state == SignalState.KNOWN and record.leadership_count.value
+        
+        if dm_name_known:
+            summary["decision_maker_metrics"]["decision_maker_entities"] += 1
+        
+        if leadership_count_known:
+            summary["decision_maker_metrics"]["leadership_entities"] += 1
+        
+        # Procurement relevance
+        if dm_title_known:
+            title_lower = (record.decision_maker_title.value or "").lower()
+            has_tier_1 = any(t in title_lower for t in ["president", "owner", "ceo", "founder", "managing member"])
+            has_tier_2 = any(t in title_lower for t in ["contracts manager", "compliance manager", "quality manager", "operations manager"])
+            
+            if has_tier_1 or has_tier_2:
+                summary["decision_maker_metrics"]["procurement_relevant_entities"] += 1
+        
+        # DECISION_MAKER_READY
+        if dm_name_known and dm_title_known and email_known:
+            dm_confidence = record.decision_maker_name.confidence
+            email_confidence = record.contact_email.confidence
+            avg_confidence = (dm_confidence + email_confidence) / 2
+            if avg_confidence >= 0.70:
+                summary["decision_maker_metrics"]["decision_maker_ready_entities"] += 1
     
     if records:
         summary["average_completeness"] = round(total_completeness / len(records), 1)
