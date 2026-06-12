@@ -1,4 +1,12 @@
-﻿$ErrorActionPreference='Stop'; Set-StrictMode -Version Latest
+﻿# =============================================================================
+# LEGACY STARTUP SCRIPT
+# =============================================================================
+# This script is DEPRECATED. Use start_production.ps1 instead.
+# Canonical startup path: start_production.ps1
+# Reason: Duplicate functionality
+# =============================================================================
+
+$ErrorActionPreference='Stop'; Set-StrictMode -Version Latest
 $Root = 'E:\JetFighter_Compliance'
 if (-not (Test-Path $Root)) { throw "Project root missing: $Root" }
 Set-Location $Root

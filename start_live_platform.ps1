@@ -1,3 +1,11 @@
+# =============================================================================
+# LEGACY STARTUP SCRIPT
+# =============================================================================
+# This script is DEPRECATED. Use start_production.ps1 instead.
+# Canonical startup path: start_production.ps1
+# Reason: Duplicate functionality, no health check verification
+# =============================================================================
+
 $ErrorActionPreference='Stop'
 
 Write-Host "Starting JetFighter Compliance Platform..." -ForegroundColor Cyan

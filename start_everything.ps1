@@ -1,4 +1,12 @@
-﻿$ErrorActionPreference = "Stop"
+﻿# =============================================================================
+# LEGACY STARTUP SCRIPT
+# =============================================================================
+# This script is DEPRECATED. Use start_production.ps1 instead.
+# Canonical startup path: start_production.ps1
+# Reason: Duplicate functionality, uses port 8000 (inconsistent with other scripts)
+# =============================================================================
+
+$ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 # DEV / EMERGENCY ONLY - production customers use Render (jetfighter-compliance.onrender.com).
