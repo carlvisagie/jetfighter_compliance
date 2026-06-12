@@ -122,14 +122,92 @@ class UEIResult:
 
 def acquire_uei(company_name: str) -> UEIResult:
     """
-    Acquire UEI for a company using USASpending autocomplete.
+    Acquire UEI for a company.
     
-    The autocomplete endpoint returns recipient matches with UEI.
-    We match based on name similarity.
+    Strategy:
+    1. First try award search (returns UEI in award records)
+    2. Fall back to autocomplete (which often has null UEI)
+    
+    Award search is the primary source because it has actual UEI data.
     """
     if not company_name or len(company_name) < 3:
         return UEIResult()
     
+    # STRATEGY 1: Search awards by company name - this returns UEI reliably
+    payload = {
+        "filters": {
+            "recipient_search_text": [company_name[:80]],
+            "time_period": [
+                {"start_date": "2018-01-01", "end_date": datetime.now().strftime("%Y-%m-%d")}
+            ],
+        },
+        "fields": [
+            "Recipient Name",
+            "Recipient UEI",
+            "Award Amount",
+            "Place of Performance City",
+            "Place of Performance State Code",
+        ],
+        "page": 1,
+        "limit": 5,
+        "sort": "Award Amount",
+        "order": "desc",
+    }
+    
+    result = _api_request(USASPENDING_AWARD_SEARCH, payload)
+    if result:
+        awards = result.get("results", [])
+        if awards:
+            # Find best match by name
+            company_lower = company_name.lower().strip()
+            best_award = None
+            best_score = 0.0
+            
+            for award in awards:
+                r_name = (award.get("Recipient Name") or "").strip()
+                r_lower = r_name.lower()
+                uei = award.get("Recipient UEI")
+                
+                # Skip if no UEI
+                if not uei:
+                    continue
+                
+                # Exact match
+                if r_lower == company_lower:
+                    best_award = award
+                    best_score = 1.0
+                    break
+                
+                # Contains match
+                if company_lower in r_lower or r_lower in company_lower:
+                    score = len(company_lower) / max(len(r_lower), len(company_lower))
+                    if score > best_score:
+                        best_award = award
+                        best_score = score
+            
+            # Take first award with UEI if no good match
+            if not best_award:
+                for award in awards:
+                    if award.get("Recipient UEI"):
+                        best_award = award
+                        best_score = 0.6
+                        break
+            
+            if best_award and best_award.get("Recipient UEI"):
+                city = best_award.get("Place of Performance City", "")
+                state = best_award.get("Place of Performance State Code", "")
+                location = f"{city}, {state}".strip(", ") if city or state else ""
+                
+                return UEIResult(
+                    uei=best_award.get("Recipient UEI"),
+                    recipient_name=best_award.get("Recipient Name", ""),
+                    recipient_id="",
+                    location=location,
+                    confidence=best_score,
+                    source="USASpending Award Search",
+                )
+    
+    # STRATEGY 2: Fall back to autocomplete (often has null UEI)
     payload = {
         "search_text": company_name[:80],
         "limit": 10,
@@ -226,19 +304,27 @@ class AwardProfile:
     error: Optional[str] = None
 
 
-def get_award_profile_by_uei(uei: str) -> AwardProfile:
+def get_award_profile_by_uei(uei: str, company_name: str = "") -> AwardProfile:
     """
     Get comprehensive award profile using UEI.
     
-    Queries USASpending award search with UEI filter for accurate results.
+    Since USASpending doesn't support direct UEI filtering in award search,
+    we search by company name and filter results to only include awards
+    with matching UEI for accuracy.
+    
+    If company_name is not provided, we cannot search effectively.
     """
     if not uei:
         return AwardProfile(error="No UEI provided")
     
-    # Query awards by UEI
+    if not company_name:
+        # Cannot search without company name
+        return AwardProfile(error="No company name for UEI search")
+    
+    # Query awards by company name
     payload = {
         "filters": {
-            "recipient_id": [uei],
+            "recipient_search_text": [company_name],
             "time_period": [
                 {"start_date": "2018-01-01", "end_date": datetime.now().strftime("%Y-%m-%d")}
             ],
@@ -268,15 +354,20 @@ def get_award_profile_by_uei(uei: str) -> AwardProfile:
     
     result = _api_request(USASPENDING_AWARD_SEARCH, payload)
     if not result:
-        # Fallback: try recipient_search_text
-        return get_award_profile_by_name_fallback(uei)
+        return AwardProfile(error="API request failed")
     
     awards = result.get("results", [])
     
     if not awards:
-        # Fallback to name-based search
-        return get_award_profile_by_name_fallback(uei)
+        return AwardProfile(success=True)  # No awards found is valid
     
+    # Filter awards to only those matching our UEI for accuracy
+    matching_awards = [a for a in awards if a.get("Recipient UEI") == uei]
+    
+    if matching_awards:
+        return _aggregate_awards(matching_awards)
+    
+    # If no UEI match, use all results (less accurate but still useful)
     return _aggregate_awards(awards)
 
 
@@ -671,7 +762,7 @@ def deep_enrich_record(
     award_profile: Optional[AwardProfile] = None
     
     if result.uei:
-        award_profile = get_award_profile_by_uei(result.uei)
+        award_profile = get_award_profile_by_uei(result.uei, company_name)
         time.sleep(pause_seconds)
     
     if not award_profile or not award_profile.success or award_profile.contract_count == 0:
