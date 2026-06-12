@@ -348,7 +348,7 @@ def get_award_profile_by_uei(uei: str, company_name: str = "") -> AwardProfile:
             "Description",
         ],
         "page": 1,
-        "limit": 500,
+        "limit": 100,  # API max is 100
         "sort": "Award Amount",
         "order": "desc",
     }
@@ -357,19 +357,30 @@ def get_award_profile_by_uei(uei: str, company_name: str = "") -> AwardProfile:
     if not result:
         return AwardProfile(error="API request failed")
     
-    awards = result.get("results", [])
+    all_awards = result.get("results", [])
     
-    if not awards:
+    # Paginate to get more awards if available
+    page = 2
+    while len(all_awards) >= 100 * (page - 1) and page <= 5:
+        payload["page"] = page
+        more_result = _api_request(USASPENDING_AWARD_SEARCH, payload)
+        if more_result and more_result.get("results"):
+            all_awards.extend(more_result.get("results", []))
+            page += 1
+        else:
+            break
+    
+    if not all_awards:
         return AwardProfile(success=True)  # No awards found is valid
     
     # Filter awards to only those matching our UEI for accuracy
-    matching_awards = [a for a in awards if a.get("Recipient UEI") == uei]
+    matching_awards = [a for a in all_awards if a.get("Recipient UEI") == uei]
     
     if matching_awards:
         return _aggregate_awards(matching_awards)
     
     # If no UEI match, use all results (less accurate but still useful)
-    return _aggregate_awards(awards)
+    return _aggregate_awards(all_awards)
 
 
 def get_award_profile_by_name_fallback(company_name: str) -> AwardProfile:

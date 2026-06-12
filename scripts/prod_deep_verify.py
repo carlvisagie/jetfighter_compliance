@@ -3,20 +3,27 @@ import httpx
 import json
 import sys
 
-# Session from login
-session_cookie = 'eyJyb2xlIjoib3BzIiwidHMiOjE3ODEyNDM2MzF9.aiue7w.W5PQO2ZULScKlj-ekUkB0gnquic'
-cookies = {'kyc_ops_session': session_cookie}
 BASE = 'https://jetfighter-compliance.onrender.com'
+PASSWORD = 'IZAKviss!@34'
 
 
-def get(path, **kwargs):
+def get_session():
+    """Get fresh session cookie."""
+    resp = httpx.post(f"{BASE}/api/ops/login", json={'password': PASSWORD}, timeout=60)
+    return {'kyc_ops_session': resp.cookies.get('kyc_ops_session')}
+
+
+cookies = get_session()
+
+
+def get(path, timeout=60, **kwargs):
     """GET with session."""
-    return httpx.get(f"{BASE}{path}", cookies=cookies, timeout=60, **kwargs).json()
+    return httpx.get(f"{BASE}{path}", cookies=cookies, timeout=timeout, **kwargs).json()
 
 
-def post(path, json_data=None, **kwargs):
+def post(path, json_data=None, timeout=600, **kwargs):
     """POST with session."""
-    return httpx.post(f"{BASE}{path}", cookies=cookies, json=json_data or {}, timeout=300, **kwargs).json()
+    return httpx.post(f"{BASE}{path}", cookies=cookies, json=json_data or {}, timeout=timeout, **kwargs).json()
 
 
 def check_cockpit():
@@ -94,6 +101,40 @@ def run_deep_enrich_single(record_id):
     return data
 
 
+def run_deep_enrich_all(limit=39):
+    """Run deep enrichment on all records."""
+    print("\n=== RUNNING DEEP ENRICHMENT ===")
+    print(f"Processing up to {limit} records...")
+    print("This may take several minutes...")
+    
+    data = post('/api/operator/customer-intelligence/deep-enrich', {'limit': limit})
+    
+    print(f"\nok: {data.get('ok')}")
+    print(f"records_processed: {data.get('records_processed')}")
+    
+    summary = data.get('summary', {})
+    print(f"\nSUMMARY:")
+    print(f"  ueis_acquired: {summary.get('ueis_acquired', 0)}")
+    print(f"  total_fields_added: {summary.get('total_fields_added', 0)}")
+    print(f"  tier_changes: {summary.get('tier_changes', 0)}")
+    
+    before = data.get('before', {})
+    print(f"\nBEFORE:")
+    print(f"  average_completeness: {before.get('average_completeness', 0)}%")
+    print(f"  tier_distribution: {before.get('tier_distribution', {})}")
+    
+    after = data.get('after', {})
+    print(f"\nAFTER:")
+    print(f"  average_completeness: {after.get('average_completeness', 0)}%")
+    print(f"  tier_distribution: {after.get('tier_distribution', {})}")
+    
+    delta = data.get('delta', {})
+    print(f"\nDELTA:")
+    print(f"  completeness: +{delta.get('completeness', 0)}%")
+    
+    return data
+
+
 def main():
     args = sys.argv[1:] if len(sys.argv) > 1 else ['check']
     
@@ -110,6 +151,9 @@ def main():
         if records:
             record_id = records[0].get('record_id')
             run_deep_enrich_single(record_id)
+    
+    if 'deep' in args:
+        run_deep_enrich_all(limit=39)
 
 
 if __name__ == '__main__':
