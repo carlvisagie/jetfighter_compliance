@@ -3265,6 +3265,71 @@ def operator_customer_intelligence_top_procurement_relevant(
     return generate_procurement_relevant_report(limit=limit)
 
 
+# =============================================================================
+# PATCH 13A-20: BUYING LIKELIHOOD INTELLIGENCE ENDPOINTS
+# =============================================================================
+
+@app.get("/api/operator/customer-intelligence/buying-signals")
+def operator_customer_intelligence_buying_signals(
+    request: Request,
+):
+    """
+    PATCH 13A-20: Get buying signal inventory.
+    
+    Lists all signals used in buying likelihood scoring.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.buying_likelihood import get_buying_signal_inventory
+    
+    require_ops_access(request)
+    
+    return {
+        "ok": True,
+        "inventory": get_buying_signal_inventory(),
+    }
+
+
+@app.get("/api/operator/customer-intelligence/buying-likelihood")
+def operator_customer_intelligence_buying_likelihood(
+    request: Request,
+    limit: int = 20,
+):
+    """
+    PATCH 13A-20: Top buying likelihood report.
+    
+    Ranks companies by likelihood to become customers.
+    Answers: Who should we contact first and why?
+    
+    NO OUTREACH. NO EMAILS. EVIDENCE ONLY.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.buying_likelihood import generate_buying_likelihood_report
+    
+    require_ops_access(request)
+    
+    if limit > 50:
+        limit = 50
+    
+    return generate_buying_likelihood_report(limit=limit)
+
+
+@app.get("/api/operator/customer-intelligence/buying-validation")
+def operator_customer_intelligence_buying_validation(
+    request: Request,
+):
+    """
+    PATCH 13A-20: Validate organism buying intelligence.
+    
+    Checks if organism can answer buying questions with evidence.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.buying_likelihood import validate_organism_buying_intelligence
+    
+    require_ops_access(request)
+    
+    return validate_organism_buying_intelligence()
+
+
 @app.post("/api/operator/customer-intelligence/decision-maker-enrich")
 async def operator_customer_intelligence_decision_maker_enrich(
     request: Request,
