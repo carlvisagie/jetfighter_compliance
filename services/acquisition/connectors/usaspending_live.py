@@ -23,13 +23,24 @@ logger = logging.getLogger(__name__)
 CONNECTOR_ID = "usaspending_live"
 SOURCE_ID = "usaspending_public_api"
 
-# Compliance-relevant federal supply chain search terms
+# PATCH ACQ-CUTOVER-1: IT/Cyber Primary Discovery
+# Per ACQ-QUAL-11 through ACQ-QUAL-16, IT/Cyber populations produce:
+# - 90% website discovery (vs 15% manufacturing)
+# - 70% contactability (vs 3% manufacturing)
+# - 75% decision maker discovery (vs 3% manufacturing)
 DEFAULT_QUERIES = [
-    "defense manufacturing",
-    "precision machining",
-    "aerospace supplier",
+    "IT services",
+    "managed IT services",
+    "cybersecurity services",
+    "technology solutions",
+    "software development",
+]
+
+# Secondary: Manufacturing (kept for coverage, run separately if needed)
+MANUFACTURING_QUERIES = [
     "government subcontractor",
-    "metal fabrication defense",
+    "defense manufacturing",
+    "aerospace supplier",
 ]
 
 
