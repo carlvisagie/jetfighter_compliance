@@ -108,7 +108,9 @@ def _compute_classification_health(
     unknown_blockers: List[Dict[str, Any]] = []
     
     for check in checks:
-        if check.get("severity") != "RED":
+        # Severity can be "RED" or "red" depending on context
+        severity = (check.get("severity") or "").upper()
+        if severity != "RED":
             continue
         
         check_name = check.get("name", "")
@@ -189,8 +191,8 @@ def _compute_classification_health(
                 test_blockers.append(blocker_info)
     
     # Calculate health states
-    all_red_checks = [c for c in checks if c.get("severity") == "RED"]
-    all_amber_checks = [c for c in checks if c.get("severity") == "AMBER"]
+    all_red_checks = [c for c in checks if (c.get("severity") or "").upper() == "RED"]
+    all_amber_checks = [c for c in checks if (c.get("severity") or "").upper() == "AMBER"]
     
     # ALL_DATA_HEALTH: Current overall health
     all_data_health = health_state
