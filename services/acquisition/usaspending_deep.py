@@ -140,6 +140,7 @@ def acquire_uei(company_name: str) -> UEIResult:
             "time_period": [
                 {"start_date": "2018-01-01", "end_date": datetime.now().strftime("%Y-%m-%d")}
             ],
+            "award_type_codes": ["A", "B", "C", "D"],  # Contracts - required filter
         },
         "fields": [
             "Recipient Name",
