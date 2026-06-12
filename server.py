@@ -3472,6 +3472,82 @@ def operator_customer_intelligence_enrichment_comparison(
     return generate_enrichment_comparison(limit=limit)
 
 
+@app.post("/api/operator/customer-intelligence/deep-enrich")
+async def operator_customer_intelligence_deep_enrich(
+    request: Request,
+    body: dict = Body(default={}),
+):
+    """
+    PATCH 13A-17: USASpending Deep Enrichment.
+    
+    Increase completeness from ~25% to ~55% using public federal data.
+    NO OUTREACH. NO EMAILS. NO CONTACTS. EVIDENCE ONLY.
+    
+    Returns comprehensive before/after report.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.usaspending_deep import deep_enrich_all_records
+    
+    require_ops_access(request)
+    
+    limit = body.get("limit", 39)  # Default to all records
+    if limit > 100:
+        limit = 100
+    
+    result = deep_enrich_all_records(limit=limit)
+    
+    return result
+
+
+@app.post("/api/operator/customer-intelligence/deep-enrich/{record_id}")
+async def operator_customer_intelligence_deep_enrich_single(
+    request: Request,
+    record_id: str,
+):
+    """
+    PATCH 13A-17: Deep enrich a single record with USASpending data.
+    
+    NO OUTREACH. NO EMAILS. EVIDENCE ONLY.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.ideal_customer_profile import load_intelligence_record
+    from services.acquisition.usaspending_deep import deep_enrich_record
+    
+    require_ops_access(request)
+    
+    record = load_intelligence_record(record_id)
+    if not record:
+        return {"ok": False, "error": "record_not_found"}
+    
+    result = deep_enrich_record(record)
+    
+    return {
+        "ok": True,
+        "result": result.to_dict(),
+    }
+
+
+@app.get("/api/operator/customer-intelligence/deep-enrichment-report")
+def operator_customer_intelligence_deep_enrichment_report(
+    request: Request,
+    limit: int = 20,
+):
+    """
+    PATCH 13A-17: Generate deep enrichment before/after report.
+    
+    Shows completeness delta, tier changes, UEI acquisition.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.usaspending_deep import generate_deep_enrichment_report
+    
+    require_ops_access(request)
+    
+    if limit > 50:
+        limit = 50
+    
+    return generate_deep_enrichment_report(limit=limit)
+
+
 @app.get("/api/operator/operational-alerts")
 def operator_operational_alerts():
     from services.alerts import get_operator_dashboard
