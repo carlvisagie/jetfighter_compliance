@@ -3548,6 +3548,111 @@ def operator_customer_intelligence_deep_enrichment_report(
     return generate_deep_enrichment_report(limit=limit)
 
 
+# =============================================================================
+# PATCH 13A-18: CONTACT INTELLIGENCE ENDPOINTS
+# =============================================================================
+
+@app.post("/api/operator/customer-intelligence/contact-enrich")
+async def operator_customer_intelligence_contact_enrich(
+    request: Request,
+    body: dict = Body(default={}),
+):
+    """
+    PATCH 13A-18: Contact Intelligence Enrichment.
+    
+    Discovers contact information from public website sources.
+    NO OUTREACH. NO EMAILS. NO AUTO-CONTACT. ONLY EVIDENCE COLLECTION.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.contact_intelligence import enrich_all_contact_intelligence
+    
+    require_ops_access(request)
+    
+    limit = body.get("limit", 30)
+    if limit > 50:
+        limit = 50
+    
+    result = enrich_all_contact_intelligence(limit=limit)
+    
+    return result
+
+
+@app.post("/api/operator/customer-intelligence/contact-enrich/{record_id}")
+async def operator_customer_intelligence_contact_enrich_single(
+    request: Request,
+    record_id: str,
+):
+    """
+    PATCH 13A-18: Enrich single record with contact intelligence.
+    
+    NO OUTREACH. NO EMAILS. ONLY EVIDENCE COLLECTION.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.ideal_customer_profile import load_intelligence_record
+    from services.acquisition.contact_intelligence import enrich_contact_intelligence
+    
+    require_ops_access(request)
+    
+    record = load_intelligence_record(record_id)
+    if not record:
+        return {"ok": False, "error": "record_not_found"}
+    
+    result = enrich_contact_intelligence(record)
+    
+    return {
+        "ok": True,
+        "result": result.to_dict(),
+    }
+
+
+@app.get("/api/operator/customer-intelligence/top-contactable")
+def operator_customer_intelligence_top_contactable(
+    request: Request,
+    limit: int = 20,
+):
+    """
+    PATCH 13A-18: Top contactable companies report.
+    
+    Shows companies ranked by contact intelligence quality.
+    NO OUTREACH. NO EMAILS. EVIDENCE ONLY.
+    """
+    from services.production import require_ops_access
+    from services.acquisition.contact_intelligence import generate_top_contactable_report
+    
+    require_ops_access(request)
+    
+    if limit > 50:
+        limit = 50
+    
+    return generate_top_contactable_report(limit=limit)
+
+
+@app.get("/api/operator/customer-intelligence/contact-metrics")
+def operator_customer_intelligence_contact_metrics(
+    request: Request,
+):
+    """
+    PATCH 13A-18: Contact intelligence metrics.
+    
+    Returns:
+    - contactable_entities
+    - decision_maker_entities
+    - email_known_entities
+    - phone_known_entities
+    - leadership_known_entities
+    - contact_ready_entities
+    """
+    from services.production import require_ops_access
+    from services.acquisition.contact_intelligence import compute_contact_metrics
+    
+    require_ops_access(request)
+    
+    return {
+        "ok": True,
+        "metrics": compute_contact_metrics(),
+    }
+
+
 @app.get("/api/operator/operational-alerts")
 def operator_operational_alerts():
     from services.alerts import get_operator_dashboard

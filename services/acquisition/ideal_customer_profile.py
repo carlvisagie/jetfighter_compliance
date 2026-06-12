@@ -313,6 +313,10 @@ class CustomerIntelligenceRecord:
     # Contactability
     contact_email: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("contact_email"))
     contact_name: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("contact_name"))
+    contact_phone: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("contact_phone"))
+    contact_title: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("contact_title"))
+    contact_source_url: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("contact_source_url"))
+    leadership_page_url: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("leadership_page_url"))
     website: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("website"))
     location: EvidencedValue = field(default_factory=lambda: EvidencedValue.unknown("location"))
     
@@ -438,6 +442,10 @@ class CustomerIntelligenceRecord:
             "dfars_likelihood": self.dfars_likelihood.to_dict(),
             "contact_email": self.contact_email.to_dict(),
             "contact_name": self.contact_name.to_dict(),
+            "contact_phone": self.contact_phone.to_dict(),
+            "contact_title": self.contact_title.to_dict(),
+            "contact_source_url": self.contact_source_url.to_dict(),
+            "leadership_page_url": self.leadership_page_url.to_dict(),
             "website": self.website.to_dict(),
             "location": self.location.to_dict(),
             "contactability_score": self.contactability_score.to_dict(),
@@ -478,6 +486,10 @@ class CustomerIntelligenceRecord:
             dfars_likelihood=get_ev("dfars_likelihood"),
             contact_email=get_ev("contact_email"),
             contact_name=get_ev("contact_name"),
+            contact_phone=get_ev("contact_phone"),
+            contact_title=get_ev("contact_title"),
+            contact_source_url=get_ev("contact_source_url"),
+            leadership_page_url=get_ev("leadership_page_url"),
             website=get_ev("website"),
             location=get_ev("location"),
             contactability_score=get_ev("contactability_score"),
@@ -689,6 +701,15 @@ def get_intelligence_summary() -> Dict[str, Any]:
         },
         "contactable": 0,
         "average_completeness": 0,
+        # PATCH 13A-18: Contact intelligence metrics
+        "contact_metrics": {
+            "contactable_entities": 0,
+            "decision_maker_entities": 0,
+            "email_known_entities": 0,
+            "phone_known_entities": 0,
+            "leadership_known_entities": 0,
+            "contact_ready_entities": 0,
+        },
     }
     
     total_completeness = 0
@@ -721,6 +742,32 @@ def get_intelligence_summary() -> Dict[str, Any]:
         # Contactable
         if record.compute_contactability() >= 40:
             summary["contactable"] += 1
+        
+        # PATCH 13A-18: Contact metrics
+        email_known = record.contact_email.state == SignalState.KNOWN and record.contact_email.value
+        phone_known = record.contact_phone.state == SignalState.KNOWN and record.contact_phone.value
+        name_known = record.contact_name.state == SignalState.KNOWN and record.contact_name.value
+        title_known = record.contact_title.state == SignalState.KNOWN and record.contact_title.value
+        leadership_known = record.leadership_page_url.state == SignalState.KNOWN and record.leadership_page_url.value
+        
+        if email_known:
+            summary["contact_metrics"]["email_known_entities"] += 1
+        
+        if phone_known:
+            summary["contact_metrics"]["phone_known_entities"] += 1
+        
+        if email_known and (name_known or title_known):
+            summary["contact_metrics"]["contactable_entities"] += 1
+            
+            # CONTACT_READY: high confidence
+            if record.contact_email.confidence >= 0.70:
+                summary["contact_metrics"]["contact_ready_entities"] += 1
+        
+        if name_known and title_known:
+            summary["contact_metrics"]["decision_maker_entities"] += 1
+        
+        if leadership_known:
+            summary["contact_metrics"]["leadership_known_entities"] += 1
     
     if records:
         summary["average_completeness"] = round(total_completeness / len(records), 1)
