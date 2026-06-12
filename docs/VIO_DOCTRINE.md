@@ -2,7 +2,7 @@
 
 > *"Movement is currency. Stillness is health. Shape is the language."*
 
-The Visual Intelligence Observatory (VIO) is the sole command surface of
+The Visual Intelligence Organism (VIO) is the sole command surface of
 the KYC platform. It is not a dashboard. It is a **visual cognition
 system** — an instrument the operator reads the way an air-defence
 console or anaesthesiology monitor is read: at a glance, with subconscious
