@@ -2,100 +2,89 @@
 
 **PATCH**: ACQ-QUAL-19  
 **EXECUTED**: 2026-06-12T19:00:00Z  
-**COMMIT SHA**: `1385066`
+**COMMIT SHA**: `68d5b2b`  
+**PRODUCTION SHA**: `68d5b2be5b878943ba9461b458c643ca6e61fc75`
 
 ---
 
 ## EXECUTIVE SUMMARY
 
-| Question | Answer | Evidence |
-|----------|--------|----------|
-| Is SAM_GOV_API_KEY configured? | **NO** | Not in render.yaml |
-| Is it loaded? | **N/A** | Key not configured |
-| Is SAM connector called from acquisition? | **NO** | No import in acquisition code |
-| Is SAM returning data? | **N/A** | Never called |
-| Where exactly does the chain break? | **Multiple points** | See below |
+| Question | Answer | Evidence Source |
+|----------|--------|-----------------|
+| Is SAM_GOV_API_KEY configured? | **UNKNOWN** | Cannot verify without Render dashboard |
+| Is SAM returning data to acquisition? | **NO** | Production API: 0 records with SAM source |
+| Is SAM verification running for projects? | **NO** | Production API: 0 of 9 projects verified |
+| Is SAM connected to CustomerIntelligence? | **NO** | Production API: website.source = "none" |
+| Where exactly does the chain break? | **SAM is not wired to acquisition** | Production evidence below |
 
-**ROOT CAUSE**: The SAM.gov integration is for **identity verification of intakes**, NOT for **acquisition/discovery enrichment**. The two systems are completely separate.
-
----
-
-## 1. PHASE 1: SAM_GOV_API_KEY LOADING PATH
-
-### Configuration Sources Audited
-
-| Source | SAM_GOV_API_KEY Present |
-|--------|-------------------------|
-| `render.yaml` | **NO** |
-| Environment variables (production) | **NO** (inferred from missing config) |
-| `.env` files | N/A (not checked in production) |
-
-### Code Loading Path
-
-```python
-# services/external_verification/sam_gov.py:22-25
-def is_api_configured() -> bool:
-    """Check if SAM.gov API key is configured."""
-    api_key = os.environ.get("SAM_GOV_API_KEY", "").strip()
-    return bool(api_key)
-```
-
-### render.yaml Environment Variables
-
-```yaml
-envVars:
-  - key: ENVIRONMENT
-  - key: KYC_SAFE_MODE
-  - key: KYC_REQUIRE_SAFE_MODE
-  - key: KYC_ENABLE_MANUAL_ACQUISITION
-  - key: KYC_ENABLE_KNOWLEDGE_OVERLAY
-  - key: KYC_ENABLE_OBSERVABILITY
-  - key: KYC_SCHEDULERS_ENABLED
-  - key: KYC_OCR_ENABLED
-  - key: OPS_PASSWORD
-  - key: OPS_SECRET
-  - key: OPS_API_KEY
-  - key: INTAKE_TOKEN_SECRET
-  - key: PUBLIC_BASE_URL
-  - key: KYC_DATA
-  - key: RESEND_API_KEY
-  - key: RESEND_FROM_EMAIL
-  - key: SMTP_ENABLED
-  - key: SMTP_HOST
-  - key: SMTP_SERVER
-  - key: SMTP_PORT
-  - key: SMTP_USER
-  - key: SMTP_USERNAME
-  - key: SMTP_PASS
-  - key: SMTP_PASSWORD
-  - key: SMTP_FROM_EMAIL
-  - key: SMTP_FROM_NAME
-  - key: DATABASE_URL
-  - key: REDDIT_CLIENT_ID
-  - key: REDDIT_CLIENT_SECRET
-  - key: REDDIT_USERNAME
-  - key: REDDIT_PASSWORD
-```
-
-**SAM_GOV_API_KEY is NOT in this list.**
+**PRODUCTION TRUTH**: SAM.gov data is NOT flowing to customer intelligence records. Whether the API key is configured is irrelevant—the wiring does not exist.
 
 ---
 
-## 2. PHASE 2: KEY VERIFICATION
+## 1. PRODUCTION EVIDENCE
 
-### Status
+### Organism State (Production API)
 
-| Check | Result |
-|-------|--------|
-| Key present in config | **NO** |
-| Key loaded at runtime | **NO** (not configured) |
-| Key accessible | **NO** |
+```
+GET /api/operator/organism/state
+health_state: RED
+current_bottleneck: cognition_validation_quality
+git_commit: 68d5b2be5b878943ba9461b458c643ca6e61fc75
+```
 
-### Evidence
+### Customer Intelligence Records (Production API)
 
-No diagnostic endpoint exposes environment variable status. However:
-- render.yaml does not define SAM_GOV_API_KEY
-- No Render dashboard secrets include SAM_GOV_API_KEY (inferred)
+```
+GET /api/operator/customer-intelligence/{record_id}
+
+website.source: "none"
+website.state: "UNKNOWN"
+contact_email.source: "none"
+uei.source: "USASpending Award Search"
+```
+
+**SAM is NOT a source for any customer intelligence field.**
+
+### External Verification Status (Production API)
+
+```
+GET /api/operator/external-verification/{project_id}
+
+Projects in production: 9
+Projects with SAM verification: 0
+Projects without verification: 9
+```
+
+**No project has SAM verification results.**
+
+### Compliance Health Coverage (Production API)
+
+```
+compliance_health_coverage:
+  coverage_percent: 0.0
+  required_total: 9
+  verified: 0
+  unknown: 9
+```
+
+**0% compliance health coverage.**
+
+---
+
+## 2. WHAT PRODUCTION TELLS US
+
+| Evidence | Value | Implication |
+|----------|-------|-------------|
+| SAM source in CustomerIntelligence | **"none"** | SAM not wired to acquisition |
+| Projects with SAM verification | **0 of 9** | SAM verification not running |
+| Compliance health coverage | **0.0%** | No external verifications completed |
+
+### Cannot Verify Without Render Dashboard
+
+| Item | Status |
+|------|--------|
+| SAM_GOV_API_KEY environment variable | **REQUIRES RENDER DASHBOARD ACCESS** |
+| Actual key value | **REQUIRES RENDER DASHBOARD ACCESS** |
 
 ---
 
