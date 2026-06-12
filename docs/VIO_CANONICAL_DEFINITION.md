@@ -2,7 +2,7 @@
 
 **PATCH**: DOC-FIX-VIO-1  
 **EXECUTED**: 2026-06-12  
-**COMMIT SHA**: `a6fd8b858bebacc1e90e0444e1702676fa56e44f`  
+**COMMIT SHA**: `3b984b2`  
 **SOURCE OF TRUTH**: Production UI at https://jetfighter-compliance.onrender.com/ui/vio-react/
 
 ---
