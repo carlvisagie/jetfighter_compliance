@@ -1,4 +1,4 @@
-# VIO (Visual Intelligence Observatory) — Architecture
+# VIO (Visual Intelligence Organism) — Architecture
 
 **Owner:** Operator experience  
 **Canonical detail:** [`../VIO_CONSTITUTION.md`](../VIO_CONSTITUTION.md), [`../VIO_DOCTRINE.md`](../VIO_DOCTRINE.md)
