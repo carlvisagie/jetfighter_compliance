@@ -487,12 +487,23 @@ class CognitionValidationCheck(Check):
         gen_no_val = int(section.get("generated_without_validation", 0))
         human_rev = int(section.get("projects_with_human_review", 0))
         conf = float(section.get("avg_confidence", 0.0))
+        blocker_projects = section.get("blocker_projects", []) or []
+        
+        # PATCH PRODUCTION-ONLY-2: Include classification data in evidence
+        evidence = dict(section)
+        evidence["blocker_projects"] = blocker_projects
+        
+        # Count blockers by classification
+        real_blockers = [p for p in blocker_projects if p.get("real_customer")]
+        test_blockers = [p for p in blocker_projects if not p.get("real_customer")]
+        evidence["real_blocker_count"] = len(real_blockers)
+        evidence["test_blocker_count"] = len(test_blockers)
         
         if checked == 0 and not malformed and not gen_no_val:
             return CheckResult(
                 name=self.name, ok=True, severity=Severity.INFO,
                 detail="No projects with cognition validation reports yet.",
-                evidence=dict(section),
+                evidence=evidence,
             )
 
         if safety > 0 or malformed > 0 or gen_no_val > 0 or (checked > 0 and conf < 0.50):
@@ -502,31 +513,35 @@ class CognitionValidationCheck(Check):
                 detail = f"Cognition validation RED: {gen_no_val} project(s) generated documents without a validation report."
             else:
                 detail = f"Cognition validation RED: average confidence {conf:.2f} is below 0.50 threshold."
+            
+            # Add classification context
+            if len(real_blockers) == 0 and len(test_blockers) > 0:
+                detail += f" [TEST CONTAMINATION: 0 REAL, {len(test_blockers)} TEST/VALIDATION]"
                 
             return CheckResult(
                 name=self.name, ok=False, severity=Severity.RED,
                 detail=detail,
-                evidence=dict(section),
+                evidence=evidence,
             )
 
         if human_rev > 0:
             return CheckResult(
                 name=self.name, ok=False, severity=Severity.AMBER,
                 detail=f"Cognition validation requires review: {human_rev} project(s) contain human_review_items.",
-                evidence=dict(section),
+                evidence=evidence,
             )
 
         if conf >= 0.75:
             return CheckResult(
                 name=self.name, ok=True, severity=Severity.INFO,
                 detail=f"Cognition validation healthy: {checked} project(s) checked; 0 safety warnings; average confidence {conf:.2f}.",
-                evidence=dict(section),
+                evidence=evidence,
             )
 
         return CheckResult(
             name=self.name, ok=False, severity=Severity.AMBER,
             detail=f"Cognition validation confidence marginal: average confidence {conf:.2f}.",
-            evidence=dict(section),
+            evidence=evidence,
         )
 
 

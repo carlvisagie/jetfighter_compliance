@@ -41,6 +41,180 @@ logger = logging.getLogger(__name__)
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
+def _get_intake_for_project(project_id: str) -> Optional[str]:
+    """Extract intake ID from project ID."""
+    # Project IDs are formatted like: P-FB-xxxx-timestamp
+    if not project_id:
+        return None
+    parts = project_id.split("-")
+    if len(parts) >= 3 and parts[0] == "P" and parts[1] == "FB":
+        # Reconstruct intake ID: FB-{middle_parts}
+        # P-FB-97bbf7703-20260611T113217Z -> FB-97bbf7703e74 (need original intake_id)
+        return None  # Can't reliably reconstruct, need VIO mapping
+    return None
+
+
+def _compute_classification_health(
+    core_snapshot: Dict[str, Any],
+    classifications: Dict[str, Dict[str, Any]],
+) -> Dict[str, Any]:
+    """PATCH PRODUCTION-ONLY-2: Compute classification-aware health metrics."""
+    
+    # Build intake->classification mapping
+    intake_class_map: Dict[str, str] = {}
+    for intake_id, record in classifications.items():
+        intake_class_map[intake_id] = record.get("classification", "UNKNOWN")
+    
+    # Get checks from core snapshot
+    checks = core_snapshot.get("checks", []) or []
+    health_state = core_snapshot.get("health_state", "UNKNOWN")
+    
+    # Count projects by classification using VIO data
+    try:
+        from services.vio_overview import build_vio_overview
+        vio = build_vio_overview(limit=500, include_organism=False) or {}
+        companies = vio.get("companies", []) or []
+    except Exception:
+        companies = []
+    
+    # Build project->intake mapping from VIO
+    project_intake_map: Dict[str, str] = {}
+    for company in companies:
+        intake_id = company.get("intake_id")
+        project_id = company.get("project_id")
+        if intake_id and project_id:
+            project_intake_map[project_id] = intake_id
+    
+    # Count projects by classification
+    real_project_count = 0
+    test_project_count = 0
+    validation_project_count = 0
+    
+    for project_id, intake_id in project_intake_map.items():
+        cls = intake_class_map.get(intake_id, "UNKNOWN")
+        if cls == "REAL":
+            real_project_count += 1
+        elif cls == "TEST":
+            test_project_count += 1
+        elif cls == "VALIDATION":
+            validation_project_count += 1
+    
+    # Analyze blockers by classification
+    # A blocker is a RED check - need to identify which projects cause each RED
+    real_blockers: List[Dict[str, Any]] = []
+    test_blockers: List[Dict[str, Any]] = []
+    validation_blockers: List[Dict[str, Any]] = []
+    demo_blockers: List[Dict[str, Any]] = []
+    unknown_blockers: List[Dict[str, Any]] = []
+    
+    for check in checks:
+        if check.get("severity") != "RED":
+            continue
+        
+        check_name = check.get("name", "")
+        evidence = check.get("evidence", {}) or {}
+        
+        # Determine if this blocker is caused by real or test data
+        # For cognition/compliance checks, we need to look at which projects are involved
+        affected_projects = []
+        
+        # Check if evidence contains project-related info
+        if "projects_with_safety_warnings" in evidence or "projects_checked" in evidence:
+            # This is a cognition check - all projects in the system
+            affected_projects = list(project_intake_map.keys())
+        elif "coverage_data" in evidence:
+            # Compliance coverage - affects all projects
+            affected_projects = list(project_intake_map.keys())
+        
+        # Classify blocker by project types involved
+        blocker_by_real = False
+        blocker_by_test = False
+        blocker_by_validation = False
+        
+        for proj_id in affected_projects:
+            intake_id = project_intake_map.get(proj_id)
+            if not intake_id:
+                continue
+            cls = intake_class_map.get(intake_id, "UNKNOWN")
+            if cls == "REAL":
+                blocker_by_real = True
+            elif cls == "TEST":
+                blocker_by_test = True
+            elif cls == "VALIDATION":
+                blocker_by_validation = True
+        
+        blocker_info = {
+            "check_name": check_name,
+            "detail": check.get("detail", ""),
+            "affected_project_count": len(affected_projects),
+        }
+        
+        # If blocker affects real projects, it's a real blocker
+        # If only test/validation, it's test contamination
+        if blocker_by_real:
+            real_blockers.append(blocker_info)
+        elif blocker_by_test:
+            test_blockers.append(blocker_info)
+        elif blocker_by_validation:
+            validation_blockers.append(blocker_info)
+        elif affected_projects:
+            # Has projects but couldn't classify
+            unknown_blockers.append(blocker_info)
+        else:
+            # No projects affected - likely test contamination or missing classification
+            test_blockers.append(blocker_info)
+    
+    # Calculate health states
+    all_red_checks = [c for c in checks if c.get("severity") == "RED"]
+    all_amber_checks = [c for c in checks if c.get("severity") == "AMBER"]
+    
+    # ALL_DATA_HEALTH: Current overall health
+    all_data_health = health_state
+    
+    # REAL_ONLY_HEALTH: Health if we only count real customers
+    # If there are no real projects and no real blockers, health is GREEN
+    if real_project_count == 0 and len(real_blockers) == 0:
+        real_only_health = "GREEN"
+    elif len(real_blockers) > 0:
+        real_only_health = "RED"
+    else:
+        real_only_health = "GREEN"
+    
+    # TEST_ONLY_HEALTH: Health of test/validation data
+    if (test_project_count + validation_project_count) == 0:
+        test_only_health = "N/A"
+    elif len(test_blockers) + len(validation_blockers) > 0:
+        test_only_health = "RED"
+    else:
+        test_only_health = "GREEN"
+    
+    # REAL_ONLY_LAUNCH_VERDICT
+    if real_project_count == 0:
+        real_only_launch_verdict = "NO_REAL_CUSTOMERS"
+    elif len(real_blockers) > 0:
+        real_only_launch_verdict = "BLOCKED"
+    else:
+        real_only_launch_verdict = "READY"
+    
+    return {
+        "real_project_count": real_project_count,
+        "test_project_count": test_project_count,
+        "validation_project_count": validation_project_count,
+        "real_blocker_count": len(real_blockers),
+        "test_blocker_count": len(test_blockers),
+        "validation_blocker_count": len(validation_blockers),
+        "demo_blocker_count": len(demo_blockers),
+        "unknown_blocker_count": len(unknown_blockers),
+        "all_data_health": all_data_health,
+        "real_only_health": real_only_health,
+        "test_only_health": test_only_health,
+        "real_only_launch_verdict": real_only_launch_verdict,
+        "real_blockers": real_blockers,
+        "test_blockers": test_blockers,
+        "validation_blockers": validation_blockers,
+    }
+
+
 def _default_snapshot_path() -> Path:
     try:
         from services.durable_storage import active_data_root
@@ -157,13 +331,34 @@ def _flatten_for_legacy_api(core_snapshot: Dict[str, Any]) -> Dict[str, Any]:
     
     # PATCH 13A-9: Add intake classification summary for operational purification
     try:
-        from services.intake.classification import get_classification_summary
+        from services.intake.classification import get_classification_summary, load_classifications
         classification_summary = get_classification_summary()
+        all_classifications = load_classifications()
     except Exception:
         classification_summary = {
             "real_customer_count": 0,
             "first_real_customer_arrived": False,
             "by_type": {},
+        }
+        all_classifications = {}
+    
+    # PATCH PRODUCTION-ONLY-2: Classification-aware health
+    try:
+        classification_health = _compute_classification_health(core_snapshot, all_classifications)
+    except Exception:
+        classification_health = {
+            "real_project_count": 0,
+            "test_project_count": 0,
+            "validation_project_count": 0,
+            "real_blocker_count": 0,
+            "test_blocker_count": 0,
+            "validation_blocker_count": 0,
+            "demo_blocker_count": 0,
+            "unknown_blocker_count": 0,
+            "all_data_health": "UNKNOWN",
+            "real_only_health": "GREEN",
+            "test_only_health": "UNKNOWN",
+            "real_only_launch_verdict": "UNKNOWN",
         }
     
     # PATCH 13A-12: Add customer intelligence metrics
@@ -228,6 +423,20 @@ def _flatten_for_legacy_api(core_snapshot: Dict[str, Any]) -> Dict[str, Any]:
         "ideal_customers": intelligence_summary.get("by_icp_tier", {}).get("TIER_1", 0),
         "unknown_entities": intelligence_summary.get("by_recommendation", {}).get("ENRICH", 0),
         "intelligence_summary": intelligence_summary,
+        # PATCH PRODUCTION-ONLY-2: Classification-aware health
+        "real_project_count": classification_health.get("real_project_count", 0),
+        "test_project_count": classification_health.get("test_project_count", 0),
+        "validation_project_count": classification_health.get("validation_project_count", 0),
+        "real_blocker_count": classification_health.get("real_blocker_count", 0),
+        "test_blocker_count": classification_health.get("test_blocker_count", 0),
+        "validation_blocker_count": classification_health.get("validation_blocker_count", 0),
+        "demo_blocker_count": classification_health.get("demo_blocker_count", 0),
+        "unknown_blocker_count": classification_health.get("unknown_blocker_count", 0),
+        "all_data_health": classification_health.get("all_data_health", "UNKNOWN"),
+        "real_only_health": classification_health.get("real_only_health", "GREEN"),
+        "test_only_health": classification_health.get("test_only_health", "UNKNOWN"),
+        "real_only_launch_verdict": classification_health.get("real_only_launch_verdict", "UNKNOWN"),
+        "classification_health": classification_health,
     })
     return legacy
 

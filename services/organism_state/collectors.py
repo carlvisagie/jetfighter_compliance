@@ -400,8 +400,25 @@ class CognitionValidationCollector(SignalCollector):
                 "projects_with_safety_warnings": 0,
                 "malformed_reports": 0,
                 "generated_without_validation": 0,
-                "available": False
+                "available": False,
+                "blocker_projects": [],
             }
+        
+        # PATCH PRODUCTION-ONLY-2: Get intake classifications for per-project breakdown
+        try:
+            from services.intake.classification import load_classifications
+            from services.vio_overview import build_vio_overview
+            classifications = load_classifications()
+            vio = build_vio_overview(limit=500, include_organism=False) or {}
+            companies = vio.get("companies", []) or []
+            # Build project_id -> intake_id mapping
+            project_intake_map = {}
+            for c in companies:
+                if c.get("project_id") and c.get("intake_id"):
+                    project_intake_map[c["project_id"]] = c["intake_id"]
+        except Exception:
+            classifications = {}
+            project_intake_map = {}
             
         checked = 0
         total_conf = 0.0
@@ -409,6 +426,7 @@ class CognitionValidationCollector(SignalCollector):
         safety_warnings = 0
         malformed = 0
         generated_no_val = 0
+        blocker_projects = []  # Projects causing RED status
         
         for pdir in projects_dir.iterdir():
             if not pdir.is_dir():
@@ -416,11 +434,20 @@ class CognitionValidationCollector(SignalCollector):
             cog_dir = pdir / "cognition"
             if not cog_dir.exists():
                 continue
+            
+            project_id = pdir.name
+            intake_id = project_intake_map.get(project_id)
+            classification = "UNKNOWN"
+            if intake_id:
+                cls_record = classifications.get(intake_id, {})
+                classification = cls_record.get("classification", "UNKNOWN")
                 
             val_path = cog_dir / "validation_report.json"
             sum_path = cog_dir / "cognition_summary.json"
             
             has_val = val_path.exists()
+            is_blocker = False
+            blocker_reason = ""
             
             if sum_path.exists():
                 try:
@@ -429,6 +456,8 @@ class CognitionValidationCollector(SignalCollector):
                         docs = s_data.get("generated_documents", [])
                         if docs and not has_val:
                             generated_no_val += 1
+                            is_blocker = True
+                            blocker_reason = "generated_without_validation"
                 except Exception:
                     pass
             
@@ -447,9 +476,25 @@ class CognitionValidationCollector(SignalCollector):
                         human_review += 1
                     if sw > 0:
                         safety_warnings += 1
+                        is_blocker = True
+                        blocker_reason = "safety_warnings"
+                    if conf < 0.50:
+                        is_blocker = True
+                        blocker_reason = f"low_confidence_{conf:.2f}"
                         
                 except Exception:
                     malformed += 1
+                    is_blocker = True
+                    blocker_reason = "malformed_report"
+            
+            if is_blocker:
+                blocker_projects.append({
+                    "project_id": project_id,
+                    "intake_id": intake_id or "UNKNOWN",
+                    "classification": classification,
+                    "real_customer": classification == "REAL",
+                    "reason": blocker_reason,
+                })
                     
         return {
             "projects_checked": checked,
@@ -458,7 +503,8 @@ class CognitionValidationCollector(SignalCollector):
             "projects_with_safety_warnings": safety_warnings,
             "malformed_reports": malformed,
             "generated_without_validation": generated_no_val,
-            "available": True
+            "available": True,
+            "blocker_projects": blocker_projects,
         }
 
 
