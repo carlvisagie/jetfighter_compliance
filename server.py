@@ -278,13 +278,16 @@ def public_organism_summary():
     try:
         state = compute_organism_state()
     except Exception as e:
-        return {
-            "ok": False,
-            "health_state": "UNKNOWN",
-            "current_bottleneck": "organism_unavailable",
-            "next_recommended_action": "Check server logs",
-            "error": str(e)
-        }
+        return JSONResponse(
+            content={
+                "ok": False,
+                "health_state": "UNKNOWN",
+                "current_bottleneck": "organism_unavailable",
+                "next_recommended_action": "Check server logs",
+                "error": str(e)
+            },
+            media_type="application/json; charset=utf-8"
+        )
     
     # Sanitize checks - remove internal paths and IDs
     safe_checks = []
@@ -304,23 +307,26 @@ def public_organism_summary():
         safe_check["detail"] = detail
         safe_checks.append(safe_check)
     
-    return {
-        "ok": True,
-        "health_state": state.get("health_state"),
-        "current_bottleneck": state.get("current_bottleneck"),
-        "next_recommended_action": state.get("next_recommended_action"),
-        "timestamp_utc": state.get("timestamp_utc"),
-        "environment": state.get("environment"),
-        "git_commit": state.get("git_commit", "")[:7],  # Short SHA only
-        "checks": safe_checks,
-        # Aggregate metrics only (no IDs)
-        "metrics": {
-            "intake_count": state.get("intake_count_total", 0),
-            "queue_depth": state.get("queue_depth", 0),
-            "project_count": state.get("project_count", 0),
-            "evidence_count": state.get("evidence_artifact_count", 0),
-        }
-    }
+    return JSONResponse(
+        content={
+            "ok": True,
+            "health_state": state.get("health_state"),
+            "current_bottleneck": state.get("current_bottleneck"),
+            "next_recommended_action": state.get("next_recommended_action"),
+            "timestamp_utc": state.get("timestamp_utc"),
+            "environment": state.get("environment"),
+            "git_commit": state.get("git_commit", "")[:7],  # Short SHA only
+            "checks": safe_checks,
+            # Aggregate metrics only (no IDs)
+            "metrics": {
+                "intake_count": state.get("intake_count_total", 0),
+                "queue_depth": state.get("queue_depth", 0),
+                "project_count": state.get("project_count", 0),
+                "evidence_count": state.get("evidence_artifact_count", 0),
+            }
+        },
+        media_type="application/json; charset=utf-8"
+    )
 
 
 @app.get("/api/ops/auth-check")

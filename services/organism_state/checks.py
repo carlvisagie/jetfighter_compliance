@@ -90,7 +90,7 @@ class QueueVsControlCheck(Check):
         if control is None:
             return CheckResult(
                 name=self.name, ok=True, severity=Severity.INFO,
-                detail="No operator cockpit signal — skipped.",
+                detail="No operator cockpit signal - skipped.",
                 evidence={"canonical_queue_depth": depth,
                           "control_queue_count": None},
             )
@@ -189,7 +189,7 @@ class ProjectsVsCompletedIntakesCheck(Check):
         return CheckResult(
             name=self.name, ok=False, severity=sev,
             detail=(f"KICKOFF DEFICIT: archived={archived} but only "
-                    f"{projects} project(s) — deficit={deficit}"),
+                    f"{projects} project(s) - deficit={deficit}"),
             evidence={"project_count": projects,
                       "archived_intakes": archived,
                       "deficit": deficit},
@@ -253,7 +253,7 @@ class DiskPersistenceCheck(Check):
         if state == "verified_persistent":
             return CheckResult(
                 name=self.name, ok=True, severity=Severity.INFO,
-                detail="Disk birth marker survived a restart — substrate is persistent.",
+                detail="Disk birth marker survived a restart - substrate is persistent.",
                 evidence=evidence,
             )
         if state == "pending_first_restart":
@@ -333,7 +333,7 @@ class LegacyLanguageCheck(Check):
         if docs_n > 0:
             return CheckResult(
                 name=self.name, ok=True, severity=Severity.INFO,
-                detail=f"Legacy references only in docs/tests ({docs_n} files) — non-runtime.",
+                detail=f"Legacy references only in docs/tests ({docs_n} files) - non-runtime.",
                 evidence={
                     "critical_count": 0, "active_file_count": 0, "docs_file_count": docs_n,
                     "legacy_routes_remaining": [], "legacy_imports_remaining": [],
@@ -464,7 +464,7 @@ class SchedulerHeartbeatCheck(Check):
 
         return CheckResult(
             name=self.name, ok=True, severity=Severity.INFO,
-            detail=f"Scheduler alive — last run {seconds_since}s ago.",
+            detail=f"Scheduler alive - last run {seconds_since}s ago.",
             evidence=dict(section),
         )
 
