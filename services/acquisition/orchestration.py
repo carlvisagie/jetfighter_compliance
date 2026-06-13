@@ -617,27 +617,52 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
     """Acquisition Intelligence panel data for operator cockpit."""
     targets = _load_intel(TARGETS_JSONL, base)
     
-    # RE-SCORE WITH LIVE TUNED ENGINE - don't trust cached scores
+    # RE-SCORE WITH LIVE TUNED ENGINE - don't trust cached Reddit scores
+    # BUT preserve cached scores for non-Reddit sources (e.g. usaspending)
     from .acquisition_probability import score_acquisition_probability
     for t in targets:
-        qual = t.get("qualification", {})
-        if not qual:
-            continue
-        try:
-            # Apply live scoring using current tuned logic
-            prob = score_acquisition_probability(
-                title=t.get("signal_title", ""),
-                body=t.get("signal_body", ""),
-                classification=t.get("classification", {}),
-                post=t.get("discovery_meta", {}),
-            )
-            # Update with TUNED ENGINE scores
-            t["prey_score"] = prob.get("prey_score", 0)
-            t["prey_tier"] = prob.get("prey_tier", "?")
-            t["queue_eligible"] = prob.get("queue_eligible", False)
-            t["priority_score"] = prob.get("prey_score", t.get("priority_score", 0))
-        except Exception:
-            pass  # Keep cached scores if re-scoring fails
+        source = t.get("source", "")
+        
+        # Only re-score Reddit targets (they have signal_title, signal_body, etc.)
+        if "reddit" in source.lower():
+            qual = t.get("qualification", {})
+            if not qual:
+                continue
+            try:
+                # Apply live scoring using current tuned logic
+                prob = score_acquisition_probability(
+                    title=t.get("signal_title", ""),
+                    body=t.get("signal_body", ""),
+                    classification=t.get("classification", {}),
+                    post=t.get("discovery_meta", {}),
+                )
+                # Update with TUNED ENGINE scores
+                t["prey_score"] = prob.get("prey_score", 0)
+                t["prey_tier"] = prob.get("prey_tier", "?")
+                t["queue_eligible"] = prob.get("queue_eligible", False)
+                t["priority_score"] = prob.get("prey_score", t.get("priority_score", 0))
+            except Exception:
+                pass  # Keep cached scores if re-scoring fails
+        else:
+            # Non-Reddit sources (e.g. usaspending) - preserve cached scores
+            # Map their cached scores to prey_score format if not already set
+            if "prey_score" not in t or t.get("prey_score") == 0:
+                # Use fit_score or qualification_score as prey_score
+                cached_score = t.get("fit_score") or t.get("qualification_score", 0)
+                t["prey_score"] = cached_score
+                
+                # Map score to tier
+                if cached_score >= 70:
+                    t["prey_tier"] = "1"
+                elif cached_score >= 60:
+                    t["prey_tier"] = "2"
+                elif cached_score >= 50:
+                    t["prey_tier"] = "3"
+                else:
+                    t["prey_tier"] = "4"
+                
+                t["queue_eligible"] = cached_score >= 50
+                t["priority_score"] = cached_score
     
     targets.sort(key=lambda t: t.get("priority_score", 0), reverse=True)
     hottest = targets[:12]
