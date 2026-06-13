@@ -15,7 +15,6 @@ from .config import DATA, PROJECTS
 from .lazy_io import file_size, iter_jsonl_lines, read_text_bounded
 from .production import readiness_checks
 from .runtime_boot import (
-from services.defensive_wiring import safe_write_text, safe_write_json
     is_safe_mode,
     knowledge_overlay_enabled,
     manual_acquisition_enabled,
