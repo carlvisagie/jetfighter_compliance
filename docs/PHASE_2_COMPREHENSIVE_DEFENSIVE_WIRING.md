@@ -59,7 +59,7 @@ safe_write_json(path, data, component="acquisition", context="ICP update")
 
 ---
 
-## Files Migrated (32 Total)
+## Files Migrated (45 Total - 100% Complete)
 
 ### Phase 1 Files (Already Had Inline Telemetry) - 5 files
 1. ✓ `services/projects.py`
