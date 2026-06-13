@@ -61,7 +61,7 @@ DEFAULT_SOURCES: List[Dict[str, Any]] = [
     {
         "source_id": "far",
         "name": "FAR (Acquisition.gov)",
-        "url": "https://www.acquisition.gov/far/current",
+        "url": "https://acquisition.gov/far/",
         "authority_level": "reference",
         "topic_tags": ["far", "contract"],
         "polling_frequency": "monthly",
@@ -109,7 +109,7 @@ DEFAULT_SOURCES: List[Dict[str, Any]] = [
     {
         "source_id": "eu_dpp_espr",
         "name": "EU Digital Product Passport (ESPR)",
-        "url": "https://environment.ec.europa.eu/topics/circular-economy/digital-product-passport_en",
+        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1781",
         "authority_level": "primary",
         "topic_tags": ["eu", "dpp", "espr", "product"],
         "polling_frequency": "weekly",

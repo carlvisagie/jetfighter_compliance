@@ -4582,6 +4582,20 @@ def operator_compliance_intelligence_review(change_id: str, body: dict = Body(de
     return review_change(change_id, action=action, note=note)
 
 
+@app.post("/api/operator/compliance-intelligence/reseed-sources")
+def operator_compliance_intelligence_reseed():
+    """Force re-seed compliance intelligence sources from DEFAULT_SOURCES (fixes broken cached URLs)."""
+    from services.compliance_intelligence.sources import seed_sources, DEFAULT_SOURCES, load_sources
+
+    seed_sources(DEFAULT_SOURCES)
+    sources = load_sources()
+    return {
+        "ok": True,
+        "sources_count": len(sources),
+        "sources": [{"source_id": s.source_id, "url": s.url} for s in sources],
+    }
+
+
 @app.get("/api/operator/smtp-status")
 def operator_smtp_status():
     from services.production import smtp_env_status

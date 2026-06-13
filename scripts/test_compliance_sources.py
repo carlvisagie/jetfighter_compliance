@@ -2,10 +2,10 @@
 import httpx
 
 FAILING_SOURCES = {
-    "dod_cmmc": "https://dodcio.defense.gov/CMMC/",
-    "far": "https://www.acquisition.gov/far/current",
+    "dod_cmmc": "https://www.ecfr.gov/current/title-32/subtitle-A/chapter-I/subchapter-G/part-170",
+    "far": "https://acquisition.gov/far/",
     "cisa_advisories": "https://www.cisa.gov/news-events/cybersecurity-advisories",
-    "eu_dpp_espr": "https://environment.ec.europa.eu/topics/circular-economy/digital-product-passport_en",
+    "eu_dpp_espr": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1781",
 }
 
 print("=" * 80)
