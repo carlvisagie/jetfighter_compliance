@@ -4280,6 +4280,282 @@ async def operator_reddit_acquisition_deny(body: dict = Body(default={})):
     return deny_draft(post_id, reason=str(body.get("reason") or "operator_denied"))
 
 
+# === MISSING ENDPOINTS - WIRED TO ORGANISM ===
+
+
+@app.get("/api/operator/acquisition/pending")
+def operator_acquisition_pending():
+    """Acquisition pending approval queue endpoint."""
+    from pathlib import Path
+    from services.config import DATA
+    from services.lazy_io import iter_jsonl_lines
+    
+    leads_file = DATA / "acquisition" / "leads.jsonl"
+    if not leads_file.is_file():
+        return {"ok": True, "pending": [], "count": 0}
+    
+    pending = []
+    for row in iter_jsonl_lines(leads_file, tail_lines=200):
+        status = str(row.get("status") or "").lower()
+        if status in ("draft", "pending_approval", "pending"):
+            pending.append({
+                "lead_id": row.get("lead_id"),
+                "company": row.get("company"),
+                "fit_score": row.get("fit_score"),
+                "contactable": row.get("contactable"),
+                "source": row.get("source"),
+                "discovered_utc": row.get("discovered_utc"),
+                "status": status,
+            })
+    
+    return {
+        "ok": True,
+        "pending": pending[:50],  # Return top 50
+        "count": len(pending),
+    }
+
+
+@app.get("/api/operator/acquisition/reddit/queue")
+def operator_acquisition_reddit_queue():
+    """Reddit acquisition queue status endpoint."""
+    from pathlib import Path
+    from services.config import DATA
+    from services.lazy_io import iter_jsonl_lines
+    
+    reddit_file = DATA / "acquisition" / "reddit_posts.jsonl"
+    if not reddit_file.is_file():
+        return {"ok": True, "queue": [], "count": 0}
+    
+    queue = []
+    for row in iter_jsonl_lines(reddit_file, tail_lines=100):
+        status = str(row.get("status") or "").lower()
+        if status in ("draft", "pending", "discovered"):
+            queue.append({
+                "post_id": row.get("post_id"),
+                "title": row.get("title", "")[:100],
+                "subreddit": row.get("subreddit"),
+                "fit_score": row.get("fit_score"),
+                "discovered_utc": row.get("discovered_utc"),
+                "status": status,
+            })
+    
+    return {
+        "ok": True,
+        "queue": queue[:50],
+        "count": len(queue),
+    }
+
+
+@app.get("/api/operator/vio/status")
+def operator_vio_status():
+    """VIO (Visual Intelligence Organism) status endpoint."""
+    from services.config import DATA, PROJECTS
+    from datetime import datetime, timezone
+    
+    # Check if VIO data exists
+    vio_dir = DATA / "vio"
+    vio_active = vio_dir.is_dir() and any(vio_dir.iterdir())
+    
+    # Check project count as proxy for VIO workload
+    project_count = sum(1 for p in PROJECTS.iterdir() if p.is_dir()) if PROJECTS.is_dir() else 0
+    
+    # Check for recent VIO telemetry
+    from services.lazy_io import iter_jsonl_lines
+    telem_file = DATA / "memory" / "telemetry.jsonl"
+    vio_events = 0
+    if telem_file.is_file():
+        for row in iter_jsonl_lines(telem_file, tail_lines=100):
+            if str(row.get("subsystem") or "").lower() in ("vio", "visual_intelligence"):
+                vio_events += 1
+    
+    health = "healthy" if vio_active and project_count > 0 else "warming_up"
+    
+    return {
+        "ok": True,
+        "health": health,
+        "vio_active": vio_active,
+        "project_count": project_count,
+        "recent_events": vio_events,
+        "status": "operational" if vio_active else "standby",
+    }
+
+
+@app.get("/api/operator/knowledge/status")
+def operator_knowledge_status():
+    """Knowledge base status endpoint."""
+    from services.config import DATA
+    from services.runtime_boot import knowledge_overlay_enabled
+    
+    knowledge_enabled = knowledge_overlay_enabled()
+    
+    # Check knowledge cockpit data
+    kc_dir = DATA / "knowledge_cockpit"
+    concepts_file = kc_dir / "concepts.jsonl" if kc_dir.is_dir() else None
+    concept_count = 0
+    
+    if concepts_file and concepts_file.is_file():
+        from services.lazy_io import iter_jsonl_lines
+        concept_count = sum(1 for _ in iter_jsonl_lines(concepts_file, tail_lines=500))
+    
+    # Check telemetry for knowledge events
+    from services.lazy_io import iter_jsonl_lines
+    telem_file = DATA / "memory" / "telemetry.jsonl"
+    knowledge_events = 0
+    if telem_file.is_file():
+        for row in iter_jsonl_lines(telem_file, tail_lines=100):
+            if str(row.get("subsystem") or "").lower() in ("knowledge", "knowledge_cockpit"):
+                knowledge_events += 1
+    
+    health = "healthy" if knowledge_enabled and concept_count > 0 else "warming_up"
+    
+    return {
+        "ok": True,
+        "health": health,
+        "enabled": knowledge_enabled,
+        "concept_count": concept_count,
+        "recent_events": knowledge_events,
+        "status": "operational" if knowledge_enabled else "paused",
+    }
+
+
+@app.get("/api/operator/evidence-intelligence/status")
+def operator_evidence_intelligence_status():
+    """Evidence intelligence subsystem status endpoint."""
+    from services.config import DATA, PROJECTS
+    from datetime import datetime, timezone
+    
+    # Check projects with evidence
+    project_count = 0
+    evidence_count = 0
+    if PROJECTS.is_dir():
+        for proj_dir in PROJECTS.iterdir():
+            if not proj_dir.is_dir():
+                continue
+            project_count += 1
+            evidence_dir = proj_dir / "evidence"
+            if evidence_dir.is_dir():
+                evidence_count += sum(1 for _ in evidence_dir.iterdir())
+    
+    # Check evidence intelligence telemetry
+    from services.lazy_io import iter_jsonl_lines
+    telem_file = DATA / "memory" / "telemetry.jsonl"
+    evidence_events = 0
+    failures = 0
+    if telem_file.is_file():
+        now = datetime.now(timezone.utc)
+        for row in iter_jsonl_lines(telem_file, tail_lines=100):
+            if str(row.get("subsystem") or "").lower() in ("evidence", "evidence_intelligence"):
+                evidence_events += 1
+                if row.get("success") is False:
+                    failures += 1
+    
+    health = "degraded" if failures > 3 else ("healthy" if evidence_count > 0 else "warming_up")
+    
+    return {
+        "ok": True,
+        "health": health,
+        "project_count": project_count,
+        "evidence_count": evidence_count,
+        "recent_events": evidence_events,
+        "recent_failures": failures,
+        "status": "operational",
+    }
+
+
+@app.get("/api/operator/memory/integrity")
+def operator_memory_integrity():
+    """Central memory integrity status endpoint."""
+    from services.config import DATA
+    from datetime import datetime, timezone
+    
+    # Check central memory files
+    memory_dir = DATA / "memory"
+    timeline_file = memory_dir / "timeline.jsonl" if memory_dir.is_dir() else None
+    telemetry_file = memory_dir / "telemetry.jsonl" if memory_dir.is_dir() else None
+    learning_file = memory_dir / "learning_state.json" if memory_dir.is_dir() else None
+    
+    timeline_ok = timeline_file and timeline_file.is_file()
+    telemetry_ok = telemetry_file and telemetry_file.is_file()
+    learning_ok = learning_file and learning_file.is_file()
+    
+    # Check for memory corruption or integrity issues
+    from services.lazy_io import iter_jsonl_lines
+    integrity_events = 0
+    corruption_events = 0
+    if telemetry_ok:
+        for row in iter_jsonl_lines(telemetry_file, tail_lines=100):
+            et = str(row.get("event_type") or "").lower()
+            if "integrity" in et or "memory" in str(row.get("subsystem") or "").lower():
+                integrity_events += 1
+                if "fail" in et or "corrupt" in et or row.get("success") is False:
+                    corruption_events += 1
+    
+    health = "failed" if corruption_events > 5 else ("degraded" if corruption_events > 0 else "healthy")
+    
+    return {
+        "ok": True,
+        "health": health,
+        "timeline_ok": timeline_ok,
+        "telemetry_ok": telemetry_ok,
+        "learning_ok": learning_ok,
+        "integrity_events": integrity_events,
+        "corruption_events": corruption_events,
+        "status": "operational" if health != "failed" else "attention_required",
+    }
+
+
+@app.get("/api/operator/learning/status")
+def operator_learning_status():
+    """Learning subsystem detailed status endpoint."""
+    from services.config import DATA
+    from services.lazy_io import read_text_bounded
+    import json
+    
+    learning_file = DATA / "memory" / "learning_state.json"
+    
+    if not learning_file.is_file():
+        return {
+            "ok": True,
+            "health": "warming_up",
+            "status": "awaiting_first_cycle",
+            "cycles_completed": 0,
+            "uploads_seen": 0,
+            "approvals_seen": 0,
+            "last_learning_event": None,
+        }
+    
+    try:
+        raw = read_text_bounded(learning_file, max_bytes=64 * 1024)
+        data = json.loads(raw) if raw.strip() else {}
+    except (json.JSONDecodeError, Exception):
+        return {
+            "ok": True,
+            "health": "degraded",
+            "status": "state_unreadable",
+            "error": "learning_state.json corrupt or unreadable",
+        }
+    
+    status = str(data.get("status") or "").lower()
+    cycles = int(data.get("cycles_completed") or 0)
+    uploads = int(data.get("uploads_seen") or 0)
+    approvals = int(data.get("approvals_seen") or 0)
+    last_event = data.get("last_learning_event")
+    error = data.get("last_cycle_error") or data.get("learning_cycle_error")
+    
+    health = "failed" if error else ("healthy" if cycles > 0 else "warming_up")
+    
+    return {
+        "ok": True,
+        "health": health,
+        "status": status or "operational",
+        "cycles_completed": cycles,
+        "uploads_seen": uploads,
+        "approvals_seen": approvals,
+        "last_learning_event": last_event,
+        "last_cycle_error": str(error)[:200] if error else None,
+    }
+
+
 @app.get("/api/operator/compliance-intelligence")
 def operator_compliance_intelligence():
     from services.compliance_intelligence import get_operator_dashboard
