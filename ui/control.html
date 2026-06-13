@@ -1434,7 +1434,7 @@
         return;
       }
       const conv = j.upload_conversion || {};
-      const hottest = (j.hottest_targets || []).slice(0, 6);
+      const hottest = (j.hottest_targets || []).slice(0, 12); // Show top 12 targets
       let html = renderFoundingPilot(j.founding_pilot) +
         '<p class="org-metric-foot"><strong>Doctrine:</strong> ' + escapeHtml((j.doctrine && j.doctrine.message) || '') + '</p>' +
         '<ul class="guidance-list">' +
@@ -1443,29 +1443,126 @@
         '<li><strong>Primary route:</strong> ' + escapeHtml((j.doctrine && j.doctrine.primary_route) || '/ui/inquiry.html') + '</li>' +
         '</ul>';
       html += '<p class="org-metric-foot"><strong>What the organism is learning:</strong> ' + escapeHtml(j.what_organism_is_learning || '') + '</p>';
+      
       if (hottest.length) {
-        html += '<p class="org-metric-foot"><strong>Hottest targets — approve to generate invite link:</strong></p><ul class="guidance-list" id="acq-targets-list">';
+        // Group targets by strategy and status
+        const readyToContact = [];
+        const needsEnrichment = [];
+        const legacyManufacturing = [];
+        const lowPriority = [];
+        
         hottest.forEach(function (t) {
-          const draft = (t.message_draft && t.message_draft.headline) ? t.message_draft.headline : (t.suggested_message || '').slice(0, 80);
+          const source = (t.source || '').toLowerCase();
+          const segment = (t.segment || '').toLowerCase();
+          const preyScore = (t.qualification && t.qualification.prey_score) || t.prey_score || 0;
+          const isConverted = t.status === 'intake_completed';
+          const isApproved = t.status === 'approved_for_outreach' || t.status === 'contacted';
+          
+          // IT/Cyber = PRIMARY, Manufacturing = LEGACY
+          const isITCyber = source.includes('reddit') || segment.includes('it') || segment.includes('cyber') || segment.includes('technology') || segment.includes('software');
+          const isManufacturing = segment.includes('manufacturing') || segment.includes('aerospace') || segment.includes('defense');
+          
+          if (isConverted || isApproved) {
+            readyToContact.push(t);
+          } else if (preyScore >= 70 && (t.contact_email || t.website)) {
+            readyToContact.push(t);
+          } else if (preyScore >= 60 && (!t.contact_email && !t.website)) {
+            needsEnrichment.push(t);
+          } else if (isManufacturing && !isITCyber) {
+            legacyManufacturing.push(t);
+          } else {
+            lowPriority.push(t);
+          }
+        });
+        
+        // Render grouped targets
+        function renderTargetCard(t, strategyLabel) {
+          const draft = (t.message_draft && t.message_draft.headline) ? t.message_draft.headline : (t.suggested_message || '').slice(0, 120);
           const leadId = t.lead_id || '';
           const isApproved = t.status === 'approved_for_outreach' || t.status === 'contacted';
           const isConverted = t.status === 'intake_completed';
-          const statusBadge = isConverted
-            ? '<span class="org-metric-foot" style="color:#6ef;"> ✓ INTAKE RECEIVED</span>'
-            : isApproved ? '<span class="org-metric-foot" style="color:#af6;"> ✓ APPROVED</span>' : '';
-          html += '<li style="margin-bottom:0.9rem;" data-lead-id="' + escapeHtml(leadId) + '">' +
-            '<strong>' + escapeHtml(t.company_name || '') + '</strong>' + statusBadge + '<br>' +
-            'Source: ' + escapeHtml(t.source || '') + ' · Pain: ' + escapeHtml(t.pain_signal || t.signal_level || '') + '<br>' +
-            'Prey Score: ' + ((t.qualification && t.qualification.prey_score) || t.prey_score || 0) + '% · Tier: ' + ((t.qualification && t.qualification.prey_tier) || t.prey_tier || '?') + '<br>' +
-            (t.likely_paperwork_prediction ? '<span class="org-metric-foot">' + escapeHtml(t.likely_paperwork_prediction) + '</span><br>' : '') +
-            'Draft: <em>' + escapeHtml(draft) + '</em><br>' +
+          const preyScore = (t.qualification && t.qualification.prey_score) || t.prey_score || 0;
+          const preyTier = (t.qualification && t.qualification.prey_tier) || t.prey_tier || '?';
+          const source = (t.source || '').toLowerCase();
+          const segment = (t.segment || '').toLowerCase();
+          
+          // Strategy badge
+          const isITCyber = source.includes('reddit') || segment.includes('it') || segment.includes('cyber') || segment.includes('technology') || segment.includes('software');
+          let strategyBadge = '';
+          if (isITCyber) {
+            strategyBadge = '<span class="org-metric-foot" style="color:#5cf;font-weight:600;"> ★ PRIMARY STRATEGY</span>';
+          } else if (strategyLabel === 'LEGACY / SECONDARY') {
+            strategyBadge = '<span class="org-metric-foot" style="color:#fa6;font-weight:600;"> LEGACY / SECONDARY STRATEGY</span>';
+          }
+          
+          // Status badge
+          let statusBadge = '';
+          if (isConverted) {
+            statusBadge = '<span class="org-metric-foot" style="color:#6ef;"> ✓ INTAKE RECEIVED</span>';
+          } else if (isApproved) {
+            statusBadge = '<span class="org-metric-foot" style="color:#af6;"> ✓ APPROVED</span>';
+          }
+          
+          // Tier badge with color
+          let tierColor = '#888';
+          if (preyTier === '1') tierColor = '#6f6';
+          else if (preyTier === '2') tierColor = '#5cf';
+          else if (preyTier === '3') tierColor = '#fa6';
+          
+          return '<article class="acq-target-card" style="border-left:3px solid ' + tierColor + ';padding:0.8rem;margin-bottom:1rem;background:rgba(255,255,255,0.02);" data-lead-id="' + escapeHtml(leadId) + '">' +
+            '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:0.4rem;">' +
+            '<strong style="font-size:1.1em;">' + escapeHtml(t.company_name || '') + '</strong>' +
+            '<span style="color:' + tierColor + ';font-weight:700;font-size:1.2em;">Tier ' + escapeHtml(preyTier) + '</span>' +
+            '</div>' +
+            (strategyBadge ? strategyBadge + '<br>' : '') +
+            (statusBadge ? statusBadge + '<br>' : '') +
+            '<div class="org-metric-foot" style="margin:0.4rem 0;">' +
+            'Source: ' + escapeHtml(t.source || '') + ' · ' +
+            'Prey: <strong>' + preyScore + '%</strong> · ' +
+            'Pain: ' + escapeHtml(t.pain_signal || t.signal_level || 'unknown') +
+            '</div>' +
+            (t.likely_paperwork_prediction ? '<div class="org-metric-foot" style="margin:0.4rem 0;">' + escapeHtml(t.likely_paperwork_prediction) + '</div>' : '') +
+            (draft ? '<div style="margin:0.6rem 0;font-style:italic;color:#aac;">"' + escapeHtml(draft) + '"</div>' : '') +
             (leadId && !isConverted
-              ? '<button type="button" class="btn secondary acq-approve-btn" data-lead-id="' + escapeHtml(leadId) + '" data-company="' + escapeHtml(t.company_name || '') + '" style="margin-top:0.35rem;">Approve &amp; Invite</button> '
+              ? '<button type="button" class="btn secondary acq-approve-btn" data-lead-id="' + escapeHtml(leadId) + '" data-company="' + escapeHtml(t.company_name || '') + '" style="margin-top:0.5rem;">Approve &amp; Invite</button> '
               : '') +
-            (t.invite_url ? '<a href="' + escapeHtml(t.invite_url) + '" target="_blank" rel="noopener" class="org-metric-foot">Invite link ↗</a>' : '') +
-            '</li>';
-        });
-        html += '</ul>';
+            (t.invite_url ? '<a href="' + escapeHtml(t.invite_url) + '" target="_blank" rel="noopener" class="org-metric-foot" style="margin-left:0.5rem;">Invite link ↗</a>' : '') +
+            '</article>';
+        }
+        
+        // Ready to Contact (highest priority)
+        if (readyToContact.length) {
+          html += '<h4 style="margin-top:1.5rem;color:#6f6;">✓ Ready to Contact (' + readyToContact.length + ')</h4>';
+          readyToContact.forEach(function (t) {
+            html += renderTargetCard(t, null);
+          });
+        }
+        
+        // Needs Contact Enrichment
+        if (needsEnrichment.length) {
+          html += '<h4 style="margin-top:1.5rem;color:#5cf;">↻ Needs Contact Enrichment (' + needsEnrichment.length + ')</h4>';
+          html += '<p class="org-metric-foot">High prey score but missing contact info — enrich via SAM.gov or VIO before outreach.</p>';
+          needsEnrichment.forEach(function (t) {
+            html += renderTargetCard(t, null);
+          });
+        }
+        
+        // Legacy Manufacturing (secondary strategy)
+        if (legacyManufacturing.length) {
+          html += '<h4 style="margin-top:1.5rem;color:#fa6;">⚠ Legacy / Secondary Strategy (' + legacyManufacturing.length + ')</h4>';
+          html += '<p class="org-metric-foot">Manufacturing/defense contractors — secondary to IT/Cyber primary strategy.</p>';
+          legacyManufacturing.forEach(function (t) {
+            html += renderTargetCard(t, 'LEGACY / SECONDARY');
+          });
+        }
+        
+        // Low Priority
+        if (lowPriority.length) {
+          html += '<h4 style="margin-top:1.5rem;color:#888;">Low Priority (' + lowPriority.length + ')</h4>';
+          lowPriority.forEach(function (t) {
+            html += renderTargetCard(t, null);
+          });
+        }
       }
       const ch = j.best_channels || [];
       if (ch.length) {
@@ -1474,7 +1571,20 @@
       el.innerHTML = html;
       if (window.KnowledgeOverlay) KnowledgeOverlay.setPanelSnapshot('acquisition', j);
     } catch (e) {
-      el.innerHTML = '<p class="org-metric-foot">Acquisition intelligence unavailable.</p>';
+      // PATCH ACQ-UI-1: Operator-friendly error message instead of raw abort error
+      let errorMsg = 'Acquisition intelligence unavailable.';
+      if (e.name === 'AbortError' || String(e).includes('abort')) {
+        errorMsg = 'Acquisition intelligence request timed out. Check /api/operator/acquisition-intelligence endpoint health or increase timeout in cockpit-stabilization.js.';
+      } else if (!navigator.onLine) {
+        errorMsg = 'Network offline — acquisition intelligence unavailable.';
+      }
+      el.innerHTML = '<p class="org-metric-foot">' + errorMsg + '</p>';
+      // Log actual error for debugging
+      console.error('[ACQ-UI] Acquisition intelligence failed:', e);
+      // Telemetry if available
+      if (window.CockpitStable && window.CockpitStable.logError) {
+        window.CockpitStable.logError('acquisition_intelligence_failed', e);
+      }
     }
   }
   async function redditDecide(postId, action) {
@@ -1593,7 +1703,20 @@
         });
       });
     } catch (e) {
-      el.innerHTML = '<p class="org-metric-foot">Reddit queue unavailable.</p>';
+      // PATCH ACQ-UI-1: Operator-friendly error message instead of raw abort error
+      let errorMsg = 'Reddit queue unavailable.';
+      if (e.name === 'AbortError' || String(e).includes('abort')) {
+        errorMsg = 'Reddit discovery did not complete. Check endpoint /api/operator/reddit-acquisition, network timeout, or Reddit credentials.';
+      } else if (!navigator.onLine) {
+        errorMsg = 'Network offline — Reddit acquisition unavailable.';
+      }
+      el.innerHTML = '<p class="org-metric-foot">' + errorMsg + '</p>';
+      // Log actual error for debugging
+      console.error('[ACQ-UI] Reddit acquisition failed:', e);
+      // Telemetry if available
+      if (window.CockpitStable && window.CockpitStable.logError) {
+        window.CockpitStable.logError('reddit_acquisition_failed', e);
+      }
     }
   }
   async function loadOperationalAlerts() {
