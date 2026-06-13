@@ -44,8 +44,8 @@ DEFAULT_SOURCES: List[Dict[str, Any]] = [
     },
     {
         "source_id": "dod_cmmc",
-        "name": "DoD CIO CMMC",
-        "url": "https://dodcio.defense.gov/CMMC/",
+        "name": "DoD CIO CMMC (via eCFR)",
+        "url": "https://www.ecfr.gov/current/title-32/subtitle-A/chapter-I/subchapter-G/part-170",
         "authority_level": "primary",
         "topic_tags": ["cmmc", "dod"],
         "polling_frequency": "weekly",
