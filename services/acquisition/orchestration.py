@@ -90,8 +90,9 @@ def format_target_for_panel(
         "signal_bundle": sig,
         "pain_signal": pain_signal,
         "qualification": qual,
-        "qualification_score": qual.get("overall_confidence", lead.confidence_score),
-        "fit_score": lead.fit_score,
+        "prey_score": qual.get("prey_score", 0),  # TUNED ENGINE - primary score
+        "prey_tier": qual.get("prey_tier", 0),  # TUNED ENGINE - tier classification
+        "queue_eligible": qual.get("queue_eligible", False),
         "priority_score": lead.acquisition_priority_score,
         "routed_url": route,
         "route_url": route,
@@ -615,6 +616,26 @@ def _upload_conversion_rate(base: Optional[Path] = None) -> Dict[str, Any]:
 def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
     """Acquisition Intelligence panel data for operator cockpit."""
     targets = _load_intel(TARGETS_JSONL, base)
+    
+    # RE-SCORE WITH LIVE TUNED ENGINE - don't trust cached scores
+    from .acquisition_probability import compute_acquisition_probability
+    for t in targets:
+        if not t.get("qualification"):
+            continue
+        try:
+            # Apply live scoring using current tuned logic
+            prob = compute_acquisition_probability(
+                qualification=t.get("qualification", {}),
+                classification=t.get("classification", {}),
+                discovery_meta=t.get("discovery_meta", {}),
+            )
+            # Update with fresh scores
+            t["qualification_score"] = prob.get("overall_confidence", t.get("qualification_score", 0))
+            t["fit_score"] = prob.get("fit_score", t.get("fit_score", 0))
+            t["priority_score"] = prob.get("acquisition_priority_score", t.get("priority_score", 0))
+        except Exception:
+            pass  # Keep cached scores if re-scoring fails
+    
     targets.sort(key=lambda t: t.get("priority_score", 0), reverse=True)
     hottest = targets[:12]
 

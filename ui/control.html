@@ -1456,7 +1456,7 @@
           html += '<li style="margin-bottom:0.9rem;" data-lead-id="' + escapeHtml(leadId) + '">' +
             '<strong>' + escapeHtml(t.company_name || '') + '</strong>' + statusBadge + '<br>' +
             'Source: ' + escapeHtml(t.source || '') + ' · Pain: ' + escapeHtml(t.pain_signal || t.signal_level || '') + '<br>' +
-            'Qualification: ' + (t.qualification_score || 0) + '% · Fit: ' + (t.fit_score || 0) + '<br>' +
+            'Prey Score: ' + ((t.qualification && t.qualification.prey_score) || t.prey_score || 0) + '% · Tier: ' + ((t.qualification && t.qualification.prey_tier) || t.prey_tier || '?') + '<br>' +
             (t.likely_paperwork_prediction ? '<span class="org-metric-foot">' + escapeHtml(t.likely_paperwork_prediction) + '</span><br>' : '') +
             'Draft: <em>' + escapeHtml(draft) + '</em><br>' +
             (leadId && !isConverted
