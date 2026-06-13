@@ -4,7 +4,7 @@
 (function (global) {
   'use strict';
 
-  var OPERATOR_TIMEOUT_MS = 2000;
+  var OPERATOR_TIMEOUT_MS = 15000;  // 15 seconds - acquisition/reddit queries can be slow
   var CIRCUIT_COOLDOWN_MS = 5 * 60 * 1000;
   var HEAVY_PREFIXES = [
     '/api/operator/organism-observability',
