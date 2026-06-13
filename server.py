@@ -4609,6 +4609,25 @@ async def operator_test_email(request: Request, body: dict = Body(...)):
     return {"ok": True, "result": result}
 
 
+@app.post("/api/test-webhook")
+async def test_webhook(body: dict = Body(...)):
+    """
+    Test webhook endpoint for webhook_test.html debugging.
+    Accepts any payload and returns confirmation.
+    """
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    logger.info(f"[TEST WEBHOOK] Received payload: {body}")
+    
+    return {
+        "ok": True,
+        "message": "Test webhook received successfully",
+        "received_payload": body,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 @app.get("/api/knowledge/search")
 def knowledge_search(q: str = "", phase: str = "", limit: int = 20):
     from services.knowledge_index import search_knowledge
