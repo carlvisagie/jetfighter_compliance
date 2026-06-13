@@ -99,6 +99,41 @@ def run_usaspending_live_connector(
             # PATCH 13A-12: Notes are preserved as-is from public API.
             # No artificial signals injected. All evidence must be real.
             row = dict(row)
+            
+            # PATCH ACQ-SCORING-ENRICH: Fetch deep contract data for better scoring differentiation
+            try:
+                from ..usaspending_deep import enrich_from_usaspending
+                
+                enrichment = enrich_from_usaspending(
+                    company_name=row.get("company_name", ""),
+                    uei=(row.get("notes", "").split("UEI:")[-1].split()[0] if "UEI:" in row.get("notes", "") else ""),
+                )
+                
+                if enrichment and enrichment.get("profile"):
+                    profile = enrichment["profile"]
+                    # Store enrichment data for scoring
+                    row["contract_value"] = profile.get("total_contract_value", 0)
+                    row["dod_percentage"] = profile.get("dod_percentage", 0)
+                    row["contract_count"] = profile.get("contract_count", 0)
+                    row["dod_award_count"] = profile.get("dod_award_count", 0)
+                    row["average_contract_value"] = profile.get("average_contract_value", 0)
+                    row["naics"] = profile.get("primary_naics", "")
+                    
+                    # Add enrichment notes for transparency
+                    contract_notes = []
+                    if profile.get("total_contract_value", 0) > 0:
+                        contract_notes.append(f"${profile['total_contract_value']/1_000_000:.1f}M in contracts")
+                    if profile.get("dod_percentage", 0) > 0:
+                        contract_notes.append(f"{profile['dod_percentage']:.0f}% DoD work")
+                    if profile.get("contract_count", 0) > 0:
+                        contract_notes.append(f"{profile['contract_count']} awards")
+                    
+                    if contract_notes:
+                        row["notes"] = (row.get("notes", "") + "; " + ", ".join(contract_notes)).strip()
+            except Exception as e:
+                logger.warning("USASpending enrichment failed for %s: %s", name_key, e)
+                # Continue without enrichment - base scoring will still work
+                pass
             try:
                 from services.intake.paperwork_prediction import predict_federal_supplier_paperwork
 

@@ -95,6 +95,62 @@ def score_lead(lead: Lead) -> Tuple[int, int, List[str], List[str], str]:
     fit = 40
     confidence = 30
     reasons: List[str] = []
+    
+    # PATCH ACQ-SCORING-USASPENDING: Check if this is USASpending target
+    is_usaspending = "usaspending" in (lead.source or "").lower()
+    contract_value = 0
+    dod_percentage = 0
+    contract_count = 0
+    
+    if is_usaspending:
+        # Extract contract data from notes (added by enrichment)
+        import re
+        notes = lead.notes or ""
+        
+        # Parse "$X.XM in contracts"
+        value_match = re.search(r'\$([0-9.]+)M in contracts', notes)
+        if value_match:
+            contract_value = float(value_match.group(1))  # in millions
+        
+        # Parse "XX% DoD work"
+        dod_match = re.search(r'(\d+)% DoD work', notes)
+        if dod_match:
+            dod_percentage = int(dod_match.group(1))
+        
+        # Parse "XX awards"
+        awards_match = re.search(r'(\d+) awards', notes)
+        if awards_match:
+            contract_count = int(awards_match.group(1))
+    
+    # USASpending: Contract value and DoD work = better fit
+    if is_usaspending:
+        if contract_value >= 10:  # $10M+ contracts
+            fit += 15
+            confidence += 15
+            reasons.append(f"${contract_value:.1f}M in contracts")
+        elif contract_value >= 5:  # $5M-10M
+            fit += 12
+            confidence += 12
+        elif contract_value >= 1:  # $1M-5M
+            fit += 8
+            confidence += 10
+        
+        if dod_percentage >= 50:  # 50%+ DoD work
+            fit += 12
+            confidence += 10
+            compliance.append("defense supply chain (DoD)")
+            reasons.append(f"{dod_percentage}% DoD work")
+        elif dod_percentage >= 25:  # 25-50% DoD
+            fit += 8
+            compliance.append("partial defense exposure")
+        
+        if contract_count >= 20:  # 20+ contracts
+            fit += 8
+            confidence += 8
+            pain.append("multiple_contract_compliance_burden")
+        elif contract_count >= 10:  # 10-20 contracts
+            fit += 5
+            pain.append("active_contracting")
 
     seg = (lead.segment or "").lower()
     if seg in SEGMENTS:
@@ -182,6 +238,31 @@ def apply_intelligence_scores(lead: Lead, weights: dict | None = None) -> Lead:
     w = weights or get_learned_weights()
     blob = _text_blob(lead)
 
+    # PATCH ACQ-SCORING-USASPENDING: Use contract data for USASpending targets
+    is_usaspending = "usaspending" in (lead.source or "").lower()
+    contract_value = 0
+    dod_percentage = 0
+    contract_count = 0
+    
+    if is_usaspending:
+        # Extract contract data from notes (added by enrichment)
+        notes = lead.notes or ""
+        # Parse "$X.XM in contracts"
+        import re
+        value_match = re.search(r'\$([0-9.]+)M in contracts', notes)
+        if value_match:
+            contract_value = float(value_match.group(1))  # in millions
+        
+        # Parse "XX% DoD work"
+        dod_match = re.search(r'(\d+)% DoD work', notes)
+        if dod_match:
+            dod_percentage = int(dod_match.group(1))
+        
+        # Parse "XX awards"
+        awards_match = re.search(r'(\d+) awards', notes)
+        if awards_match:
+            contract_count = int(awards_match.group(1))
+
     ability = 35
     if lead.contact_email and "@" in lead.contact_email:
         domain = lead.contact_email.split("@", 1)[-1].lower()
@@ -193,15 +274,52 @@ def apply_intelligence_scores(lead: Lead, weights: dict | None = None) -> Lead:
         ability += 12 + int(w.get(f"segment_{lead.segment}", 0))
     if "machining" in blob or "fabrication" in blob:
         ability += 8
+    
+    # USASpending: Contract value = buying power
+    if is_usaspending and contract_value > 0:
+        if contract_value >= 50:  # $50M+
+            ability += 25
+        elif contract_value >= 10:  # $10M-50M
+            ability += 20
+        elif contract_value >= 5:  # $5M-10M
+            ability += 15
+        elif contract_value >= 1:  # $1M-5M
+            ability += 10
+        else:  # < $1M
+            ability += 5
+    
     ability = max(0, min(100, ability))
 
     urgency = 20
     for term in ("urgent", "deadline", "audit", "asap", "customer", "prime"):
         if term in blob:
             urgency += 12 + int(w.get("urgency_keyword", 0) / 2)
+    
+    # USASpending: Higher DoD percentage = higher urgency (CMMC/DFARS compliance needed)
+    if is_usaspending and dod_percentage > 0:
+        if dod_percentage >= 80:  # 80%+ DoD work = very high compliance urgency
+            urgency += 25
+        elif dod_percentage >= 50:  # 50-80% DoD
+            urgency += 20
+        elif dod_percentage >= 25:  # 25-50% DoD
+            urgency += 15
+        else:  # < 25% DoD
+            urgency += 10
+    
     urgency = max(0, min(100, urgency))
 
     pain_score = min(100, len(lead.pain_signals) * 12 + len(lead.compliance_signals) * 5 + 25)
+    
+    # USASpending: More contracts = more compliance pain (more paperwork, more audits)
+    if is_usaspending and contract_count > 0:
+        if contract_count >= 50:  # 50+ contracts
+            pain_score = min(100, pain_score + 20)
+        elif contract_count >= 20:  # 20-50 contracts
+            pain_score = min(100, pain_score + 15)
+        elif contract_count >= 10:  # 10-20 contracts
+            pain_score = min(100, pain_score + 10)
+        else:  # < 10 contracts
+            pain_score = min(100, pain_score + 5)
     complexity = 25
     if (lead.industry or "").lower() in ("aerospace", "defense", "manufacturing"):
         complexity += 20
