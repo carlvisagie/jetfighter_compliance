@@ -260,7 +260,28 @@ def kickoff_project_from_intake(
     }
     if operator_note:
         intake_meta["operator_note"] = operator_note.strip()[:1000]
-    (comm / "intake.json").write_text(json.dumps(intake_meta, indent=2), encoding="utf-8")
+    
+    # Write intake.json with defensive error telemetry
+    try:
+        (comm / "intake.json").write_text(json.dumps(intake_meta, indent=2), encoding="utf-8")
+    except OSError as e:
+        # CRITICAL: Kickoff intake.json write failed
+        try:
+            from services.memory.telemetry import emit_telemetry
+            emit_telemetry(
+                "intake_kickoff",
+                "intake_json_write_failed",
+                severity="critical",
+                metadata={
+                    "intake_id": intake_id,
+                    "project_id": project_id,
+                    "path": str(comm / "intake.json"),
+                    "error": str(e)
+                }
+            )
+        except Exception:
+            pass
+        raise
 
     meta_path = _config.PROJECTS / project_id / "meta.json"
     if meta_path.is_file():
@@ -268,7 +289,24 @@ def kickoff_project_from_intake(
             pm = json.loads(meta_path.read_text(encoding="utf-8"))
             pm["canonical_intake_id"] = intake_id
             meta_path.write_text(json.dumps(pm, indent=2), encoding="utf-8")
-        except (json.JSONDecodeError, OSError):
+        except OSError as e:
+            # WARNING: meta.json update failed (non-critical)
+            try:
+                from services.memory.telemetry import emit_telemetry
+                emit_telemetry(
+                    "intake_kickoff",
+                    "meta_update_failed",
+                    severity="warning",
+                    metadata={
+                        "intake_id": intake_id,
+                        "project_id": project_id,
+                        "error": str(e)
+                    }
+                )
+            except Exception:
+                pass
+            # Non-critical, continue
+        except json.JSONDecodeError:
             pass
 
     rec["review_status"] = "approved"

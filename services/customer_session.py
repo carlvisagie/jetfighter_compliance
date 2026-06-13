@@ -135,8 +135,28 @@ def _load_session(session_id: str) -> Dict[str, Any]:
 
 
 def _save_session(session_id: str, data: Dict[str, Any]) -> None:
+    """Save session with defensive error telemetry."""
     path = _session_dir(session_id) / "session.json"
-    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    try:
+        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    except OSError as e:
+        # CRITICAL: Session write failed
+        try:
+            from services.memory.telemetry import emit_telemetry
+            emit_telemetry(
+                "customer_session",
+                "session_write_failed",
+                severity="critical",
+                metadata={
+                    "session_id": session_id,
+                    "path": str(path),
+                    "error": str(e),
+                    "error_type": type(e).__name__
+                }
+            )
+        except Exception:
+            pass
+        raise
 
 
 def _load_manifest(session_id: str) -> Dict[str, Any]:
@@ -147,8 +167,28 @@ def _load_manifest(session_id: str) -> Dict[str, Any]:
 
 
 def _save_manifest(session_id: str, manifest: Dict[str, Any]) -> None:
+    """Save manifest with defensive error telemetry."""
     path = _session_dir(session_id) / "pending_manifest.json"
-    path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    try:
+        path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    except OSError as e:
+        # CRITICAL: Manifest write failed
+        try:
+            from services.memory.telemetry import emit_telemetry
+            emit_telemetry(
+                "customer_session",
+                "manifest_write_failed",
+                severity="critical",
+                metadata={
+                    "session_id": session_id,
+                    "path": str(path),
+                    "error": str(e),
+                    "error_type": type(e).__name__
+                }
+            )
+        except Exception:
+            pass
+        raise
 
 
 def validate_session_access(session_id: str, session_token: str) -> Dict[str, Any]:

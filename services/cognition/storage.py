@@ -47,10 +47,29 @@ def _read_jsonl(path: str | Path) -> list:
     return res
 
 def _append_jsonl(path: str | Path, record: dict):
+    """Append to JSONL with defensive error telemetry."""
     path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except OSError as e:
+        # CRITICAL: File write failed (disk full, permissions, I/O error)
+        try:
+            from services.memory.telemetry import emit_telemetry
+            emit_telemetry(
+                "cognition",
+                "jsonl_write_failed",
+                severity="critical",
+                metadata={
+                    "path": str(path),
+                    "error": str(e),
+                    "error_type": type(e).__name__
+                }
+            )
+        except Exception:
+            pass
+        raise
 
 def get_cognition_state(project_id: str) -> dict:
     from services.durable_storage import active_data_root
@@ -179,8 +198,28 @@ def run_cognition_safely(project_id: str, base_dir: Path = None) -> dict:
                 
             doc_path = build_generated_document_path(project_id, doc.doc_id)
             Path(doc_path).parent.mkdir(parents=True, exist_ok=True)
-            with open(doc_path, "w", encoding="utf-8") as f:
-                f.write(md_content)
+            
+            try:
+                with open(doc_path, "w", encoding="utf-8") as f:
+                    f.write(md_content)
+            except OSError as e:
+                # CRITICAL: Document write failed
+                try:
+                    from services.memory.telemetry import emit_telemetry
+                    emit_telemetry(
+                        "cognition",
+                        "document_write_failed",
+                        severity="critical",
+                        metadata={
+                            "project_id": project_id,
+                            "doc_id": doc.doc_id,
+                            "doc_path": str(doc_path),
+                            "error": str(e)
+                        }
+                    )
+                except Exception:
+                    pass
+                raise
                 
             registry_evt = build_document_registry_event(doc, project_id)
             log_event("document_persisted", registry_evt)
@@ -195,11 +234,26 @@ def run_cognition_safely(project_id: str, base_dir: Path = None) -> dict:
             drafts=[]
         )
         
-        with open(cognition_dir / "cognition_summary.json", "w", encoding="utf-8") as f:
-            f.write(summary.model_dump_json(indent=2))
-            
-        with open(cognition_dir / "next_actions.json", "w", encoding="utf-8") as f:
-            f.write("[]")
+        # Write all cognition output files with defensive error handling
+        try:
+            with open(cognition_dir / "cognition_summary.json", "w", encoding="utf-8") as f:
+                f.write(summary.model_dump_json(indent=2))
+                
+            with open(cognition_dir / "next_actions.json", "w", encoding="utf-8") as f:
+                f.write("[]")
+        except OSError as e:
+            # CRITICAL: Summary/next_actions write failed
+            try:
+                from services.memory.telemetry import emit_telemetry
+                emit_telemetry(
+                    "cognition",
+                    "summary_write_failed",
+                    severity="critical",
+                    metadata={"project_id": project_id, "error": str(e)}
+                )
+            except Exception:
+                pass
+            raise
             
         # 6. Write generation_explanation.json
         explanations = []
@@ -214,13 +268,39 @@ def run_cognition_safely(project_id: str, base_dir: Path = None) -> dict:
                 "Purpose": "The organism must be able to explain every document it generates and every question it asks. No black-box behavior."
             })
             
-        with open(cognition_dir / "generation_explanation.json", "w", encoding="utf-8") as f:
-            json.dump(explanations, f, indent=2)
+        try:
+            with open(cognition_dir / "generation_explanation.json", "w", encoding="utf-8") as f:
+                json.dump(explanations, f, indent=2)
+        except OSError as e:
+            try:
+                from services.memory.telemetry import emit_telemetry
+                emit_telemetry(
+                    "cognition",
+                    "explanation_write_failed",
+                    severity="warning",
+                    metadata={"project_id": project_id, "error": str(e)}
+                )
+            except Exception:
+                pass
+            # Non-critical, continue
             
         # 7. Write metrics.json
         metrics = compute_metrics(state, resolutions)
-        with open(cognition_dir / "metrics.json", "w", encoding="utf-8") as f:
-            f.write(metrics.model_dump_json(indent=2))
+        try:
+            with open(cognition_dir / "metrics.json", "w", encoding="utf-8") as f:
+                f.write(metrics.model_dump_json(indent=2))
+        except OSError as e:
+            try:
+                from services.memory.telemetry import emit_telemetry
+                emit_telemetry(
+                    "cognition",
+                    "metrics_write_failed",
+                    severity="warning",
+                    metadata={"project_id": project_id, "error": str(e)}
+                )
+            except Exception:
+                pass
+            # Non-critical, continue
             
         # 8. Write validation_report.json
         # PATCH 13A-4F: Emit validation_started
@@ -235,8 +315,21 @@ def run_cognition_safely(project_id: str, base_dir: Path = None) -> dict:
             pass
         
         validation = build_validation_report(project_id, state, resolutions, docs)
-        with open(cognition_dir / "validation_report.json", "w", encoding="utf-8") as f:
-            f.write(validation.model_dump_json(indent=2))
+        try:
+            with open(cognition_dir / "validation_report.json", "w", encoding="utf-8") as f:
+                f.write(validation.model_dump_json(indent=2))
+        except OSError as e:
+            try:
+                from services.memory.telemetry import emit_telemetry
+                emit_telemetry(
+                    "cognition",
+                    "validation_write_failed",
+                    severity="critical",
+                    metadata={"project_id": project_id, "error": str(e)}
+                )
+            except Exception:
+                pass
+            raise
         
         # PATCH 13A-4F: Emit validation_completed
         try:
@@ -254,12 +347,25 @@ def run_cognition_safely(project_id: str, base_dir: Path = None) -> dict:
             
         # 9. Write organism_score.json and launch_gate.json
         scorecard = calculate_scorecard(state, metrics, validation)
-        with open(cognition_dir / "organism_score.json", "w", encoding="utf-8") as f:
-            f.write(scorecard.model_dump_json(indent=2))
-            
-        gate = evaluate_launch_gate(scorecard, metrics, validation)
-        with open(cognition_dir / "launch_gate.json", "w", encoding="utf-8") as f:
-            f.write(gate.model_dump_json(indent=2))
+        try:
+            with open(cognition_dir / "organism_score.json", "w", encoding="utf-8") as f:
+                f.write(scorecard.model_dump_json(indent=2))
+                
+            gate = evaluate_launch_gate(scorecard, metrics, validation)
+            with open(cognition_dir / "launch_gate.json", "w", encoding="utf-8") as f:
+                f.write(gate.model_dump_json(indent=2))
+        except OSError as e:
+            try:
+                from services.memory.telemetry import emit_telemetry
+                emit_telemetry(
+                    "cognition",
+                    "score_gate_write_failed",
+                    severity="critical",
+                    metadata={"project_id": project_id, "error": str(e)}
+                )
+            except Exception:
+                pass
+            raise
             
         log_event("cognition_completed", {"summary_written": True})
         

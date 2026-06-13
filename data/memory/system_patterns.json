@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "updated_utc": "2026-06-13T10:20:23Z",
+  "updated_utc": "2026-06-13T10:34:06Z",
   "subsystem_health": {
     "evidence_intelligence": {
-      "success_rate": 0.931,
-      "events": 363,
+      "success_rate": 0.93,
+      "events": 358,
       "failures": 25,
       "status": "healthy"
     },
@@ -61,6 +61,24 @@
       "events": 1,
       "failures": 0,
       "status": "healthy"
+    },
+    "projects": {
+      "success_rate": 1.0,
+      "events": 2,
+      "failures": 0,
+      "status": "healthy"
+    },
+    "customer_session": {
+      "success_rate": 1.0,
+      "events": 2,
+      "failures": 0,
+      "status": "healthy"
+    },
+    "cognition": {
+      "success_rate": 1.0,
+      "events": 1,
+      "failures": 0,
+      "status": "healthy"
     }
   },
   "repeated_failures": [
@@ -76,7 +94,7 @@
     }
   ],
   "reliability_patterns": {
-    "evidence_intelligence": 0.931,
+    "evidence_intelligence": 0.93,
     "intake": 1.0,
     "storage": 1.0,
     "compliance_intel": 0.925,
@@ -85,7 +103,10 @@
     "coc_ledger": 1.0,
     "rfq": 1.0,
     "email": 0.5,
-    "acquisition_forensics": 1.0
+    "acquisition_forensics": 1.0,
+    "projects": 1.0,
+    "customer_session": 1.0,
+    "cognition": 1.0
   },
   "conversion_patterns": {},
   "failure_patterns": {
