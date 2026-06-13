@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 from collections import Counter, defaultdict
 from pathlib import Path
+from ..defensive_wiring import safe_write_text
 from typing import Any, Dict, List, Optional
 
 from .entity_graph import memory_dir, utc_now

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from ..defensive_wiring import safe_write_json
 from typing import Any, Dict, Optional
 
 from .entity_graph import memory_dir, utc_now

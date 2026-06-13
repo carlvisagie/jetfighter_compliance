@@ -22,7 +22,7 @@ def enqueue(kind: str, payload: Dict[str, Any]) -> Path:
     jpath = JOBS / f"J-{kind}-{ts}.json"
     job = {"job_id": jpath.stem, "kind": kind, "status": "queued", "created_utc": _now(),
            "attempts": 0, "last_error": "", "payload": payload, "history": []}
-    jpath.write_text(json.dumps(job, indent=2))
+    safe_write_json(jpath, job, component="job_queue", context=f"enqueue {kind}", severity="critical")
     try:
         from services.memory.telemetry import emit_telemetry
 
@@ -158,7 +158,7 @@ def _process_one(jpath: Path):
         except Exception:
             pass
     finally:
-        jpath.write_text(json.dumps(job, indent=2))
+        safe_write_json(jpath, job, component="job_queue", context=f"job {job.get('job_id', 'unknown')}", severity="critical")
 
 def sweep_queue():
     """Process every queued job through _process_one (retry + telemetry + memory)."""

@@ -199,27 +199,14 @@ def run_cognition_safely(project_id: str, base_dir: Path = None) -> dict:
             doc_path = build_generated_document_path(project_id, doc.doc_id)
             Path(doc_path).parent.mkdir(parents=True, exist_ok=True)
             
-            try:
-                with open(doc_path, "w", encoding="utf-8") as f:
-                    f.write(md_content)
-            except OSError as e:
-                # CRITICAL: Document write failed
-                try:
-                    from services.memory.telemetry import emit_telemetry
-                    emit_telemetry(
-                        "cognition",
-                        "document_write_failed",
-                        severity="critical",
-                        metadata={
-                            "project_id": project_id,
-                            "doc_id": doc.doc_id,
-                            "doc_path": str(doc_path),
-                            "error": str(e)
-                        }
-                    )
-                except Exception:
-                    pass
-                raise
+            # Write document with defensive framework
+            safe_write_text(
+                Path(doc_path),
+                md_content,
+                component="cognition",
+                context=f"project {project_id} document {doc.doc_id}",
+                severity="critical"
+            )
                 
             registry_evt = build_document_registry_event(doc, project_id)
             log_event("document_persisted", registry_evt)
@@ -235,25 +222,22 @@ def run_cognition_safely(project_id: str, base_dir: Path = None) -> dict:
         )
         
         # Write all cognition output files with defensive error handling
-        try:
-            with open(cognition_dir / "cognition_summary.json", "w", encoding="utf-8") as f:
-                f.write(summary.model_dump_json(indent=2))
-                
-            with open(cognition_dir / "next_actions.json", "w", encoding="utf-8") as f:
-                f.write("[]")
-        except OSError as e:
-            # CRITICAL: Summary/next_actions write failed
-            try:
-                from services.memory.telemetry import emit_telemetry
-                emit_telemetry(
-                    "cognition",
-                    "summary_write_failed",
-                    severity="critical",
-                    metadata={"project_id": project_id, "error": str(e)}
-                )
-            except Exception:
-                pass
-            raise
+        # Write all cognition output files with defensive framework
+        safe_write_text(
+            cognition_dir / "cognition_summary.json",
+            summary.model_dump_json(indent=2),
+            component="cognition",
+            context=f"project {project_id} summary",
+            severity="critical"
+        )
+        
+        safe_write_text(
+            cognition_dir / "next_actions.json",
+            "[]",
+            component="cognition",
+            context=f"project {project_id} next_actions",
+            severity="critical"
+        )
             
         # 6. Write generation_explanation.json
         explanations = []
@@ -268,39 +252,24 @@ def run_cognition_safely(project_id: str, base_dir: Path = None) -> dict:
                 "Purpose": "The organism must be able to explain every document it generates and every question it asks. No black-box behavior."
             })
             
-        try:
-            with open(cognition_dir / "generation_explanation.json", "w", encoding="utf-8") as f:
-                json.dump(explanations, f, indent=2)
-        except OSError as e:
-            try:
-                from services.memory.telemetry import emit_telemetry
-                emit_telemetry(
-                    "cognition",
-                    "explanation_write_failed",
-                    severity="warning",
-                    metadata={"project_id": project_id, "error": str(e)}
-                )
-            except Exception:
-                pass
-            # Non-critical, continue
+        # Write explanation with defensive framework  
+        safe_write_json(
+            cognition_dir / "generation_explanation.json",
+            explanations,
+            component="cognition",
+            context=f"project {project_id} generation_explanation",
+            severity="warning"
+        )
             
-        # 7. Write metrics.json
+        # Write metrics with defensive framework
         metrics = compute_metrics(state, resolutions)
-        try:
-            with open(cognition_dir / "metrics.json", "w", encoding="utf-8") as f:
-                f.write(metrics.model_dump_json(indent=2))
-        except OSError as e:
-            try:
-                from services.memory.telemetry import emit_telemetry
-                emit_telemetry(
-                    "cognition",
-                    "metrics_write_failed",
-                    severity="warning",
-                    metadata={"project_id": project_id, "error": str(e)}
-                )
-            except Exception:
-                pass
-            # Non-critical, continue
+        safe_write_text(
+            cognition_dir / "metrics.json",
+            metrics.model_dump_json(indent=2),
+            component="cognition",
+            context=f"project {project_id} metrics",
+            severity="warning"
+        )
             
         # 8. Write validation_report.json
         # PATCH 13A-4F: Emit validation_started
@@ -314,22 +283,15 @@ def run_cognition_safely(project_id: str, base_dir: Path = None) -> dict:
         except Exception:
             pass
         
+        # Write validation report with defensive framework
         validation = build_validation_report(project_id, state, resolutions, docs)
-        try:
-            with open(cognition_dir / "validation_report.json", "w", encoding="utf-8") as f:
-                f.write(validation.model_dump_json(indent=2))
-        except OSError as e:
-            try:
-                from services.memory.telemetry import emit_telemetry
-                emit_telemetry(
-                    "cognition",
-                    "validation_write_failed",
-                    severity="critical",
-                    metadata={"project_id": project_id, "error": str(e)}
-                )
-            except Exception:
-                pass
-            raise
+        safe_write_text(
+            cognition_dir / "validation_report.json",
+            validation.model_dump_json(indent=2),
+            component="cognition",
+            context=f"project {project_id} validation_report",
+            severity="critical"
+        )
         
         # PATCH 13A-4F: Emit validation_completed
         try:
@@ -345,27 +307,24 @@ def run_cognition_safely(project_id: str, base_dir: Path = None) -> dict:
         except Exception:
             pass
             
-        # 9. Write organism_score.json and launch_gate.json
+        # Write organism_score and launch_gate with defensive framework
         scorecard = calculate_scorecard(state, metrics, validation)
-        try:
-            with open(cognition_dir / "organism_score.json", "w", encoding="utf-8") as f:
-                f.write(scorecard.model_dump_json(indent=2))
-                
-            gate = evaluate_launch_gate(scorecard, metrics, validation)
-            with open(cognition_dir / "launch_gate.json", "w", encoding="utf-8") as f:
-                f.write(gate.model_dump_json(indent=2))
-        except OSError as e:
-            try:
-                from services.memory.telemetry import emit_telemetry
-                emit_telemetry(
-                    "cognition",
-                    "score_gate_write_failed",
-                    severity="critical",
-                    metadata={"project_id": project_id, "error": str(e)}
-                )
-            except Exception:
-                pass
-            raise
+        safe_write_text(
+            cognition_dir / "organism_score.json",
+            scorecard.model_dump_json(indent=2),
+            component="cognition",
+            context=f"project {project_id} organism_score",
+            severity="critical"
+        )
+        
+        gate = evaluate_launch_gate(scorecard, metrics, validation)
+        safe_write_text(
+            cognition_dir / "launch_gate.json",
+            gate.model_dump_json(indent=2),
+            component="cognition",
+            context=f"project {project_id} launch_gate",
+            severity="critical"
+        )
             
         log_event("cognition_completed", {"summary_written": True})
         

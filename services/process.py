@@ -56,7 +56,7 @@ def _load(project_id: str) -> Dict:
     return json.loads(p.read_text()) if p.exists() else {"workflow":{}, "steps":[]}
 
 def _save(project_id: str, obj: Dict):
-    _wf_path(project_id).write_text(json.dumps(obj, indent=2))
+    safe_write_json(_wf_path(project_id), obj, component="workflow", context=f"workflow {project_id}", severity="critical")
     
     # Emit telemetry so organism knows workflow changed
     try:

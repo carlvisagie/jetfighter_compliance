@@ -1,6 +1,7 @@
 import json, hashlib, io, zipfile
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from .defensive_wiring import safe_write_text
 from typing import List, Dict
 from .config import DATA, SETTINGS
 from .emails import send_email

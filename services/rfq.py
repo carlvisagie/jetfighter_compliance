@@ -60,8 +60,8 @@ def _rfq_path(rfq_id:str) -> Path: return RFQ_DIR / f"{rfq_id}.json"
 def save_rfq(obj: RFQ):
     d = asdict(obj)
     d["bids"] = [asdict(b) for b in (obj.bids or [])]
-    _rfq_path(obj.rfq_id).write_text(json.dumps(d, indent=2))
-    
+    safe_write_json(_rfq_path(obj.rfq_id), d, component="rfq", context=f"rfq {obj.rfq_id}", severity="critical")
+
     # Emit telemetry so organism knows RFQ state changed
     try:
         from services.memory.telemetry import emit_telemetry

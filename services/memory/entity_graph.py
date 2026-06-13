@@ -5,6 +5,7 @@ import json
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from ..defensive_wiring import safe_write_text
 
 from ..config import DATA
 

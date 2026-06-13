@@ -261,27 +261,8 @@ def kickoff_project_from_intake(
     if operator_note:
         intake_meta["operator_note"] = operator_note.strip()[:1000]
     
-    # Write intake.json with defensive error telemetry
-    try:
-        (comm / "intake.json").write_text(json.dumps(intake_meta, indent=2), encoding="utf-8")
-    except OSError as e:
-        # CRITICAL: Kickoff intake.json write failed
-        try:
-            from services.memory.telemetry import emit_telemetry
-            emit_telemetry(
-                "intake_kickoff",
-                "intake_json_write_failed",
-                severity="critical",
-                metadata={
-                    "intake_id": intake_id,
-                    "project_id": project_id,
-                    "path": str(comm / "intake.json"),
-                    "error": str(e)
-                }
-            )
-        except Exception:
-            pass
-        raise
+    # Write intake.json with defensive framework
+    safe_write_json(comm / "intake.json", intake_meta, component="intake_kickoff", context=f"intake {intake_id}", severity="critical")
 
     meta_path = _config.PROJECTS / project_id / "meta.json"
     if meta_path.is_file():

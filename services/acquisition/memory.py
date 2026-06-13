@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from ..defensive_wiring import safe_write_json
 from typing import Any, Dict, List, Optional
 
 from .intelligence_paths import OUTCOMES_JSONL, WEIGHTS_JSON, ensure_intel_dirs
@@ -101,7 +102,7 @@ def save_learned_weights(weights: Dict[str, float], base: Optional[Path] = None)
     # Mirror to weights.json for backwards compatibility during migration
     try:
         root = ensure_intel_dirs(base)
-        (root / WEIGHTS_JSON).write_text(json.dumps(weights, indent=2), encoding="utf-8")
+        safe_write_json(root / WEIGHTS_JSON, weights, component="acquisition", context="weights mirror", severity="warning")
     except Exception:
         # Best-effort mirror; central memory already has the truth
         pass

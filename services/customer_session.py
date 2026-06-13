@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException, UploadFile
 
+from .defensive_wiring import safe_write_json
 from services.config import DATA, PROJECTS
 from services.ledger import register_artifact
 from services.production import safe_upload_filename
@@ -135,28 +136,9 @@ def _load_session(session_id: str) -> Dict[str, Any]:
 
 
 def _save_session(session_id: str, data: Dict[str, Any]) -> None:
-    """Save session with defensive error telemetry."""
+    """Save session with defensive framework."""
     path = _session_dir(session_id) / "session.json"
-    try:
-        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    except OSError as e:
-        # CRITICAL: Session write failed
-        try:
-            from services.memory.telemetry import emit_telemetry
-            emit_telemetry(
-                "customer_session",
-                "session_write_failed",
-                severity="critical",
-                metadata={
-                    "session_id": session_id,
-                    "path": str(path),
-                    "error": str(e),
-                    "error_type": type(e).__name__
-                }
-            )
-        except Exception:
-            pass
-        raise
+    safe_write_json(path, data, component="customer_session", context=f"session {session_id}", severity="critical")
 
 
 def _load_manifest(session_id: str) -> Dict[str, Any]:

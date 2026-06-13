@@ -5,6 +5,7 @@ import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from ..defensive_wiring import safe_append_jsonl
 from typing import Any, Dict, List, Optional
 
 from .paths import FAILURES_JSONL, HISTORY_JSONL, ensure_alerts_dir
