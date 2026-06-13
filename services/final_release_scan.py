@@ -14,12 +14,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .project_observability import (
-from services.defensive_wiring import safe_write_text, safe_write_json
     get_project_observability,
     _read_json_safe,
     _read_jsonl_safe,
     _projects_root,
 )
+from services.defensive_wiring import safe_write_text, safe_write_json
 
 logger = logging.getLogger(__name__)
 

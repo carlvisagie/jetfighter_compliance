@@ -14,12 +14,12 @@ from typing import Any, Dict, List, Optional, Tuple
 from .process import compute_status
 from .public_url import get_public_base_url
 from .security import (
-from services.defensive_wiring import safe_write_text, safe_write_json, safe_append_jsonl
     CONTINUATION_MAX_AGE_SECONDS,
     make_continuation_token,
     parse_continuation_token,
     parse_intake_token,
 )
+from services.defensive_wiring import safe_write_text, safe_write_json, safe_append_jsonl
 
 SUBSYSTEM = "customer_friction"
 
