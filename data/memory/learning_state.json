@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_utc": "2026-06-13T10:16:17Z",
+  "updated_utc": "2026-06-13T13:22:57Z",
   "signal_effectiveness": {
     "intake:intake_received": {
       "success": 2602,
@@ -747,6 +747,6 @@
       "conversion_success": 15.0
     },
     "source": "services.acquisition.memory.save_learned_weights",
-    "updated_utc": "2026-06-13T10:16:17Z"
+    "updated_utc": "2026-06-13T13:22:57Z"
   }
 }

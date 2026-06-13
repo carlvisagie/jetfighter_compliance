@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional
 
 from ...models import utc_now
 from .paths import (
-from services.defensive_wiring import safe_write_text, safe_write_json
     EXPERIMENTS_JSONL,
     FAILURES_JSONL,
     LEARNING_STATE_JSON,
@@ -16,6 +15,7 @@ from services.defensive_wiring import safe_write_text, safe_write_json
     WINNERS_JSONL,
     ensure_reddit_dir,
 )
+from services.defensive_wiring import safe_write_text, safe_write_json
 
 
 def load_learning_state(base: Optional[Path] = None) -> Dict[str, Any]:

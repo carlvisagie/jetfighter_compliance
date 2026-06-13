@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "updated_utc": "2026-06-13T12:30:24Z",
+  "updated_utc": "2026-06-13T13:22:58Z",
   "subsystem_health": {
     "evidence_intelligence": {
-      "success_rate": 0.93,
-      "events": 355,
+      "success_rate": 0.929,
+      "events": 353,
       "failures": 25,
       "status": "healthy"
     },
@@ -16,7 +16,7 @@
     },
     "storage": {
       "success_rate": 1.0,
-      "events": 17,
+      "events": 18,
       "failures": 0,
       "status": "healthy"
     },
@@ -79,6 +79,12 @@
       "events": 1,
       "failures": 0,
       "status": "healthy"
+    },
+    "acquisition_organism": {
+      "success_rate": 1.0,
+      "events": 1,
+      "failures": 0,
+      "status": "healthy"
     }
   },
   "repeated_failures": [
@@ -94,7 +100,7 @@
     }
   ],
   "reliability_patterns": {
-    "evidence_intelligence": 0.93,
+    "evidence_intelligence": 0.929,
     "intake": 1.0,
     "storage": 1.0,
     "compliance_intel": 0.925,
@@ -106,7 +112,8 @@
     "acquisition_forensics": 1.0,
     "projects": 1.0,
     "customer_session": 1.0,
-    "cognition": 1.0
+    "cognition": 1.0,
+    "acquisition_organism": 1.0
   },
   "conversion_patterns": {},
   "failure_patterns": {
