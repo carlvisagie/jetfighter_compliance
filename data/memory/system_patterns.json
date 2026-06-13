@@ -1,22 +1,22 @@
 {
   "version": 1,
-  "updated_utc": "2026-06-13T13:22:58Z",
+  "updated_utc": "2026-06-13T14:53:06Z",
   "subsystem_health": {
-    "evidence_intelligence": {
-      "success_rate": 0.929,
-      "events": 353,
-      "failures": 25,
-      "status": "healthy"
-    },
     "intake": {
       "success_rate": 1.0,
-      "events": 53,
+      "events": 52,
       "failures": 0,
+      "status": "healthy"
+    },
+    "evidence_intelligence": {
+      "success_rate": 0.932,
+      "events": 352,
+      "failures": 24,
       "status": "healthy"
     },
     "storage": {
       "success_rate": 1.0,
-      "events": 18,
+      "events": 19,
       "failures": 0,
       "status": "healthy"
     },
@@ -82,7 +82,7 @@
     },
     "acquisition_organism": {
       "success_rate": 1.0,
-      "events": 1,
+      "events": 2,
       "failures": 0,
       "status": "healthy"
     }
@@ -90,7 +90,7 @@
   "repeated_failures": [
     {
       "key": "evidence_intelligence:evidence_mapping_failure",
-      "count": 25,
+      "count": 24,
       "suggestion": "Review evidence_intelligence:evidence_mapping_failure failures"
     },
     {
@@ -100,8 +100,8 @@
     }
   ],
   "reliability_patterns": {
-    "evidence_intelligence": 0.929,
     "intake": 1.0,
+    "evidence_intelligence": 0.932,
     "storage": 1.0,
     "compliance_intel": 0.925,
     "operational_alerts": 1.0,
@@ -117,7 +117,7 @@
   },
   "conversion_patterns": {},
   "failure_patterns": {
-    "evidence_intelligence:evidence_mapping_failure": 25,
+    "evidence_intelligence:evidence_mapping_failure": 24,
     "compliance_intel:fetch_failed": 4,
     "email:smtp_unconfigured": 1
   },

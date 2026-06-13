@@ -865,7 +865,7 @@
     var ctrl = new AbortController();
     var timer = setTimeout(function () {
       ctrl.abort();
-    }, 2500);
+    }, 10000);  // 10 seconds - cognitive topology can be slow during organism introspection
     return fetch('/api/cognitive-topology', {
       credentials: 'same-origin',
       signal: ctrl.signal,

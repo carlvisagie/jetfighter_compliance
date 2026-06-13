@@ -29,8 +29,8 @@ panel_checks = [
         "queue_diagnostics",
     ]),
     ("Compliance Intelligence", "/api/operator/compliance-intelligence", [
-        "pending_changes",
-        "monitor_changes",
+        "pending_review_count",  # NOT pending_changes
+        "latest_changes",         # NOT monitor_changes
     ]),
     ("Evidence Intelligence", "/api/operator/evidence-intelligence/status", [
         "health",
@@ -41,10 +41,10 @@ panel_checks = [
         "upload_completed",
     ]),
     ("Organism Observability", "/api/operator/organism-observability", [
-        "recent_events",
+        "events",  # NOT recent_events
     ]),
     ("Operational Alerts", "/api/operator/operational-alerts", [
-        "alerts",
+        "items",  # NOT alerts
     ]),
 ]
 
