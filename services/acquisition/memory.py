@@ -38,41 +38,72 @@ def _load_outcomes(base: Optional[Path] = None) -> List[Dict[str, Any]]:
 
 
 def get_learned_weights(base: Optional[Path] = None) -> Dict[str, float]:
+    """Load acquisition weights from central memory (ONE TRUE SOURCE).
+    
+    Fallback to weights.json for backwards compatibility only.
+    """
+    weights = dict(DEFAULT_WEIGHTS)
+    
+    # ONE BRAIN: Read from central memory FIRST
+    try:
+        from services.memory.learning import load_learning_state
+        
+        state = load_learning_state(base)
+        acquired = state.get("acquisition_weights", {}).get("values", {})
+        if acquired:
+            weights.update({k: float(v) for k, v in acquired.items()})
+            return weights
+    except Exception:
+        pass
+    
+    # Fallback to weights.json (backwards compatibility during migration)
     root = ensure_intel_dirs(base)
     path = root / WEIGHTS_JSON
-    weights = dict(DEFAULT_WEIGHTS)
     if path.exists():
         try:
             stored = json.loads(path.read_text(encoding="utf-8"))
             weights.update({k: float(v) for k, v in stored.items()})
         except (json.JSONDecodeError, TypeError, ValueError):
             pass
+    
     return weights
 
 
 def save_learned_weights(weights: Dict[str, float], base: Optional[Path] = None) -> None:
-    root = ensure_intel_dirs(base)
-    (root / WEIGHTS_JSON).write_text(json.dumps(weights, indent=2), encoding="utf-8")
-
-    # Mirror the live scoring weights into central learning_state so
-    # the organism has a single observable place to see "what learning
-    # actually steers." Forensic-audit fix (2026-06-04, Central
-    # Memory): weights.json was the real learning source while
-    # learning_state.json held mostly counters — two brains under
-    # the "one brain" doctrine. The mirror is best-effort; failures
-    # never affect acquisition.
+    """Save acquisition weights to central memory (ONE TRUE SOURCE).
+    
+    Writes to central learning_state FIRST, then mirrors to weights.json
+    for backwards compatibility. Central memory is the canonical brain.
+    """
+    # ONE BRAIN: Write to central memory FIRST
     try:
         from services.memory.learning import load_learning_state, save_learning_state
         from services.memory.entity_graph import utc_now
 
-        state = load_learning_state()
+        state = load_learning_state(base)
         state["acquisition_weights"] = {
             "values":      {k: float(v) for k, v in weights.items()},
             "source":      "services.acquisition.memory.save_learned_weights",
-            "mirrored_utc": utc_now(),
+            "updated_utc": utc_now(),
         }
-        save_learning_state(state)
+        save_learning_state(state, base)
     except Exception:
+        # CRITICAL: If central write fails, acquisition learning is lost
+        from services.memory.telemetry import emit_telemetry
+        emit_telemetry(
+            "acquisition",
+            "weights_write_failed",
+            severity="critical",
+            metadata={"error": "Central memory write failed"}
+        )
+        raise
+    
+    # Mirror to weights.json for backwards compatibility during migration
+    try:
+        root = ensure_intel_dirs(base)
+        (root / WEIGHTS_JSON).write_text(json.dumps(weights, indent=2), encoding="utf-8")
+    except Exception:
+        # Best-effort mirror; central memory already has the truth
         pass
 
 

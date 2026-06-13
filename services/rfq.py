@@ -61,6 +61,22 @@ def save_rfq(obj: RFQ):
     d = asdict(obj)
     d["bids"] = [asdict(b) for b in (obj.bids or [])]
     _rfq_path(obj.rfq_id).write_text(json.dumps(d, indent=2))
+    
+    # Emit telemetry so organism knows RFQ state changed
+    try:
+        from services.memory.telemetry import emit_telemetry
+        emit_telemetry(
+            "rfq",
+            "rfq_saved",
+            metadata={
+                "rfq_id": obj.rfq_id,
+                "project_id": obj.project_id,
+                "status": obj.status,
+                "bids_count": len(obj.bids or [])
+            }
+        )
+    except Exception:
+        pass
 
 def load_rfq(rfq_id: str) -> RFQ:
     d = json.loads(_rfq_path(rfq_id).read_text())

@@ -95,6 +95,22 @@ def upsert_org_profile(org_key: str, patch: Dict[str, Any], base: Optional[Path]
     if "first_seen_utc" not in merged:
         merged["first_seen_utc"] = merged["updated_utc"]
     _append_jsonl(path, merged)
+    
+    # Emit telemetry so organism knows org profile updated
+    try:
+        from services.memory.telemetry import emit_telemetry
+        emit_telemetry(
+            "acquisition_forensics",
+            "org_profile_updated",
+            metadata={
+                "org_key": org_key,
+                "project_id": merged.get("last_project_id", ""),
+                "is_new": "first_seen_utc" in patch
+            }
+        )
+    except Exception:
+        pass
+    
     return merged
 
 

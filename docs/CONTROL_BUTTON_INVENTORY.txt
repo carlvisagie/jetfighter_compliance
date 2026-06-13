@@ -1,0 +1,223 @@
+﻿======================================================================
+PHASE 2: CONTROL BUTTON INVENTORY
+======================================================================
+
+Total buttons found: 15
+Total registered listeners: 18
+Dynamic fb-actions found: 6
+CKO actions found: 6
+
+======================================================================
+BUTTON INVENTORY
+python : Traceback (most recent call last):
+At C:\Users\Carl\AppData\Local\Temp\ps-script-ea0bb83e-c5d7-4092-80ec-7084b73580d1.ps1:85 char:1
++ python scripts/inventory_control_buttons.py 2>&1 | Out-File -FilePath ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+======================================================================
+
+[1] Explain view
+    ID: ckoToggleBtn
+    Class: kyc-btn kyc-btn--secondary
+    Line: ~48
+    Listener: NO
+    Expected action: Toggle knowledge overlay
+    STATUS: BROKEN - NO LISTENER ATTACHED
+
+[2] Refresh organism
+    ID: orgRefresh
+    Class: kyc-btn kyc-btn--secondary
+    Line: ~49
+    Listener: YES - click, click
+    Expected action: Refresh organism state
+    STATUS: OK
+
+[3] Close
+    ID: fb-doc-preview-close
+    Class: btn secondary
+    Line: ~164
+    Listener: YES - click
+    Expected action: Close document preview
+    STATUS: OK
+
+[4] Send SMTP test email
+    ID: smtpTestBtn
+    Class: btn secondary
+    Line: ~249
+    Listener: NO
+    Expected action: Test SMTP email
+    STATUS: BROKEN - NO LISTENER ATTACHED
+
+[5] Run USASpending live fetch
+    ID: acquisitionIntelRunBtn
+    Class: btn secondary
+    Line: ~279
+    Listener: YES - click
+    Expected action: Run acquisition cycle
+    STATUS: OK
+
+[6] Run discovery
+    ID: redditIntelRunBtn
+    Class: btn secondary
+    Line: ~288
+    Listener: NO
+    Expected action: Run Reddit discovery
+    STATUS: BROKEN - NO LISTENER ATTACHED
+
+[7] Run broader discovery
+    ID: redditPilotBroadBtn
+    Class: btn secondary
+    Line: ~289
+    Listener: YES - click
+    Expected action: Run broader Reddit discovery
+    STATUS: OK
+
+[8] Send daily digest
+    ID: alertsDigestDailyBtn
+    Class: btn secondary
+    Line: ~298
+    Listener: YES - click
+    Expected action: Send daily alerts digest
+    STATUS: OK
+
+[9] Search
+    ID: kcSearchBtn
+    Class: btn secondary
+    Line: ~308
+    Listener: NO
+    Expected action: Search knowledge cockpit
+    STATUS: BROKEN - NO LISTENER ATTACHED
+
+[10] Run check now
+    ID: complianceIntelRunBtn
+    Class: btn secondary
+    Line: ~319
+    Listener: NO
+    Expected action: Run compliance check
+    STATUS: BROKEN - NO LISTENER ATTACHED
+
+[11] Search
+    ID: knowledgeSearchBtn
+    Class: btn secondary
+    Line: ~343
+    Listener: NO
+    Expected action: Search knowledge base
+    STATUS: BROKEN - NO LISTENER ATTACHED
+
+[12] Create demo project
+    ID: demo
+    Class: btn
+    Line: ~362
+    Listener: YES - click, click_via_onclick
+    Expected action: Create demo project
+    STATUS: OK
+
+[13] Save & check
+    ID: saveCheck
+    Class: btn secondary
+    Line: ~468
+    Listener: NO
+    Expected action: Save and check
+    STATUS: BROKEN - NO LISTENER ATTACHED
+
+[14] ΓêÆ
+    ID: [no id]
+    Class: btn secondary
+    Line: ~489
+    Listener: YES - data-cko-collapse (delegated)
+    Data attrs: {'data-cko-collapse': None}
+    Expected action: UNKNOWN
+    STATUS: OK
+
+[15] ├ù
+    ID: [no id]
+    Class: btn secondary
+  File "E:\JetFighter_Compliance\scripts\inventory_control_buttons.py", line 251, in <module>
+    with output_file.open('w', encoding='utf-8') as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Carl\AppData\Local\Programs\Python\Python311\Lib\pathlib.py", line 1044, in open
+    Line: ~490
+    Listener: YES - data-cko-close (delegated)
+    Data attrs: {'data-cko-close': None}
+    Expected action: UNKNOWN
+    STATUS: OK
+
+======================================================================
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+PermissionError: [Errno 13] Permission denied: 'E:\\JetFighter_Compliance\\docs\\CONTROL_BUTTON_INVENTORY.txt'
+SUMMARY
+======================================================================
+Total buttons: 15
+Buttons with listeners: 8
+Broken buttons: 7
+
+======================================================================
+BROKEN BUTTONS REQUIRING FIX
+======================================================================
+
+ID: ckoToggleBtn
+Label: Explain view
+Line: ~48
+Expected action: Toggle knowledge overlay
+
+ID: smtpTestBtn
+Label: Send SMTP test email
+Line: ~249
+Expected action: Test SMTP email
+
+ID: redditIntelRunBtn
+Label: Run discovery
+Line: ~288
+Expected action: Run Reddit discovery
+
+ID: kcSearchBtn
+Label: Search
+Line: ~308
+Expected action: Search knowledge cockpit
+
+ID: complianceIntelRunBtn
+Label: Run check now
+Line: ~319
+Expected action: Run compliance check
+
+ID: knowledgeSearchBtn
+Label: Search
+Line: ~343
+Expected action: Search knowledge base
+
+ID: saveCheck
+Label: Save & check
+Line: ~468
+Expected action: Save and check
+
+======================================================================
+DYNAMICALLY CREATED BUTTONS
+======================================================================
+
+These buttons are created via JavaScript and use delegated event listeners:
+
+Founding Pilot (fb-action) buttons: 6
+  - approve_review
+  - archive
+  - kickoff_project
+  - mark_high_value
+  - request_more_info
+  - send_payment_link
+
+Knowledge Overlay (cko) buttons: 6
+  - data-cko-body
+  - data-cko-close
+  - data-cko-collapse
+  - data-cko-panel
+  - data-cko-status
+  - data-cko-title
+
+======================================================================
+EVENT LISTENER REGISTRATION CHECK
+======================================================================
+
+OK: Delegated listener found for data-fb-action buttons
+OK: Delegated listener found for data-cko-* buttons

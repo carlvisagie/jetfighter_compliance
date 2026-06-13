@@ -57,9 +57,41 @@ def _load(project_id: str) -> Dict:
 
 def _save(project_id: str, obj: Dict):
     _wf_path(project_id).write_text(json.dumps(obj, indent=2))
+    
+    # Emit telemetry so organism knows workflow changed
+    try:
+        from services.memory.telemetry import emit_telemetry
+        emit_telemetry(
+            "workflow",
+            "workflow_updated",
+            metadata={
+                "project_id": project_id,
+                "phase": obj.get("workflow", {}).get("phase", ""),
+                "total_steps": len(obj.get("steps", [])),
+                "done_steps": sum(1 for s in obj.get("steps", []) if s.get("status") == "done")
+            }
+        )
+    except Exception:
+        pass
 
 def set_phase(project_id: str, phase: str):
-    obj = _load(project_id); obj["workflow"]["phase"] = phase; _save(project_id, obj); recalc_due(project_id)
+    obj = _load(project_id)
+    old_phase = obj["workflow"].get("phase", "ORDER")
+    obj["workflow"]["phase"] = phase
+    
+    # Write to central memory timeline so organism knows phase changed
+    try:
+        from services.memory.timeline import append_timeline
+        append_timeline(
+            project_id=project_id,
+            event_type="workflow_phase_changed",
+            detail=f"Phase: {old_phase} → {phase}",
+            metadata={"old_phase": old_phase, "new_phase": phase}
+        )
+    except Exception:
+        pass
+    
+    _save(project_id, obj); recalc_due(project_id)
 
 def mark_done(project_id: str, step_id: str):
     obj = _load(project_id)
@@ -68,6 +100,19 @@ def mark_done(project_id: str, step_id: str):
         if s["id"] == step_id:
             s["status"] = "done"; s["done_utc"] = _ts(); found = True
     if not found: raise ValueError(f"step {step_id} not found")
+    
+    # Write to central memory timeline so organism knows step completed
+    try:
+        from services.memory.timeline import append_timeline
+        append_timeline(
+            project_id=project_id,
+            event_type="workflow_step_completed",
+            detail=f"Step {step_id} completed",
+            metadata={"step_id": step_id, "step_title": STEP_LIB.get(step_id, {}).get("title", "")}
+        )
+    except Exception:
+        pass
+    
     _save(project_id, obj); return compute_status(project_id)
 
 def recalc_due(project_id: str):

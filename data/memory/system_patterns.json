@@ -1,22 +1,22 @@
 {
   "version": 1,
-  "updated_utc": "2026-06-10T23:30:15Z",
+  "updated_utc": "2026-06-13T10:20:23Z",
   "subsystem_health": {
     "evidence_intelligence": {
       "success_rate": 0.931,
-      "events": 377,
-      "failures": 26,
+      "events": 363,
+      "failures": 25,
       "status": "healthy"
     },
     "intake": {
       "success_rate": 1.0,
-      "events": 55,
+      "events": 53,
       "failures": 0,
       "status": "healthy"
     },
     "storage": {
       "success_rate": 1.0,
-      "events": 11,
+      "events": 15,
       "failures": 0,
       "status": "healthy"
     },
@@ -31,12 +31,42 @@
       "events": 4,
       "failures": 0,
       "status": "healthy"
+    },
+    "workflow": {
+      "success_rate": 1.0,
+      "events": 6,
+      "failures": 0,
+      "status": "healthy"
+    },
+    "coc_ledger": {
+      "success_rate": 1.0,
+      "events": 2,
+      "failures": 0,
+      "status": "healthy"
+    },
+    "rfq": {
+      "success_rate": 1.0,
+      "events": 1,
+      "failures": 0,
+      "status": "healthy"
+    },
+    "email": {
+      "success_rate": 0.5,
+      "events": 2,
+      "failures": 1,
+      "status": "unhealthy"
+    },
+    "acquisition_forensics": {
+      "success_rate": 1.0,
+      "events": 1,
+      "failures": 0,
+      "status": "healthy"
     }
   },
   "repeated_failures": [
     {
       "key": "evidence_intelligence:evidence_mapping_failure",
-      "count": 26,
+      "count": 25,
       "suggestion": "Review evidence_intelligence:evidence_mapping_failure failures"
     },
     {
@@ -50,12 +80,18 @@
     "intake": 1.0,
     "storage": 1.0,
     "compliance_intel": 0.925,
-    "operational_alerts": 1.0
+    "operational_alerts": 1.0,
+    "workflow": 1.0,
+    "coc_ledger": 1.0,
+    "rfq": 1.0,
+    "email": 0.5,
+    "acquisition_forensics": 1.0
   },
   "conversion_patterns": {},
   "failure_patterns": {
-    "evidence_intelligence:evidence_mapping_failure": 26,
-    "compliance_intel:fetch_failed": 4
+    "evidence_intelligence:evidence_mapping_failure": 25,
+    "compliance_intel:fetch_failed": 4,
+    "email:smtp_unconfigured": 1
   },
   "bottleneck_patterns": {},
   "best_paths": {
@@ -65,6 +101,7 @@
   },
   "recommended_improvements": [
     "Review evidence_intelligence:evidence_mapping_failure failures",
-    "Review compliance_intel:fetch_failed failures"
+    "Review compliance_intel:fetch_failed failures",
+    "Email transport reliability low \u2014 verify SMTP or disable until configured."
   ]
 }

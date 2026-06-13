@@ -38,6 +38,22 @@ def append_ledger(record: dict) -> dict:
         import logging
         logging.error(f"Failed to append to ledger durably: {e}")
         raise
+    
+    # Emit telemetry so organism knows ledger event recorded
+    try:
+        from services.memory.telemetry import emit_telemetry
+        emit_telemetry(
+            "coc_ledger",
+            "ledger_appended",
+            metadata={
+                "kind": record.get("kind", ""),
+                "hash": record["hash"][:8],
+                "project_id": record.get("project_id", "")
+            }
+        )
+    except Exception:
+        pass
+    
     return record
 
 def register_artifact(project_id: str, path: Path, media_type: str, owner: str, related_event: str = "") -> dict:
@@ -52,9 +68,44 @@ def register_artifact(project_id: str, path: Path, media_type: str, owner: str, 
         "owner": owner,
         "related_event": related_event
     }
-    return append_ledger(art)
+    ledger_record = append_ledger(art)
+    
+    # Write to central memory timeline so organism knows artifact registered
+    try:
+        from services.memory.timeline import append_timeline
+        append_timeline(
+            project_id=project_id,
+            event_type="artifact_registered",
+            detail=f"Artifact {art['artifact_id']} registered",
+            metadata={
+                "artifact_id": art["artifact_id"],
+                "media_type": media_type,
+                "sha256": sha[:16],
+                "owner": owner
+            }
+        )
+    except Exception:
+        pass
+    
+    return ledger_record
 
 def record_event(event: dict) -> dict:
     event = dict(event)
     event["kind"] = "event"
-    return append_ledger(event)
+    ledger_record = append_ledger(event)
+    
+    # Write to central memory timeline so organism knows COC event recorded
+    try:
+        from services.memory.timeline import append_timeline
+        project_id = event.get("project_id", "")
+        if project_id:
+            append_timeline(
+                project_id=project_id,
+                event_type="coc_event",
+                detail=event.get("description", "COC event recorded"),
+                metadata={"ledger_hash": ledger_record["hash"][:8]}
+            )
+    except Exception:
+        pass
+    
+    return ledger_record

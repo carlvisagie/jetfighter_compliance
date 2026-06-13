@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_utc": "2026-06-09T00:29:07Z",
+  "updated_utc": "2026-06-13T10:16:17Z",
   "signal_effectiveness": {
     "intake:intake_received": {
       "success": 2602,
@@ -732,5 +732,21 @@
   "cycles_completed": 835,
   "intake": {
     "last_intake_id": "FB-403ab7f5b128"
+  },
+  "acquisition_weights": {
+    "values": {
+      "segment_aerospace": 3.0,
+      "segment_manufacturing": 2.5,
+      "segment_government-subcontractor": 3.5,
+      "urgency_keyword": 4.0,
+      "business_email": 2.0,
+      "intake_completed": 12.0,
+      "inquiry_only": -6.0,
+      "abandoned_intake": -5.0,
+      "high_documentation_score": 5.0,
+      "conversion_success": 15.0
+    },
+    "source": "services.acquisition.memory.save_learned_weights",
+    "updated_utc": "2026-06-13T10:16:17Z"
   }
 }

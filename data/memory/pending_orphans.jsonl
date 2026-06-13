@@ -1464,3 +1464,4 @@
 {"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "company_20", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-07T10:51:09Z"}
 {"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "company_20", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-07T10:51:17Z"}
 {"engine": "evidence_intelligence", "ref_type": "project", "ref_id": "company_20", "detail": "Evidence analyzed without linked entity", "when_utc": "2026-06-07T10:51:28Z"}
+{"engine": "rfq", "ref_type": "project", "ref_id": "TEST-RFQ-001", "detail": "RFQ RFQ-D748CBFC without entity", "when_utc": "2026-06-13T10:19:28Z"}

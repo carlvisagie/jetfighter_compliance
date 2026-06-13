@@ -27,6 +27,11 @@ def enqueue(kind: str, payload: Dict[str, Any]) -> Path:
         from services.memory.telemetry import emit_telemetry
 
         pending = len(list(JOBS.glob("J-*.json")))
+        emit_telemetry(
+            "job_queue",
+            "job_enqueued",
+            metadata={"job_id": job["job_id"], "kind": kind, "pending_count": pending}
+        )
         if pending > 50:
             emit_telemetry("job_queue", "queue_congestion", severity="warning", metadata={"pending": pending})
     except Exception:
@@ -158,6 +163,38 @@ def _process_one(jpath: Path):
 def sweep_queue():
     """Process every queued job through _process_one (retry + telemetry + memory)."""
     JOBS.mkdir(parents=True, exist_ok=True)
+    
+    # Clean up completed jobs older than 7 days
+    try:
+        from datetime import timedelta
+        cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+        archived = 0
+        for j in JOBS.glob("J-*.json"):
+            try:
+                job = json.loads(j.read_text())
+                if job.get("status") == "done":
+                    # Check if job is older than cutoff
+                    created = job.get("created_utc", "")
+                    if created and created < cutoff.strftime("%Y-%m-%dT%H:%M:%SZ"):
+                        j.unlink()  # Delete completed job
+                        archived += 1
+            except Exception:
+                pass
+        
+        if archived > 0:
+            try:
+                from services.memory.telemetry import emit_telemetry
+                emit_telemetry(
+                    "job_queue",
+                    "jobs_archived",
+                    metadata={"archived_count": archived}
+                )
+            except Exception:
+                pass
+    except Exception:
+        pass
+    
+    # Process queued/retry jobs
     for j in sorted(JOBS.glob("J-*.json")):
         try:
             _process_one(j)

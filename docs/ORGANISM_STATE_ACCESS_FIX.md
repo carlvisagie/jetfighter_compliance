@@ -294,9 +294,9 @@ curl https://jetfighter-compliance.onrender.com/api/public/organism/summary | jq
 
 ## COMMIT
 
-**SHA:** `775de89`  
+**SHA:** `924f3e5`  
 **Message:** PATCH OPS-FIX-1: Add public organism summary endpoint - no auth required, sanitizes data, returns health_state  
-**Files:** 3 files changed, 454 insertions(+)
+**Files:** 3 files changed, 522 insertions(+)
 
 **Ready for production deployment.**
 
