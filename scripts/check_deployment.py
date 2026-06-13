@@ -11,7 +11,7 @@ r = client.get('https://compliance.keepyourcontracts.com/api/public/build-info')
 if r.status_code == 200:
     build = r.json()
     current = build.get('git_commit', 'unknown')[:7]
-    target = 'acc4e99'
+    target = 'b5a1f25'
     print(f"Current commit: {current}")
     print(f"Target commit: {target}")
     print(f"Match: {current == target}")

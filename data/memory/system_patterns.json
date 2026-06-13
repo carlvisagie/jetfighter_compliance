@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "updated_utc": "2026-06-13T12:09:27Z",
+  "updated_utc": "2026-06-13T12:30:24Z",
   "subsystem_health": {
     "evidence_intelligence": {
       "success_rate": 0.93,
-      "events": 356,
+      "events": 355,
       "failures": 25,
       "status": "healthy"
     },
@@ -16,7 +16,7 @@
     },
     "storage": {
       "success_rate": 1.0,
-      "events": 16,
+      "events": 17,
       "failures": 0,
       "status": "healthy"
     },
