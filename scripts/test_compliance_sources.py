@@ -4,7 +4,7 @@ import httpx
 FAILING_SOURCES = {
     "dod_cmmc": "https://www.ecfr.gov/current/title-32/subtitle-A/chapter-I/subchapter-G/part-170",
     "far": "https://acquisition.gov/far/",
-    "cisa_advisories": "https://www.cisa.gov/news-events/cybersecurity-advisories",
+    "cisa_advisories": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
     "eu_dpp_espr": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1781",
 }
 

@@ -76,10 +76,10 @@ DEFAULT_SOURCES: List[Dict[str, Any]] = [
     },
     {
         "source_id": "cisa_advisories",
-        "name": "CISA Cybersecurity Advisories",
-        "url": "https://www.cisa.gov/news-events/cybersecurity-advisories",
+        "name": "CISA Known Exploited Vulnerabilities (KEV)",
+        "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
         "authority_level": "primary",
-        "topic_tags": ["cisa", "vulnerability", "alert"],
+        "topic_tags": ["cisa", "vulnerability", "alert", "kev"],
         "polling_frequency": "daily",
     },
     {
