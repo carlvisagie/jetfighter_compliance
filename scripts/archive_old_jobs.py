@@ -32,8 +32,8 @@ for job_file in jobs:
         status = data.get("status", "unknown")
         created = data.get("created_utc", "")
         
-        # Check if old (before June 2026)
-        if created and created.startswith("2026-05"):
+        # Check if old (before June 5, 2026 - keeping only very recent jobs)
+        if created and (created.startswith("2026-05") or created.startswith("2026-06-0") and created < "2026-06-05"):
             old_jobs.append((job_file, status, created))
         
         if status == "completed":
