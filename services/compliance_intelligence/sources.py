@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .schemas import SourceRecord
+from services.defensive_wiring import safe_write_text, safe_write_json
 
 DEFAULT_SOURCES: List[Dict[str, Any]] = [
     {
@@ -147,7 +148,17 @@ def load_sources() -> List[SourceRecord]:
 def save_sources(sources: List[SourceRecord]) -> None:
     path = sources_path()
     payload = {"updated_utc": _utc(), "sources": [s.model_dump() for s in sources]}
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    safe_write_json(
+
+        path,
+
+        payload,
+
+        component="compliance_intel",
+
+        context="sources"
+
+    )
 
 
 def seed_sources(items: Optional[List[Dict[str, Any]]] = None) -> None:

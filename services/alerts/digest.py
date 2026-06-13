@@ -9,6 +9,7 @@ from . import engine
 from .email import render_alert_html
 from .paths import ensure_alerts_dir, load_config
 from .severity import Severity
+from services.defensive_wiring import safe_write_text, safe_write_json
 
 
 def _utc() -> str:
@@ -64,7 +65,17 @@ def generate_daily_digest() -> Dict[str, Any]:
         ),
     }
     path = ensure_alerts_dir() / "digests" / f"daily-{day}.json"
-    path.write_text(json.dumps(digest, indent=2), encoding="utf-8")
+    safe_write_json(
+
+        path,
+
+        digest,
+
+        component="alerts_digest",
+
+        context="digest generation"
+
+    )
     engine.raise_alert(
         "digest_daily",
         title=f"Daily digest — {day}",
@@ -86,7 +97,17 @@ def generate_weekly_digest() -> Dict[str, Any]:
         "summary": f"Week {week}: upload conversion focus; review acquisition learning in Control.",
     }
     path = ensure_alerts_dir() / "digests" / f"weekly-{week}.json"
-    path.write_text(json.dumps(digest, indent=2), encoding="utf-8")
+    safe_write_json(
+
+        path,
+
+        digest,
+
+        component="alerts_digest",
+
+        context="digest generation"
+
+    )
     engine.raise_alert(
         "digest_weekly",
         title=f"Weekly digest — {week}",

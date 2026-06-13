@@ -159,7 +159,17 @@ def load_classifications() -> Dict[str, Dict[str, Any]]:
 def save_classifications(classifications: Dict[str, Dict[str, Any]]) -> None:
     """Save all intake classifications."""
     path = _classifications_path()
-    path.write_text(json.dumps(classifications, indent=2), encoding="utf-8")
+    safe_write_json(
+
+        path,
+
+        classifications,
+
+        component="intake_classify",
+
+        context="classification"
+
+    )
 
 
 def get_classification(intake_id: str) -> Optional[Dict[str, Any]]:
@@ -398,6 +408,7 @@ def demote_to_test(intake_id: str, operator_note: str = "") -> Dict[str, Any]:
 from services.lazy_io import read_text_bounded
 
 from .storage import intake_dir
+from services.defensive_wiring import safe_write_text, safe_write_json
 
 DOC_SSP = "SSP"
 DOC_POAM = "POAM"
@@ -598,7 +609,17 @@ def classify_intake(intake_id: str) -> Dict[str, Any]:
     }
     out = intake_dir(intake_id) / "classification.json"
     tmp = out.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    safe_write_json(
+
+        tmp,
+
+        payload,
+
+        component="intake_classify",
+
+        context="classification"
+
+    )
     tmp.replace(out)
     return payload
 

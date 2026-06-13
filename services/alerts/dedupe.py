@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from .paths import DEDUPE_JSON, ensure_alerts_dir
+from services.defensive_wiring import safe_write_text, safe_write_json, safe_append_jsonl
 
 
 def _path() -> Path:

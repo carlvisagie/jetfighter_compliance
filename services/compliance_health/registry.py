@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from .schemas import ComplianceHealthRequirement, RequirementStatus
+from services.defensive_wiring import safe_write_text, safe_write_json
 
 # Canonical requirement definitions
 # All start UNKNOWN - no fake passes, no assumptions
@@ -142,7 +143,17 @@ def save_requirements(requirements: List[ComplianceHealthRequirement]) -> None:
     """Save requirement registry."""
     path = registry_path()
     data = [r.model_dump() for r in requirements]
-    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    safe_write_json(
+
+        path,
+
+        data,
+
+        component="compliance_health",
+
+        context="registry"
+
+    )
 
 
 def seed_requirements() -> None:

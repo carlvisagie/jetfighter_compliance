@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from .schemas import ExternalEntityVerification
+from services.defensive_wiring import safe_write_text, safe_write_json, safe_append_jsonl
 
 
 def _root() -> Path:

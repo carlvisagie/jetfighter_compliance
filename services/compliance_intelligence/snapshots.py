@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .schemas import FetchResult
+from services.defensive_wiring import safe_write_text, safe_write_json, safe_append_jsonl
 
 
 def _root() -> Path:

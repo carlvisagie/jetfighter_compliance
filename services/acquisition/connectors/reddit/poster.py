@@ -20,6 +20,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
+from services.defensive_wiring import safe_write_text, safe_write_json, safe_append_jsonl
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +150,7 @@ def _save_daily_counts(counts: Dict[str, Any], base_path: Optional[str] = None) 
     from .paths import ensure_reddit_dir
     from pathlib import Path
     p = ensure_reddit_dir(Path(base_path) if base_path else None) / "posting_counts.json"
-    p.write_text(json.dumps(counts, ensure_ascii=False), encoding="utf-8")
+    safe_write_json(p, counts, ensure_ascii=False, component="reddit_poster", context="post state")
 
 
 def _within_rate_limits(subreddit: str, base_path: Optional[str] = None) -> Dict[str, Any]:

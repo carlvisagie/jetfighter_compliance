@@ -5,6 +5,7 @@ import json
 from typing import Any, Dict, Optional
 
 from .paths import SUBREDDIT_PROFILES_JSON, ensure_social_intel_dir
+from services.defensive_wiring import safe_write_text, safe_write_json
 
 DEFAULT_PROFILES: Dict[str, Dict[str, Any]] = {
     "smallbusiness": {
@@ -96,7 +97,17 @@ def load_profiles(base: Optional[Any] = None) -> Dict[str, Dict[str, Any]]:
 def save_profiles(profiles: Dict[str, Dict[str, Any]], base: Optional[Any] = None) -> None:
     path = ensure_social_intel_dir(base) / SUBREDDIT_PROFILES_JSON
     out = {k: v for k, v in profiles.items() if not k.startswith("_")}
-    path.write_text(json.dumps(out, indent=2), encoding="utf-8")
+    safe_write_json(
+
+        path,
+
+        out,
+
+        component="subreddit_culture",
+
+        context="culture state"
+
+    )
 
 
 def get_subreddit_profile(subreddit: str, base: Optional[Any] = None) -> Dict[str, Any]:

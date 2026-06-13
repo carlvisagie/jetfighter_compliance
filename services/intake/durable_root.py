@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from services.durable_storage import active_data_root, is_durable_storage_configured, kyc_data_env_value
+from services.defensive_wiring import safe_write_text, safe_write_json
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,17 @@ def initialize_mount_probe() -> Dict[str, Any]:
     probe_id = f"kyc-mount-{uuid.uuid4().hex}"
     payload = f"{probe_id}\nwritten_under={root}\n"
     tmp = probe.with_suffix(".tmp")
-    tmp.write_text(payload, encoding="utf-8")
+    safe_write_text(
+
+        tmp,
+
+        payload,
+
+        component="intake_durable",
+
+        context="durable root"
+
+    )
     _fsync_path(tmp)
     tmp.replace(probe)
     _fsync_path(probe)

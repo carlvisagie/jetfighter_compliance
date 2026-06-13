@@ -18,6 +18,7 @@ from . import (
     telemetry,
 )
 from .schemas import RunSummary
+from services.defensive_wiring import safe_write_text, safe_write_json
 
 
 def _utc() -> str:
@@ -199,7 +200,17 @@ def generate_weekly_digest() -> Dict[str, Any]:
         ],
     }
     path = _digest_dir() / f"digest-{week}.json"
-    path.write_text(json.dumps(digest, indent=2), encoding="utf-8")
+    safe_write_json(
+
+        path,
+
+        digest,
+
+        component="compliance_intel",
+
+        context="snapshot"
+
+    )
     return digest
 
 

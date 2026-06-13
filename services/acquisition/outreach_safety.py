@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional, Set
 
 from . import telemetry
 from .models import utc_now
+from services.defensive_wiring import safe_write_text, safe_write_json
 
 
 def _root() -> Path:
@@ -211,7 +212,17 @@ def _load_daily_stats() -> Dict[str, Any]:
 def _save_daily_stats(stats: Dict[str, Any]) -> None:
     """Save daily send statistics."""
     path = _daily_stats_path()
-    path.write_text(json.dumps(stats, indent=2), encoding="utf-8")
+    safe_write_json(
+
+        path,
+
+        stats,
+
+        component="acquisition_safety",
+
+        context="safety check"
+
+    )
 
 
 def get_daily_send_count() -> int:

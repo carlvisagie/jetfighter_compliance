@@ -9,6 +9,7 @@ from typing import Optional
 
 from .registry import load_requirements
 from .schemas import ComplianceHealthAssessment, RequirementStatus
+from services.defensive_wiring import safe_write_text, safe_write_json, safe_append_jsonl
 
 
 def _utc() -> str:

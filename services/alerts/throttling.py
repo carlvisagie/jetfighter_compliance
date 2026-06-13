@@ -8,6 +8,7 @@ from typing import Dict
 
 from .paths import THROTTLES_JSON, ensure_alerts_dir
 from .severity import Severity
+from services.defensive_wiring import safe_write_text, safe_write_json, safe_append_jsonl
 
 # Cooldown seconds by severity
 DEFAULT_COOLDOWNS: Dict[str, int] = {

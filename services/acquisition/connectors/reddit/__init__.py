@@ -73,7 +73,21 @@ def _update_draft_status(post_id: str, status: str, base: Optional[Path] = None,
             row["status"] = status
             row.update(extra)
         lines.append(json.dumps(row, ensure_ascii=False))
-    path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+    from services.defensive_wiring import safe_write_text
+
+    safe_write_text(
+
+        path,
+
+        "\n".join(lines) + ("\n" if lines else ""),
+
+        component="reddit_connector",
+
+        context="Reddit connector state",
+
+        severity="warning"
+
+    )
 
 
 def run_reddit_acquisition_cycle(

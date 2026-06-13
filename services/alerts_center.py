@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import List, Dict
 from .config import DATA, SETTINGS
 from .emails import send_email
+from services.defensive_wiring import safe_write_text, safe_write_json, safe_append_jsonl
 
 ALERTS = DATA / "alerts"
 ALERTS.mkdir(parents=True, exist_ok=True)
@@ -14,8 +15,7 @@ def _ts():
 
 def add_alert(kind: str, title: str, body: str = "", email_owner: bool = False) -> Dict:
     rec = {"ts": _ts(), "kind": kind, "title": title, "body": body, "read": False}
-    with open(LOG, "a", encoding="utf-8") as f:
-        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    safe_append_jsonl(LOG, rec, ensure_ascii=False, component="alerts_center", context="alert")
     # optional owner email
     if email_owner and getattr(SETTINGS, "smtp_enabled", False) and getattr(SETTINGS, "digest_email_to", ""):
         try:

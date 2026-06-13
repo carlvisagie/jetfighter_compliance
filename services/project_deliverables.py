@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .project_observability import (
+from services.defensive_wiring import safe_write_text, safe_write_json
     get_project_observability,
     _read_json_safe,
     _read_jsonl_safe,
@@ -40,7 +41,17 @@ def _save_deliverables_state(project_id: str, state: Dict[str, Any]) -> None:
     """Save deliverables state to disk."""
     path = _deliverables_state_path(project_id)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    safe_write_json(
+
+        path,
+
+        state,
+
+        component="deliverables",
+
+        context="deliverable generation"
+
+    )
 
 
 def _get_generated_documents(project_id: str) -> List[Dict[str, Any]]:

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from services.config import DATA
+from services.defensive_wiring import safe_write_text, safe_write_json
 
 _LEARNING = DATA / "memory" / "learning_state.json"
 _MAX_WRITE_BYTES = 128 * 1024
@@ -23,7 +24,17 @@ def _atomic_write(path: Path, data: Dict[str, Any]) -> bool:
         return False
     tmp = path.with_suffix(".json.tmp")
     try:
-        tmp.write_text(raw, encoding="utf-8")
+        safe_write_text(
+
+            tmp,
+
+            raw,
+
+            component="intake_learning",
+
+            context="learning hooks"
+
+        )
         tmp.replace(path)
         return True
     except OSError:

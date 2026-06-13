@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any, Dict, Optional
+from services.defensive_wiring import safe_write_text, safe_write_json
 
 
 def _data_root() -> Path:
@@ -101,4 +102,14 @@ def load_state() -> Dict[str, Any]:
 
 def save_state(state: Dict[str, Any]) -> None:
     path = ensure_alerts_dir() / STATE_JSON
-    path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    safe_write_json(
+
+        path,
+
+        state,
+
+        component="alerts_paths",
+
+        context="path config"
+
+    )

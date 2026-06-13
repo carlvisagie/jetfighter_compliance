@@ -160,7 +160,16 @@ def write_acquisition_analytics_report(intel_base: Optional[Path] = None) -> Pat
             "",
         ]
     )
-    path.write_text("\n".join(lines), encoding="utf-8")
+    
+    # Defensive write with telemetry
+    from ..defensive_wiring import safe_write_text
+    safe_write_text(
+        path,
+        "\n".join(lines),
+        component="acquisition_analytics",
+        context="analytics report generation",
+        severity="warning"  # Report generation is non-critical
+    )
     return path
 
 
@@ -189,5 +198,14 @@ def write_forensic_intelligence_report(intel_base: Optional[Path] = None) -> Pat
         lines.append("")
     if not profiles:
         lines.append("_No profiles yet — complete inquiry/intake/evidence flows to populate memory._")
-    path.write_text("\n".join(lines), encoding="utf-8")
+    
+    # Defensive write with telemetry
+    from ..defensive_wiring import safe_write_text
+    safe_write_text(
+        path,
+        "\n".join(lines),
+        component="acquisition_analytics",
+        context="forensic intelligence report generation",
+        severity="warning"  # Report generation is non-critical
+    )
     return path

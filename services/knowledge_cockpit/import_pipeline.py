@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from .paths import concepts_file
 from .migration_audit import run_migration_audit
+from services.defensive_wiring import safe_write_text, safe_write_json
 
 
 def _slug(text: str) -> str:
@@ -82,6 +83,16 @@ def run_import(
     }
     if not dry_run and added:
         existing["concepts"] = concepts
-        cf.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+        safe_write_json(
+
+            cf,
+
+            existing,
+
+            component="knowledge_import",
+
+            context="import"
+
+        )
         result["written"] = True
     return result

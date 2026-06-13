@@ -687,7 +687,8 @@ def save_intelligence_record(record: CustomerIntelligenceRecord) -> None:
     record.updated_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     
     path = _intelligence_dir() / f"{record.record_id}.json"
-    path.write_text(json.dumps(record.to_dict(), indent=2), encoding="utf-8")
+    from services.defensive_wiring import safe_write_json
+    safe_write_json(path, record.to_dict(), component="acquisition_icp", context="ICP record save")
 
 
 def load_intelligence_record(record_id: str) -> Optional[CustomerIntelligenceRecord]:

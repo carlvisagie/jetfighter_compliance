@@ -85,5 +85,19 @@ def write_discovery_report(stats: ImportStats, all_leads: List[Lead], base: Path
             "",
         ]
     )
-    path.write_text("\n".join(lines), encoding="utf-8")
+    from services.defensive_wiring import safe_write_text
+
+    safe_write_text(
+
+        path,
+
+        "\n".join(lines),
+
+        component="acquisition_export",
+
+        context="export generation",
+
+        severity="warning"
+
+    )
     return path

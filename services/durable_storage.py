@@ -14,6 +14,7 @@ from fastapi import HTTPException
 
 from .config import DATA, ROOT
 from .production import is_production
+from services.defensive_wiring import safe_write_text, safe_write_json
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +76,17 @@ def is_durable_storage_configured() -> bool:
     try:
         path.mkdir(parents=True, exist_ok=True)
         probe = path / ".kyc_storage_probe"
-        probe.write_text("ok", encoding="utf-8")
+        safe_write_text(
+
+            probe,
+
+            "ok",
+
+            component="durable_storage",
+
+            context="storage probe"
+
+        )
         probe.unlink(missing_ok=True)
     except OSError:
         return False
@@ -99,7 +110,17 @@ def _writable_data_root(path: Path) -> bool:
     try:
         path.mkdir(parents=True, exist_ok=True)
         probe = path / ".kyc_storage_probe"
-        probe.write_text("ok", encoding="utf-8")
+        safe_write_text(
+
+            probe,
+
+            "ok",
+
+            component="durable_storage",
+
+            context="storage probe"
+
+        )
         probe.unlink(missing_ok=True)
         return True
     except OSError:
@@ -194,7 +215,17 @@ def _write_birth_marker(path: Path) -> Optional[Dict[str, Any]]:
     }
     tmp = path.with_suffix(path.suffix + ".tmp")
     try:
-        tmp.write_text(json.dumps(payload), encoding="utf-8")
+        safe_write_json(
+
+            tmp,
+
+            payload,
+
+            component="durable_storage",
+
+            context="storage probe"
+
+        )
         tmp.replace(path)
     except OSError as exc:
         logger.critical("[disk_persistence] failed to write birth marker at %s: %s", path, exc)

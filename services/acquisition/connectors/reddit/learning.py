@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from ...models import utc_now
 from .paths import (
+from services.defensive_wiring import safe_write_text, safe_write_json
     EXPERIMENTS_JSONL,
     FAILURES_JSONL,
     LEARNING_STATE_JSON,
@@ -71,7 +72,17 @@ def load_learning_state(base: Optional[Path] = None) -> Dict[str, Any]:
 
 def save_learning_state(state: Dict[str, Any], base: Optional[Path] = None) -> None:
     path = ensure_reddit_dir(base) / LEARNING_STATE_JSON
-    path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    safe_write_json(
+
+        path,
+
+        state,
+
+        component="reddit_learning",
+
+        context="learning state"
+
+    )
 
 
 def _append_jsonl(filename: str, record: Dict[str, Any], base: Optional[Path] = None) -> None:

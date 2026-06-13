@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from .retention import audit_receipt_path, hash_uploads_on_disk, load_audit_receipt, sha256_file
 from .storage import assert_canonical_write_path, intake_dir, intakes_root, load_intake_record
 from .transactions import intake_commit_complete, load_transaction_log
+from services.defensive_wiring import safe_write_text, safe_write_json, safe_append_jsonl
 
 logger = logging.getLogger(__name__)
 
@@ -202,7 +203,7 @@ def _rewrite_intake_registry_rows(intake_id: str, rows: List[Dict[str, Any]]) ->
             kept.append(line)
     for row in rows:
         kept.append(json.dumps(row, ensure_ascii=False))
-    path.write_text("\n".join(kept) + ("\n" if kept else ""), encoding="utf-8")
+    safe_write_text(path, "\n".join(kept) + ("\n" if kept else ""), component="intake_evidence", context="evidence registry")
     return len(rows)
 
 

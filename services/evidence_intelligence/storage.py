@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from services.defensive_wiring import safe_write_text, safe_write_json
 
 def _data_root() -> Path:
     from ..config import DATA
@@ -65,7 +66,17 @@ def load_jsonl(project_id: str, name: str, limit: int = 500) -> List[Dict[str, A
 def write_profile(project_id: str, profile: Dict[str, Any]) -> None:
     path = _intel_dir(project_id) / "profile.json"
     profile["updated_utc"] = _ts()
-    path.write_text(json.dumps(profile, indent=2), encoding="utf-8")
+    safe_write_json(
+
+        path,
+
+        profile,
+
+        component="evidence_intel",
+
+        context="storage"
+
+    )
 
 
 def load_profile(project_id: str) -> Dict[str, Any]:
