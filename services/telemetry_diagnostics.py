@@ -122,11 +122,19 @@ def _dropped_event_count(rows: List[Dict[str, Any]]) -> int:
 
 
 def _failing_subsystems(rows: List[Dict[str, Any]]) -> List[str]:
+    """Return subsystems with failures in the last 24 hours."""
     counts: Dict[str, int] = {}
+    now = _utc_now()
+    cutoff = now - timedelta(hours=24)
+    
     for row in rows:
         if row.get("success") is False:
-            sub = str(row.get("subsystem") or "unknown")
-            counts[sub] = counts.get(sub, 0) + 1
+            # Only count failures from last 24 hours
+            ts = _parse_ts(row.get("observed_at_utc"))
+            if ts and ts > cutoff:
+                sub = str(row.get("subsystem") or "unknown")
+                counts[sub] = counts.get(sub, 0) + 1
+    
     return [s for s, _ in sorted(counts.items(), key=lambda x: -x[1])[:5]]
 
 
