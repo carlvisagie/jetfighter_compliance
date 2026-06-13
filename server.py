@@ -260,6 +260,69 @@ def public_build_info():
     return {"ok": True, **_public_build_info()}
 
 
+@app.get("/api/public/organism/summary")
+def public_organism_summary():
+    """Public read-only organism health summary.
+    
+    Returns sanitized organism state without customer data, secrets,
+    or internal implementation details. Safe for automated monitoring
+    and status dashboards.
+    
+    NO authentication required.
+    NO customer data exposed.
+    NO secrets exposed.
+    NO outreach data exposed.
+    """
+    from services.organism_state import compute_organism_state
+    
+    try:
+        state = compute_organism_state()
+    except Exception as e:
+        return {
+            "ok": False,
+            "health_state": "UNKNOWN",
+            "current_bottleneck": "organism_unavailable",
+            "next_recommended_action": "Check server logs",
+            "error": str(e)
+        }
+    
+    # Sanitize checks - remove internal paths and IDs
+    safe_checks = []
+    for check in state.get("checks", []):
+        safe_check = {
+            "name": check.get("name"),
+            "ok": check.get("ok"),
+            "severity": check.get("severity"),
+            "detail": check.get("detail", "")
+        }
+        # Redact internal paths from detail
+        detail = safe_check["detail"]
+        if "FB-" in detail:
+            detail = detail.split("FB-")[0] + "[REDACTED]"
+        if "/var/data" in detail:
+            detail = detail.replace("/var/data", "[DATA_ROOT]")
+        safe_check["detail"] = detail
+        safe_checks.append(safe_check)
+    
+    return {
+        "ok": True,
+        "health_state": state.get("health_state"),
+        "current_bottleneck": state.get("current_bottleneck"),
+        "next_recommended_action": state.get("next_recommended_action"),
+        "timestamp_utc": state.get("timestamp_utc"),
+        "environment": state.get("environment"),
+        "git_commit": state.get("git_commit", "")[:7],  # Short SHA only
+        "checks": safe_checks,
+        # Aggregate metrics only (no IDs)
+        "metrics": {
+            "intake_count": state.get("intake_count_total", 0),
+            "queue_depth": state.get("queue_depth", 0),
+            "project_count": state.get("project_count", 0),
+            "evidence_count": state.get("evidence_artifact_count", 0),
+        }
+    }
+
+
 @app.get("/api/ops/auth-check")
 def ops_auth_check(request: Request):
     from services.build_info import public_build_info, service_name
