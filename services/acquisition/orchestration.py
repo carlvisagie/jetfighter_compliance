@@ -618,21 +618,24 @@ def get_operator_dashboard(base: Optional[Path] = None) -> Dict[str, Any]:
     targets = _load_intel(TARGETS_JSONL, base)
     
     # RE-SCORE WITH LIVE TUNED ENGINE - don't trust cached scores
-    from .acquisition_probability import compute_acquisition_probability
+    from .acquisition_probability import score_acquisition_probability
     for t in targets:
-        if not t.get("qualification"):
+        qual = t.get("qualification", {})
+        if not qual:
             continue
         try:
             # Apply live scoring using current tuned logic
-            prob = compute_acquisition_probability(
-                qualification=t.get("qualification", {}),
+            prob = score_acquisition_probability(
+                title=t.get("signal_title", ""),
+                body=t.get("signal_body", ""),
                 classification=t.get("classification", {}),
-                discovery_meta=t.get("discovery_meta", {}),
+                post=t.get("discovery_meta", {}),
             )
-            # Update with fresh scores
-            t["qualification_score"] = prob.get("overall_confidence", t.get("qualification_score", 0))
-            t["fit_score"] = prob.get("fit_score", t.get("fit_score", 0))
-            t["priority_score"] = prob.get("acquisition_priority_score", t.get("priority_score", 0))
+            # Update with TUNED ENGINE scores
+            t["prey_score"] = prob.get("prey_score", 0)
+            t["prey_tier"] = prob.get("prey_tier", "?")
+            t["queue_eligible"] = prob.get("queue_eligible", False)
+            t["priority_score"] = prob.get("prey_score", t.get("priority_score", 0))
         except Exception:
             pass  # Keep cached scores if re-scoring fails
     
